@@ -1,0 +1,37 @@
+export enum ContactMethod {
+  GF = 'Google Forms',
+  IG = 'Instagram',
+  FB = 'Facebook',
+  PHONE = 'Text/Call',
+  UNKNOWN = 'Unknown',
+}
+
+export enum FollowUpStatus {
+  NEEDED = 'Follow-up Needed',
+  CONTACTED = 'Contacted',
+  COMPLETED = 'Completed',
+}
+
+export interface OrderItem {
+  name: string;
+  quantity: number;
+}
+
+export interface Order {
+  id: string;
+  pickupDate: string;
+  pickupTime: string;
+  customerName: string;
+  contactMethod: ContactMethod;
+  phoneNumber: string | null;
+  items: OrderItem[];
+  totalFullSize: number;
+  totalMini: number;
+  amountCharged: number;
+  deliveryRequired: boolean;
+  deliveryFee: number;
+  amountCollected: number | null;
+  paymentMethod: string | null;
+  deliveryAddress: string | null;
+  followUpStatus: FollowUpStatus;
+}
