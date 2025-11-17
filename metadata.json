@@ -1,5 +1,7 @@
 {
   "name": "Empanada Order Tracker",
   "description": "An application to help a small empanada business track customer orders, manage follow-ups, and visualize sales data. It centralizes orders from various sources and offers smart tools to generate customer communications.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [
+    "geolocation"
+  ]
 }

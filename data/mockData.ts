@@ -1,4 +1,4 @@
-import { Order, ContactMethod, FollowUpStatus } from '../types';
+import { Order, ContactMethod, FollowUpStatus, PaymentStatus } from '../types';
 
 export const initialOrders: Order[] = [
     {
@@ -18,6 +18,8 @@ export const initialOrders: Order[] = [
         paymentMethod: null,
         deliveryAddress: null,
         followUpStatus: FollowUpStatus.NEEDED,
+        paymentStatus: PaymentStatus.PAID,
+        specialInstructions: 'Please pack the beef and cheese empanadas separately.',
     },
     {
         id: '2',
@@ -36,6 +38,8 @@ export const initialOrders: Order[] = [
         paymentMethod: null,
         deliveryAddress: null,
         followUpStatus: FollowUpStatus.COMPLETED,
+        paymentStatus: PaymentStatus.PAID,
+        specialInstructions: null,
     },
     {
         id: '3',
@@ -59,6 +63,8 @@ export const initialOrders: Order[] = [
         paymentMethod: null,
         deliveryAddress: '1867 Merikoke Ave S, Wantagh',
         followUpStatus: FollowUpStatus.NEEDED,
+        paymentStatus: PaymentStatus.PENDING,
+        specialInstructions: null,
     },
     {
         id: '4',
@@ -81,6 +87,8 @@ export const initialOrders: Order[] = [
         paymentMethod: null,
         deliveryAddress: null,
         followUpStatus: FollowUpStatus.CONTACTED,
+        paymentStatus: PaymentStatus.PAID,
+        specialInstructions: null,
     },
     {
         id: '5',
@@ -105,6 +113,8 @@ export const initialOrders: Order[] = [
         paymentMethod: null,
         deliveryAddress: null,
         followUpStatus: FollowUpStatus.COMPLETED,
+        paymentStatus: PaymentStatus.PAID,
+        specialInstructions: null,
     },
     {
         id: '6',
@@ -127,6 +137,8 @@ export const initialOrders: Order[] = [
         paymentMethod: null,
         deliveryAddress: '413 Philadephia Ave, Massapequa Park',
         followUpStatus: FollowUpStatus.NEEDED,
+        paymentStatus: PaymentStatus.PAID,
+        specialInstructions: null,
     },
     {
         id: '7',
@@ -151,6 +163,8 @@ export const initialOrders: Order[] = [
         paymentMethod: null,
         deliveryAddress: null,
         followUpStatus: FollowUpStatus.COMPLETED,
+        paymentStatus: PaymentStatus.PAID,
+        specialInstructions: null,
     },
     {
         id: '8',
@@ -173,18 +187,20 @@ export const initialOrders: Order[] = [
         paymentMethod: null,
         deliveryAddress: null,
         followUpStatus: FollowUpStatus.NEEDED,
+        paymentStatus: PaymentStatus.PAID,
+        specialInstructions: null,
     }
 ];
 
-export const allEmpanadaFlavors: string[] = [
+export const initialEmpanadaFlavors: string[] = [
     "Beef", "Beef & Cheese", "Chicken", "Chicken & Cheese", "Buffalo Chicken", 
     "Cheese", "Thanksgiving Turkey", "Spinach Artichoke", "Caramel Apple", 
     "Apple Pie", "Rainbow", "Oreo", "Nutella", "Calzone", "Potato", 
     "Bacon Egg Cheese", "Philly Cheesesteak", "Churro", "Corned Beef & Cabbage", 
-    "Irish Cream Brownie", "Salsa Verde", "Salsa Rosada", "Other"
+    "Irish Cream Brownie", "Other"
 ];
 
-export const allFullSizeEmpanadaFlavors: string[] = [
+export const initialFullSizeEmpanadaFlavors: string[] = [
     "Full Beef", "Full Beef & Cheese", "Full Chicken", "Full Chicken & Cheese",
     "Full Buffalo Chicken", "Full Cheese", "Full Calzone", "Full Irish Cream Brownie",
     "Full Corn Beef & Cabbage", "Full Turkey", "Full Spinach Artichoke",

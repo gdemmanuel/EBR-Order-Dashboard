@@ -1,6 +1,7 @@
+
 import React, { useState, useMemo } from 'react';
 import { Order, FollowUpStatus } from './types';
-import { initialOrders } from './data/mockData';
+import { initialOrders, initialEmpanadaFlavors, initialFullSizeEmpanadaFlavors } from './data/mockData';
 import Header from './components/Header';
 import OrderList from './components/OrderList';
 import OrderDetailModal from './components/OrderDetailModal';
@@ -38,6 +39,9 @@ export default function App() {
   const [orderToEdit, setOrderToEdit] = useState<Order | null>(null);
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
+  const [empanadaFlavors, setEmpanadaFlavors] = useState<string[]>(initialEmpanadaFlavors);
+  const [fullSizeEmpanadaFlavors, setFullSizeEmpanadaFlavors] = useState<string[]>(initialFullSizeEmpanadaFlavors);
+
 
   const handleSelectOrder = (order: Order) => {
     setSelectedOrder(order);
@@ -79,6 +83,36 @@ export default function App() {
     }
     handleCloseModals();
   };
+  
+  const handleAddNewFlavor = (newFlavor: string, type: 'mini' | 'full') => {
+    if (type === 'mini') {
+        const trimmedFlavor = newFlavor.trim();
+        if (trimmedFlavor && !empanadaFlavors.some(f => f.toLowerCase() === trimmedFlavor.toLowerCase())) {
+            const otherIndex = empanadaFlavors.indexOf("Other");
+            const newFlavors = [...empanadaFlavors];
+            if (otherIndex > -1) {
+                newFlavors.splice(otherIndex, 0, trimmedFlavor);
+            } else {
+                newFlavors.push(trimmedFlavor);
+            }
+            setEmpanadaFlavors(newFlavors);
+        }
+    } else { // type === 'full'
+        const trimmedFlavor = newFlavor.trim();
+        const newFullFlavor = `Full ${trimmedFlavor}`;
+        if (trimmedFlavor && !fullSizeEmpanadaFlavors.some(f => f.toLowerCase() === newFullFlavor.toLowerCase())) {
+            const otherIndex = fullSizeEmpanadaFlavors.indexOf("Full Other");
+            const newFlavors = [...fullSizeEmpanadaFlavors];
+            if (otherIndex > -1) {
+                newFlavors.splice(otherIndex, 0, newFullFlavor);
+            } else {
+                newFlavors.push(newFullFlavor);
+            }
+            setFullSizeEmpanadaFlavors(newFlavors);
+        }
+    }
+  };
+
 
   const filteredOrders = useMemo(() => {
     let filtered = orders;
@@ -123,61 +157,67 @@ export default function App() {
   }, [filteredOrders]);
 
   return (
-    <div className="min-h-screen bg-gray-50 font-sans text-gray-800">
+    <div className="min-h-screen">
       <Header />
       <main className="p-4 sm:p-6 md:p-8">
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
             <div>
-                <h1 className="text-3xl font-bold text-gray-900">Order Dashboard</h1>
-                <p className="text-gray-500 mt-1">Manage and track your empanada orders.</p>
+                <h1 className="text-4xl font-serif text-brand-brown">Order Dashboard</h1>
+                <p className="text-brand-brown/70 mt-2">Manage and track your empanada orders.</p>
             </div>
             <button
               onClick={() => setIsNewOrderModalOpen(true)}
-              className="flex items-center gap-2 bg-orange-600 text-white font-semibold px-4 py-2 rounded-lg shadow-md hover:bg-orange-700 transition-colors duration-200"
+              className="flex items-center gap-2 bg-brand-orange text-white font-semibold px-5 py-2.5 rounded-lg shadow-sm hover:bg-opacity-90 transition-all duration-200"
             >
               <PlusCircleIcon className="w-5 h-5" />
               New Order
             </button>
           </div>
 
-          <div className="bg-white p-4 rounded-xl shadow-md mb-6 flex flex-wrap items-center gap-4">
-            <span className="font-semibold text-gray-700">Filter by pickup date:</span>
+          <div className="bg-white p-4 rounded-lg border border-brand-tan mb-6 flex flex-wrap items-center gap-4">
+            <span className="font-semibold text-brand-brown/90">Filter by pickup date:</span>
             <div className="flex items-center gap-2">
-              <label htmlFor="start-date" className="text-sm font-medium text-gray-600">From:</label>
+              <label htmlFor="start-date" className="text-sm font-medium text-brand-brown/80">From:</label>
               <input 
                 type="date" 
                 id="start-date"
                 value={startDate}
                 onChange={e => setStartDate(e.target.value)}
-                className="rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 text-sm" 
+                className="rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" 
               />
             </div>
             <div className="flex items-center gap-2">
-              <label htmlFor="end-date" className="text-sm font-medium text-gray-600">To:</label>
+              <label htmlFor="end-date" className="text-sm font-medium text-brand-brown/80">To:</label>
               <input 
                 type="date"
                 id="end-date"
                 value={endDate}
                 onChange={e => setEndDate(e.target.value)}
-                className="rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 text-sm"
+                className="rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm"
               />
             </div>
             {(startDate || endDate) && (
                 <button
                     onClick={handleClearFilters}
-                    className="text-sm text-orange-600 hover:underline font-medium"
+                    className="text-sm text-brand-orange hover:text-brand-orange/80 font-medium transition-colors"
                 >
                     Clear Filter
                 </button>
             )}
           </div>
           
-          <DashboardMetrics stats={stats} orders={filteredOrders} />
-
-          <div className="mt-8">
+          <div className="mb-8">
             <OrderList orders={filteredOrders} onSelectOrder={handleSelectOrder} />
           </div>
+          
+          <DashboardMetrics 
+            stats={stats} 
+            orders={filteredOrders} 
+            startDate={startDate} 
+            endDate={endDate} 
+          />
+
         </div>
       </main>
 
@@ -194,6 +234,9 @@ export default function App() {
           order={orderToEdit || undefined}
           onClose={handleCloseModals} 
           onSave={handleSaveOrder} 
+          empanadaFlavors={empanadaFlavors}
+          fullSizeEmpanadaFlavors={fullSizeEmpanadaFlavors}
+          onAddNewFlavor={handleAddNewFlavor}
         />
       )}
     </div>

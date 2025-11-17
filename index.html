@@ -6,7 +6,28 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Empanada Order Tracker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              'brand-cream': '#fdfbf7',
+              'brand-orange': '#c8441c',
+              'brand-brown': '#3c2f2f',
+              'brand-tan': '#f3eee8',
+            },
+            fontFamily: {
+              sans: ['Poppins', 'sans-serif'],
+              serif: ['Playfair Display', 'serif'],
+            }
+          }
+        }
+      }
+    </script>
   <script type="importmap">
 {
   "imports": {
@@ -19,7 +40,7 @@
 }
 </script>
 </head>
-  <body class="bg-gray-50">
+  <body class="bg-brand-cream text-brand-brown font-sans">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>

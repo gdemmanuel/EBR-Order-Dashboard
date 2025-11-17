@@ -12,6 +12,12 @@ export enum FollowUpStatus {
   COMPLETED = 'Completed',
 }
 
+export enum PaymentStatus {
+  PENDING = 'Pending',
+  PAID = 'Paid',
+  OVERDUE = 'Overdue',
+}
+
 export interface OrderItem {
   name: string;
   quantity: number;
@@ -34,4 +40,6 @@ export interface Order {
   paymentMethod: string | null;
   deliveryAddress: string | null;
   followUpStatus: FollowUpStatus;
+  paymentStatus: PaymentStatus;
+  specialInstructions: string | null;
 }
