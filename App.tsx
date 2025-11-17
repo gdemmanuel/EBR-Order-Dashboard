@@ -1,5 +1,3 @@
-
-
 import React, { useState, useMemo, useCallback } from 'react';
 import { Order, FollowUpStatus } from './types';
 import { initialOrders, initialEmpanadaFlavors, initialFullSizeEmpanadaFlavors } from './data/mockData';
@@ -9,7 +7,7 @@ import OrderDetailModal from './components/OrderDetailModal';
 import DashboardMetrics from './components/DashboardMetrics';
 import OrderFormModal from './components/OrderFormModal';
 import { PlusCircleIcon } from './components/icons/Icons';
-import PrintView from './components/PrintView';
+import PrintPreviewModal from './components/PrintPreviewModal';
 
 const parseOrderDateTime = (order: Order): Date => {
   const [month, day, year] = order.pickupDate.split('/').map(Number);
@@ -43,7 +41,7 @@ export default function App() {
   const [endDate, setEndDate] = useState<string>('');
   const [empanadaFlavors, setEmpanadaFlavors] = useState<string[]>(initialEmpanadaFlavors);
   const [fullSizeEmpanadaFlavors, setFullSizeEmpanadaFlavors] = useState<string[]>(initialFullSizeEmpanadaFlavors);
-  const [ordersToPrint, setOrdersToPrint] = useState<Order[] | null>(null);
+  const [ordersToPrint, setOrdersToPrint] = useState<Order[]>([]);
 
 
   const handleSelectOrder = (order: Order) => {
@@ -156,9 +154,9 @@ export default function App() {
     setOrdersToPrint(selectedOrders);
   };
   
-  const handleDonePrinting = useCallback(() => {
-    setOrdersToPrint(null);
-  }, []);
+  const handleClosePrintPreview = () => {
+    setOrdersToPrint([]);
+  };
 
   const stats = useMemo(() => {
     const totalRevenue = filteredOrders.reduce((sum, order) => sum + order.amountCharged, 0);
@@ -254,10 +252,10 @@ export default function App() {
           onAddNewFlavor={handleAddNewFlavor}
         />
       )}
-      {ordersToPrint && (
-        <PrintView 
+      {ordersToPrint.length > 0 && (
+        <PrintPreviewModal
           orders={ordersToPrint}
-          onDonePrinting={handleDonePrinting}
+          onClose={handleClosePrintPreview}
         />
       )}
     </div>

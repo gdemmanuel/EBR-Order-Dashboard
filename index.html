@@ -28,36 +28,68 @@
       }
     </script>
     <style>
-      /* By default, show the main app and hide the print portal */
-      #root {
-        display: block;
-      }
-      #print-portal-root {
-        display: none;
-      }
-
-      /* When printing, hide the main app and show the print portal content */
-      body.printing #root {
-        display: none;
-      }
-      body.printing #print-portal-root {
-        display: block;
-      }
-      
       @media print {
-        /* These rules apply ONLY when the print dialog is open */
-        body {
-          background-color: white; /* Ensure print background is white */
+        /* Hide the main application root */
+        body > #root {
+          display: none !important;
         }
+
+        /* Ensure the print portal and its contents are visible */
+        body > #print-portal-root,
+        #print-preview-modal {
+          display: block !important;
+          visibility: visible !important;
+        }
+        
+        /* Reset modal styles for printing */
+        #print-preview-modal {
+          position: static !important;
+          inset: auto !important;
+          background: none !important;
+          padding: 0 !important;
+        }
+        
+        #print-preview-modal > div {
+          box-shadow: none !important;
+          border: none !important;
+          height: auto !important;
+          max-height: none !important;
+          width: auto !important;
+          max-width: none !important;
+        }
+
+        /* Hide the modal's header and footer when printing */
+        #print-preview-modal header {
+          display: none !important;
+        }
+        
+        #print-preview-modal main {
+          overflow: visible !important;
+          background: white !important;
+        }
+
+        /* Grid layout for the tickets on the printed page */
+        #printable-tickets-container {
+          display: grid !important;
+          grid-template-columns: repeat(auto-fill, 2in) !important;
+          gap: 0.1in !important;
+          justify-content: center;
+          padding: 0.25in !important;
+          background-color: white !important;
+        }
+
         .printable-ticket-wrapper {
-          page-break-after: always;
+          width: 2in;
+          height: 3in;
+          border: 1px dashed #666;
+          box-sizing: border-box;
+          overflow: hidden;
+          page-break-inside: avoid;
         }
-        .printable-ticket-wrapper:last-child {
-          page-break-after: auto;
-        }
+        
         @page {
-          size: 2in 3in;
-          margin: 0.15in;
+          size: auto; /* Use printer's default, e.g., US Letter */
+          margin: 0.25in;
         }
       }
     </style>
