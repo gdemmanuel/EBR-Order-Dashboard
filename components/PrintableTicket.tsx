@@ -43,7 +43,7 @@ export default function PrintableTicket({ order }: PrintableTicketProps) {
 
       {/* Footer section - pushed to the bottom by flex-grow above */}
       <div className="mt-auto pt-1.5">
-        <div className="text-right">
+        <div className="text-center">
           {balanceDue > 0 ? (
             <p className="font-bold text-[10pt]">BALANCE DUE: ${balanceDue.toFixed(2)}</p>
           ) : (
