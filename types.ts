@@ -28,7 +28,7 @@ export interface Order {
   pickupDate: string;
   pickupTime: string;
   customerName: string;
-  contactMethod: ContactMethod;
+  contactMethod: string;
   phoneNumber: string | null;
   items: OrderItem[];
   totalFullSize: number;

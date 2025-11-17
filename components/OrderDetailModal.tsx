@@ -1,8 +1,7 @@
-
 import React, { useState, useCallback } from 'react';
 import { Order, FollowUpStatus } from '../types';
 import { generateFollowUpMessage, generateOrderConfirmationMessage } from '../services/geminiService';
-import { CalendarIcon, ClockIcon, UserIcon, PhoneIcon, MapPinIcon, CurrencyDollarIcon, SparklesIcon, XMarkIcon, PencilIcon, ClipboardDocumentCheckIcon, PaperAirplaneIcon, CreditCardIcon, ArrowTopRightOnSquareIcon } from './icons/Icons';
+import { CalendarIcon, ClockIcon, UserIcon, PhoneIcon, MapPinIcon, CurrencyDollarIcon, SparklesIcon, XMarkIcon, PencilIcon, ClipboardDocumentCheckIcon, PaperAirplaneIcon, CreditCardIcon, ArrowTopRightOnSquareIcon, InstagramIcon, ChatBubbleOvalLeftEllipsisIcon, FacebookIcon } from './icons/Icons';
 
 interface OrderDetailModalProps {
   order: Order;
@@ -28,6 +27,7 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
   const [generatedMessage, setGeneratedMessage] = useState<string>('');
   const [loadingAction, setLoadingAction] = useState<'confirmation' | 'followup' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [copiedState, setCopiedState] = useState<'instagram' | 'facebook' | null>(null);
 
   const mapsUrl = order.deliveryAddress ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.deliveryAddress)}` : '#';
 
@@ -65,25 +65,54 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
       onUpdateFollowUp(order.id, e.target.value as FollowUpStatus);
   };
 
-  const handleSendText = () => {
-    if (!order.phoneNumber || !generatedMessage) {
-        setError("Customer phone number is missing or no message has been generated.");
-        return;
+  const handleSendInstagram = () => {
+    if (!generatedMessage) {
+      setError("No message has been generated.");
+      return;
     }
-    // Clean phone number to remove formatting
-    const cleanedPhoneNumber = order.phoneNumber.replace(/[^0-9]/g, '');
-    if (!cleanedPhoneNumber) {
-        setError("Invalid phone number format.");
-        return;
-    }
-    
-    const encodedMessage = encodeURIComponent(generatedMessage);
-    const smsLink = `sms:${cleanedPhoneNumber}?body=${encodedMessage}`;
-    
-    // Use window.open as a robust method for triggering the sms link
-    window.open(smsLink, '_blank');
+    navigator.clipboard.writeText(generatedMessage).then(() => {
+        setCopiedState('instagram');
+        window.open('https://www.instagram.com/direct/inbox/', '_blank');
+        setTimeout(() => setCopiedState(null), 2500);
+    }).catch(err => {
+        setError("Failed to copy message to clipboard.");
+        console.error("Clipboard write failed: ", err);
+    });
   };
 
+  const handleSendFacebook = () => {
+    if (!generatedMessage) {
+      setError("No message has been generated.");
+      return;
+    }
+    navigator.clipboard.writeText(generatedMessage).then(() => {
+        setCopiedState('facebook');
+        window.open('https://www.facebook.com/messages/', '_blank');
+        setTimeout(() => setCopiedState(null), 2500);
+    }).catch(err => {
+        setError("Failed to copy message to clipboard.");
+        console.error("Clipboard write failed: ", err);
+    });
+  };
+
+  const handleSendText = () => {
+    if (!generatedMessage) {
+      setError("No message has been generated.");
+      return;
+    }
+    if (!order.phoneNumber) {
+      setError("Customer phone number is missing.");
+      return;
+    }
+    const cleanedPhoneNumber = order.phoneNumber.replace(/[^0-9]/g, '');
+    if (!cleanedPhoneNumber) {
+      setError("Invalid phone number format.");
+      return;
+    }
+    const encodedMessage = encodeURIComponent(generatedMessage);
+    const smsLink = `sms:${cleanedPhoneNumber}?body=${encodedMessage}`;
+    window.open(smsLink, '_blank');
+  };
 
   return (
     <>
@@ -111,6 +140,7 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
               <div className="space-y-4">
                   <DetailItem icon={<UserIcon className="w-5 h-5" />} label="Customer" value={order.customerName} />
                   <DetailItem icon={<PhoneIcon className="w-5 h-5" />} label="Phone" value={order.phoneNumber} />
+                  <DetailItem icon={<ChatBubbleOvalLeftEllipsisIcon className="w-5 h-5" />} label="Contact Method" value={order.contactMethod} />
                    {order.deliveryRequired && order.deliveryAddress && (
                       <div className="flex items-start space-x-3">
                           <div className="text-gray-400 mt-1"><MapPinIcon className="w-5 h-5" /></div>
@@ -134,7 +164,6 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
                   <DetailItem icon={<CalendarIcon className="w-5 h-5" />} label="Pickup Date" value={order.pickupDate} />
                   <DetailItem icon={<ClockIcon className="w-5 h-5" />} label="Pickup Time" value={order.pickupTime} />
                   <DetailItem icon={<CurrencyDollarIcon className="w-5 h-5" />} label="Amount Charged" value={`$${order.amountCharged.toFixed(2)}`} />
-                  <DetailItem icon={<CreditCardIcon className="w-5 h-5" />} label="Payment Status" value={order.paymentStatus} />
                    {order.deliveryRequired && <DetailItem icon={<CurrencyDollarIcon className="w-5 h-5" />} label="Delivery Fee" value={`$${order.deliveryFee.toFixed(2)}`} />}
               </div>
             </div>
@@ -152,6 +181,20 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
                       ))}
                   </ul>
               </div>
+              <div className="mt-2 text-right text-sm font-medium text-brand-brown/80 space-x-4">
+                {order.totalMini > 0 && <span>Total Minis: {order.totalMini}</span>}
+                {order.totalFullSize > 0 && <span>Total Full-Size: {order.totalFullSize}</span>}
+              </div>
+            </div>
+
+            {/* Payment Details */}
+            <div>
+                <h3 className="text-lg font-semibold text-brand-brown/90 mb-2">Payment Details</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-brand-tan/30 p-4 rounded-lg border border-brand-tan">
+                    <DetailItem icon={<CurrencyDollarIcon className="w-5 h-5" />} label="Amount Collected" value={order.amountCollected !== null ? `$${order.amountCollected.toFixed(2)}` : null} />
+                    <DetailItem icon={<CreditCardIcon className="w-5 h-5" />} label="Payment Method" value={order.paymentMethod} />
+                    <DetailItem icon={<CreditCardIcon className="w-5 h-5" />} label="Payment Status" value={order.paymentStatus} />
+                </div>
             </div>
 
             {/* Special Instructions */}
@@ -207,18 +250,55 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
                     value={generatedMessage}
                     className="w-full h-32 p-2 border border-gray-300 rounded-md bg-white focus:ring-brand-orange focus:border-brand-orange"
                   />
-                  <div className="mt-2 text-right">
-                      <button
-                          onClick={handleSendText}
-                          disabled={!order.phoneNumber}
-                          className="inline-flex items-center gap-2 bg-emerald-600 text-white font-semibold px-4 py-2 rounded-lg shadow-md hover:bg-emerald-700 transition-colors duration-200 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                          title={!order.phoneNumber ? "Customer phone number is not available" : "Send message using your device's SMS app"}
-                      >
-                          <PaperAirplaneIcon className="w-5 h-5" />
-                          Send via Text
-                      </button>
-                      {!order.phoneNumber && <p className="text-xs text-red-600 mt-1">No phone number available for this customer.</p>}
-                       {order.phoneNumber && <p className="text-xs text-gray-500 mt-1">Opens your device's default messaging application.</p>}
+                  <div className="mt-2 flex justify-end items-start gap-3 flex-wrap">
+                    {order.contactMethod === 'Instagram' && (
+                        <div className="text-right">
+                            <button
+                                onClick={handleSendInstagram}
+                                disabled={!generatedMessage}
+                                className="inline-flex items-center justify-center gap-2 text-white font-semibold px-4 py-2 rounded-lg shadow-md transition-all duration-200 bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                                title="Copy message and open Instagram DMs"
+                            >
+                                <InstagramIcon className="w-5 h-5" />
+                                {copiedState === 'instagram' ? 'Copied!' : 'Follow-up on Instagram'}
+                            </button>
+                            <p className="text-xs text-gray-500 mt-1">
+                                Copies message and opens DMs.
+                            </p>
+                        </div>
+                    )}
+                    {order.contactMethod === 'Facebook' && (
+                        <div className="text-right">
+                            <button
+                                onClick={handleSendFacebook}
+                                disabled={!generatedMessage}
+                                className="inline-flex items-center justify-center gap-2 text-white font-semibold px-4 py-2 rounded-lg shadow-md transition-all duration-200 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                                title="Copy message and open Facebook Messenger"
+                            >
+                                <FacebookIcon className="w-5 h-5" />
+                                {copiedState === 'facebook' ? 'Copied!' : 'Follow-up on Facebook'}
+                            </button>
+                            <p className="text-xs text-gray-500 mt-1">
+                                Copies message and opens Messenger.
+                            </p>
+                        </div>
+                    )}
+                    {order.phoneNumber && (
+                        <div className="text-right">
+                            <button
+                                onClick={handleSendText}
+                                disabled={!generatedMessage}
+                                className="inline-flex items-center justify-center gap-2 text-white font-semibold px-4 py-2 rounded-lg shadow-md transition-all duration-200 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                                title="Send message using your device's SMS app"
+                            >
+                                <PaperAirplaneIcon className="w-5 h-5" />
+                                Send via Text
+                            </button>
+                            <p className="text-xs text-gray-500 mt-1">
+                                Opens your messaging app.
+                            </p>
+                        </div>
+                    )}
                   </div>
                 </div>
               )}

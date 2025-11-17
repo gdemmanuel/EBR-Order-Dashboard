@@ -120,7 +120,8 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
     const [phoneNumber, setPhoneNumber] = useState('');
     const [pickupDate, setPickupDate] = useState('');
     const [pickupTime, setPickupTime] = useState('');
-    const [contactMethod, setContactMethod] = useState<ContactMethod>(ContactMethod.UNKNOWN);
+    const [contactMethod, setContactMethod] = useState<string>(ContactMethod.UNKNOWN);
+    const [customContactMethod, setCustomContactMethod] = useState('');
     const [miniItems, setMiniItems] = useState<FormOrderItem[]>([]);
     const [fullSizeItems, setFullSizeItems] = useState<FormOrderItem[]>([]);
     const [salsaItems, setSalsaItems] = useState<SalsaState[]>([
@@ -133,6 +134,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
     const [deliveryAddress, setDeliveryAddress] = useState('');
     const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>(PaymentStatus.PENDING);
     const [amountCollected, setAmountCollected] = useState<number | string>(0);
+    const [paymentMethod, setPaymentMethod] = useState('');
     const [specialInstructions, setSpecialInstructions] = useState('');
 
     const [addressSuggestions, setAddressSuggestions] = useState<string[]>([]);
@@ -146,6 +148,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         setPickupDate('');
         setPickupTime('');
         setContactMethod(ContactMethod.UNKNOWN);
+        setCustomContactMethod('');
         setMiniItems([]);
         setFullSizeItems([]);
         setAmountCharged(0);
@@ -154,6 +157,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         setDeliveryAddress('');
         setPaymentStatus(PaymentStatus.PENDING);
         setAmountCollected(0);
+        setPaymentMethod('');
         setSalsaItems([
             { name: 'Salsa Verde', checked: false, quantity: 1, size: 'Small (4oz)' },
             { name: 'Salsa Rosada', checked: false, quantity: 1, size: 'Small (4oz)' }
@@ -172,7 +176,16 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
             const formattedDate = `${dateParts[2]}-${dateParts[0].padStart(2, '0')}-${dateParts[1].padStart(2, '0')}`;
             setPickupDate(formattedDate);
             setPickupTime(formatTimeToHHMM(order.pickupTime));
-            setContactMethod(order.contactMethod);
+            
+            const isStandardMethod = Object.values(ContactMethod).includes(order.contactMethod as ContactMethod);
+            if (isStandardMethod) {
+                setContactMethod(order.contactMethod);
+                setCustomContactMethod('');
+            } else {
+                setContactMethod('Other');
+                setCustomContactMethod(order.contactMethod);
+            }
+
             setDeliveryRequired(order.deliveryRequired);
             setDeliveryFee(order.deliveryFee);
             setDeliveryAddress(order.deliveryAddress || '');
@@ -183,6 +196,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
 
             setPaymentStatus(order.paymentStatus);
             setAmountCollected(order.amountCollected || 0);
+            setPaymentMethod(order.paymentMethod || '');
             setSpecialInstructions(order.specialInstructions || '');
 
             // Populate salsa items from order
@@ -413,12 +427,14 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         const dateParts = pickupDate.split('-');
         const formattedDate = `${dateParts[1]}/${dateParts[2]}/${dateParts[0]}`;
 
+        const finalContactMethod = contactMethod === 'Other' ? (customContactMethod.trim() || 'Other') : contactMethod;
+
         const orderData = {
             customerName,
             phoneNumber,
             pickupDate: formattedDate,
             pickupTime,
-            contactMethod,
+            contactMethod: finalContactMethod,
             items: allItems,
             amountCharged,
             totalFullSize,
@@ -429,7 +445,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
             followUpStatus: order?.followUpStatus || FollowUpStatus.NEEDED,
             paymentStatus: paymentStatus,
             amountCollected: Number(amountCollected) || 0,
-            paymentMethod: order?.paymentMethod || null,
+            paymentMethod: paymentMethod.trim() || null,
             specialInstructions: specialInstructions || null,
         };
 
@@ -462,9 +478,20 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                         </div>
                         <div>
                            <label className="block text-sm font-medium text-brand-brown/90">Contact Method</label>
-                            <select value={contactMethod} onChange={e => setContactMethod(e.target.value as ContactMethod)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown">
+                            <select value={contactMethod} onChange={e => setContactMethod(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown">
                                 {Object.values(ContactMethod).map(method => <option key={method} value={method}>{method}</option>)}
+                                <option value="Other">Other</option>
                             </select>
+                            {contactMethod === 'Other' && (
+                                <input
+                                    type="text"
+                                    value={customContactMethod}
+                                    onChange={e => setCustomContactMethod(e.target.value)}
+                                    placeholder="Enter contact source"
+                                    className="mt-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown"
+                                    required
+                                />
+                            )}
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-brand-brown/90">Pickup Date</label>
@@ -488,6 +515,16 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                                 onChange={e => setAmountCollected(e.target.value)} 
                                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown"
                             />
+                        </div>
+                        <div>
+                           <label className="block text-sm font-medium text-brand-brown/90">Payment Method</label>
+                           <input
+                               type="text"
+                               value={paymentMethod}
+                               onChange={e => setPaymentMethod(e.target.value)}
+                               placeholder="e.g., Cash, Zelle, Venmo"
+                               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown"
+                           />
                         </div>
                          <div>
                            <label className="block text-sm font-medium text-brand-brown/90">Payment Status</label>
