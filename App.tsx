@@ -1,5 +1,6 @@
 
-import React, { useState, useMemo } from 'react';
+
+import React, { useState, useMemo, useCallback } from 'react';
 import { Order, FollowUpStatus } from './types';
 import { initialOrders, initialEmpanadaFlavors, initialFullSizeEmpanadaFlavors } from './data/mockData';
 import Header from './components/Header';
@@ -8,6 +9,7 @@ import OrderDetailModal from './components/OrderDetailModal';
 import DashboardMetrics from './components/DashboardMetrics';
 import OrderFormModal from './components/OrderFormModal';
 import { PlusCircleIcon } from './components/icons/Icons';
+import PrintView from './components/PrintView';
 
 const parseOrderDateTime = (order: Order): Date => {
   const [month, day, year] = order.pickupDate.split('/').map(Number);
@@ -41,6 +43,7 @@ export default function App() {
   const [endDate, setEndDate] = useState<string>('');
   const [empanadaFlavors, setEmpanadaFlavors] = useState<string[]>(initialEmpanadaFlavors);
   const [fullSizeEmpanadaFlavors, setFullSizeEmpanadaFlavors] = useState<string[]>(initialFullSizeEmpanadaFlavors);
+  const [ordersToPrint, setOrdersToPrint] = useState<Order[] | null>(null);
 
 
   const handleSelectOrder = (order: Order) => {
@@ -149,6 +152,14 @@ export default function App() {
     setEndDate('');
   };
 
+  const handlePrintSelected = (selectedOrders: Order[]) => {
+    setOrdersToPrint(selectedOrders);
+  };
+  
+  const handleDonePrinting = useCallback(() => {
+    setOrdersToPrint(null);
+  }, []);
+
   const stats = useMemo(() => {
     const totalRevenue = filteredOrders.reduce((sum, order) => sum + order.amountCharged, 0);
     const ordersToFollowUp = filteredOrders.filter(o => o.followUpStatus === FollowUpStatus.NEEDED).length;
@@ -184,7 +195,7 @@ export default function App() {
                 id="start-date"
                 value={startDate}
                 onChange={e => setStartDate(e.target.value)}
-                className="rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" 
+                className="rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm bg-white text-brand-brown" 
               />
             </div>
             <div className="flex items-center gap-2">
@@ -194,7 +205,7 @@ export default function App() {
                 id="end-date"
                 value={endDate}
                 onChange={e => setEndDate(e.target.value)}
-                className="rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm"
+                className="rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm bg-white text-brand-brown"
               />
             </div>
             {(startDate || endDate) && (
@@ -208,7 +219,11 @@ export default function App() {
           </div>
           
           <div className="mb-8">
-            <OrderList orders={filteredOrders} onSelectOrder={handleSelectOrder} />
+            <OrderList 
+              orders={filteredOrders} 
+              onSelectOrder={handleSelectOrder}
+              onPrintSelected={handlePrintSelected}
+            />
           </div>
           
           <DashboardMetrics 
@@ -237,6 +252,12 @@ export default function App() {
           empanadaFlavors={empanadaFlavors}
           fullSizeEmpanadaFlavors={fullSizeEmpanadaFlavors}
           onAddNewFlavor={handleAddNewFlavor}
+        />
+      )}
+      {ordersToPrint && (
+        <PrintView 
+          orders={ordersToPrint}
+          onDonePrinting={handleDonePrinting}
         />
       )}
     </div>

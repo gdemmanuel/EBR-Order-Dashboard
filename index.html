@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -28,10 +27,45 @@
         }
       }
     </script>
+    <style>
+      /* By default, show the main app and hide the print portal */
+      #root {
+        display: block;
+      }
+      #print-portal-root {
+        display: none;
+      }
+
+      /* When printing, hide the main app and show the print portal content */
+      body.printing #root {
+        display: none;
+      }
+      body.printing #print-portal-root {
+        display: block;
+      }
+      
+      @media print {
+        /* These rules apply ONLY when the print dialog is open */
+        body {
+          background-color: white; /* Ensure print background is white */
+        }
+        .printable-ticket-wrapper {
+          page-break-after: always;
+        }
+        .printable-ticket-wrapper:last-child {
+          page-break-after: auto;
+        }
+        @page {
+          size: 2in 3in;
+          margin: 0.15in;
+        }
+      }
+    </style>
   <script type="importmap">
 {
   "imports": {
     "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom": "https://aistudiocdn.com/react-dom@^19.2.0",
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
     "react/": "https://aistudiocdn.com/react@^19.2.0/",
     "recharts": "https://aistudiocdn.com/recharts@^3.4.1",
@@ -42,6 +76,7 @@
 </head>
   <body class="bg-brand-cream text-brand-brown font-sans">
     <div id="root"></div>
+    <div id="print-portal-root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>

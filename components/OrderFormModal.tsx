@@ -55,19 +55,17 @@ const ItemInputSection: React.FC<{
                             <select value={item.name} onChange={e => onItemChange(index, 'name', e.target.value)} className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm bg-white text-brand-brown">
                                 {flavors.map(flavor => <option key={flavor} value={flavor}>{flavor}</option>)}
                             </select>
-                        </div>
-                        {item.name === otherOption && (
-                            <div className="flex-grow w-full">
+                            {item.name === otherOption && (
                                 <input
                                     type="text"
                                     placeholder="Enter new flavor name"
                                     value={item.customName || ''}
                                     onChange={e => onItemChange(index, 'customName', e.target.value)}
-                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm bg-white text-brand-brown"
+                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm bg-white text-brand-brown mt-2"
                                     required
                                 />
-                            </div>
-                        )}
+                            )}
+                        </div>
                         <input type="number" min="1" value={item.quantity} onChange={e => onItemChange(index, 'quantity', e.target.value)} className="block w-full sm:w-24 rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm bg-white text-brand-brown" />
                         <button type="button" onClick={() => onRemoveItem(index)} className="text-red-500 hover:text-red-700 p-1 self-center">
                             <TrashIcon className="w-5 h-5" />
