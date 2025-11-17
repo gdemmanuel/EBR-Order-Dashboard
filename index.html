@@ -28,69 +28,54 @@
       }
     </script>
     <style>
+      /* --- THIS IS THE DEFINITIVE FIX FOR PRINTING --- */
+      /* This is the standard, reliable way to handle printing. */
+      
+      /* Styles for the on-screen print preview page */
+      #print-preview-page {
+        background-color: #f3f4f6; /* A neutral gray background */
+      }
+      
+      #printable-tickets-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, 2in);
+        gap: 0.1in;
+        justify-content: center;
+        padding: 0.5in;
+      }
+      
+      .printable-ticket-wrapper {
+        width: 2in;
+        height: 3in;
+        border: 1px dashed #666;
+        box-sizing: border-box;
+        overflow: hidden;
+      }
+
+      /* Styles for when the browser's print dialog is active */
       @media print {
-        /* Hide the main application root */
-        body > #root {
-          display: none !important;
+        /* Hide the header on the preview page, so only tickets are printed */
+        #print-preview-header {
+          display: none;
         }
 
-        /* Ensure the print portal and its contents are visible */
-        body > #print-portal-root,
-        #print-preview-modal {
-          display: block !important;
-          visibility: visible !important;
+        /* Ensure the tickets take up the full print page */
+        #print-preview-page {
+          background-color: white;
         }
         
-        /* Reset modal styles for printing */
-        #print-preview-modal {
-          position: static !important;
-          inset: auto !important;
-          background: none !important;
-          padding: 0 !important;
-        }
-        
-        #print-preview-modal > div {
-          box-shadow: none !important;
-          border: none !important;
-          height: auto !important;
-          max-height: none !important;
-          width: auto !important;
-          max-width: none !important;
-        }
-
-        /* Hide the modal's header and footer when printing */
-        #print-preview-modal header {
-          display: none !important;
-        }
-        
-        #print-preview-modal main {
-          overflow: visible !important;
-          background: white !important;
-        }
-
-        /* Grid layout for the tickets on the printed page */
         #printable-tickets-container {
-          display: grid !important;
-          grid-template-columns: repeat(auto-fill, 2in) !important;
-          gap: 0.1in !important;
-          justify-content: center;
-          padding: 0.25in !important;
-          background-color: white !important;
+          padding: 0;
         }
 
+        /* Avoid breaking tickets across pages */
         .printable-ticket-wrapper {
-          width: 2in;
-          height: 3in;
-          border: 1px dashed #666;
-          box-sizing: border-box;
-          overflow: hidden;
           page-break-inside: avoid;
         }
-        
-        @page {
-          size: auto; /* Use printer's default, e.g., US Letter */
-          margin: 0.25in;
-        }
+      }
+      
+      @page {
+        margin: 0.5in;
       }
     </style>
   <script type="importmap">
@@ -108,7 +93,6 @@
 </head>
   <body class="bg-brand-cream text-brand-brown font-sans">
     <div id="root"></div>
-    <div id="print-portal-root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>

@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useCallback } from 'react';
 import { Order, FollowUpStatus } from './types';
 import { initialOrders, initialEmpanadaFlavors, initialFullSizeEmpanadaFlavors } from './data/mockData';
@@ -7,7 +8,7 @@ import OrderDetailModal from './components/OrderDetailModal';
 import DashboardMetrics from './components/DashboardMetrics';
 import OrderFormModal from './components/OrderFormModal';
 import { PlusCircleIcon } from './components/icons/Icons';
-import PrintPreviewModal from './components/PrintPreviewModal';
+import PrintPreviewPage from './components/PrintPreviewPage';
 
 const parseOrderDateTime = (order: Order): Date => {
   const [month, day, year] = order.pickupDate.split('/').map(Number);
@@ -42,6 +43,7 @@ export default function App() {
   const [empanadaFlavors, setEmpanadaFlavors] = useState<string[]>(initialEmpanadaFlavors);
   const [fullSizeEmpanadaFlavors, setFullSizeEmpanadaFlavors] = useState<string[]>(initialFullSizeEmpanadaFlavors);
   const [ordersToPrint, setOrdersToPrint] = useState<Order[]>([]);
+  const [view, setView] = useState<'dashboard' | 'print'>('dashboard');
 
 
   const handleSelectOrder = (order: Order) => {
@@ -152,9 +154,11 @@ export default function App() {
 
   const handlePrintSelected = (selectedOrders: Order[]) => {
     setOrdersToPrint(selectedOrders);
+    setView('print');
   };
   
-  const handleClosePrintPreview = () => {
+  const handleExitPrintPreview = () => {
+    setView('dashboard');
     setOrdersToPrint([]);
   };
 
@@ -164,6 +168,15 @@ export default function App() {
     const totalEmpanadasSold = filteredOrders.reduce((sum, order) => sum + order.totalFullSize + order.totalMini, 0);
     return { totalRevenue, ordersToFollowUp, totalEmpanadasSold };
   }, [filteredOrders]);
+
+  if (view === 'print') {
+    return (
+      <PrintPreviewPage
+        orders={ordersToPrint}
+        onExit={handleExitPrintPreview}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen">
@@ -250,12 +263,6 @@ export default function App() {
           empanadaFlavors={empanadaFlavors}
           fullSizeEmpanadaFlavors={fullSizeEmpanadaFlavors}
           onAddNewFlavor={handleAddNewFlavor}
-        />
-      )}
-      {ordersToPrint.length > 0 && (
-        <PrintPreviewModal
-          orders={ordersToPrint}
-          onClose={handleClosePrintPreview}
         />
       )}
     </div>
