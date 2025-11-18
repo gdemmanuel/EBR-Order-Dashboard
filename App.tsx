@@ -1,270 +1,326 @@
-
-import React, { useState, useMemo, useCallback } from 'react';
-import { Order, FollowUpStatus } from './types';
+import React, { useState, useMemo } from 'react';
+import { Order, FollowUpStatus, ContactMethod, PaymentStatus, ApprovalStatus } from './types';
 import { initialOrders, initialEmpanadaFlavors, initialFullSizeEmpanadaFlavors } from './data/mockData';
+import { MINI_EMPANADA_PRICE, FULL_SIZE_EMPANADA_PRICE, SALSA_PRICES } from './config';
 import Header from './components/Header';
 import OrderList from './components/OrderList';
 import OrderDetailModal from './components/OrderDetailModal';
 import DashboardMetrics from './components/DashboardMetrics';
 import OrderFormModal from './components/OrderFormModal';
-import { PlusCircleIcon } from './components/icons/Icons';
+import ImportOrderModal from './components/ImportOrderModal';
+import { PlusCircleIcon, DocumentArrowDownIcon } from './components/icons/Icons';
 import PrintPreviewPage from './components/PrintPreviewPage';
+import PendingOrders from './components/PendingOrders';
+import DateRangeFilter from './components/DateRangeFilter';
+import { parseOrderDateTime } from './utils/dateUtils';
 
-const parseOrderDateTime = (order: Order): Date => {
-  const [month, day, year] = order.pickupDate.split('/').map(Number);
-  
-  let timeStr = order.pickupTime.split('-')[0].trim().toLowerCase();
-  const hasAmPm = timeStr.includes('am') || timeStr.includes('pm');
-  let [hours, minutes] = timeStr.replace('am', '').replace('pm', '').split(':').map(Number);
 
-  if (isNaN(hours)) hours = 0;
-  if (isNaN(minutes)) minutes = 0;
+/**
+ * The single source of truth for calculating the total cost of an order.
+ * Ensures that pricing is consistent across the entire application.
+ */
+const calculateOrderTotal = (order: Partial<Order>): number => {
+    const items = order.items || [];
+    const deliveryFee = order.deliveryFee || 0;
 
-  if (hasAmPm && timeStr.includes('pm') && hours < 12) {
-    hours += 12;
-  } else if (hasAmPm && timeStr.includes('am') && hours === 12) {
-    hours = 0;
-  } else if (!hasAmPm && hours > 0 && hours < 8) {
-    // Assumption for times like '4:30' without AM/PM are likely afternoon
-    hours += 12;
-  }
-  
-  return new Date(year, month - 1, day, hours, minutes);
+    const total = items.reduce((sum, item) => {
+        let itemPrice = 0;
+        if (item.name.startsWith('Full ')) {
+            itemPrice = FULL_SIZE_EMPANADA_PRICE;
+        } else if (item.name.includes('Salsa')) {
+            const size = item.name.includes('Large') ? 'Large (8oz)' : 'Small (4oz)';
+            itemPrice = SALSA_PRICES[size];
+        } else {
+            itemPrice = MINI_EMPANADA_PRICE;
+        }
+        return sum + (item.quantity * itemPrice);
+    }, 0);
+    
+    return total + (order.deliveryRequired ? deliveryFee : 0);
 };
 
 
 export default function App() {
   const [orders, setOrders] = useState<Order[]>(initialOrders);
+  const [pendingOrders, setPendingOrders] = useState<Order[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState<boolean>(false);
-  const [orderToEdit, setOrderToEdit] = useState<Order | null>(null);
-  const [startDate, setStartDate] = useState<string>('');
-  const [endDate, setEndDate] = useState<string>('');
+  const [isImportModalOpen, setIsImportModalOpen] = useState<boolean>(false);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState<boolean>(false);
+  const [orderToEdit, setOrderToEdit] = useState<Order | undefined>(undefined);
+  const [ordersToPrint, setOrdersToPrint] = useState<Order[]>([]);
   const [empanadaFlavors, setEmpanadaFlavors] = useState<string[]>(initialEmpanadaFlavors);
   const [fullSizeEmpanadaFlavors, setFullSizeEmpanadaFlavors] = useState<string[]>(initialFullSizeEmpanadaFlavors);
-  const [ordersToPrint, setOrdersToPrint] = useState<Order[]>([]);
-  const [view, setView] = useState<'dashboard' | 'print'>('dashboard');
+  const [activeDateRange, setActiveDateRange] = useState<{ start?: string; end?: string }>({});
 
+  const handleOrdersImported = (importedOrders: Partial<Order>[]) => {
+    const newPendingOrders = importedOrders.map((importedOrder, index) => {
+        const items = importedOrder.items || [];
+        const totalFullSize = items.filter(i => i.name.startsWith('Full ')).reduce((sum, i) => sum + i.quantity, 0);
+        const totalMini = items.filter(i => !i.name.startsWith('Full ')).reduce((sum, i) => sum + i.quantity, 0);
+
+        const newOrderBase = {
+            id: `imported-${Date.now()}-${index}`,
+            customerName: importedOrder.customerName || 'Unknown Customer',
+            phoneNumber: importedOrder.phoneNumber || null,
+            pickupDate: importedOrder.pickupDate || new Date().toLocaleDateString(),
+            pickupTime: importedOrder.pickupTime || 'N/A',
+            contactMethod: importedOrder.contactMethod || ContactMethod.UNKNOWN,
+            items: items,
+            totalFullSize: totalFullSize,
+            totalMini: totalMini,
+            deliveryRequired: importedOrder.deliveryRequired || false,
+            deliveryAddress: importedOrder.deliveryAddress || null,
+            specialInstructions: importedOrder.specialInstructions || null,
+            deliveryFee: importedOrder.deliveryFee || 0,
+            amountCollected: importedOrder.amountCollected || null,
+            paymentMethod: importedOrder.paymentMethod || null,
+            paymentStatus: PaymentStatus.PENDING,
+            followUpStatus: FollowUpStatus.NEEDED,
+            approvalStatus: ApprovalStatus.PENDING,
+        };
+        
+        const amountCharged = calculateOrderTotal(newOrderBase);
+        
+        const newOrder: Order = {
+          ...newOrderBase,
+          amountCharged: amountCharged,
+        };
+        
+        return newOrder;
+    });
+
+    setPendingOrders(prev => [...prev, ...newPendingOrders]);
+    setIsImportModalOpen(false);
+  };
+
+  const handleApproveOrder = (orderId: string) => {
+    const orderToApprove = pendingOrders.find(o => o.id === orderId);
+    if (orderToApprove) {
+      setOrders(prevOrders => [
+        ...prevOrders, 
+        { ...orderToApprove, approvalStatus: ApprovalStatus.APPROVED }
+      ]);
+      setPendingOrders(prevPending => prevPending.filter(o => o.id !== orderId));
+    }
+  };
+
+  const handleDenyOrder = (orderId: string) => {
+    setPendingOrders(prevPending => prevPending.filter(o => o.id !== orderId));
+  };
+
+  const sortedOrders = useMemo(() => {
+    return [...orders].sort((a, b) => {
+      const dateA = parseOrderDateTime(a);
+      const dateB = parseOrderDateTime(b);
+      const timeA = dateA.getTime();
+      const timeB = dateB.getTime();
+
+      const aIsInvalid = isNaN(timeA);
+      const bIsInvalid = isNaN(timeB);
+
+      if (aIsInvalid && bIsInvalid) return 0;
+      if (aIsInvalid) return 1;
+      if (bIsInvalid) return -1;
+
+      return timeA - timeB;
+    });
+  }, [orders]);
+
+  const filteredOrders = useMemo(() => {
+    if (!activeDateRange.start || !activeDateRange.end) {
+      return sortedOrders;
+    }
+    const startDate = new Date(activeDateRange.start + 'T00:00:00');
+    const endDate = new Date(activeDateRange.end + 'T23:59:59');
+    return sortedOrders.filter(order => {
+      const orderDate = parseOrderDateTime(order);
+      if (isNaN(orderDate.getTime())) {
+          return false;
+      }
+      return orderDate >= startDate && orderDate <= endDate;
+    });
+  }, [sortedOrders, activeDateRange]);
+
+  const dashboardStats = useMemo(() => {
+    return {
+      totalRevenue: filteredOrders.reduce((sum, order) => sum + (order.amountCollected || 0), 0),
+      ordersToFollowUp: filteredOrders.filter(order => order.followUpStatus === FollowUpStatus.NEEDED).length,
+      totalEmpanadasSold: filteredOrders.reduce((sum, order) => sum + order.totalMini + order.totalFullSize, 0),
+    };
+  }, [filteredOrders]);
 
   const handleSelectOrder = (order: Order) => {
     setSelectedOrder(order);
-  };
-  
-  const handleOpenEditModal = (order: Order) => {
-    setSelectedOrder(null); // Close detail modal
-    setOrderToEdit(order);
+    setIsDetailModalOpen(true);
   };
 
-  const handleCloseModals = () => {
+  const handleCloseDetailModal = () => {
+    setIsDetailModalOpen(false);
     setSelectedOrder(null);
-    setIsNewOrderModalOpen(false);
-    setOrderToEdit(null);
+  };
+
+  const handleOpenNewOrderModal = () => {
+    setOrderToEdit(undefined);
+    setIsNewOrderModalOpen(true);
+  };
+
+  const handleEditOrder = (order: Order) => {
+    setOrderToEdit(order);
+    setIsDetailModalOpen(false);
+    setIsNewOrderModalOpen(true);
+  };
+  
+  const handleEditPendingOrder = (order: Order) => {
+    setOrderToEdit(order);
+    setIsNewOrderModalOpen(true);
   };
 
   const handleUpdateFollowUp = (orderId: string, status: FollowUpStatus) => {
-    setOrders(prevOrders =>
-      prevOrders.map(order =>
-        order.id === orderId ? { ...order, followUpStatus: status } : order
-      )
-    );
+    const update = (orderList: Order[]) => orderList.map(o => o.id === orderId ? { ...o, followUpStatus: status } : o);
+    setOrders(update);
     if (selectedOrder && selectedOrder.id === orderId) {
-        setSelectedOrder(prev => prev ? {...prev, followUpStatus: status} : null);
+      setSelectedOrder(prev => prev ? { ...prev, followUpStatus: status } : null);
     }
   };
 
-  const handleSaveOrder = (savedOrderData: Order | Omit<Order, 'id'>) => {
-    if ('id' in savedOrderData) {
-      // Update existing order
-      setOrders(prev => prev.map(o => o.id === savedOrderData.id ? savedOrderData : o));
+  const handleSaveOrder = (orderData: Order | Omit<Order, 'id'>) => {
+    // Recalculate the total amount as the single source of truth, ignoring the form's calculation.
+    const recalculatedAmountCharged = calculateOrderTotal(orderData);
+
+    if ('id' in orderData) {
+        // It's an existing order (or a pending order with a temp ID)
+        const finalOrderData: Order = {
+            ...orderData,
+            amountCharged: recalculatedAmountCharged,
+        };
+
+        const isFromPending = pendingOrders.some(p => p.id === finalOrderData.id);
+        
+        if (isFromPending) {
+            // This is an "edit and approve" action
+            setPendingOrders(prev => prev.filter(p => p.id !== finalOrderData.id));
+            setOrders(prev => [...prev, { ...finalOrderData, approvalStatus: ApprovalStatus.APPROVED }]);
+        } else {
+            // This is a standard edit of an already approved order
+            setOrders(prev => prev.map(o => (o.id === finalOrderData.id ? finalOrderData : o)));
+        }
     } else {
-      // Add new order
-      const newOrderWithId: Order = {
-        ...savedOrderData,
-        id: `order-${Date.now()}-${Math.random()}`,
-      };
-      setOrders(prevOrders => [newOrderWithId, ...prevOrders]);
+        // It's a brand new order
+        const newOrder: Order = {
+            ...(orderData as Omit<Order, 'id'>),
+            id: `order-${Date.now()}`,
+            approvalStatus: ApprovalStatus.APPROVED,
+            amountCharged: recalculatedAmountCharged,
+        };
+        setOrders(prev => [...prev, newOrder]);
     }
-    handleCloseModals();
-  };
-  
-  const handleAddNewFlavor = (newFlavor: string, type: 'mini' | 'full') => {
+    setIsNewOrderModalOpen(false);
+    setOrderToEdit(undefined);
+};
+
+  const handleAddNewFlavor = (flavor: string, type: 'mini' | 'full') => {
     if (type === 'mini') {
-        const trimmedFlavor = newFlavor.trim();
-        if (trimmedFlavor && !empanadaFlavors.some(f => f.toLowerCase() === trimmedFlavor.toLowerCase())) {
-            const otherIndex = empanadaFlavors.indexOf("Other");
-            const newFlavors = [...empanadaFlavors];
-            if (otherIndex > -1) {
-                newFlavors.splice(otherIndex, 0, trimmedFlavor);
-            } else {
-                newFlavors.push(trimmedFlavor);
-            }
-            setEmpanadaFlavors(newFlavors);
-        }
-    } else { // type === 'full'
-        const trimmedFlavor = newFlavor.trim();
-        const newFullFlavor = `Full ${trimmedFlavor}`;
-        if (trimmedFlavor && !fullSizeEmpanadaFlavors.some(f => f.toLowerCase() === newFullFlavor.toLowerCase())) {
-            const otherIndex = fullSizeEmpanadaFlavors.indexOf("Full Other");
-            const newFlavors = [...fullSizeEmpanadaFlavors];
-            if (otherIndex > -1) {
-                newFlavors.splice(otherIndex, 0, newFullFlavor);
-            } else {
-                newFlavors.push(newFullFlavor);
-            }
-            setFullSizeEmpanadaFlavors(newFlavors);
-        }
+      if (!empanadaFlavors.includes(flavor)) {
+        setEmpanadaFlavors(prev => [...prev.slice(0, -1), flavor, 'Other']);
+      }
+    } else {
+      const fullFlavor = `Full ${flavor}`;
+      if (!fullSizeEmpanadaFlavors.includes(fullFlavor)) {
+        setFullSizeEmpanadaFlavors(prev => [...prev.slice(0, -1), fullFlavor, 'Full Other']);
+      }
     }
   };
 
-
-  const filteredOrders = useMemo(() => {
-    let filtered = orders;
-
-    if (startDate || endDate) {
-        const start = startDate ? new Date(startDate) : null;
-        const end = endDate ? new Date(endDate) : null;
-
-        if (start) start.setUTCHours(0, 0, 0, 0);
-        if (end) end.setUTCHours(23, 59, 59, 999);
-
-        filtered = orders.filter(order => {
-            try {
-                const orderDate = parseOrderDateTime(order);
-                const afterStart = start ? orderDate >= start : true;
-                const beforeEnd = end ? orderDate <= end : true;
-                return afterStart && beforeEnd;
-            } catch (e) {
-                return false;
-            }
-        });
-    }
-
-    // Sort the orders by pickup date and time, latest first
-    return filtered.slice().sort((a, b) => {
-        const dateA = parseOrderDateTime(a);
-        const dateB = parseOrderDateTime(b);
-        return dateB.getTime() - dateA.getTime();
-    });
-  }, [orders, startDate, endDate]);
-
-  const handleClearFilters = () => {
-    setStartDate('');
-    setEndDate('');
+  const handlePrintSelected = (selectedToPrint: Order[]) => {
+    setOrdersToPrint(selectedToPrint);
   };
 
-  const handlePrintSelected = (selectedOrders: Order[]) => {
-    setOrdersToPrint(selectedOrders);
-    setView('print');
-  };
-  
-  const handleExitPrintPreview = () => {
-    setView('dashboard');
-    setOrdersToPrint([]);
-  };
-
-  const stats = useMemo(() => {
-    const totalRevenue = filteredOrders.reduce((sum, order) => sum + order.amountCharged, 0);
-    const ordersToFollowUp = filteredOrders.filter(o => o.followUpStatus === FollowUpStatus.NEEDED).length;
-    const totalEmpanadasSold = filteredOrders.reduce((sum, order) => sum + order.totalFullSize + order.totalMini, 0);
-    return { totalRevenue, ordersToFollowUp, totalEmpanadasSold };
-  }, [filteredOrders]);
-
-  if (view === 'print') {
-    return (
-      <PrintPreviewPage
-        orders={ordersToPrint}
-        onExit={handleExitPrintPreview}
-      />
-    );
+  if (ordersToPrint.length > 0) {
+    return <PrintPreviewPage orders={ordersToPrint} onExit={() => setOrdersToPrint([])} />;
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-brand-cream">
       <Header />
-      <main className="p-4 sm:p-6 md:p-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-            <div>
-                <h1 className="text-4xl font-serif text-brand-brown">Order Dashboard</h1>
-                <p className="text-brand-brown/70 mt-2">Manage and track your empanada orders.</p>
-            </div>
+      <main className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+        
+        <div className="flex justify-end items-center gap-4 mb-8">
             <button
-              onClick={() => setIsNewOrderModalOpen(true)}
-              className="flex items-center gap-2 bg-brand-orange text-white font-semibold px-5 py-2.5 rounded-lg shadow-sm hover:bg-opacity-90 transition-all duration-200"
+                onClick={() => setIsImportModalOpen(true)}
+                className="flex items-center gap-2 bg-white text-brand-brown font-semibold px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors border border-gray-300 shadow-sm"
             >
-              <PlusCircleIcon className="w-5 h-5" />
-              New Order
+                <DocumentArrowDownIcon className="w-5 h-5" />
+                Import Orders
             </button>
-          </div>
+            <button 
+                onClick={handleOpenNewOrderModal}
+                className="flex items-center gap-2 bg-brand-orange text-white font-semibold px-4 py-2 rounded-lg shadow-md hover:bg-opacity-90 transition-all"
+            >
+                <PlusCircleIcon className="w-6 h-6" />
+                New Order
+            </button>
+        </div>
 
-          <div className="bg-white p-4 rounded-lg border border-brand-tan mb-6 flex flex-wrap items-center gap-4">
-            <span className="font-semibold text-brand-brown/90">Filter by pickup date:</span>
-            <div className="flex items-center gap-2">
-              <label htmlFor="start-date" className="text-sm font-medium text-brand-brown/80">From:</label>
-              <input 
-                type="date" 
-                id="start-date"
-                value={startDate}
-                onChange={e => setStartDate(e.target.value)}
-                className="rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm bg-white text-brand-brown" 
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <label htmlFor="end-date" className="text-sm font-medium text-brand-brown/80">To:</label>
-              <input 
-                type="date"
-                id="end-date"
-                value={endDate}
-                onChange={e => setEndDate(e.target.value)}
-                className="rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm bg-white text-brand-brown"
-              />
-            </div>
-            {(startDate || endDate) && (
-                <button
-                    onClick={handleClearFilters}
-                    className="text-sm text-brand-orange hover:text-brand-orange/80 font-medium transition-colors"
-                >
-                    Clear Filter
-                </button>
-            )}
-          </div>
-          
+        <DateRangeFilter onDateChange={setActiveDateRange} />
+
+        {pendingOrders.length > 0 && (
           <div className="mb-8">
-            <OrderList 
-              orders={filteredOrders} 
+            <PendingOrders
+              orders={pendingOrders}
+              onApprove={handleApproveOrder}
+              onDeny={handleDenyOrder}
               onSelectOrder={handleSelectOrder}
-              onPrintSelected={handlePrintSelected}
+              onEdit={handleEditPendingOrder}
             />
           </div>
-          
-          <DashboardMetrics 
-            stats={stats} 
+        )}
+        
+        <div>
+          <OrderList 
             orders={filteredOrders} 
-            startDate={startDate} 
-            endDate={endDate} 
+            onSelectOrder={handleSelectOrder}
+            onPrintSelected={handlePrintSelected}
           />
-
         </div>
-      </main>
+        
+        <div className="mt-8">
+          <DashboardMetrics 
+            stats={dashboardStats} 
+            orders={filteredOrders} 
+            empanadaFlavors={empanadaFlavors} 
+            fullSizeEmpanadaFlavors={fullSizeEmpanadaFlavors} />
+        </div>
+        
+        {isDetailModalOpen && selectedOrder && (
+          <OrderDetailModal
+            order={selectedOrder}
+            onClose={handleCloseDetailModal}
+            onUpdateFollowUp={handleUpdateFollowUp}
+            onEdit={handleEditOrder}
+            onApprove={handleApproveOrder}
+            onDeny={handleDenyOrder}
+          />
+        )}
+        
+        {isNewOrderModalOpen && (
+            <OrderFormModal 
+                order={orderToEdit}
+                onClose={() => setIsNewOrderModalOpen(false)}
+                onSave={handleSaveOrder}
+                empanadaFlavors={empanadaFlavors}
+                fullSizeEmpanadaFlavors={fullSizeEmpanadaFlavors}
+                onAddNewFlavor={handleAddNewFlavor}
+            />
+        )}
 
-      {selectedOrder && (
-        <OrderDetailModal
-          order={selectedOrder}
-          onClose={handleCloseModals}
-          onUpdateFollowUp={handleUpdateFollowUp}
-          onEdit={handleOpenEditModal}
-        />
-      )}
-      {(isNewOrderModalOpen || orderToEdit) && (
-        <OrderFormModal 
-          order={orderToEdit || undefined}
-          onClose={handleCloseModals} 
-          onSave={handleSaveOrder} 
-          empanadaFlavors={empanadaFlavors}
-          fullSizeEmpanadaFlavors={fullSizeEmpanadaFlavors}
-          onAddNewFlavor={handleAddNewFlavor}
-        />
-      )}
+        {isImportModalOpen && (
+            <ImportOrderModal 
+                onClose={() => setIsImportModalOpen(false)}
+                onOrdersImported={handleOrdersImported}
+            />
+        )}
+      </main>
     </div>
   );
 }

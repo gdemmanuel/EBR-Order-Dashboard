@@ -18,6 +18,12 @@ export enum PaymentStatus {
   OVERDUE = 'Overdue',
 }
 
+export enum ApprovalStatus {
+  PENDING = 'Pending Approval',
+  APPROVED = 'Approved',
+  DENIED = 'Denied',
+}
+
 export interface OrderItem {
   name: string;
   quantity: number;
@@ -42,4 +48,5 @@ export interface Order {
   followUpStatus: FollowUpStatus;
   paymentStatus: PaymentStatus;
   specialInstructions: string | null;
+  approvalStatus: ApprovalStatus;
 }

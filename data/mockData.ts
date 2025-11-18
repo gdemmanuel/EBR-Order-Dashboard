@@ -1,4 +1,4 @@
-import { Order, ContactMethod, FollowUpStatus, PaymentStatus } from '../types';
+import { Order, ContactMethod, FollowUpStatus, PaymentStatus, ApprovalStatus } from '../types';
 
 export const initialOrders: Order[] = [
     {
@@ -20,6 +20,7 @@ export const initialOrders: Order[] = [
         followUpStatus: FollowUpStatus.NEEDED,
         paymentStatus: PaymentStatus.PAID,
         specialInstructions: 'Please pack the beef and cheese empanadas separately.',
+        approvalStatus: ApprovalStatus.APPROVED,
     },
     {
         id: '2',
@@ -40,6 +41,7 @@ export const initialOrders: Order[] = [
         followUpStatus: FollowUpStatus.COMPLETED,
         paymentStatus: PaymentStatus.PAID,
         specialInstructions: null,
+        approvalStatus: ApprovalStatus.APPROVED,
     },
     {
         id: '3',
@@ -65,6 +67,7 @@ export const initialOrders: Order[] = [
         followUpStatus: FollowUpStatus.NEEDED,
         paymentStatus: PaymentStatus.PENDING,
         specialInstructions: null,
+        approvalStatus: ApprovalStatus.APPROVED,
     },
     {
         id: '4',
@@ -89,6 +92,7 @@ export const initialOrders: Order[] = [
         followUpStatus: FollowUpStatus.CONTACTED,
         paymentStatus: PaymentStatus.PAID,
         specialInstructions: null,
+        approvalStatus: ApprovalStatus.APPROVED,
     },
     {
         id: '5',
@@ -115,6 +119,7 @@ export const initialOrders: Order[] = [
         followUpStatus: FollowUpStatus.COMPLETED,
         paymentStatus: PaymentStatus.PAID,
         specialInstructions: null,
+        approvalStatus: ApprovalStatus.APPROVED,
     },
     {
         id: '6',
@@ -139,6 +144,7 @@ export const initialOrders: Order[] = [
         followUpStatus: FollowUpStatus.NEEDED,
         paymentStatus: PaymentStatus.PAID,
         specialInstructions: null,
+        approvalStatus: ApprovalStatus.APPROVED,
     },
     {
         id: '7',
@@ -165,6 +171,7 @@ export const initialOrders: Order[] = [
         followUpStatus: FollowUpStatus.COMPLETED,
         paymentStatus: PaymentStatus.PAID,
         specialInstructions: null,
+        approvalStatus: ApprovalStatus.APPROVED,
     },
     {
         id: '8',
@@ -189,6 +196,7 @@ export const initialOrders: Order[] = [
         followUpStatus: FollowUpStatus.NEEDED,
         paymentStatus: PaymentStatus.PAID,
         specialInstructions: null,
+        approvalStatus: ApprovalStatus.APPROVED,
     }
 ];
 

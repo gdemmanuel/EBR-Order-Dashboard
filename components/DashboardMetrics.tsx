@@ -1,12 +1,12 @@
 
+
 import React, { useMemo } from 'react';
 import { Order } from '../types';
-// FIX: Corrected the import names for empanada flavors from `all...` to `initial...` to match the exported members in `mockData.ts`.
-import { initialOrders, initialEmpanadaFlavors, initialFullSizeEmpanadaFlavors } from '../data/mockData';
 import { 
     BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer 
 } from 'recharts';
 import { TrendingUpIcon, DocumentTextIcon, ShoppingBagIcon } from './icons/Icons';
+import { parseOrderDateTime } from '../utils/dateUtils';
 
 interface DashboardMetricsProps {
     stats: {
@@ -15,8 +15,8 @@ interface DashboardMetricsProps {
         totalEmpanadasSold: number;
     };
     orders: Order[];
-    startDate?: string;
-    endDate?: string;
+    empanadaFlavors: string[];
+    fullSizeEmpanadaFlavors: string[];
 }
 
 const StatCard: React.FC<{ title: string; value: string | number; icon: React.ReactNode }> = ({ title, value, icon }) => (
@@ -31,41 +31,19 @@ const StatCard: React.FC<{ title: string; value: string | number; icon: React.Re
     </div>
 );
 
-// Helper function to parse order date/time (adapted from App.tsx)
-const parseOrderDateTime = (order: Order): Date => {
-  const [month, day, year] = order.pickupDate.split('/').map(Number);
-  
-  let timeStr = order.pickupTime.split('-')[0].trim().toLowerCase();
-  const hasAmPm = timeStr.includes('am') || timeStr.includes('pm');
-  let [hours, minutes] = timeStr.replace('am', '').replace('pm', '').split(':').map(Number);
-
-  if (isNaN(hours)) hours = 0;
-  if (isNaN(minutes)) minutes = 0;
-
-  if (hasAmPm && timeStr.includes('pm') && hours < 12) {
-    hours += 12;
-  } else if (hasAmPm && timeStr.includes('am') && hours === 12) {
-    hours = 0;
-  } else if (!hasAmPm && hours > 0 && hours < 8) {
-    hours += 12;
-  }
-  
-  return new Date(year, month - 1, day, hours, minutes);
-};
-
 // Helper function to get the start of the week (Sunday)
 const getStartOfWeek = (d: Date) => {
     const date = new Date(d);
     const day = date.getDay(); // Sunday - 0, Monday - 1, ...
     const diff = date.getDate() - day;
+    date.setHours(0, 0, 0, 0);
     return new Date(date.setDate(diff));
 };
 
 
-export default function DashboardMetrics({ stats, orders, startDate, endDate }: DashboardMetricsProps) {
-    // FIX: Updated variable names to use the correctly imported flavor arrays.
-    const miniFlavorsSet = useMemo(() => new Set(initialEmpanadaFlavors), []);
-    const fullSizeFlavorsSet = useMemo(() => new Set(initialFullSizeEmpanadaFlavors), []);
+export default function DashboardMetrics({ stats, orders, empanadaFlavors, fullSizeEmpanadaFlavors }: DashboardMetricsProps) {
+    const miniFlavorsSet = useMemo(() => new Set(empanadaFlavors), [empanadaFlavors]);
+    const fullSizeFlavorsSet = useMemo(() => new Set(fullSizeEmpanadaFlavors), [fullSizeEmpanadaFlavors]);
 
     const popularMiniProductsData = useMemo(() => {
         const productCounts = new Map<string, number>();
@@ -101,32 +79,24 @@ export default function DashboardMetrics({ stats, orders, startDate, endDate }: 
     }, [orders, fullSizeFlavorsSet]);
     
     const weeklySalesData = useMemo(() => {
-        const dateRangeProvided = startDate && endDate;
-        
-        const sixMonthsAgo = new Date();
-        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-
-        // Use filtered orders from props, which are already in the date range if selected
-        // If no range is selected, filter all original orders for the last 6 months
-        const relevantOrders = dateRangeProvided 
-            ? orders 
-            : initialOrders.filter(order => parseOrderDateTime(order) >= sixMonthsAgo);
-
         const weeklyTotals = new Map<string, { mini: number; full: number }>();
         
-        relevantOrders.forEach(order => {
-            try {
-                const orderDate = parseOrderDateTime(order);
-                const weekStartDate = getStartOfWeek(orderDate);
-                const weekKey = weekStartDate.toISOString().split('T')[0]; // YYYY-MM-DD
-
-                const currentTotals = weeklyTotals.get(weekKey) || { mini: 0, full: 0 };
-                currentTotals.mini += order.totalMini;
-                currentTotals.full += order.totalFullSize;
-                weeklyTotals.set(weekKey, currentTotals);
-            } catch (e) {
-                // Ignore orders with invalid dates
+        orders.forEach(order => {
+            const orderDate = parseOrderDateTime(order);
+            
+            // FIX: This check prevents a crash if the date is invalid. An invalid date
+            // would cause .toISOString() to throw a RangeError, crashing the app.
+            if (isNaN(orderDate.getTime())) {
+                return; // Skip this order if the date is invalid
             }
+
+            const weekStartDate = getStartOfWeek(orderDate);
+            const weekKey = weekStartDate.toISOString().split('T')[0]; // YYYY-MM-DD
+
+            const currentTotals = weeklyTotals.get(weekKey) || { mini: 0, full: 0 };
+            currentTotals.mini += order.totalMini;
+            currentTotals.full += order.totalFullSize;
+            weeklyTotals.set(weekKey, currentTotals);
         });
         
         return Array.from(weeklyTotals.entries())
@@ -139,7 +109,7 @@ export default function DashboardMetrics({ stats, orders, startDate, endDate }: 
                 ...item,
                 weekLabel: new Date(item.week).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
             }));
-    }, [orders, startDate, endDate]);
+    }, [orders]);
 
     return (
         <div>

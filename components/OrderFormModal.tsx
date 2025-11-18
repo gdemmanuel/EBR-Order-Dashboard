@@ -1,7 +1,10 @@
+
+
 import React, { useState, useEffect } from 'react';
-import { Order, OrderItem, ContactMethod, FollowUpStatus, PaymentStatus } from '../types';
+import { Order, OrderItem, ContactMethod, FollowUpStatus, PaymentStatus, ApprovalStatus } from '../types';
 import { XMarkIcon, PlusIcon, TrashIcon } from './icons/Icons';
 import { getAddressSuggestions } from '../services/geminiService';
+import { MINI_EMPANADA_PRICE, FULL_SIZE_EMPANADA_PRICE, SALSA_PRICES, SalsaSize } from '../config';
 
 interface OrderFormModalProps {
     order?: Order;
@@ -20,20 +23,12 @@ interface FormOrderItem {
 }
 
 type SalsaName = 'Salsa Verde' | 'Salsa Rosada';
-type SalsaSize = 'Small (4oz)' | 'Large (8oz)';
 interface SalsaState {
     name: SalsaName;
     checked: boolean;
     quantity: number | string;
     size: SalsaSize;
 }
-
-const MINI_EMPANADA_PRICE = 1.75;
-const FULL_SIZE_EMPANADA_PRICE = 3.00;
-const SALSA_PRICES: Record<SalsaSize, number> = {
-    'Small (4oz)': 2.00,
-    'Large (8oz)': 4.00,
-};
 
 const ItemInputSection: React.FC<{
     title: string;
@@ -114,6 +109,17 @@ const formatTimeToHHMM = (timeStr: string | undefined): string => {
     return `${formattedHours}:${formattedMinutes}`;
 };
 
+/**
+ * Formats a date string from MM/DD/YYYY to YYYY-MM-DD for date inputs.
+ */
+const formatDateToYYYYMMDD = (dateStr: string | undefined): string => {
+    if (!dateStr) return '';
+    const parts = dateStr.split('/');
+    if (parts.length !== 3) return '';
+    const [month, day, year] = parts;
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+};
+
 
 export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors, fullSizeEmpanadaFlavors, onAddNewFlavor }: OrderFormModalProps) {
     const [customerName, setCustomerName] = useState('');
@@ -166,60 +172,62 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         setAddressSuggestions([]);
         setAddressError(null);
     };
+    
+    const populateForm = (data: Order | Partial<Order>) => {
+        setCustomerName(data.customerName || '');
+        setPhoneNumber(data.phoneNumber || '');
+        setPickupDate(formatDateToYYYYMMDD(data.pickupDate));
+        setPickupTime(formatTimeToHHMM(data.pickupTime));
+
+        const contact = data.contactMethod || '';
+        const isStandardMethod = Object.values(ContactMethod).includes(contact as ContactMethod);
+        if (isStandardMethod) {
+            setContactMethod(contact);
+            setCustomContactMethod('');
+        } else {
+            setContactMethod('Other');
+            setCustomContactMethod(contact);
+        }
+
+        setDeliveryRequired(data.deliveryRequired || false);
+        setDeliveryFee(data.deliveryFee || 0);
+        setDeliveryAddress(data.deliveryAddress || '');
+
+        const items = data.items || [];
+        const isSalsa = (name: string) => name.includes('Salsa Verde') || name.includes('Salsa Rosada');
+        setMiniItems(items.filter(i => !i.name.startsWith('Full ') && !isSalsa(i.name)));
+        setFullSizeItems(items.filter(i => i.name.startsWith('Full ')));
+        
+        setPaymentStatus((data as Order).paymentStatus || PaymentStatus.PENDING);
+        setAmountCollected(data.amountCollected || 0);
+        setPaymentMethod(data.paymentMethod || '');
+        setSpecialInstructions(data.specialInstructions || '');
+
+        // Populate salsa items from order
+        const initialSalsaState: SalsaState[] = [
+            { name: 'Salsa Verde', checked: false, quantity: 1, size: 'Small (4oz)' },
+            { name: 'Salsa Rosada', checked: false, quantity: 1, size: 'Small (4oz)' }
+        ];
+        
+        const salsaVerdeItem = items.find(i => i.name.includes('Salsa Verde'));
+        if (salsaVerdeItem) {
+            initialSalsaState[0].checked = true;
+            initialSalsaState[0].quantity = salsaVerdeItem.quantity;
+            initialSalsaState[0].size = salsaVerdeItem.name.includes('Large') ? 'Large (8oz)' : 'Small (4oz)';
+        }
+        
+        const salsaRosadaItem = items.find(i => i.name.includes('Salsa Rosada'));
+        if (salsaRosadaItem) {
+            initialSalsaState[1].checked = true;
+            initialSalsaState[1].quantity = salsaRosadaItem.quantity;
+            initialSalsaState[1].size = salsaRosadaItem.name.includes('Large') ? 'Large (8oz)' : 'Small (4oz)';
+        }
+        setSalsaItems(initialSalsaState);
+    };
 
     useEffect(() => {
         if (order) {
-            setCustomerName(order.customerName);
-            setPhoneNumber(order.phoneNumber || '');
-            const dateParts = order.pickupDate.split('/');
-            // Format to YYYY-MM-DD for input type=date
-            const formattedDate = `${dateParts[2]}-${dateParts[0].padStart(2, '0')}-${dateParts[1].padStart(2, '0')}`;
-            setPickupDate(formattedDate);
-            setPickupTime(formatTimeToHHMM(order.pickupTime));
-            
-            const isStandardMethod = Object.values(ContactMethod).includes(order.contactMethod as ContactMethod);
-            if (isStandardMethod) {
-                setContactMethod(order.contactMethod);
-                setCustomContactMethod('');
-            } else {
-                setContactMethod('Other');
-                setCustomContactMethod(order.contactMethod);
-            }
-
-            setDeliveryRequired(order.deliveryRequired);
-            setDeliveryFee(order.deliveryFee);
-            setDeliveryAddress(order.deliveryAddress || '');
-
-            const isSalsa = (name: string) => name.includes('Salsa Verde') || name.includes('Salsa Rosada');
-            setMiniItems(order.items.filter(i => !i.name.startsWith('Full ') && !isSalsa(i.name)));
-            setFullSizeItems(order.items.filter(i => i.name.startsWith('Full ')));
-
-            setPaymentStatus(order.paymentStatus);
-            setAmountCollected(order.amountCollected || 0);
-            setPaymentMethod(order.paymentMethod || '');
-            setSpecialInstructions(order.specialInstructions || '');
-
-            // Populate salsa items from order
-            const initialSalsaState: SalsaState[] = [
-                { name: 'Salsa Verde', checked: false, quantity: 1, size: 'Small (4oz)' },
-                { name: 'Salsa Rosada', checked: false, quantity: 1, size: 'Small (4oz)' }
-            ];
-            
-            const salsaVerdeItem = order.items.find(i => i.name.includes('Salsa Verde'));
-            if (salsaVerdeItem) {
-                initialSalsaState[0].checked = true;
-                initialSalsaState[0].quantity = salsaVerdeItem.quantity;
-                initialSalsaState[0].size = salsaVerdeItem.name.includes('Large') ? 'Large (8oz)' : 'Small (4oz)';
-            }
-            
-            const salsaRosadaItem = order.items.find(i => i.name.includes('Salsa Rosada'));
-            if (salsaRosadaItem) {
-                initialSalsaState[1].checked = true;
-                initialSalsaState[1].quantity = salsaRosadaItem.quantity;
-                initialSalsaState[1].size = salsaRosadaItem.name.includes('Large') ? 'Large (8oz)' : 'Small (4oz)';
-            }
-            setSalsaItems(initialSalsaState);
-
+            populateForm(order);
         } else {
             resetForm();
         }
@@ -423,9 +431,21 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         const totalFullSize = fullSizeOrderItems.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
         const totalMini = miniOrderItems.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
 
-        // Format date back to MM/DD/YYYY
-        const dateParts = pickupDate.split('-');
-        const formattedDate = `${dateParts[1]}/${dateParts[2]}/${dateParts[0]}`;
+        // FIX: Add checks for empty date/time to prevent crash on save.
+        const formattedDate = pickupDate
+            ? `${pickupDate.split('-')[1]}/${pickupDate.split('-')[2]}/${pickupDate.split('-')[0]}`
+            : '';
+
+        let formattedTime = '';
+        if (pickupTime) {
+            const timeParts = pickupTime.split(':');
+            let hours = parseInt(timeParts[0], 10);
+            const minutes = parseInt(timeParts[1], 10);
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            hours = hours % 12;
+            hours = hours ? hours : 12; // the hour '0' should be '12'
+            formattedTime = `${hours}:${String(minutes).padStart(2, '0')} ${ampm}`;
+        }
 
         const finalContactMethod = contactMethod === 'Other' ? (customContactMethod.trim() || 'Other') : contactMethod;
 
@@ -433,7 +453,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
             customerName,
             phoneNumber,
             pickupDate: formattedDate,
-            pickupTime,
+            pickupTime: formattedTime,
             contactMethod: finalContactMethod,
             items: allItems,
             amountCharged,
@@ -447,6 +467,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
             amountCollected: Number(amountCollected) || 0,
             paymentMethod: paymentMethod.trim() || null,
             specialInstructions: specialInstructions || null,
+            approvalStatus: order?.approvalStatus || ApprovalStatus.APPROVED,
         };
 
         if (order) {

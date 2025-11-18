@@ -1,13 +1,15 @@
 import React, { useState, useCallback } from 'react';
-import { Order, FollowUpStatus } from '../types';
+import { Order, FollowUpStatus, ApprovalStatus } from '../types';
 import { generateFollowUpMessage, generateOrderConfirmationMessage } from '../services/geminiService';
-import { CalendarIcon, ClockIcon, UserIcon, PhoneIcon, MapPinIcon, CurrencyDollarIcon, SparklesIcon, XMarkIcon, PencilIcon, ClipboardDocumentCheckIcon, PaperAirplaneIcon, CreditCardIcon, ArrowTopRightOnSquareIcon, InstagramIcon, ChatBubbleOvalLeftEllipsisIcon, FacebookIcon } from './icons/Icons';
+import { CalendarIcon, ClockIcon, UserIcon, PhoneIcon, MapPinIcon, CurrencyDollarIcon, SparklesIcon, XMarkIcon, PencilIcon, ClipboardDocumentCheckIcon, PaperAirplaneIcon, CreditCardIcon, ArrowTopRightOnSquareIcon, InstagramIcon, ChatBubbleOvalLeftEllipsisIcon, FacebookIcon, CheckCircleIcon, XCircleIcon } from './icons/Icons';
 
 interface OrderDetailModalProps {
   order: Order;
   onClose: () => void;
   onUpdateFollowUp: (orderId: string, status: FollowUpStatus) => void;
   onEdit: (order: Order) => void;
+  onApprove?: (orderId: string) => void;
+  onDeny?: (orderId: string) => void;
 }
 
 const DetailItem: React.FC<{ icon: React.ReactNode; label: string; value: string | number | null | undefined }> = ({ icon, label, value }) => {
@@ -23,7 +25,7 @@ const DetailItem: React.FC<{ icon: React.ReactNode; label: string; value: string
     );
 };
 
-export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onEdit }: OrderDetailModalProps) {
+export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onEdit, onApprove, onDeny }: OrderDetailModalProps) {
   const [generatedMessage, setGeneratedMessage] = useState<string>('');
   const [loadingAction, setLoadingAction] = useState<'confirmation' | 'followup' | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -121,6 +123,24 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
           <header className="p-6 border-b border-brand-tan flex justify-between items-center">
             <h2 className="text-3xl font-serif text-brand-brown">Order Details</h2>
             <div className="flex items-center gap-2">
+              {order.approvalStatus === ApprovalStatus.PENDING && onApprove && onDeny && (
+                  <>
+                    <button
+                        onClick={() => { onDeny(order.id); onClose(); }}
+                        className="flex items-center gap-2 bg-red-100 text-red-700 font-semibold px-3 py-1.5 rounded-lg hover:bg-red-200 transition-colors border border-red-200"
+                    >
+                        <XCircleIcon className="w-4 h-4" />
+                        Deny
+                    </button>
+                    <button
+                        onClick={() => { onApprove(order.id); onClose(); }}
+                        className="flex items-center gap-2 bg-emerald-100 text-emerald-800 font-semibold px-3 py-1.5 rounded-lg hover:bg-emerald-200 transition-colors border border-emerald-200"
+                    >
+                        <CheckCircleIcon className="w-4 h-4" />
+                        Approve
+                    </button>
+                  </>
+              )}
               <button
                 onClick={() => onEdit(order)}
                 className="flex items-center gap-2 bg-white text-brand-brown font-semibold px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors border border-gray-300"
@@ -187,13 +207,27 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
               </div>
             </div>
 
-            {/* Payment Details */}
+            {/* Payment Summary - REDESIGNED */}
             <div>
-                <h3 className="text-lg font-semibold text-brand-brown/90 mb-2">Payment Details</h3>
+                <h3 className="text-lg font-semibold text-brand-brown/90 mb-2">Payment Summary</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-brand-tan/30 p-4 rounded-lg border border-brand-tan">
-                    <DetailItem icon={<CurrencyDollarIcon className="w-5 h-5" />} label="Amount Collected" value={order.amountCollected !== null ? `$${order.amountCollected.toFixed(2)}` : null} />
-                    <DetailItem icon={<CreditCardIcon className="w-5 h-5" />} label="Payment Method" value={order.paymentMethod} />
-                    <DetailItem icon={<CreditCardIcon className="w-5 h-5" />} label="Payment Status" value={order.paymentStatus} />
+                    <DetailItem icon={<CurrencyDollarIcon className="w-5 h-5" />} label="Amount Charged" value={`$${order.amountCharged.toFixed(2)}`} />
+                    <DetailItem icon={<CurrencyDollarIcon className="w-5 h-5" />} label="Amount Collected" value={`$${(order.amountCollected || 0).toFixed(2)}`} />
+                    <div className="flex items-start space-x-3">
+                        <div className="text-gray-400 mt-1"><CurrencyDollarIcon className="w-5 h-5" /></div>
+                        <div>
+                            <p className="text-sm font-medium text-brand-brown/70">Balance Due</p>
+                             {/* Calculate balance due */}
+                             {(() => {
+                                 const balance = order.amountCharged - (order.amountCollected || 0);
+                                 return balance > 0 ? (
+                                     <p className="text-base font-bold text-red-600">${balance.toFixed(2)}</p>
+                                 ) : (
+                                     <p className="text-base text-gray-500 font-medium">Paid</p>
+                                 );
+                             })()}
+                        </div>
+                    </div>
                 </div>
             </div>
 
