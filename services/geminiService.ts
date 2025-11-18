@@ -1,15 +1,8 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Order } from '../types';
 
-const API_KEY = process.env.API_KEY;
-
-if (!API_KEY) {
-  // This is a fallback for development environments where the key might not be set.
-  // In the target runtime, process.env.API_KEY is expected to be available.
-  console.warn("API_KEY environment variable not set. Gemini API calls will fail.");
-}
-
-const ai = new GoogleGenAI({ apiKey: API_KEY });
+// Initialize the client with the key from process.env.API_KEY as per guidelines.
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export async function generateFollowUpMessage(order: Order): Promise<string> {
   const model = 'gemini-2.5-flash';
