@@ -7,10 +7,12 @@ import { XMarkIcon, SparklesIcon } from './icons/Icons';
 
 interface ImportOrderModalProps {
   onClose: () => void;
-  onOrdersImported: (orders: Partial<Order>[]) => void;
+  onOrdersImported: (orders: Partial<Order>[], newSignatures: string[]) => void;
+  onUpdateSheetUrl: (url: string) => void;
+  existingSignatures: Set<string>;
 }
 
-export default function ImportOrderModal({ onClose, onOrdersImported }: ImportOrderModalProps) {
+export default function ImportOrderModal({ onClose, onOrdersImported, onUpdateSheetUrl, existingSignatures }: ImportOrderModalProps) {
   const [sheetUrl, setSheetUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,10 +48,13 @@ export default function ImportOrderModal({ onClose, onOrdersImported }: ImportOr
           throw new Error("The Google Sheet appears to be empty.");
       }
       
-      const parsedOrders = await parseOrdersFromSheet(csvText, setProgressMessage);
-      onOrdersImported(parsedOrders);
+      // Pass existing signatures to filtering logic
+      const { newOrders, newSignatures } = await parseOrdersFromSheet(csvText, setProgressMessage, existingSignatures);
+      
+      onOrdersImported(newOrders, newSignatures);
+      onUpdateSheetUrl(sheetUrl); // Save the URL for future auto-updates
+      
     } catch (err: any) {
-      // FIX: More robust error handling to prevent '[object Object]' messages by stringifying the error if needed.
       const message = err?.message || (typeof err === 'object' ? JSON.stringify(err, null, 2) : String(err));
       setError(message);
     } finally {

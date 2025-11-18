@@ -1,5 +1,6 @@
 
-import React, { useState, useMemo } from 'react';
+
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Order, FollowUpStatus, ContactMethod, PaymentStatus, ApprovalStatus } from './types';
 import { initialOrders, initialEmpanadaFlavors, initialFullSizeEmpanadaFlavors } from './data/mockData';
 import { MINI_EMPANADA_PRICE, FULL_SIZE_EMPANADA_PRICE, SALSA_PRICES } from './config';
@@ -9,12 +10,13 @@ import OrderDetailModal from './components/OrderDetailModal';
 import DashboardMetrics from './components/DashboardMetrics';
 import OrderFormModal from './components/OrderFormModal';
 import ImportOrderModal from './components/ImportOrderModal';
-import { PlusCircleIcon, DocumentArrowDownIcon, CalendarDaysIcon, ListBulletIcon } from './components/icons/Icons';
+import { PlusCircleIcon, DocumentArrowDownIcon, CalendarDaysIcon, ListBulletIcon, SparklesIcon } from './components/icons/Icons';
 import PrintPreviewPage from './components/PrintPreviewPage';
 import PendingOrders from './components/PendingOrders';
 import DateRangeFilter from './components/DateRangeFilter';
 import CalendarView from './components/CalendarView';
 import { parseOrderDateTime } from './utils/dateUtils';
+import { parseOrdersFromSheet } from './services/geminiService';
 
 
 /**
@@ -43,21 +45,64 @@ const calculateOrderTotal = (order: Partial<Order>): number => {
 
 
 export default function App() {
-  const [orders, setOrders] = useState<Order[]>(initialOrders);
-  const [pendingOrders, setPendingOrders] = useState<Order[]>([]);
+  // -- STATE MANAGEMENT --
+  
+  // Orders and Flavor Data (Persisted)
+  const [orders, setOrders] = useState<Order[]>(() => {
+    const saved = localStorage.getItem('orders');
+    return saved ? JSON.parse(saved) : initialOrders;
+  });
+  
+  const [pendingOrders, setPendingOrders] = useState<Order[]>(() => {
+    const saved = localStorage.getItem('pendingOrders');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [empanadaFlavors, setEmpanadaFlavors] = useState<string[]>(() => {
+      const saved = localStorage.getItem('empanadaFlavors');
+      return saved ? JSON.parse(saved) : initialEmpanadaFlavors;
+  });
+
+  const [fullSizeEmpanadaFlavors, setFullSizeEmpanadaFlavors] = useState<string[]>(() => {
+      const saved = localStorage.getItem('fullSizeEmpanadaFlavors');
+      return saved ? JSON.parse(saved) : initialFullSizeEmpanadaFlavors;
+  });
+
+  // Automation Data (Persisted)
+  const [sheetUrl, setSheetUrl] = useState<string>(() => {
+      return localStorage.getItem('sheetUrl') || '';
+  });
+
+  const [importedSignatures, setImportedSignatures] = useState<Set<string>>(() => {
+      const saved = localStorage.getItem('importedSignatures');
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+  });
+
+  // UI State
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState<boolean>(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState<boolean>(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState<boolean>(false);
   const [orderToEdit, setOrderToEdit] = useState<Order | undefined>(undefined);
   const [ordersToPrint, setOrdersToPrint] = useState<Order[]>([]);
-  const [empanadaFlavors, setEmpanadaFlavors] = useState<string[]>(initialEmpanadaFlavors);
-  const [fullSizeEmpanadaFlavors, setFullSizeEmpanadaFlavors] = useState<string[]>(initialFullSizeEmpanadaFlavors);
   const [activeDateRange, setActiveDateRange] = useState<{ start?: string; end?: string }>({});
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
+  const [isCheckingForOrders, setIsCheckingForOrders] = useState(false);
 
-  const handleOrdersImported = (importedOrders: Partial<Order>[]) => {
-    const newPendingOrders = importedOrders.map((importedOrder, index) => {
+  // -- EFFECTS FOR PERSISTENCE --
+  
+  useEffect(() => { localStorage.setItem('orders', JSON.stringify(orders)); }, [orders]);
+  useEffect(() => { localStorage.setItem('pendingOrders', JSON.stringify(pendingOrders)); }, [pendingOrders]);
+  useEffect(() => { localStorage.setItem('empanadaFlavors', JSON.stringify(empanadaFlavors)); }, [empanadaFlavors]);
+  useEffect(() => { localStorage.setItem('fullSizeEmpanadaFlavors', JSON.stringify(fullSizeEmpanadaFlavors)); }, [fullSizeEmpanadaFlavors]);
+  useEffect(() => { localStorage.setItem('sheetUrl', sheetUrl); }, [sheetUrl]);
+  useEffect(() => { localStorage.setItem('importedSignatures', JSON.stringify(Array.from(importedSignatures))); }, [importedSignatures]);
+
+
+  // -- HANDLERS --
+
+  const processImportedOrders = useCallback((importedOrders: Partial<Order>[]) => {
+      return importedOrders.map((importedOrder, index) => {
         const items = importedOrder.items || [];
         const totalFullSize = items.filter(i => i.name.startsWith('Full ')).reduce((sum, i) => sum + i.quantity, 0);
         const totalMini = items.filter(i => !i.name.startsWith('Full ')).reduce((sum, i) => sum + i.quantity, 0);
@@ -85,17 +130,77 @@ export default function App() {
         
         const amountCharged = calculateOrderTotal(newOrderBase);
         
-        const newOrder: Order = {
+        return {
           ...newOrderBase,
           amountCharged: amountCharged,
-        };
-        
-        return newOrder;
+        } as Order;
     });
+  }, []);
+
+  const handleOrdersImported = (importedOrders: Partial<Order>[], newSignatures: string[]) => {
+    const newPendingOrders = processImportedOrders(importedOrders);
 
     setPendingOrders(prev => [...prev, ...newPendingOrders]);
+    setImportedSignatures(prev => {
+        const next = new Set(prev);
+        newSignatures.forEach(sig => next.add(sig));
+        return next;
+    });
     setIsImportModalOpen(false);
   };
+
+  // -- AUTOMATION: AUTO-IMPORT LOGIC --
+
+  const checkForNewOrders = useCallback(async () => {
+      if (!sheetUrl) return;
+
+      setIsCheckingForOrders(true);
+      try {
+          const regex = /\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/;
+          const match = sheetUrl.match(regex);
+          if (!match || !match[1]) return;
+          
+          const sheetId = match[1];
+          const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv`;
+
+          const response = await fetch(csvUrl);
+          if (!response.ok) return;
+          const csvText = await response.text();
+
+          // Use the service to find new orders, passing current signatures to skip duplicates
+          const { newOrders, newSignatures } = await parseOrdersFromSheet(
+              csvText, 
+              () => {}, // No progress updates needed for background check
+              importedSignatures
+          );
+
+          if (newOrders.length > 0) {
+              const processedOrders = processImportedOrders(newOrders);
+              setPendingOrders(prev => [...prev, ...processedOrders]);
+              setImportedSignatures(prev => {
+                  const next = new Set(prev);
+                  newSignatures.forEach(sig => next.add(sig));
+                  return next;
+              });
+              console.log(`Auto-import: Found ${newOrders.length} new orders.`);
+          }
+      } catch (error) {
+          console.error("Auto-import failed:", error);
+      } finally {
+          setIsCheckingForOrders(false);
+      }
+  }, [sheetUrl, importedSignatures, processImportedOrders]);
+
+  // Effect: Check for new orders on mount (if URL exists) and then every hour
+  useEffect(() => {
+      if (sheetUrl) {
+          checkForNewOrders();
+          
+          const intervalId = setInterval(checkForNewOrders, 60 * 60 * 1000); // 60 minutes
+          return () => clearInterval(intervalId);
+      }
+  }, [sheetUrl, checkForNewOrders]);
+
 
   const handleApproveOrder = (orderId: string) => {
     const orderToApprove = pendingOrders.find(o => o.id === orderId);
@@ -265,7 +370,25 @@ export default function App() {
                     Calendar
                 </button>
             </div>
-            <div className="flex gap-4">
+            <div className="flex gap-4 items-center">
+                {sheetUrl && (
+                    <div className="hidden md:flex items-center gap-2 text-xs font-medium text-emerald-700 bg-emerald-50 px-2 py-1 rounded-full border border-emerald-100">
+                        {isCheckingForOrders ? (
+                            <>
+                                <div className="animate-spin h-3 w-3 border-2 border-emerald-500 border-t-transparent rounded-full"></div>
+                                Checking...
+                            </>
+                        ) : (
+                            <>
+                                <span className="relative flex h-2 w-2">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                </span>
+                                Auto-refresh active
+                            </>
+                        )}
+                    </div>
+                )}
                 <button
                     onClick={() => setIsImportModalOpen(true)}
                     className="flex items-center gap-2 bg-white text-brand-brown font-semibold px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors border border-gray-300 shadow-sm"
@@ -348,6 +471,8 @@ export default function App() {
             <ImportOrderModal 
                 onClose={() => setIsImportModalOpen(false)}
                 onOrdersImported={handleOrdersImported}
+                onUpdateSheetUrl={setSheetUrl}
+                existingSignatures={importedSignatures}
             />
         )}
       </main>

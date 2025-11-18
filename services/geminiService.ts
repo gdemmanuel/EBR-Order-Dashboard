@@ -267,43 +267,69 @@ async function parseObjectsBatch(
     }
 }
 
+export interface ImportResult {
+    newOrders: Partial<Order>[];
+    newSignatures: string[];
+}
+
 /**
- * DEFINITIVE FIX: Re-architected for reliability and scalability.
+ * DEFINITIVE FIX: Re-architected for reliability, scalability, and deduplication.
  * 1. Uses a deterministic client-side CSV parser to handle file structure.
- * 2. Simplifies the AI's task to a more reliable structured data mapping job.
- * 3. Implements a delay between batches to respect API rate limits (prevents 429 errors).
- * 4. Provides robust, specific error messages to the user, fixing the "[object Object]" bug.
+ * 2. Filters out rows that have already been processed based on `existingSignatures`.
+ * 3. Simplifies the AI's task to a more reliable structured data mapping job.
+ * 4. Implements a delay between batches to respect API rate limits.
  */
 export async function parseOrdersFromSheet(
     csvText: string,
-    onProgress: (message: string) => void
-): Promise<Partial<Order>[]> {
+    onProgress: (message: string) => void,
+    existingSignatures: Set<string> = new Set()
+): Promise<ImportResult> {
     
     let rowObjects: Record<string, string>[];
     try {
-        rowObjects = simpleCsvParser(csvText);
+        // Pre-process: remove quotes from the entire CSV text to prevent parsing errors
+        const sanitizedCsv = csvText.replace(/"/g, '');
+        rowObjects = simpleCsvParser(sanitizedCsv);
     } catch (e: any) {
         throw new Error(`Failed to parse the sheet data. Please ensure it's a valid CSV file. Error: ${e.message}`);
     }
 
     if (rowObjects.length === 0) {
         onProgress('');
-        return [];
+        return { newOrders: [], newSignatures: [] };
     }
     
+    // Deduplication: Filter out rows that we've already imported
+    const newRows: Record<string, string>[] = [];
+    const newRowSignatures: string[] = [];
+
+    rowObjects.forEach(row => {
+        // Create a unique signature for the row. A simple stringify of the row object works well for this.
+        const signature = JSON.stringify(row);
+        if (!existingSignatures.has(signature)) {
+            newRows.push(row);
+            newRowSignatures.push(signature);
+        }
+    });
+
+    if (newRows.length === 0) {
+        onProgress('No new orders found.');
+        return { newOrders: [], newSignatures: [] };
+    }
+
     const BATCH_SIZE = 15;
     const DELAY_MS = 5100;
 
     let allParsedOrders: Partial<Order>[] = [];
-    const totalBatches = Math.ceil(rowObjects.length / BATCH_SIZE);
+    const totalBatches = Math.ceil(newRows.length / BATCH_SIZE);
 
-    for (let i = 0; i < rowObjects.length; i += BATCH_SIZE) {
+    for (let i = 0; i < newRows.length; i += BATCH_SIZE) {
         const batchNum = (i / BATCH_SIZE) + 1;
-        const startRow = i + 2;
-        const endRow = Math.min(i + BATCH_SIZE + 1, rowObjects.length + 1);
-        onProgress(`Processing batch ${batchNum} of ${totalBatches} (rows ${startRow}-${endRow})...`);
+        const startRow = i + 1;
+        const endRow = Math.min(i + BATCH_SIZE, newRows.length);
+        onProgress(`Processing new orders: batch ${batchNum} of ${totalBatches} (${startRow}-${endRow})...`);
 
-        const batchObjects = rowObjects.slice(i, i + BATCH_SIZE);
+        const batchObjects = newRows.slice(i, i + BATCH_SIZE);
         
         try {
             const parsedBatch = await parseObjectsBatch(batchObjects, batchNum, totalBatches);
@@ -320,5 +346,9 @@ export async function parseOrdersFromSheet(
 
     onProgress('Import complete!');
     await sleep(1000);
-    return allParsedOrders;
+    
+    return { 
+        newOrders: allParsedOrders, 
+        newSignatures: newRowSignatures 
+    };
 }
