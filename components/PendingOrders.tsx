@@ -2,15 +2,14 @@
 
 import React from 'react';
 import { Order } from '../types';
-import { CheckCircleIcon, XCircleIcon, PencilIcon } from './icons/Icons';
+import { CheckCircleIcon, XCircleIcon } from './icons/Icons';
 
 const PendingOrderItem: React.FC<{ 
     order: Order; 
     onApprove: (id: string) => void; 
     onDeny: (id: string) => void; 
     onSelectOrder: (order: Order) => void;
-    onEdit: (order: Order) => void;
-}> = ({ order, onApprove, onDeny, onSelectOrder, onEdit }) => {
+}> = ({ order, onApprove, onDeny, onSelectOrder }) => {
     const totalItems = order.items.reduce((sum, item) => sum + item.quantity, 0);
 
     return (
@@ -34,23 +33,15 @@ const PendingOrderItem: React.FC<{
             <div className="flex items-center gap-2 flex-shrink-0 w-full sm:w-auto">
                 <button
                     onClick={(e) => { e.stopPropagation(); onDeny(order.id); }}
-                    className="w-1/3 sm:w-auto flex items-center justify-center gap-2 bg-red-100 text-red-700 font-semibold px-3 py-2 rounded-lg hover:bg-red-200 transition-colors"
+                    className="w-1/2 sm:w-auto flex items-center justify-center gap-2 bg-red-100 text-red-700 font-semibold px-3 py-2 rounded-lg hover:bg-red-200 transition-colors"
                     aria-label={`Deny order for ${order.customerName}`}
                 >
                     <XCircleIcon className="w-5 h-5" />
                     Deny
                 </button>
-                 <button
-                    onClick={(e) => { e.stopPropagation(); onEdit(order); }}
-                    className="w-1/3 sm:w-auto flex items-center justify-center gap-2 bg-gray-100 text-gray-700 font-semibold px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors"
-                    aria-label={`Edit order for ${order.customerName}`}
-                >
-                    <PencilIcon className="w-5 h-5" />
-                    Edit
-                </button>
                 <button
                     onClick={(e) => { e.stopPropagation(); onApprove(order.id); }}
-                    className="w-1/3 sm:w-auto flex items-center justify-center gap-2 bg-emerald-100 text-emerald-800 font-semibold px-3 py-2 rounded-lg hover:bg-emerald-200 transition-colors"
+                    className="w-1/2 sm:w-auto flex items-center justify-center gap-2 bg-emerald-100 text-emerald-800 font-semibold px-3 py-2 rounded-lg hover:bg-emerald-200 transition-colors"
                     aria-label={`Approve order for ${order.customerName}`}
                 >
                     <CheckCircleIcon className="w-5 h-5" />
@@ -67,10 +58,9 @@ interface PendingOrdersProps {
     onApprove: (id: string) => void;
     onDeny: (id: string) => void;
     onSelectOrder: (order: Order) => void;
-    onEdit: (order: Order) => void;
 }
 
-export default function PendingOrders({ orders, onApprove, onDeny, onSelectOrder, onEdit }: PendingOrdersProps) {
+export default function PendingOrders({ orders, onApprove, onDeny, onSelectOrder }: PendingOrdersProps) {
     if (orders.length === 0) {
         return null;
     }
@@ -89,7 +79,6 @@ export default function PendingOrders({ orders, onApprove, onDeny, onSelectOrder
                         onApprove={onApprove}
                         onDeny={onDeny}
                         onSelectOrder={onSelectOrder}
-                        onEdit={onEdit}
                     />
                 ))}
             </ul>

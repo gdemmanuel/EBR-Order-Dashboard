@@ -4,6 +4,7 @@ import { Order, FollowUpStatus, PaymentStatus } from '../types';
 import { CalendarIcon, TruckIcon, MagnifyingGlassIcon, PrinterIcon } from './icons/Icons';
 
 interface OrderListProps {
+  title?: string;
   orders: Order[];
   onSelectOrder: (order: Order) => void;
   onPrintSelected: (selectedOrders: Order[]) => void;
@@ -20,7 +21,7 @@ const StatusBadge: React.FC<{ status: FollowUpStatus }> = ({ status }) => {
 };
 
 
-export default function OrderList({ orders, onSelectOrder, onPrintSelected }: OrderListProps) {
+export default function OrderList({ title, orders, onSelectOrder, onPrintSelected }: OrderListProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   // FIX: Use a ref to imperatively set the indeterminate property on the checkbox,
@@ -74,7 +75,7 @@ export default function OrderList({ orders, onSelectOrder, onPrintSelected }: Or
   return (
     <div className="bg-white border border-brand-tan rounded-lg overflow-hidden">
         <div className="px-6 py-4 flex justify-between items-center flex-wrap gap-4">
-            <h2 className="text-2xl font-serif text-brand-brown">All Orders</h2>
+            <h2 className="text-2xl font-serif text-brand-brown">{title || 'All Orders'}</h2>
             <div className="flex items-center gap-4">
               {numSelected > 0 && (
                 <button
@@ -119,7 +120,7 @@ export default function OrderList({ orders, onSelectOrder, onPrintSelected }: Or
               <th scope="col" className="px-6 py-3 font-medium">Customer</th>
               <th scope="col" className="px-6 py-3 font-medium hidden md:table-cell">Pickup Details</th>
               <th scope="col" className="px-6 py-3 font-medium hidden sm:table-cell">Total Items</th>
-              <th scope="col" className="px-6 py-3 font-medium hidden lg:table-cell">Payment</th>
+              <th scope="col" className="px-6 py-3 font-medium hidden lg:table-cell">Balance Due</th>
               <th scope="col" className="px-6 py-3 font-medium">Follow-up Status</th>
             </tr>
           </thead>
@@ -166,16 +167,16 @@ export default function OrderList({ orders, onSelectOrder, onPrintSelected }: Or
                     {order.totalMini + order.totalFullSize}
                 </td>
                 <td className="px-6 py-4 hidden lg:table-cell">
-                    {order.paymentStatus === PaymentStatus.PAID ? (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
-                            Paid
-                        </span>
-                    ) : (
-                        <div className="text-brand-brown/90">
-                           ${(order.amountCharged - (order.amountCollected || 0)).toFixed(2)}
-                           <span className="text-gray-500"> left</span>
-                        </div>
-                    )}
+                     {(() => {
+                        const balance = order.amountCharged - (order.amountCollected || 0);
+                        return order.paymentStatus === PaymentStatus.PAID || balance <= 0 ? (
+                            <span className="text-gray-400 font-medium">$0.00</span>
+                        ) : (
+                            <span className="text-red-600 font-bold">
+                                ${balance.toFixed(2)}
+                            </span>
+                        );
+                    })()}
                 </td>
                 <td className="px-6 py-4">
                   <StatusBadge status={order.followUpStatus} />

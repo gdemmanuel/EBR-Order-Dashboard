@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Order, FollowUpStatus, ContactMethod, PaymentStatus, ApprovalStatus } from './types';
 import { initialOrders, initialEmpanadaFlavors, initialFullSizeEmpanadaFlavors } from './data/mockData';
@@ -8,10 +9,11 @@ import OrderDetailModal from './components/OrderDetailModal';
 import DashboardMetrics from './components/DashboardMetrics';
 import OrderFormModal from './components/OrderFormModal';
 import ImportOrderModal from './components/ImportOrderModal';
-import { PlusCircleIcon, DocumentArrowDownIcon } from './components/icons/Icons';
+import { PlusCircleIcon, DocumentArrowDownIcon, CalendarDaysIcon, ListBulletIcon } from './components/icons/Icons';
 import PrintPreviewPage from './components/PrintPreviewPage';
 import PendingOrders from './components/PendingOrders';
 import DateRangeFilter from './components/DateRangeFilter';
+import CalendarView from './components/CalendarView';
 import { parseOrderDateTime } from './utils/dateUtils';
 
 
@@ -52,6 +54,7 @@ export default function App() {
   const [empanadaFlavors, setEmpanadaFlavors] = useState<string[]>(initialEmpanadaFlavors);
   const [fullSizeEmpanadaFlavors, setFullSizeEmpanadaFlavors] = useState<string[]>(initialFullSizeEmpanadaFlavors);
   const [activeDateRange, setActiveDateRange] = useState<{ start?: string; end?: string }>({});
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
 
   const handleOrdersImported = (importedOrders: Partial<Order>[]) => {
     const newPendingOrders = importedOrders.map((importedOrder, index) => {
@@ -245,24 +248,44 @@ export default function App() {
       <Header />
       <main className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
         
-        <div className="flex justify-end items-center gap-4 mb-8">
-            <button
-                onClick={() => setIsImportModalOpen(true)}
-                className="flex items-center gap-2 bg-white text-brand-brown font-semibold px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors border border-gray-300 shadow-sm"
-            >
-                <DocumentArrowDownIcon className="w-5 h-5" />
-                Import Orders
-            </button>
-            <button 
-                onClick={handleOpenNewOrderModal}
-                className="flex items-center gap-2 bg-brand-orange text-white font-semibold px-4 py-2 rounded-lg shadow-md hover:bg-opacity-90 transition-all"
-            >
-                <PlusCircleIcon className="w-6 h-6" />
-                New Order
-            </button>
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-8">
+             <div className="bg-white p-1 rounded-lg border border-gray-300 shadow-sm flex items-center">
+                <button 
+                    onClick={() => setViewMode('list')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${viewMode === 'list' ? 'bg-brand-tan text-brand-brown font-medium' : 'text-gray-500 hover:bg-gray-100'}`}
+                >
+                    <ListBulletIcon className="w-5 h-5" />
+                    List
+                </button>
+                <button 
+                    onClick={() => setViewMode('calendar')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-md transition-colors ${viewMode === 'calendar' ? 'bg-brand-tan text-brand-brown font-medium' : 'text-gray-500 hover:bg-gray-100'}`}
+                >
+                    <CalendarDaysIcon className="w-5 h-5" />
+                    Calendar
+                </button>
+            </div>
+            <div className="flex gap-4">
+                <button
+                    onClick={() => setIsImportModalOpen(true)}
+                    className="flex items-center gap-2 bg-white text-brand-brown font-semibold px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors border border-gray-300 shadow-sm"
+                >
+                    <DocumentArrowDownIcon className="w-5 h-5" />
+                    Import Orders
+                </button>
+                <button 
+                    onClick={handleOpenNewOrderModal}
+                    className="flex items-center gap-2 bg-brand-orange text-white font-semibold px-4 py-2 rounded-lg shadow-md hover:bg-opacity-90 transition-all"
+                >
+                    <PlusCircleIcon className="w-6 h-6" />
+                    New Order
+                </button>
+            </div>
         </div>
 
-        <DateRangeFilter onDateChange={setActiveDateRange} />
+        {viewMode === 'list' && (
+            <DateRangeFilter onDateChange={setActiveDateRange} />
+        )}
 
         {pendingOrders.length > 0 && (
           <div className="mb-8">
@@ -271,17 +294,24 @@ export default function App() {
               onApprove={handleApproveOrder}
               onDeny={handleDenyOrder}
               onSelectOrder={handleSelectOrder}
-              onEdit={handleEditPendingOrder}
             />
           </div>
         )}
         
         <div>
-          <OrderList 
-            orders={filteredOrders} 
-            onSelectOrder={handleSelectOrder}
-            onPrintSelected={handlePrintSelected}
-          />
+            {viewMode === 'list' ? (
+                <OrderList 
+                    orders={filteredOrders} 
+                    onSelectOrder={handleSelectOrder}
+                    onPrintSelected={handlePrintSelected}
+                />
+            ) : (
+                <CalendarView 
+                    orders={orders}
+                    onSelectOrder={handleSelectOrder}
+                    onPrintSelected={handlePrintSelected}
+                />
+            )}
         </div>
         
         <div className="mt-8">
