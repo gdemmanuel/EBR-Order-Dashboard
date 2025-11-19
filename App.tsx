@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { User } from 'firebase/auth';
 
@@ -7,6 +7,7 @@ import { Order, ApprovalStatus, PricingSettings, Flavor } from './types';
 import { subscribeToOrders, subscribeToSettings, AppSettings, migrateLocalDataToFirestore } from './services/dbService';
 import { subscribeToAuth } from './services/authService';
 import { initialEmpanadaFlavors, initialFullSizeEmpanadaFlavors } from './data/mockData';
+import { parseOrdersFromSheet } from './services/geminiService'; // Import needed for auto-check logic
 
 import AdminDashboard from './components/AdminDashboard';
 import CustomerOrderPage from './components/CustomerOrderPage';
@@ -27,6 +28,14 @@ export default function App() {
   
   const [dbError, setDbError] = useState<string | null>(null);
   const [isMigrating, setIsMigrating] = useState(false);
+  
+  // Notification State
+  const prevPendingCountRef = useRef(0);
+
+  // Derived state for notifications
+  const pendingCount = useMemo(() => 
+    orders.filter(o => o.approvalStatus === ApprovalStatus.PENDING).length
+  , [orders]);
 
   // Auth Listener
   useEffect(() => {
@@ -36,6 +45,41 @@ export default function App() {
       });
       return () => unsubscribe();
   }, []);
+
+  // Notification Logic
+  useEffect(() => {
+      // 1. Request Permission on mount
+      if ('Notification' in window && Notification.permission === 'default') {
+          Notification.requestPermission();
+      }
+  }, []);
+
+  useEffect(() => {
+      // 2. Check for increase in pending orders
+      if (pendingCount > prevPendingCountRef.current) {
+          const newCount = pendingCount - prevPendingCountRef.current;
+          
+          // Browser Notification
+          if ('Notification' in window && Notification.permission === 'granted') {
+              new Notification('New Order Pending!', {
+                  body: `You have ${newCount} new order(s) waiting for approval.`,
+                  icon: '/vite.svg', // Standard Vite icon, or replace with your logo URL
+                  requireInteraction: true // Keeps notification on screen until clicked
+              });
+          }
+
+          // Tab Title Alert
+          document.title = `(${pendingCount}) Pending - Empanadas by Rose`;
+      } else if (pendingCount === 0) {
+          document.title = 'Empanadas by Rose';
+      } else {
+          // Just update the count in title if it decreased or stayed same (but > 0)
+          document.title = `(${pendingCount}) Pending - Empanadas by Rose`;
+      }
+      
+      prevPendingCountRef.current = pendingCount;
+  }, [pendingCount]);
+
 
   // Migration Logic (Run once on mount if user is logged in)
   useEffect(() => {
