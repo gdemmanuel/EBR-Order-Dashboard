@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { Order, ApprovalStatus, FollowUpStatus, PricingSettings, Flavor } from '../types';
 import { parseOrderDateTime } from '../utils/dateUtils';
 import { saveOrderToDb, deleteOrderFromDb, updateSettingsInDb, saveOrdersBatch, AppSettings } from '../services/dbService';
-import { calculateOrderTotal } from '../utils/pricingUtils';
+import { calculateOrderTotal, calculateSupplyCost } from '../utils/pricingUtils';
 
 import Header from './Header';
 import DashboardMetrics from './DashboardMetrics';
@@ -30,6 +30,8 @@ interface AdminDashboardProps {
     sheetUrl: string;
     pricing: PricingSettings;
     prepSettings?: AppSettings['prepSettings'];
+    // We need full settings accessible here to pass down
+    settings?: AppSettings;
 }
 
 export default function AdminDashboard({ 
@@ -40,7 +42,8 @@ export default function AdminDashboard({
     importedSignatures,
     sheetUrl,
     pricing,
-    prepSettings
+    prepSettings,
+    settings // Optional prop, but we should construct a safe object if missing
 }: AdminDashboardProps) {
 
     const [view, setView] = useState<'dashboard' | 'list' | 'calendar'>('dashboard');
@@ -92,16 +95,28 @@ export default function AdminDashboard({
 
     // --- Logic ---
     
-    // Fallback default pricing if loading
-    const safePricing = pricing || {
-        mini: { basePrice: 1.75 },
-        full: { basePrice: 3.00 },
-        packages: [],
-        salsaSmall: 2.00,
-        salsaLarge: 4.00
+    // Safe Full Settings Object construction
+    const safeSettings: AppSettings = settings || {
+        empanadaFlavors,
+        fullSizeEmpanadaFlavors,
+        sheetUrl,
+        importedSignatures: Array.from(importedSignatures),
+        pricing: pricing || {
+            mini: { basePrice: 1.75 },
+            full: { basePrice: 3.00 },
+            packages: [],
+            salsaSmall: 2.00,
+            salsaLarge: 4.00
+        },
+        prepSettings: prepSettings || { lbsPer20: {}, fullSizeMultiplier: 2.0 },
+        materialCosts: {},
+        discoCosts: { mini: 0.10, full: 0.15 },
+        inventory: {}
     };
 
-    const safePrepSettings = prepSettings || { lbsPer20: {}, fullSizeMultiplier: 2.0 };
+    // Fallback default pricing if loading
+    const safePricing = safeSettings.pricing;
+    const safePrepSettings = safeSettings.prepSettings;
 
     const handleSaveOrder = async (orderData: Order | Omit<Order, 'id'>) => {
         // Note: Amount is already calculated by the form using dynamic pricing
@@ -172,6 +187,10 @@ export default function AdminDashboard({
             const deliveryFee = 0; 
             // Calculate price using current settings for imports
             const calculatedTotal = calculateOrderTotal(items, deliveryFee, safePricing);
+            
+            // Calculate supply cost using current settings for imports
+            const calculatedCost = calculateSupplyCost(items, safeSettings);
+
             return {
               id: `${Date.now()}-${index}`,
               pickupDate: pOrder.pickupDate || '',
@@ -183,6 +202,7 @@ export default function AdminDashboard({
               totalFullSize: items.filter(i => i.name.includes('Full')).reduce((s, i) => s + i.quantity, 0),
               totalMini: items.filter(i => !i.name.includes('Full') && !i.name.includes('Salsa')).reduce((s, i) => s + i.quantity, 0),
               amountCharged: calculatedTotal,
+              totalCost: calculatedCost, // Save calculated cost
               deliveryRequired: pOrder.deliveryRequired || false,
               deliveryFee: deliveryFee,
               amountCollected: 0,
@@ -259,6 +279,7 @@ export default function AdminDashboard({
                     onAddNewFlavor={handleAddNewFlavor}
                     onDelete={confirmDeleteOrder}
                     pricing={safePricing}
+                    settings={safeSettings}
                 />
             )}
 
@@ -285,14 +306,7 @@ export default function AdminDashboard({
             
             {isSettingsOpen && (
                 <SettingsModal 
-                    settings={{ 
-                        empanadaFlavors, 
-                        fullSizeEmpanadaFlavors, 
-                        sheetUrl, 
-                        importedSignatures: Array.from(importedSignatures), 
-                        pricing: safePricing,
-                        prepSettings: safePrepSettings
-                    }}
+                    settings={safeSettings}
                     onClose={() => setIsSettingsOpen(false)}
                 />
             )}
@@ -300,15 +314,9 @@ export default function AdminDashboard({
             {isPrepListOpen && (
                 <PrepListModal 
                     orders={filteredOrders} 
-                    settings={{
-                        empanadaFlavors, 
-                        fullSizeEmpanadaFlavors, 
-                        sheetUrl, 
-                        importedSignatures: Array.from(importedSignatures), 
-                        pricing: safePricing,
-                        prepSettings: safePrepSettings
-                    }} 
+                    settings={safeSettings}
                     onClose={() => setIsPrepListOpen(false)} 
+                    onUpdateSettings={updateSettingsInDb}
                 />
             )}
 

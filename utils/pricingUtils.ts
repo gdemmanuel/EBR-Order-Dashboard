@@ -1,5 +1,6 @@
 
 import { OrderItem, PricingSettings, MenuPackage } from '../types';
+import { AppSettings } from '../services/dbService';
 
 /**
  * Calculates the best price for a given quantity of items by applying package deals first.
@@ -54,4 +55,39 @@ export const calculateOrderTotal = (items: OrderItem[], deliveryFee: number, pri
     const salsaTotal = (smallSalsaQty * pricing.salsaSmall) + (largeSalsaQty * pricing.salsaLarge);
 
     return miniTotal + fullTotal + salsaTotal + (deliveryFee || 0);
+};
+
+/**
+ * Calculates the Supply Cost (Expense) for an order based on material definitions.
+ */
+export const calculateSupplyCost = (
+    items: OrderItem[], 
+    settings: AppSettings
+): number => {
+    let totalCost = 0;
+
+    items.forEach(item => {
+        if (item.name.includes('Salsa')) return; // Skip salsas for now or add simple cost logic later if needed
+
+        const isFull = item.name.startsWith('Full ');
+        const cleanName = item.name.replace('Full ', '');
+        
+        // 1. Disco Cost
+        const discoCost = isFull ? settings.discoCosts.full : settings.discoCosts.mini;
+        totalCost += item.quantity * discoCost;
+
+        // 2. Filling Cost
+        // Logic: (Qty / 20) * LbsPer20 * CostPerLb
+        // Full size multiplier applies to the *amount* of filling
+        const lbsPer20 = settings.prepSettings.lbsPer20[cleanName] || 0;
+        const costPerLb = settings.materialCosts[cleanName] || 0;
+        const multiplier = isFull ? settings.prepSettings.fullSizeMultiplier : 1.0;
+
+        if (lbsPer20 > 0 && costPerLb > 0) {
+            const lbsNeeded = (item.quantity / 20) * lbsPer20 * multiplier;
+            totalCost += lbsNeeded * costPerLb;
+        }
+    });
+
+    return totalCost;
 };

@@ -29,6 +29,12 @@ export interface AppSettings {
         lbsPer20: Record<string, number>; // Key: Flavor Name, Value: Lbs required for 20 mini empanadas
         fullSizeMultiplier: number; // How much bigger is a full size? Default 2.0
     };
+    materialCosts: Record<string, number>; // Key: Flavor Name, Value: Cost per lb
+    discoCosts: {
+        mini: number;
+        full: number;
+    };
+    inventory: Record<string, { mini: number; full: number }>; // Key: Flavor Name, Value: counts
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -46,7 +52,10 @@ const DEFAULT_SETTINGS: AppSettings = {
     prepSettings: {
         lbsPer20: {},
         fullSizeMultiplier: 2.0
-    }
+    },
+    materialCosts: {},
+    discoCosts: { mini: 0.10, full: 0.15 },
+    inventory: {}
 };
 
 // --- Real-time Subscriptions ---
@@ -109,7 +118,10 @@ export const subscribeToSettings = (
                 prepSettings: {
                     ...DEFAULT_SETTINGS.prepSettings,
                     ...(data.prepSettings || {})
-                }
+                },
+                materialCosts: data.materialCosts || DEFAULT_SETTINGS.materialCosts,
+                discoCosts: data.discoCosts || DEFAULT_SETTINGS.discoCosts,
+                inventory: data.inventory || DEFAULT_SETTINGS.inventory
             };
             
             onUpdate(mergedSettings);
@@ -197,7 +209,10 @@ export const migrateLocalDataToFirestore = async (
         ...DEFAULT_SETTINGS,
         ...localSettings,
         pricing: localSettings.pricing || DEFAULT_SETTINGS.pricing,
-        prepSettings: localSettings.prepSettings || DEFAULT_SETTINGS.prepSettings
+        prepSettings: localSettings.prepSettings || DEFAULT_SETTINGS.prepSettings,
+        materialCosts: localSettings.materialCosts || DEFAULT_SETTINGS.materialCosts,
+        discoCosts: localSettings.discoCosts || DEFAULT_SETTINGS.discoCosts,
+        inventory: localSettings.inventory || DEFAULT_SETTINGS.inventory
     };
     
     batch.set(settingsRef, settingsToSave);

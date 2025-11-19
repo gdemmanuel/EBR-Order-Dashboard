@@ -3,9 +3,10 @@ import React, { useState, useEffect } from 'react';
 import { Order, OrderItem, ContactMethod, PaymentStatus, FollowUpStatus, ApprovalStatus, PricingSettings, Flavor, MenuPackage } from '../types';
 import { TrashIcon, PlusIcon, XMarkIcon, ShoppingBagIcon } from './icons/Icons';
 import { getAddressSuggestions } from '../services/geminiService';
-import { calculateOrderTotal } from '../utils/pricingUtils';
+import { calculateOrderTotal, calculateSupplyCost } from '../utils/pricingUtils';
 import { SalsaSize } from '../config';
 import PackageBuilderModal from './PackageBuilderModal';
+import { AppSettings } from '../services/dbService';
 
 interface OrderFormModalProps {
     order?: Order;
@@ -16,6 +17,8 @@ interface OrderFormModalProps {
     onAddNewFlavor: (flavor: string, type: 'mini' | 'full') => void;
     onDelete?: (orderId: string) => void;
     pricing: PricingSettings;
+    // Add settings prop to access cost data
+    settings: AppSettings;
 }
 
 // Local state type to allow empty string for quantity and other number inputs
@@ -125,7 +128,7 @@ const formatDateToYYYYMMDD = (dateStr: string | undefined): string => {
     return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 };
 
-export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors, fullSizeEmpanadaFlavors, onAddNewFlavor, onDelete, pricing }: OrderFormModalProps) {
+export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors, fullSizeEmpanadaFlavors, onAddNewFlavor, onDelete, pricing, settings }: OrderFormModalProps) {
     const [customerName, setCustomerName] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
     const [pickupDate, setPickupDate] = useState('');
@@ -429,6 +432,11 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         }
 
         const finalContactMethod = contactMethod === 'Other' ? (customContactMethod.trim() || 'Other') : contactMethod;
+        
+        // Calculate Cost Logic:
+        // We calculate cost now based on current settings and save it to the order.
+        // This ensures historical costs don't change if settings change later.
+        const calculatedCost = calculateSupplyCost(allItems, settings);
 
         const orderData = {
             customerName,
@@ -438,6 +446,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
             contactMethod: finalContactMethod,
             items: allItems,
             amountCharged,
+            totalCost: calculatedCost, // Save cost snapshot
             totalFullSize,
             totalMini,
             deliveryRequired,

@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { AppSettings, updateSettingsInDb } from '../services/dbService';
 import { PricingSettings, MenuPackage, Flavor } from '../types';
-import { XMarkIcon, PlusIcon, TrashIcon, CheckCircleIcon, CogIcon, PencilIcon, ScaleIcon } from './icons/Icons';
+import { XMarkIcon, PlusIcon, TrashIcon, CheckCircleIcon, CogIcon, PencilIcon, ScaleIcon, CurrencyDollarIcon } from './icons/Icons';
 
 interface SettingsModalProps {
     settings: AppSettings;
@@ -10,7 +10,7 @@ interface SettingsModalProps {
 }
 
 export default function SettingsModal({ settings, onClose }: SettingsModalProps) {
-    const [activeTab, setActiveTab] = useState<'menu' | 'pricing' | 'prep'>('menu');
+    const [activeTab, setActiveTab] = useState<'menu' | 'pricing' | 'prep' | 'costs'>('menu');
     
     // Local state for editing
     const [empanadaFlavors, setEmpanadaFlavors] = useState<Flavor[]>(settings.empanadaFlavors);
@@ -20,6 +20,10 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
     // Prep Settings State
     const [prepSettings, setPrepSettings] = useState<AppSettings['prepSettings']>(settings.prepSettings || { lbsPer20: {}, fullSizeMultiplier: 2.0 });
     
+    // Cost Settings State
+    const [materialCosts, setMaterialCosts] = useState<Record<string, number>>(settings.materialCosts || {});
+    const [discoCosts, setDiscoCosts] = useState<{mini: number, full: number}>(settings.discoCosts || {mini: 0.1, full: 0.15});
+
     const [newMiniFlavor, setNewMiniFlavor] = useState('');
     const [newFullFlavor, setNewFullFlavor] = useState('');
     const [isSaving, setIsSaving] = useState(false);
@@ -41,7 +45,9 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
             empanadaFlavors,
             fullSizeEmpanadaFlavors,
             pricing,
-            prepSettings
+            prepSettings,
+            materialCosts,
+            discoCosts
         });
         setIsSaving(false);
         onClose();
@@ -157,6 +163,15 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
             }
         });
     };
+    
+    // --- Cost Logic ---
+    const updateMaterialCost = (flavorName: string, value: string) => {
+        const numVal = parseFloat(value);
+        setMaterialCosts({
+            ...materialCosts,
+            [flavorName]: isNaN(numVal) ? 0 : numVal
+        });
+    };
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fade-in">
@@ -186,6 +201,12 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                         onClick={() => setActiveTab('prep')}
                     >
                         Prep Calculations
+                    </button>
+                    <button
+                        className={`px-6 py-3 font-medium text-sm whitespace-nowrap ${activeTab === 'costs' ? 'border-b-2 border-brand-orange text-brand-orange' : 'text-gray-500 hover:text-brand-brown'}`}
+                        onClick={() => setActiveTab('costs')}
+                    >
+                        Inventory & Costs
                     </button>
                 </div>
 
@@ -429,6 +450,70 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" 
                                                 />
                                                 <span className="text-xs text-gray-500 whitespace-nowrap">lbs / 20</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'costs' && (
+                        <div className="space-y-8">
+                            <div className="bg-white p-5 rounded-lg border border-brand-tan shadow-sm">
+                                <div className="flex items-center justify-between border-b pb-2 mb-4">
+                                    <div>
+                                        <h3 className="font-bold text-brand-brown text-lg">Costs & Inventory</h3>
+                                        <p className="text-sm text-gray-600">Manage supply costs to track profit margins. Inventory counts can be updated here or on the Prep List.</p>
+                                    </div>
+                                    <CurrencyDollarIcon className="w-6 h-6 text-green-600" />
+                                </div>
+                                
+                                <div className="mb-6 bg-green-50 border border-green-200 p-3 rounded-lg">
+                                    <h4 className="font-bold text-green-800 mb-2 text-sm">Discos / Shells (Cost per Unit)</h4>
+                                    <div className="flex gap-6">
+                                        <div>
+                                            <label className="block text-xs text-green-800 mb-1">Mini Disco Cost</label>
+                                            <div className="relative rounded-md shadow-sm">
+                                                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2"><span className="text-gray-500 text-xs">$</span></div>
+                                                <input 
+                                                    type="number" step="0.01" 
+                                                    value={discoCosts.mini}
+                                                    onChange={(e) => setDiscoCosts({...discoCosts, mini: parseFloat(e.target.value) || 0})}
+                                                    className="block w-24 rounded-md border-gray-300 pl-5 text-sm focus:border-green-500 focus:ring-green-500" 
+                                                />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs text-green-800 mb-1">Full-Size Disco Cost</label>
+                                            <div className="relative rounded-md shadow-sm">
+                                                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2"><span className="text-gray-500 text-xs">$</span></div>
+                                                <input 
+                                                    type="number" step="0.01" 
+                                                    value={discoCosts.full}
+                                                    onChange={(e) => setDiscoCosts({...discoCosts, full: parseFloat(e.target.value) || 0})}
+                                                    className="block w-24 rounded-md border-gray-300 pl-5 text-sm focus:border-green-500 focus:ring-green-500" 
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <h4 className="font-bold text-gray-700 mb-2 text-sm">Material Costs (Filling per Lb)</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {empanadaFlavors.map((flavor) => (
+                                        <div key={flavor.name} className="border rounded-md p-3 bg-gray-50 flex justify-between items-center">
+                                            <label className="text-xs font-bold text-gray-700 truncate w-1/2" title={flavor.name}>{flavor.name}</label>
+                                            <div className="relative rounded-md shadow-sm w-24">
+                                                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2"><span className="text-gray-500 text-xs">$</span></div>
+                                                <input 
+                                                    type="number" 
+                                                    step="0.01" 
+                                                    placeholder="0.00"
+                                                    value={materialCosts[flavor.name] || ''}
+                                                    onChange={(e) => updateMaterialCost(flavor.name, e.target.value)}
+                                                    className="block w-full rounded-md border-gray-300 pl-5 text-sm focus:border-green-500 focus:ring-green-500" 
+                                                />
                                             </div>
                                         </div>
                                     ))}

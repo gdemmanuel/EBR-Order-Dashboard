@@ -15,7 +15,7 @@ export default function PackageBuilderModal({ pkg, flavors, onClose, onConfirm }
 
     const updateBuilderSelection = (flavorName: string, change: number) => {
         const currentQty = builderSelections[flavorName] || 0;
-        const totalSelected = Object.values(builderSelections).reduce((a: number, b: number) => a + b, 0);
+        const totalSelected = (Object.values(builderSelections) as number[]).reduce((a, b) => a + b, 0);
         const distinctFlavors = Object.keys(builderSelections).filter(k => builderSelections[k] > 0).length;
         const remaining = pkg.quantity - totalSelected;
         
@@ -53,7 +53,7 @@ export default function PackageBuilderModal({ pkg, flavors, onClose, onConfirm }
 
     const setBuilderQuantity = (flavorName: string, quantity: number) => {
         const currentQty = builderSelections[flavorName] || 0;
-        const totalOthers = Object.values(builderSelections).reduce((a: number, b: number) => a + b, 0) - currentQty;
+        const totalOthers = (Object.values(builderSelections) as number[]).reduce((a, b) => a + b, 0) - currentQty;
         const distinctFlavors = Object.keys(builderSelections).filter(k => k !== flavorName && builderSelections[k] > 0).length;
 
         // Rules
@@ -71,7 +71,7 @@ export default function PackageBuilderModal({ pkg, flavors, onClose, onConfirm }
     };
 
     const fillRemaining = (flavorName: string) => {
-        const totalSelected = Object.values(builderSelections).reduce((a: number, b: number) => a + b, 0);
+        const totalSelected = (Object.values(builderSelections) as number[]).reduce((a, b) => a + b, 0);
         const remaining = pkg.quantity - totalSelected;
         if (remaining > 0) {
             updateBuilderSelection(flavorName, remaining);
@@ -83,7 +83,7 @@ export default function PackageBuilderModal({ pkg, flavors, onClose, onConfirm }
         onConfirm(items);
     };
 
-    const totalSelected = Object.values(builderSelections).reduce((a: number, b: number) => a + b, 0);
+    const totalSelected = (Object.values(builderSelections) as number[]).reduce((a, b) => a + b, 0);
     const remaining = pkg.quantity - totalSelected;
 
     return (

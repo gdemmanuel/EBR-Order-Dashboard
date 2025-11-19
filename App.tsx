@@ -123,7 +123,10 @@ export default function App() {
                   prepSettings: {
                       lbsPer20: {},
                       fullSizeMultiplier: 2.0
-                  }
+                  },
+                  materialCosts: {},
+                  discoCosts: { mini: 0.10, full: 0.15 },
+                  inventory: {}
               };
 
               await migrateLocalDataToFirestore(localOrders, localPending, localSettings);
