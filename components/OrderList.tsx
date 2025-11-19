@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Order, PaymentStatus, FollowUpStatus } from '../types';
-import { TrashIcon, PrinterIcon } from './icons/Icons';
+import { TrashIcon, PrinterIcon, MagnifyingGlassIcon } from './icons/Icons';
 import { parseOrderDateTime } from '../utils/dateUtils';
 
 interface OrderListProps {
@@ -10,9 +10,11 @@ interface OrderListProps {
     onSelectOrder: (order: Order) => void;
     onPrintSelected: (selectedOrders: Order[]) => void;
     onDelete?: (orderId: string) => void;
+    searchTerm?: string;
+    onSearchChange?: (term: string) => void;
 }
 
-export default function OrderList({ orders, title, onSelectOrder, onPrintSelected, onDelete }: OrderListProps) {
+export default function OrderList({ orders, title, onSelectOrder, onPrintSelected, onDelete, searchTerm, onSearchChange }: OrderListProps) {
     const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
     const [sortConfig, setSortConfig] = useState<{ key: keyof Order | 'pickupDateObj', direction: 'asc' | 'desc' }>({ key: 'pickupDateObj', direction: 'asc' });
 
@@ -74,17 +76,35 @@ export default function OrderList({ orders, title, onSelectOrder, onPrintSelecte
 
     return (
         <div className="bg-white border border-brand-tan rounded-lg shadow-sm overflow-hidden">
-             <div className="p-4 border-b border-brand-tan bg-brand-tan/10 flex justify-between items-center">
+             <div className="p-4 border-b border-brand-tan bg-brand-tan/10 flex flex-col sm:flex-row justify-between items-center gap-4">
                 <h2 className="text-xl font-serif text-brand-brown">{title || 'All Orders'}</h2>
-                {selectedOrderIds.size > 0 && (
-                    <button 
-                        onClick={handleBulkPrint}
-                        className="flex items-center gap-2 bg-brand-orange text-white text-sm font-semibold px-3 py-1.5 rounded-lg hover:bg-opacity-90 transition-colors"
-                    >
-                        <PrinterIcon className="w-4 h-4" />
-                        Print Selected ({selectedOrderIds.size})
-                    </button>
-                )}
+                
+                <div className="flex items-center gap-3 w-full sm:w-auto">
+                    {onSearchChange && (
+                        <div className="relative flex-grow sm:flex-grow-0 w-full sm:w-auto">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <MagnifyingGlassIcon className="h-4 w-4 text-gray-400" />
+                            </div>
+                            <input 
+                                type="text"
+                                placeholder="Search Customer..."
+                                value={searchTerm || ''}
+                                onChange={(e) => onSearchChange(e.target.value)}
+                                className="pl-9 pr-3 py-1.5 text-sm border border-brand-tan rounded-lg focus:ring-brand-orange focus:border-brand-orange w-full sm:w-64"
+                            />
+                        </div>
+                    )}
+
+                    {selectedOrderIds.size > 0 && (
+                        <button 
+                            onClick={handleBulkPrint}
+                            className="flex items-center gap-2 bg-brand-orange text-white text-sm font-semibold px-3 py-1.5 rounded-lg hover:bg-opacity-90 transition-colors whitespace-nowrap"
+                        >
+                            <PrinterIcon className="w-4 h-4" />
+                            Print ({selectedOrderIds.size})
+                        </button>
+                    )}
+                </div>
             </div>
             <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left">
@@ -119,7 +139,7 @@ export default function OrderList({ orders, title, onSelectOrder, onPrintSelecte
                         {sortedOrders.length === 0 ? (
                             <tr>
                                 <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
-                                    No orders found.
+                                    {searchTerm ? 'No orders found matching your search.' : 'No orders found.'}
                                 </td>
                             </tr>
                         ) : (

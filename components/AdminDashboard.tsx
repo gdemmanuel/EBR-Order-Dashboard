@@ -18,7 +18,7 @@ import DateRangeFilter from './DateRangeFilter';
 import SettingsModal from './SettingsModal';
 import ConfirmationModal from './ConfirmationModal';
 import PrepListModal from './PrepListModal';
-import { PlusCircleIcon, ListBulletIcon, CalendarDaysIcon, ArrowTopRightOnSquareIcon, CogIcon, ScaleIcon, MagnifyingGlassIcon } from './icons/Icons';
+import { PlusCircleIcon, ListBulletIcon, CalendarDaysIcon, ArrowTopRightOnSquareIcon, CogIcon, ScaleIcon } from './icons/Icons';
 import { User } from 'firebase/auth';
 
 interface AdminDashboardProps {
@@ -293,20 +293,6 @@ export default function AdminDashboard({
                             <button onClick={() => setView('list')} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${view === 'list' ? 'bg-brand-orange text-white' : 'text-brand-brown hover:bg-brand-tan/30'}`}><ListBulletIcon className="w-4 h-4" /> List</button>
                             <button onClick={() => setView('calendar')} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${view === 'calendar' ? 'bg-brand-orange text-white' : 'text-brand-brown hover:bg-brand-tan/30'}`}><CalendarDaysIcon className="w-4 h-4" /> Calendar</button>
                         </div>
-                        
-                        {/* Search Bar */}
-                        <div className="relative w-full sm:w-64">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
-                            </div>
-                            <input
-                                type="text"
-                                placeholder="Search Customer..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="block w-full pl-10 pr-3 py-2 border border-brand-tan rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange sm:text-sm shadow-sm"
-                            />
-                        </div>
                     </div>
 
                     <div className="flex gap-3 flex-wrap w-full md:w-auto justify-end">
@@ -329,7 +315,14 @@ export default function AdminDashboard({
                 )}
 
                 {view === 'list' && (
-                    <OrderList orders={searchTerm ? filteredOrders : activeOrders} onSelectOrder={setSelectedOrder} onPrintSelected={setPrintPreviewOrders} onDelete={confirmDeleteOrder} />
+                    <OrderList 
+                        orders={searchTerm ? filteredOrders : activeOrders} 
+                        onSelectOrder={setSelectedOrder} 
+                        onPrintSelected={setPrintPreviewOrders} 
+                        onDelete={confirmDeleteOrder} 
+                        searchTerm={searchTerm}
+                        onSearchChange={setSearchTerm}
+                    />
                 )}
 
                 {view === 'calendar' && (
