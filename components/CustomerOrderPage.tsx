@@ -108,6 +108,35 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
         setBuilderSelections(newSelections);
     };
 
+    const setBuilderQuantity = (flavorName: string, quantity: number) => {
+        if (!activePackageBuilder) return;
+        const currentQty = builderSelections[flavorName] || 0;
+        const totalOthers = Object.values(builderSelections).reduce((a, b) => a + b, 0) - currentQty;
+        const distinctFlavors = Object.keys(builderSelections).filter(k => k !== flavorName && builderSelections[k] > 0).length;
+
+        // Rules
+        const maxAvailable = activePackageBuilder.quantity - totalOthers;
+        let finalQty = Math.min(quantity, maxAvailable);
+        finalQty = Math.max(0, finalQty);
+
+        if (finalQty > 0 && currentQty === 0 && distinctFlavors >= activePackageBuilder.maxFlavors) {
+            return; // New flavor but max distinct reached
+        }
+
+        const newSelections = { ...builderSelections, [flavorName]: finalQty };
+        if (finalQty === 0) delete newSelections[flavorName];
+        setBuilderSelections(newSelections);
+    };
+
+    const fillRemaining = (flavorName: string) => {
+        if (!activePackageBuilder) return;
+        const totalSelected = Object.values(builderSelections).reduce((a, b) => a + b, 0);
+        const remaining = activePackageBuilder.quantity - totalSelected;
+        if (remaining > 0) {
+            updateBuilderSelection(flavorName, remaining);
+        }
+    };
+
     const addBuiltPackageToCart = () => {
         if (!activePackageBuilder) return;
         
@@ -429,13 +458,24 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                                             const qty = builderSelections[flavor.name] || 0;
                                             const totalSelected = Object.values(builderSelections).reduce((a, b) => a + b, 0);
                                             const distinctSelected = Object.keys(builderSelections).filter(k => builderSelections[k] > 0).length;
+                                            const remaining = activePackageBuilder.quantity - totalSelected;
                                             
                                             const canAdd = totalSelected < activePackageBuilder.quantity && (qty > 0 || distinctSelected < activePackageBuilder.maxFlavors);
 
                                             return (
                                                 <div key={flavor.name} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
                                                     <span className="font-medium text-brand-brown">{flavor.name}</span>
-                                                    <div className="flex items-center gap-3">
+                                                    <div className="flex items-center gap-2">
+                                                        {/* Max Button */}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => fillRemaining(flavor.name)}
+                                                            disabled={remaining <= 0 || (!canAdd && qty === 0)}
+                                                            className="text-xs font-semibold text-brand-orange hover:text-brand-brown disabled:opacity-30 mr-2"
+                                                        >
+                                                            Max
+                                                        </button>
+
                                                         <button 
                                                             type="button"
                                                             onClick={() => updateBuilderSelection(flavor.name, -1)}
@@ -444,7 +484,18 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                                                         >
                                                             -
                                                         </button>
-                                                        <span className="w-6 text-center font-bold">{qty}</span>
+                                                        
+                                                        {/* Editable Input */}
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            max={activePackageBuilder.quantity}
+                                                            value={qty > 0 ? qty : ''}
+                                                            placeholder="0"
+                                                            onChange={(e) => setBuilderQuantity(flavor.name, parseInt(e.target.value) || 0)}
+                                                            className="w-12 text-center font-bold border-gray-200 rounded p-1 text-sm focus:border-brand-orange focus:ring-brand-orange"
+                                                        />
+                                                        
                                                         <button 
                                                             type="button"
                                                             onClick={() => updateBuilderSelection(flavor.name, 1)}
