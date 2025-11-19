@@ -1,5 +1,4 @@
 
-
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Order, FollowUpStatus, ContactMethod, PaymentStatus, ApprovalStatus } from './types';
 import { initialOrders, initialEmpanadaFlavors, initialFullSizeEmpanadaFlavors } from './data/mockData';
@@ -17,6 +16,17 @@ import DateRangeFilter from './components/DateRangeFilter';
 import CalendarView from './components/CalendarView';
 import { parseOrderDateTime } from './utils/dateUtils';
 import { parseOrdersFromSheet } from './services/geminiService';
+// Import DB Service
+import { 
+    subscribeToOrders, 
+    subscribeToSettings, 
+    saveOrderToDb, 
+    deleteOrderFromDb, 
+    updateSettingsInDb, 
+    migrateLocalDataToFirestore,
+    saveOrdersBatch,
+    AppSettings
+} from './services/dbService';
 
 
 /**
@@ -47,36 +57,21 @@ const calculateOrderTotal = (order: Partial<Order>): number => {
 export default function App() {
   // -- STATE MANAGEMENT --
   
-  // Orders and Flavor Data (Persisted)
-  const [orders, setOrders] = useState<Order[]>(() => {
-    const saved = localStorage.getItem('orders');
-    return saved ? JSON.parse(saved) : initialOrders;
-  });
+  // Loading State for initial DB connection
+  const [isLoadingData, setIsLoadingData] = useState(true);
+
+  // Orders (Live from Firebase)
+  const [allOrders, setAllOrders] = useState<Order[]>([]);
   
-  const [pendingOrders, setPendingOrders] = useState<Order[]>(() => {
-    const saved = localStorage.getItem('pendingOrders');
-    return saved ? JSON.parse(saved) : [];
-  });
+  // Derived state for UI
+  const orders = useMemo(() => allOrders.filter(o => o.approvalStatus === ApprovalStatus.APPROVED), [allOrders]);
+  const pendingOrders = useMemo(() => allOrders.filter(o => o.approvalStatus === ApprovalStatus.PENDING), [allOrders]);
 
-  const [empanadaFlavors, setEmpanadaFlavors] = useState<string[]>(() => {
-      const saved = localStorage.getItem('empanadaFlavors');
-      return saved ? JSON.parse(saved) : initialEmpanadaFlavors;
-  });
-
-  const [fullSizeEmpanadaFlavors, setFullSizeEmpanadaFlavors] = useState<string[]>(() => {
-      const saved = localStorage.getItem('fullSizeEmpanadaFlavors');
-      return saved ? JSON.parse(saved) : initialFullSizeEmpanadaFlavors;
-  });
-
-  // Automation Data (Persisted)
-  const [sheetUrl, setSheetUrl] = useState<string>(() => {
-      return localStorage.getItem('sheetUrl') || '';
-  });
-
-  const [importedSignatures, setImportedSignatures] = useState<Set<string>>(() => {
-      const saved = localStorage.getItem('importedSignatures');
-      return saved ? new Set(JSON.parse(saved)) : new Set();
-  });
+  // Settings (Live from Firebase)
+  const [empanadaFlavors, setEmpanadaFlavors] = useState<string[]>(initialEmpanadaFlavors);
+  const [fullSizeEmpanadaFlavors, setFullSizeEmpanadaFlavors] = useState<string[]>(initialFullSizeEmpanadaFlavors);
+  const [sheetUrl, setSheetUrl] = useState<string>('');
+  const [importedSignatures, setImportedSignatures] = useState<Set<string>>(new Set());
 
   // UI State
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -89,17 +84,58 @@ export default function App() {
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
   const [isCheckingForOrders, setIsCheckingForOrders] = useState(false);
 
-  // -- EFFECTS FOR PERSISTENCE --
-  
-  useEffect(() => { localStorage.setItem('orders', JSON.stringify(orders)); }, [orders]);
-  useEffect(() => { localStorage.setItem('pendingOrders', JSON.stringify(pendingOrders)); }, [pendingOrders]);
-  useEffect(() => { localStorage.setItem('empanadaFlavors', JSON.stringify(empanadaFlavors)); }, [empanadaFlavors]);
-  useEffect(() => { localStorage.setItem('fullSizeEmpanadaFlavors', JSON.stringify(fullSizeEmpanadaFlavors)); }, [fullSizeEmpanadaFlavors]);
-  useEffect(() => { localStorage.setItem('sheetUrl', sheetUrl); }, [sheetUrl]);
-  useEffect(() => { localStorage.setItem('importedSignatures', JSON.stringify(Array.from(importedSignatures))); }, [importedSignatures]);
+  // -- FIREBASE INTEGRATION --
 
+  // 1. Initial Migration & Setup
+  useEffect(() => {
+    const performMigration = async () => {
+        const localOrdersStr = localStorage.getItem('orders');
+        const localPendingStr = localStorage.getItem('pendingOrders');
+        
+        // If we have local data, try to migrate it once
+        if (localOrdersStr || localPendingStr) {
+            const localOrders = localOrdersStr ? JSON.parse(localOrdersStr) : [];
+            const localPending = localPendingStr ? JSON.parse(localPendingStr) : [];
+            
+            const localSettings: AppSettings = {
+                empanadaFlavors: JSON.parse(localStorage.getItem('empanadaFlavors') || JSON.stringify(initialEmpanadaFlavors)),
+                fullSizeEmpanadaFlavors: JSON.parse(localStorage.getItem('fullSizeEmpanadaFlavors') || JSON.stringify(initialFullSizeEmpanadaFlavors)),
+                sheetUrl: localStorage.getItem('sheetUrl') || '',
+                importedSignatures: JSON.parse(localStorage.getItem('importedSignatures') || '[]')
+            };
 
-  // -- HANDLERS --
+            await migrateLocalDataToFirestore(localOrders, localPending, localSettings);
+            
+            // Optional: Clear local storage after migration to prevent confusion
+            // localStorage.clear(); 
+        }
+    };
+    performMigration();
+  }, []);
+
+  // 2. Subscribe to Data
+  useEffect(() => {
+    const unsubOrders = subscribeToOrders((data) => {
+        setAllOrders(data);
+        setIsLoadingData(false);
+    });
+
+    const unsubSettings = subscribeToSettings((data) => {
+        if (data) {
+            if (data.empanadaFlavors) setEmpanadaFlavors(data.empanadaFlavors);
+            if (data.fullSizeEmpanadaFlavors) setFullSizeEmpanadaFlavors(data.fullSizeEmpanadaFlavors);
+            if (data.sheetUrl) setSheetUrl(data.sheetUrl);
+            if (data.importedSignatures) setImportedSignatures(new Set(data.importedSignatures));
+        }
+    });
+
+    return () => {
+        unsubOrders();
+        unsubSettings();
+    };
+  }, []);
+
+  // -- HANDLERS (Updated to use DB) --
 
   const processImportedOrders = useCallback((importedOrders: Partial<Order>[]) => {
       return importedOrders.map((importedOrder, index) => {
@@ -137,15 +173,16 @@ export default function App() {
     });
   }, []);
 
-  const handleOrdersImported = (importedOrders: Partial<Order>[], newSignatures: string[]) => {
+  const handleOrdersImported = async (importedOrders: Partial<Order>[], newSignatures: string[]) => {
     const newPendingOrders = processImportedOrders(importedOrders);
 
-    setPendingOrders(prev => [...prev, ...newPendingOrders]);
-    setImportedSignatures(prev => {
-        const next = new Set(prev);
-        newSignatures.forEach(sig => next.add(sig));
-        return next;
-    });
+    // Save to DB
+    await saveOrdersBatch(newPendingOrders);
+
+    // Update Signatures in DB
+    const nextSignatures = Array.from(new Set([...Array.from(importedSignatures), ...newSignatures]));
+    await updateSettingsInDb({ importedSignatures: nextSignatures });
+
     setIsImportModalOpen(false);
   };
 
@@ -176,12 +213,14 @@ export default function App() {
 
           if (newOrders.length > 0) {
               const processedOrders = processImportedOrders(newOrders);
-              setPendingOrders(prev => [...prev, ...processedOrders]);
-              setImportedSignatures(prev => {
-                  const next = new Set(prev);
-                  newSignatures.forEach(sig => next.add(sig));
-                  return next;
-              });
+              
+              // Save found orders to DB
+              await saveOrdersBatch(processedOrders);
+              
+              // Update signatures
+              const nextSignatures = Array.from(new Set([...Array.from(importedSignatures), ...newSignatures]));
+              await updateSettingsInDb({ importedSignatures: nextSignatures });
+              
               console.log(`Auto-import: Found ${newOrders.length} new orders.`);
           }
       } catch (error) {
@@ -202,19 +241,15 @@ export default function App() {
   }, [sheetUrl, checkForNewOrders]);
 
 
-  const handleApproveOrder = (orderId: string) => {
+  const handleApproveOrder = async (orderId: string) => {
     const orderToApprove = pendingOrders.find(o => o.id === orderId);
     if (orderToApprove) {
-      setOrders(prevOrders => [
-        ...prevOrders, 
-        { ...orderToApprove, approvalStatus: ApprovalStatus.APPROVED }
-      ]);
-      setPendingOrders(prevPending => prevPending.filter(o => o.id !== orderId));
+      await saveOrderToDb({ ...orderToApprove, approvalStatus: ApprovalStatus.APPROVED });
     }
   };
 
-  const handleDenyOrder = (orderId: string) => {
-    setPendingOrders(prevPending => prevPending.filter(o => o.id !== orderId));
+  const handleDenyOrder = async (orderId: string) => {
+      await deleteOrderFromDb(orderId);
   };
 
   const sortedOrders = useMemo(() => {
@@ -284,60 +319,70 @@ export default function App() {
     setIsNewOrderModalOpen(true);
   };
 
-  const handleUpdateFollowUp = (orderId: string, status: FollowUpStatus) => {
-    const update = (orderList: Order[]) => orderList.map(o => o.id === orderId ? { ...o, followUpStatus: status } : o);
-    setOrders(update);
-    if (selectedOrder && selectedOrder.id === orderId) {
-      setSelectedOrder(prev => prev ? { ...prev, followUpStatus: status } : null);
-    }
+  const handleUpdateFollowUp = async (orderId: string, status: FollowUpStatus) => {
+      const orderToUpdate = allOrders.find(o => o.id === orderId);
+      if (orderToUpdate) {
+        const updatedOrder = { ...orderToUpdate, followUpStatus: status };
+        await saveOrderToDb(updatedOrder);
+        if (selectedOrder && selectedOrder.id === orderId) {
+            setSelectedOrder(updatedOrder);
+        }
+      }
   };
 
-  const handleSaveOrder = (orderData: Order | Omit<Order, 'id'>) => {
-    // Recalculate the total amount as the single source of truth, ignoring the form's calculation.
+  const handleSaveOrder = async (orderData: Order | Omit<Order, 'id'>) => {
+    // Recalculate the total amount as the single source of truth
     const recalculatedAmountCharged = calculateOrderTotal(orderData);
 
     if ('id' in orderData) {
-        // It's an existing order (or a pending order with a temp ID)
+        // Existing Order
         const finalOrderData: Order = {
             ...orderData,
             amountCharged: recalculatedAmountCharged,
         };
-
-        const isFromPending = pendingOrders.some(p => p.id === finalOrderData.id);
         
-        if (isFromPending) {
-            // This is an "edit and approve" action
-            setPendingOrders(prev => prev.filter(p => p.id !== finalOrderData.id));
-            setOrders(prev => [...prev, { ...finalOrderData, approvalStatus: ApprovalStatus.APPROVED }]);
-        } else {
-            // This is a standard edit of an already approved order
-            setOrders(prev => prev.map(o => (o.id === finalOrderData.id ? finalOrderData : o)));
+        // If it was pending, approve it automatically
+        if (finalOrderData.approvalStatus === ApprovalStatus.PENDING) {
+             finalOrderData.approvalStatus = ApprovalStatus.APPROVED;
         }
+
+        await saveOrderToDb(finalOrderData);
     } else {
-        // It's a brand new order
+        // New Order
         const newOrder: Order = {
             ...(orderData as Omit<Order, 'id'>),
             id: `order-${Date.now()}`,
             approvalStatus: ApprovalStatus.APPROVED,
             amountCharged: recalculatedAmountCharged,
         };
-        setOrders(prev => [...prev, newOrder]);
+        await saveOrderToDb(newOrder);
     }
     setIsNewOrderModalOpen(false);
     setOrderToEdit(undefined);
 };
 
-  const handleAddNewFlavor = (flavor: string, type: 'mini' | 'full') => {
-    if (type === 'mini') {
-      if (!empanadaFlavors.includes(flavor)) {
-        setEmpanadaFlavors(prev => [...prev.slice(0, -1), flavor, 'Other']);
+  const handleAddNewFlavor = async (flavor: string, type: 'mini' | 'full') => {
+      let newFlavors;
+      if (type === 'mini') {
+          if (!empanadaFlavors.includes(flavor)) {
+              newFlavors = [...empanadaFlavors.slice(0, -1), flavor, 'Other'];
+              // Optimistic update not strictly needed due to real-time listener, but feels faster
+              setEmpanadaFlavors(newFlavors);
+              await updateSettingsInDb({ empanadaFlavors: newFlavors });
+          }
+      } else {
+          const fullFlavor = `Full ${flavor}`;
+          if (!fullSizeEmpanadaFlavors.includes(fullFlavor)) {
+              newFlavors = [...fullSizeEmpanadaFlavors.slice(0, -1), fullFlavor, 'Full Other'];
+              setFullSizeEmpanadaFlavors(newFlavors);
+              await updateSettingsInDb({ fullSizeEmpanadaFlavors: newFlavors });
+          }
       }
-    } else {
-      const fullFlavor = `Full ${flavor}`;
-      if (!fullSizeEmpanadaFlavors.includes(fullFlavor)) {
-        setFullSizeEmpanadaFlavors(prev => [...prev.slice(0, -1), fullFlavor, 'Full Other']);
-      }
-    }
+  };
+  
+  const handleUpdateSheetUrl = async (url: string) => {
+      setSheetUrl(url);
+      await updateSettingsInDb({ sheetUrl: url });
   };
 
   const handlePrintSelected = (selectedToPrint: Order[]) => {
@@ -346,6 +391,15 @@ export default function App() {
 
   if (ordersToPrint.length > 0) {
     return <PrintPreviewPage orders={ordersToPrint} onExit={() => setOrdersToPrint([])} />;
+  }
+
+  if (isLoadingData) {
+      return (
+          <div className="min-h-screen bg-brand-cream flex flex-col items-center justify-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-brand-orange mb-4"></div>
+              <p className="text-brand-brown font-medium">Connecting to database...</p>
+          </div>
+      );
   }
 
   return (
@@ -471,7 +525,7 @@ export default function App() {
             <ImportOrderModal 
                 onClose={() => setIsImportModalOpen(false)}
                 onOrdersImported={handleOrdersImported}
-                onUpdateSheetUrl={setSheetUrl}
+                onUpdateSheetUrl={handleUpdateSheetUrl}
                 existingSignatures={importedSignatures}
             />
         )}
