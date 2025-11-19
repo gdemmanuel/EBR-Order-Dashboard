@@ -22,6 +22,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
         lbsPer20: {}, 
         fullSizeMultiplier: 2.0,
         discosPer: { mini: 1, full: 1 },
+        discoPackSize: { mini: 10, full: 10 },
         productionRates: { mini: 40, full: 25 }
     });
     
@@ -457,6 +458,32 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                                     type="number" step="0.01" 
                                                     value={prepSettings.discosPer?.full ?? 1}
                                                     onChange={(e) => setPrepSettings({...prepSettings, discosPer: { ...prepSettings.discosPer, full: parseFloat(e.target.value) || 0 }})}
+                                                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange sm:text-sm"
+                                                />
+                                            </div>
+                                         </div>
+                                         <div className="grid grid-cols-2 gap-4 mt-2">
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-700 mb-1">Units per Pkg (Mini)</label>
+                                                <input 
+                                                    type="number" step="1" 
+                                                    value={prepSettings.discoPackSize?.mini ?? 10}
+                                                    onChange={(e) => setPrepSettings({
+                                                        ...prepSettings, 
+                                                        discoPackSize: { ...prepSettings.discoPackSize, mini: parseInt(e.target.value) || 1 }
+                                                    })}
+                                                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange sm:text-sm"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-700 mb-1">Units per Pkg (Full)</label>
+                                                <input 
+                                                    type="number" step="1" 
+                                                    value={prepSettings.discoPackSize?.full ?? 10}
+                                                    onChange={(e) => setPrepSettings({
+                                                        ...prepSettings, 
+                                                        discoPackSize: { ...prepSettings.discoPackSize, full: parseInt(e.target.value) || 1 }
+                                                    })}
                                                     className="w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange sm:text-sm"
                                                 />
                                             </div>

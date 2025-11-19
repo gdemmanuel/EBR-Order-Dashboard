@@ -31,6 +31,7 @@ export default function App() {
       lbsPer20: {}, 
       fullSizeMultiplier: 2.0,
       discosPer: { mini: 1, full: 1 },
+      discoPackSize: { mini: 10, full: 10 },
       productionRates: { mini: 40, full: 25 }
   });
   const [laborWage, setLaborWage] = useState<number>(15.00);
@@ -135,6 +136,7 @@ export default function App() {
                       lbsPer20: {},
                       fullSizeMultiplier: 2.0,
                       discosPer: { mini: 1, full: 1 },
+                      discoPackSize: { mini: 10, full: 10 },
                       productionRates: { mini: 40, full: 25 }
                   },
                   laborWage: 15.00,

@@ -112,6 +112,7 @@ export default function AdminDashboard({
             lbsPer20: {}, 
             fullSizeMultiplier: 2.0, 
             discosPer: { mini: 1, full: 1 },
+            discoPackSize: { mini: 10, full: 10 },
             productionRates: { mini: 40, full: 25 } 
         },
         laborWage: 15.00,

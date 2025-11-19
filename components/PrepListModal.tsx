@@ -68,9 +68,11 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
 
         let totalEstimatedCost = 0; // Supply Cost
         
-        // Disco Multipliers
+        // Disco Multipliers & Pack Sizes
         const miniDiscosPer = settings.prepSettings?.discosPer?.mini ?? 1;
         const fullDiscosPer = settings.prepSettings?.discosPer?.full ?? 1;
+        const miniPackSize = settings.prepSettings?.discoPackSize?.mini || 10; // Default safe value
+        const fullPackSize = settings.prepSettings?.discoPackSize?.full || 10; // Default safe value
 
         const rows = allFlavors.map(flavor => {
             const miniOrd = miniCounts[flavor] || 0;
@@ -125,6 +127,10 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
         const totalFullDiscosNeeded = totalFullToMake * fullDiscosPer;
         const totalDiscosNeeded = totalMiniDiscosNeeded + totalFullDiscosNeeded;
 
+        // Calculate Packages Needed
+        const miniPacksNeeded = Math.ceil(totalMiniDiscosNeeded / miniPackSize);
+        const fullPacksNeeded = Math.ceil(totalFullDiscosNeeded / fullPackSize);
+
         // --- Labor Calculations ---
         const miniRate = settings.prepSettings?.productionRates?.mini || 40;
         const fullRate = settings.prepSettings?.productionRates?.full || 25;
@@ -146,6 +152,8 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
             totalMiniDiscosNeeded,
             totalFullDiscosNeeded,
             totalDiscosNeeded,
+            miniPacksNeeded,
+            fullPacksNeeded,
             totalEstimatedCost,
             // Labor Data
             miniRate,
@@ -201,11 +209,17 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
                                 <div className="w-full">
                                     <div className="flex justify-between items-center border-b border-blue-200 pb-1 mb-1">
                                         <span className="text-blue-700 text-sm">Mini:</span>
-                                        <span className="text-xl font-bold text-blue-900">{prepData.totalMiniDiscosNeeded}</span>
+                                        <div className="text-right">
+                                            <span className="text-xl font-bold text-blue-900 block">{prepData.totalMiniDiscosNeeded}</span>
+                                            <span className="text-[10px] text-blue-600 block">({prepData.miniPacksNeeded} pks)</span>
+                                        </div>
                                     </div>
                                     <div className="flex justify-between items-center">
                                         <span className="text-purple-700 text-sm">Full:</span>
-                                        <span className="text-xl font-bold text-purple-900">{prepData.totalFullDiscosNeeded}</span>
+                                        <div className="text-right">
+                                            <span className="text-xl font-bold text-purple-900 block">{prepData.totalFullDiscosNeeded}</span>
+                                            <span className="text-[10px] text-purple-600 block">({prepData.fullPacksNeeded} pks)</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -278,7 +292,12 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
                                         <td className="px-2 py-3 text-center text-purple-900 bg-purple-50">{prepData.totalFullToMake}</td>
                                         <td className="px-3 py-3 text-right text-gray-400">-</td>
                                         <td className="px-3 py-3 text-right font-bold text-gray-800">
-                                            {prepData.totalDiscosNeeded} units
+                                            <div className="flex flex-col items-end">
+                                                <span>{prepData.totalDiscosNeeded} units</span>
+                                                <span className="text-[10px] font-normal text-gray-500">
+                                                    ({prepData.miniPacksNeeded} mini pks / {prepData.fullPacksNeeded} full pks)
+                                                </span>
+                                            </div>
                                         </td>
                                         <td className="px-3 py-3 text-right text-green-700">
                                             ${((prepData.totalMiniDiscosNeeded * (settings.discoCosts?.mini||0)) + (prepData.totalFullDiscosNeeded * (settings.discoCosts?.full||0))).toFixed(2)}

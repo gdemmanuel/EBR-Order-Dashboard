@@ -32,6 +32,10 @@ export interface AppSettings {
             mini: number;
             full: number;
         };
+        discoPackSize: {
+            mini: number;
+            full: number;
+        };
         productionRates: {
             mini: number; // Units per hour
             full: number; // Units per hour
@@ -62,6 +66,7 @@ const DEFAULT_SETTINGS: AppSettings = {
         lbsPer20: {},
         fullSizeMultiplier: 2.0,
         discosPer: { mini: 1, full: 1 },
+        discoPackSize: { mini: 10, full: 10 },
         productionRates: { mini: 40, full: 25 }
     },
     laborWage: 15.00,
@@ -133,6 +138,10 @@ export const subscribeToSettings = (
                     discosPer: {
                         ...DEFAULT_SETTINGS.prepSettings.discosPer,
                         ...(data.prepSettings?.discosPer || {})
+                    },
+                    discoPackSize: {
+                        ...DEFAULT_SETTINGS.prepSettings.discoPackSize,
+                        ...(data.prepSettings?.discoPackSize || {})
                     },
                     productionRates: {
                         ...DEFAULT_SETTINGS.prepSettings.productionRates,
