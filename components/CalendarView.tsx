@@ -10,11 +10,12 @@ interface CalendarViewProps {
     orders: Order[];
     onSelectOrder: (order: Order) => void;
     onPrintSelected: (orders: Order[]) => void;
+    onDelete?: (orderId: string) => void;
 }
 
 const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-export default function CalendarView({ orders, onSelectOrder, onPrintSelected }: CalendarViewProps) {
+export default function CalendarView({ orders, onSelectOrder, onPrintSelected, onDelete }: CalendarViewProps) {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedDay, setSelectedDay] = useState<{ date: Date; orders: Order[] } | null>(null);
 
@@ -186,6 +187,7 @@ export default function CalendarView({ orders, onSelectOrder, onPrintSelected }:
                     onClose={() => setSelectedDay(null)}
                     onSelectOrder={onSelectOrder}
                     onPrintSelected={onPrintSelected}
+                    onDelete={onDelete}
                 />
             )}
         </>

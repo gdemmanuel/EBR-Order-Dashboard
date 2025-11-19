@@ -1,8 +1,7 @@
 
-
 import React, { useState, useEffect } from 'react';
-import { Order, OrderItem, ContactMethod, FollowUpStatus, PaymentStatus, ApprovalStatus } from '../types';
-import { XMarkIcon, PlusIcon, TrashIcon } from './icons/Icons';
+import { Order, OrderItem, ContactMethod, PaymentStatus, FollowUpStatus, ApprovalStatus } from '../types';
+import { TrashIcon, PlusIcon, XMarkIcon } from './icons/Icons';
 import { getAddressSuggestions } from '../services/geminiService';
 import { MINI_EMPANADA_PRICE, FULL_SIZE_EMPANADA_PRICE, SALSA_PRICES, SalsaSize } from '../config';
 
@@ -13,6 +12,7 @@ interface OrderFormModalProps {
     empanadaFlavors: string[];
     fullSizeEmpanadaFlavors: string[];
     onAddNewFlavor: (flavor: string, type: 'mini' | 'full') => void;
+    onDelete?: (orderId: string) => void;
 }
 
 // Local state type to allow empty string for quantity and other number inputs
@@ -121,7 +121,7 @@ const formatDateToYYYYMMDD = (dateStr: string | undefined): string => {
 };
 
 
-export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors, fullSizeEmpanadaFlavors, onAddNewFlavor }: OrderFormModalProps) {
+export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors, fullSizeEmpanadaFlavors, onAddNewFlavor, onDelete }: OrderFormModalProps) {
     const [customerName, setCustomerName] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
     const [pickupDate, setPickupDate] = useState('');
@@ -394,6 +394,13 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         
         newSalsaItems[index] = itemToUpdate;
         setSalsaItems(newSalsaItems);
+    };
+
+    const handleDeleteClick = () => {
+        if (onDelete && order && window.confirm("Are you sure you want to delete this order? This action cannot be undone.")) {
+            onDelete(order.id);
+            onClose(); // Close the modal after deletion
+        }
     };
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -679,9 +686,23 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                         />
                     </div>
 
-                    <footer className="pt-6 flex justify-end gap-3 border-t border-brand-tan">
-                        <button type="button" onClick={onClose} className="bg-gray-200 text-gray-800 font-semibold px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors">Cancel</button>
-                        <button type="submit" className="bg-brand-orange text-white font-semibold px-4 py-2 rounded-lg shadow-md hover:bg-opacity-90 transition-all">{order ? 'Save Changes' : 'Add Order'}</button>
+                    <footer className="pt-6 flex justify-between border-t border-brand-tan">
+                        <div>
+                             {order && onDelete && (
+                                <button 
+                                    type="button" 
+                                    onClick={handleDeleteClick} 
+                                    className="flex items-center gap-2 bg-red-50 text-red-600 font-semibold px-4 py-2 rounded-lg hover:bg-red-100 transition-colors border border-red-200"
+                                >
+                                    <TrashIcon className="w-4 h-4" />
+                                    Delete Order
+                                </button>
+                            )}
+                        </div>
+                        <div className="flex gap-3">
+                            <button type="button" onClick={onClose} className="bg-gray-200 text-gray-800 font-semibold px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors">Cancel</button>
+                            <button type="submit" className="bg-brand-orange text-white font-semibold px-4 py-2 rounded-lg shadow-md hover:bg-opacity-90 transition-all">{order ? 'Save Changes' : 'Add Order'}</button>
+                        </div>
                     </footer>
                 </form>
             </div>

@@ -10,9 +10,10 @@ interface DayOrdersModalProps {
     onClose: () => void;
     onSelectOrder: (order: Order) => void;
     onPrintSelected: (selectedOrders: Order[]) => void;
+    onDelete?: (orderId: string) => void;
 }
 
-export default function DayOrdersModal({ date, orders, onClose, onSelectOrder, onPrintSelected }: DayOrdersModalProps) {
+export default function DayOrdersModal({ date, orders, onClose, onSelectOrder, onPrintSelected, onDelete }: DayOrdersModalProps) {
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fade-in">
              <div className="relative w-full max-w-5xl max-h-[90vh] flex flex-col">
@@ -28,6 +29,7 @@ export default function DayOrdersModal({ date, orders, onClose, onSelectOrder, o
                         orders={orders}
                         onSelectOrder={onSelectOrder}
                         onPrintSelected={onPrintSelected}
+                        onDelete={onDelete}
                     />
                 </div>
              </div>

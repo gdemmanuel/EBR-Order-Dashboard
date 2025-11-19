@@ -1,7 +1,8 @@
+
 import React, { useState, useCallback } from 'react';
 import { Order, FollowUpStatus, ApprovalStatus } from '../types';
 import { generateFollowUpMessage, generateOrderConfirmationMessage } from '../services/geminiService';
-import { CalendarIcon, ClockIcon, UserIcon, PhoneIcon, MapPinIcon, CurrencyDollarIcon, SparklesIcon, XMarkIcon, PencilIcon, ClipboardDocumentCheckIcon, PaperAirplaneIcon, CreditCardIcon, ArrowTopRightOnSquareIcon, InstagramIcon, ChatBubbleOvalLeftEllipsisIcon, FacebookIcon, CheckCircleIcon, XCircleIcon } from './icons/Icons';
+import { CalendarIcon, ClockIcon, UserIcon, PhoneIcon, MapPinIcon, CurrencyDollarIcon, SparklesIcon, XMarkIcon, PencilIcon, ClipboardDocumentCheckIcon, PaperAirplaneIcon, CreditCardIcon, ArrowTopRightOnSquareIcon, InstagramIcon, ChatBubbleOvalLeftEllipsisIcon, FacebookIcon, CheckCircleIcon, XCircleIcon, TrashIcon } from './icons/Icons';
 
 interface OrderDetailModalProps {
   order: Order;
@@ -10,6 +11,7 @@ interface OrderDetailModalProps {
   onEdit: (order: Order) => void;
   onApprove?: (orderId: string) => void;
   onDeny?: (orderId: string) => void;
+  onDelete?: (orderId: string) => void;
 }
 
 const DetailItem: React.FC<{ icon: React.ReactNode; label: string; value: string | number | null | undefined }> = ({ icon, label, value }) => {
@@ -25,7 +27,7 @@ const DetailItem: React.FC<{ icon: React.ReactNode; label: string; value: string
     );
 };
 
-export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onEdit, onApprove, onDeny }: OrderDetailModalProps) {
+export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onEdit, onApprove, onDeny, onDelete }: OrderDetailModalProps) {
   const [generatedMessage, setGeneratedMessage] = useState<string>('');
   const [loadingAction, setLoadingAction] = useState<'confirmation' | 'followup' | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -65,6 +67,12 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
   
   const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
       onUpdateFollowUp(order.id, e.target.value as FollowUpStatus);
+  };
+
+  const handleDeleteClick = () => {
+      if (onDelete && window.confirm("Are you sure you want to delete this order? This action cannot be undone.")) {
+          onDelete(order.id);
+      }
   };
 
   const handleSendInstagram = () => {
@@ -140,6 +148,16 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
                         Approve
                     </button>
                   </>
+              )}
+              {onDelete && order.approvalStatus !== ApprovalStatus.PENDING && (
+                  <button
+                    onClick={handleDeleteClick}
+                    className="flex items-center gap-2 bg-white text-red-600 font-semibold px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors border border-gray-300"
+                    title="Delete this order"
+                  >
+                    <TrashIcon className="w-4 h-4" />
+                    Delete
+                  </button>
               )}
               <button
                 onClick={() => onEdit(order)}
