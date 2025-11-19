@@ -1,11 +1,11 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { saveOrderToDb } from '../services/dbService';
 import { Order, OrderItem, PaymentStatus, FollowUpStatus, ApprovalStatus, PricingSettings, Flavor, MenuPackage } from '../types';
-import { calculateOrderTotal } from '../utils/pricingUtils';
 import { SalsaSize } from '../config';
-import { PlusIcon, TrashIcon, CheckCircleIcon, XMarkIcon } from './icons/Icons';
+import { TrashIcon, CheckCircleIcon } from './icons/Icons';
 import Header from './Header';
+import PackageBuilderModal from './PackageBuilderModal';
 
 interface CustomerOrderPageProps {
     empanadaFlavors: Flavor[];
@@ -57,7 +57,6 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
 
     // Modal State for Package Builder
     const [activePackageBuilder, setActivePackageBuilder] = useState<MenuPackage | null>(null);
-    const [builderSelections, setBuilderSelections] = useState<{ [flavorName: string]: number }>({});
 
     // Safe pricing fallback
     const safePricing = pricing || {
@@ -80,67 +79,11 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
     // --- Package Builder Logic ---
     const openPackageBuilder = (pkg: MenuPackage) => {
         setActivePackageBuilder(pkg);
-        setBuilderSelections({});
     };
 
-    const closePackageBuilder = () => {
-        setActivePackageBuilder(null);
-        setBuilderSelections({});
-    };
-
-    const updateBuilderSelection = (flavorName: string, change: number) => {
+    const handlePackageConfirm = (items: { name: string; quantity: number }[]) => {
         if (!activePackageBuilder) return;
         
-        const currentQty = builderSelections[flavorName] || 0;
-        const totalSelected = Object.values(builderSelections).reduce((a, b) => a + b, 0);
-        const distinctFlavors = Object.keys(builderSelections).filter(k => builderSelections[k] > 0).length;
-        
-        // Rules
-        if (change > 0) {
-            if (totalSelected >= activePackageBuilder.quantity) return; // Can't exceed total
-            if (currentQty === 0 && distinctFlavors >= activePackageBuilder.maxFlavors) return; // Can't exceed max distinct flavors
-        }
-
-        const newQty = Math.max(0, currentQty + change);
-        const newSelections = { ...builderSelections, [flavorName]: newQty };
-        if (newQty === 0) delete newSelections[flavorName];
-        
-        setBuilderSelections(newSelections);
-    };
-
-    const setBuilderQuantity = (flavorName: string, quantity: number) => {
-        if (!activePackageBuilder) return;
-        const currentQty = builderSelections[flavorName] || 0;
-        const totalOthers = Object.values(builderSelections).reduce((a, b) => a + b, 0) - currentQty;
-        const distinctFlavors = Object.keys(builderSelections).filter(k => k !== flavorName && builderSelections[k] > 0).length;
-
-        // Rules
-        const maxAvailable = activePackageBuilder.quantity - totalOthers;
-        let finalQty = Math.min(quantity, maxAvailable);
-        finalQty = Math.max(0, finalQty);
-
-        if (finalQty > 0 && currentQty === 0 && distinctFlavors >= activePackageBuilder.maxFlavors) {
-            return; // New flavor but max distinct reached
-        }
-
-        const newSelections = { ...builderSelections, [flavorName]: finalQty };
-        if (finalQty === 0) delete newSelections[flavorName];
-        setBuilderSelections(newSelections);
-    };
-
-    const fillRemaining = (flavorName: string) => {
-        if (!activePackageBuilder) return;
-        const totalSelected = Object.values(builderSelections).reduce((a, b) => a + b, 0);
-        const remaining = activePackageBuilder.quantity - totalSelected;
-        if (remaining > 0) {
-            updateBuilderSelection(flavorName, remaining);
-        }
-    };
-
-    const addBuiltPackageToCart = () => {
-        if (!activePackageBuilder) return;
-        
-        const items = Object.entries(builderSelections).map(([name, quantity]) => ({ name, quantity }));
         const newCartItem: CartPackage = {
             id: Date.now().toString(),
             packageId: activePackageBuilder.id,
@@ -150,7 +93,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
         };
         
         setCartPackages([...cartPackages, newCartItem]);
-        closePackageBuilder();
+        setActivePackageBuilder(null);
     };
 
     const removeCartPackage = (id: string) => {
@@ -436,98 +379,12 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
 
                 {/* Package Builder Modal */}
                 {activePackageBuilder && (
-                    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4 animate-fade-in">
-                        <div className="bg-white rounded-lg shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]">
-                            <header className="p-5 border-b border-gray-200 flex justify-between items-center bg-brand-tan/10">
-                                <div>
-                                    <h3 className="text-xl font-bold text-brand-brown">Customize {activePackageBuilder.name}</h3>
-                                    <p className="text-sm text-gray-500">
-                                        Pick {activePackageBuilder.quantity} empanadas (Up to {activePackageBuilder.maxFlavors} flavors)
-                                    </p>
-                                </div>
-                                <button onClick={closePackageBuilder} className="text-gray-400 hover:text-gray-600">
-                                    <XMarkIcon className="w-6 h-6" />
-                                </button>
-                            </header>
-                            
-                            <div className="p-5 overflow-y-auto flex-grow">
-                                <div className="space-y-1">
-                                    {(activePackageBuilder.itemType === 'mini' ? empanadaFlavors : fullSizeEmpanadaFlavors)
-                                        .filter(f => f.visible)
-                                        .map(flavor => {
-                                            const qty = builderSelections[flavor.name] || 0;
-                                            const totalSelected = Object.values(builderSelections).reduce((a, b) => a + b, 0);
-                                            const distinctSelected = Object.keys(builderSelections).filter(k => builderSelections[k] > 0).length;
-                                            const remaining = activePackageBuilder.quantity - totalSelected;
-                                            
-                                            const canAdd = totalSelected < activePackageBuilder.quantity && (qty > 0 || distinctSelected < activePackageBuilder.maxFlavors);
-
-                                            return (
-                                                <div key={flavor.name} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
-                                                    <span className="font-medium text-brand-brown">{flavor.name}</span>
-                                                    <div className="flex items-center gap-2">
-                                                        {/* Max Button */}
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => fillRemaining(flavor.name)}
-                                                            disabled={remaining <= 0 || (!canAdd && qty === 0)}
-                                                            className="text-xs font-semibold text-brand-orange hover:text-brand-brown disabled:opacity-30 mr-2"
-                                                        >
-                                                            Max
-                                                        </button>
-
-                                                        <button 
-                                                            type="button"
-                                                            onClick={() => updateBuilderSelection(flavor.name, -1)}
-                                                            disabled={qty === 0}
-                                                            className="w-8 h-8 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center hover:bg-gray-200 disabled:opacity-30"
-                                                        >
-                                                            -
-                                                        </button>
-                                                        
-                                                        {/* Editable Input */}
-                                                        <input
-                                                            type="number"
-                                                            min="0"
-                                                            max={activePackageBuilder.quantity}
-                                                            value={qty > 0 ? qty : ''}
-                                                            placeholder="0"
-                                                            onChange={(e) => setBuilderQuantity(flavor.name, parseInt(e.target.value) || 0)}
-                                                            className="w-12 text-center font-bold border-gray-200 rounded p-1 text-sm focus:border-brand-orange focus:ring-brand-orange"
-                                                        />
-                                                        
-                                                        <button 
-                                                            type="button"
-                                                            onClick={() => updateBuilderSelection(flavor.name, 1)}
-                                                            disabled={!canAdd}
-                                                            className="w-8 h-8 rounded-full bg-brand-orange text-white flex items-center justify-center hover:bg-brand-orange/90 disabled:bg-gray-300"
-                                                        >
-                                                            +
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            );
-                                    })}
-                                </div>
-                            </div>
-
-                            <footer className="p-5 border-t border-gray-200 bg-gray-50 rounded-b-lg">
-                                <div className="flex justify-between items-center mb-4">
-                                    <span className="text-sm font-medium text-gray-600">Total Selected:</span>
-                                    <span className={`font-bold text-lg ${Object.values(builderSelections).reduce((a,b)=>a+b,0) === activePackageBuilder.quantity ? 'text-green-600' : 'text-brand-orange'}`}>
-                                        {Object.values(builderSelections).reduce((a,b)=>a+b,0)} / {activePackageBuilder.quantity}
-                                    </span>
-                                </div>
-                                <button 
-                                    onClick={addBuiltPackageToCart}
-                                    disabled={Object.values(builderSelections).reduce((a,b)=>a+b,0) !== activePackageBuilder.quantity}
-                                    className="w-full bg-brand-orange text-white font-bold py-3 rounded-lg shadow-md hover:bg-opacity-90 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-                                >
-                                    Add to Order
-                                </button>
-                            </footer>
-                        </div>
-                    </div>
+                    <PackageBuilderModal 
+                        pkg={activePackageBuilder}
+                        flavors={activePackageBuilder.itemType === 'mini' ? empanadaFlavors : fullSizeEmpanadaFlavors}
+                        onClose={() => setActivePackageBuilder(null)}
+                        onConfirm={handlePackageConfirm}
+                    />
                 )}
             </main>
         </div>

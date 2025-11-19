@@ -1,10 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
-import { Order, OrderItem, ContactMethod, PaymentStatus, FollowUpStatus, ApprovalStatus, PricingSettings, Flavor } from '../types';
-import { TrashIcon, PlusIcon, XMarkIcon } from './icons/Icons';
+import { Order, OrderItem, ContactMethod, PaymentStatus, FollowUpStatus, ApprovalStatus, PricingSettings, Flavor, MenuPackage } from '../types';
+import { TrashIcon, PlusIcon, XMarkIcon, ShoppingBagIcon } from './icons/Icons';
 import { getAddressSuggestions } from '../services/geminiService';
 import { calculateOrderTotal } from '../utils/pricingUtils';
 import { SalsaSize } from '../config';
+import PackageBuilderModal from './PackageBuilderModal';
 
 interface OrderFormModalProps {
     order?: Order;
@@ -40,11 +41,34 @@ const ItemInputSection: React.FC<{
     onAddItem: () => void;
     onRemoveItem: (index: number) => void;
     itemType: 'mini' | 'full';
-}> = ({ title, items, flavors, onItemChange, onAddItem, onRemoveItem, itemType }) => {
+    availablePackages?: MenuPackage[];
+    onAddPackage: (pkg: MenuPackage) => void;
+}> = ({ title, items, flavors, onItemChange, onAddItem, onRemoveItem, itemType, availablePackages, onAddPackage }) => {
     const otherOption = itemType === 'mini' ? 'Other' : 'Full Other';
     return (
         <div>
-            <h3 className="text-lg font-semibold text-brand-brown/90 mb-2">{title}</h3>
+            <div className="flex justify-between items-end mb-2">
+                <h3 className="text-lg font-semibold text-brand-brown/90">{title}</h3>
+                {availablePackages && availablePackages.length > 0 && (
+                    <div className="relative group">
+                         <button type="button" className="text-xs bg-brand-tan/50 hover:bg-brand-orange hover:text-white text-brand-brown px-2 py-1 rounded flex items-center gap-1 transition-colors">
+                            <ShoppingBagIcon className="w-3 h-3" /> Quick Add Package
+                         </button>
+                         <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded shadow-lg z-20 hidden group-hover:block">
+                            {availablePackages.map(pkg => (
+                                <button 
+                                    key={pkg.id} 
+                                    type="button" 
+                                    onClick={() => onAddPackage(pkg)}
+                                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                >
+                                    {pkg.name} ({pkg.quantity})
+                                </button>
+                            ))}
+                         </div>
+                    </div>
+                )}
+            </div>
             <div className="space-y-3 max-h-40 overflow-y-auto pr-2 border-l-4 border-brand-tan/60 pl-3">
                 {items.map((item, index) => (
                     <div key={index} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 animate-fade-in">
@@ -72,7 +96,7 @@ const ItemInputSection: React.FC<{
                  {items.length === 0 && <p className="text-sm text-gray-500">No items added.</p>}
             </div>
             <button type="button" onClick={onAddItem} className="mt-2 flex items-center gap-1 text-sm font-medium text-brand-orange hover:text-brand-orange/80 transition-colors">
-                <PlusIcon className="w-4 h-4" /> Add Item
+                <PlusIcon className="w-4 h-4" /> Add Single Item
             </button>
         </div>
     );
@@ -129,6 +153,9 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
     const [isSuggestingAddress, setIsSuggestingAddress] = useState(false);
     const [addressError, setAddressError] = useState<string | null>(null);
     const [userLocation, setUserLocation] = useState<{latitude: number, longitude: number} | null>(null);
+
+    // Package Builder State
+    const [activePackageBuilder, setActivePackageBuilder] = useState<MenuPackage | null>(null);
 
     const resetForm = () => {
         setCustomerName('');
@@ -334,6 +361,34 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         }
     };
 
+    // Package Builder Handlers
+    const handlePackageConfirm = (items: { name: string; quantity: number }[]) => {
+        markDirty();
+        if (!activePackageBuilder) return;
+        
+        const type = activePackageBuilder.itemType;
+        const formItems: FormOrderItem[] = items.map(i => ({ name: i.name, quantity: i.quantity }));
+        
+        // Consolidate with existing items
+        const currentItems = type === 'mini' ? miniItems : fullSizeItems;
+        const combinedItems = [...currentItems];
+        
+        formItems.forEach(newItem => {
+            const existingIndex = combinedItems.findIndex(existing => existing.name === newItem.name);
+            if (existingIndex >= 0) {
+                const existingQty = Number(combinedItems[existingIndex].quantity) || 0;
+                combinedItems[existingIndex].quantity = existingQty + Number(newItem.quantity);
+            } else {
+                combinedItems.push(newItem);
+            }
+        });
+
+        if (type === 'mini') setMiniItems(combinedItems);
+        else setFullSizeItems(combinedItems);
+        
+        setActivePackageBuilder(null);
+    };
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         
@@ -493,6 +548,8 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                             onAddItem={() => addItem('mini')}
                             onRemoveItem={(index) => removeItem('mini', index)}
                             itemType="mini"
+                            availablePackages={pricing.packages?.filter(p => p.itemType === 'mini')}
+                            onAddPackage={setActivePackageBuilder}
                         />
                          <ItemInputSection 
                             title="Full-Size Empanadas"
@@ -502,6 +559,8 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                             onAddItem={() => addItem('full')}
                             onRemoveItem={(index) => removeItem('full', index)}
                             itemType="full"
+                            availablePackages={pricing.packages?.filter(p => p.itemType === 'full')}
+                            onAddPackage={setActivePackageBuilder}
                         />
                     </div>
 
@@ -548,6 +607,16 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                         </div>
                     </footer>
                 </form>
+                
+                {/* Package Builder Modal for Admin */}
+                {activePackageBuilder && (
+                    <PackageBuilderModal 
+                        pkg={activePackageBuilder}
+                        flavors={activePackageBuilder.itemType === 'mini' ? empanadaFlavors : fullSizeEmpanadaFlavors}
+                        onClose={() => setActivePackageBuilder(null)}
+                        onConfirm={handlePackageConfirm}
+                    />
+                )}
             </div>
         </div>
     );
