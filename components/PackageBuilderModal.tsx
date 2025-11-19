@@ -63,6 +63,9 @@ export default function PackageBuilderModal({ pkg, flavors, onClose, onConfirm }
         onConfirm(items);
     };
 
+    const totalSelected = Object.values(builderSelections).reduce((a, b) => a + b, 0);
+    const remaining = pkg.quantity - totalSelected;
+
     return (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[70] p-4 animate-fade-in">
             <div className="bg-white rounded-lg shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]">
@@ -84,9 +87,7 @@ export default function PackageBuilderModal({ pkg, flavors, onClose, onConfirm }
                             .filter(f => f.visible)
                             .map(flavor => {
                                 const qty = builderSelections[flavor.name] || 0;
-                                const totalSelected = Object.values(builderSelections).reduce((a, b) => a + b, 0);
                                 const distinctSelected = Object.keys(builderSelections).filter(k => builderSelections[k] > 0).length;
-                                const remaining = pkg.quantity - totalSelected;
                                 
                                 const canAdd = totalSelected < pkg.quantity && (qty > 0 || distinctSelected < pkg.maxFlavors);
 
@@ -126,7 +127,13 @@ export default function PackageBuilderModal({ pkg, flavors, onClose, onConfirm }
                                             
                                             <button 
                                                 type="button"
-                                                onClick={() => updateBuilderSelection(flavor.name, 1)}
+                                                onClick={() => {
+                                                    if (qty === 0) {
+                                                        fillRemaining(flavor.name);
+                                                    } else {
+                                                        updateBuilderSelection(flavor.name, 1);
+                                                    }
+                                                }}
                                                 disabled={!canAdd}
                                                 className="w-8 h-8 rounded-full bg-brand-orange text-white flex items-center justify-center hover:bg-brand-orange/90 disabled:bg-gray-300"
                                             >
@@ -141,14 +148,16 @@ export default function PackageBuilderModal({ pkg, flavors, onClose, onConfirm }
 
                 <footer className="p-5 border-t border-gray-200 bg-gray-50 rounded-b-lg">
                     <div className="flex justify-between items-center mb-4">
-                        <span className="text-sm font-medium text-gray-600">Total Selected:</span>
-                        <span className={`font-bold text-lg ${Object.values(builderSelections).reduce((a,b)=>a+b,0) === pkg.quantity ? 'text-green-600' : 'text-brand-orange'}`}>
-                            {Object.values(builderSelections).reduce((a,b)=>a+b,0)} / {pkg.quantity}
+                        <span className="text-sm font-medium text-gray-600">
+                            Remaining: <span className="font-bold text-brand-brown">{remaining}</span>
+                        </span>
+                        <span className={`font-bold text-lg ${totalSelected === pkg.quantity ? 'text-green-600' : 'text-brand-orange'}`}>
+                            Selected: {totalSelected} / {pkg.quantity}
                         </span>
                     </div>
                     <button 
                         onClick={handleConfirm}
-                        disabled={Object.values(builderSelections).reduce((a,b)=>a+b,0) !== pkg.quantity}
+                        disabled={totalSelected !== pkg.quantity}
                         className="w-full bg-brand-orange text-white font-bold py-3 rounded-lg shadow-md hover:bg-opacity-90 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
                     >
                         Add to Order
