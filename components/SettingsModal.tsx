@@ -445,18 +445,18 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                             <div>
                                                 <label className="block text-xs font-medium text-gray-700 mb-1">Discos per Mini</label>
                                                 <input 
-                                                    type="number" step="1" 
+                                                    type="number" step="0.01" 
                                                     value={prepSettings.discosPer?.mini ?? 1}
-                                                    onChange={(e) => setPrepSettings({...prepSettings, discosPer: { ...prepSettings.discosPer, mini: parseInt(e.target.value) || 1 }})}
+                                                    onChange={(e) => setPrepSettings({...prepSettings, discosPer: { ...prepSettings.discosPer, mini: parseFloat(e.target.value) || 0 }})}
                                                     className="w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange sm:text-sm"
                                                 />
                                             </div>
                                             <div>
                                                 <label className="block text-xs font-medium text-gray-700 mb-1">Discos per Full</label>
                                                 <input 
-                                                    type="number" step="1" 
+                                                    type="number" step="0.01" 
                                                     value={prepSettings.discosPer?.full ?? 1}
-                                                    onChange={(e) => setPrepSettings({...prepSettings, discosPer: { ...prepSettings.discosPer, full: parseInt(e.target.value) || 1 }})}
+                                                    onChange={(e) => setPrepSettings({...prepSettings, discosPer: { ...prepSettings.discosPer, full: parseFloat(e.target.value) || 0 }})}
                                                     className="w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange sm:text-sm"
                                                 />
                                             </div>

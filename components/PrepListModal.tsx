@@ -69,8 +69,8 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
         let totalEstimatedCost = 0; // Supply Cost
         
         // Disco Multipliers
-        const miniDiscosPer = settings.prepSettings?.discosPer?.mini || 1;
-        const fullDiscosPer = settings.prepSettings?.discosPer?.full || 1;
+        const miniDiscosPer = settings.prepSettings?.discosPer?.mini ?? 1;
+        const fullDiscosPer = settings.prepSettings?.discosPer?.full ?? 1;
 
         const rows = allFlavors.map(flavor => {
             const miniOrd = miniCounts[flavor] || 0;
