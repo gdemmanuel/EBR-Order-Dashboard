@@ -1,8 +1,39 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Order } from '../types';
 
-// Initialize the client with the key from process.env.API_KEY as per guidelines.
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Safe API Key retrieval for Vite/Vercel deployments
+// In a browser environment (Vite), accessing process.env directly can cause a crash
+// if 'process' is not defined. We must check types safely.
+const getApiKey = () => {
+    // 1. Try Vite/Modern Browser Standard (import.meta.env)
+    try {
+        // @ts-ignore - import.meta is a Vite/ESM standard
+        if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_KEY) {
+            // @ts-ignore
+            return import.meta.env.VITE_API_KEY;
+        }
+    } catch (e) {
+        // Ignore errors accessing import.meta
+    }
+
+    // 2. Try Node.js/Webpack Standard (process.env) - WITH SAFETY CHECK
+    try {
+        // @ts-ignore
+        if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
+            // @ts-ignore
+            return process.env.API_KEY;
+        }
+    } catch (e) {
+        // Ignore errors accessing process
+    }
+
+    // 3. Return empty string if nothing found (prevents startup crash)
+    console.warn("API Key not found. Please check your VITE_API_KEY environment variable.");
+    return '';
+};
+
+// Initialize the client with the safe key
+const ai = new GoogleGenAI({ apiKey: getApiKey() });
 
 export async function generateFollowUpMessage(order: Order): Promise<string> {
   const model = 'gemini-2.5-flash';
