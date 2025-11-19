@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Order, OrderItem, ContactMethod, PaymentStatus, FollowUpStatus, ApprovalStatus, PricingSettings } from '../types';
+import { Order, OrderItem, ContactMethod, PaymentStatus, FollowUpStatus, ApprovalStatus, PricingSettings, Flavor } from '../types';
 import { TrashIcon, PlusIcon, XMarkIcon } from './icons/Icons';
 import { getAddressSuggestions } from '../services/geminiService';
 import { calculateOrderTotal } from '../utils/pricingUtils';
@@ -10,8 +10,8 @@ interface OrderFormModalProps {
     order?: Order;
     onClose: () => void;
     onSave: (order: Order | Omit<Order, 'id'>) => void;
-    empanadaFlavors: string[];
-    fullSizeEmpanadaFlavors: string[];
+    empanadaFlavors: Flavor[];
+    fullSizeEmpanadaFlavors: Flavor[];
     onAddNewFlavor: (flavor: string, type: 'mini' | 'full') => void;
     onDelete?: (orderId: string) => void;
     pricing: PricingSettings;
@@ -35,7 +35,7 @@ interface SalsaState {
 const ItemInputSection: React.FC<{
     title: string;
     items: FormOrderItem[];
-    flavors: string[];
+    flavors: Flavor[];
     onItemChange: (index: number, field: keyof FormOrderItem, value: string | number) => void;
     onAddItem: () => void;
     onRemoveItem: (index: number) => void;
@@ -50,7 +50,7 @@ const ItemInputSection: React.FC<{
                     <div key={index} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 animate-fade-in">
                         <div className="flex-grow w-full">
                             <select value={item.name} onChange={e => onItemChange(index, 'name', e.target.value)} className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm bg-white text-brand-brown">
-                                {flavors.map(flavor => <option key={flavor} value={flavor}>{flavor}</option>)}
+                                {flavors.map(flavor => <option key={flavor.name} value={flavor.name}>{flavor.name}</option>)}
                             </select>
                             {item.name === otherOption && (
                                 <input
@@ -122,8 +122,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
     const [amountCollected, setAmountCollected] = useState<number | string>(0);
     const [paymentMethod, setPaymentMethod] = useState('');
     const [specialInstructions, setSpecialInstructions] = useState('');
-
-    // Logic to prevent overwriting historical prices with new settings unless items changed
+    
     const [initialLoadComplete, setInitialLoadComplete] = useState(false);
 
     const [addressSuggestions, setAddressSuggestions] = useState<string[]>([]);
@@ -203,7 +202,6 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         });
         setSalsaItems(initialSalsaState);
 
-        // CRITICAL: Use the existing amount for editing to preserve historical pricing
         if (data.amountCharged !== undefined) {
             setAmountCharged(data.amountCharged);
         }
@@ -215,11 +213,10 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
             populateForm(order);
         } else {
             resetForm();
-            setInitialLoadComplete(true); // Ready to calculate for new orders immediately
+            setInitialLoadComplete(true);
         }
     }, [order]);
 
-     // Location for address suggestions
      useEffect(() => {
         if (deliveryRequired) {
             navigator.geolocation.getCurrentPosition(
@@ -246,63 +243,6 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         return () => clearTimeout(handler);
     }, [deliveryAddress, deliveryRequired, userLocation]);
 
-    // Pricing Calculation
-    useEffect(() => {
-        if (!initialLoadComplete) return;
-        
-        // Construct temporary items array for calculation
-        const currentItems: OrderItem[] = [
-            ...miniItems.map(i => ({ name: i.name, quantity: Number(i.quantity) || 0 })),
-            ...fullSizeItems.map(i => ({ name: i.name, quantity: Number(i.quantity) || 0 })),
-            ...salsaItems.filter(s => s.checked).map(s => ({ name: `${s.name} - ${s.size}`, quantity: Number(s.quantity) || 0 }))
-        ];
-
-        const currentFee = Number(deliveryFee) || 0;
-
-        // For NEW orders, always calculate.
-        if (!order) {
-             const newTotal = calculateOrderTotal(currentItems, currentFee, pricing);
-             setAmountCharged(newTotal);
-             return;
-        }
-
-        // For EXISTING orders, we only recalculate if the items/fee effectively changed from the saved state.
-        // However, checking deep equality is complex.
-        // A simpler heuristic: We assume if the user is interacting with the form, they might expect updates.
-        // BUT to satisfy the requirement "only reflective on new orders", we should ideally default to the old price.
-        // The compromise: We calculated the price on load (populateForm). 
-        // If we run calculation now, it will overwrite it with current settings.
-        // We need a way to only update if the inputs *change* from their initial loaded values.
-        // Since `miniItems`, `fullSizeItems`, etc. are dependencies, this effect runs on mount too.
-        // We check if the calculated price is different from what is currently set, 
-        // but that doesn't help if the historical price was different.
-        
-        // REFINED STRATEGY: 
-        // We use a flag `userHasModifiedItems`? 
-        // Or simpler: just let the user modify the Total manually if they want to respect old pricing?
-        // No, manual override is error prone.
-        
-        // Let's assume that if they are editing, they *might* want new pricing, but we shouldn't force it *just* by opening the modal.
-        // Implementation: We only update `amountCharged` if the calculated value based on current inputs 
-        // differs from the *re-calculation* of the initial inputs. 
-        // Actually, standard behavior for POS systems: Editing an order usually triggers current pricing.
-        // To strictly follow user request: "Update pricing... only reflective on new orders" means batch updates shouldn't happen.
-        // Editing a specific order usually implies bringing it up to date. 
-        // If I add a taco, I expect to pay today's taco price.
-        
-        const newTotal = calculateOrderTotal(currentItems, currentFee, pricing);
-        
-        // If it's an edit, we perform a check to avoid overwriting just on load/mount
-        // `initialLoadComplete` is set to true after population.
-        // But this effect runs immediately after population because state changed.
-        // We can use a ref to track if it's the first run after load.
-    }, [miniItems, fullSizeItems, deliveryFee, deliveryRequired, salsaItems, pricing, initialLoadComplete, order]);
-
-    // To truly solve the "don't update old orders" issue while allowing edits:
-    // We need to detect if this is a user-initiated change.
-    // Simplified approach: This effect calculates whenever dependencies change.
-    // If we load an order, `setMiniItems` triggers this.
-    // Use a `dirty` flag.
     const [isDirty, setIsDirty] = useState(false);
 
     useEffect(() => {
@@ -320,7 +260,6 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
 
     const markDirty = () => setIsDirty(true);
 
-    // Update Payment Status
     useEffect(() => {
         if ((Number(amountCollected) || 0) >= amountCharged && amountCharged > 0) {
             setPaymentStatus(PaymentStatus.PAID);
@@ -359,9 +298,12 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
 
     const addItem = (type: 'mini' | 'full') => {
         markDirty();
-        const newItem: FormOrderItem = type === 'mini' 
-            ? { name: empanadaFlavors[0], quantity: 1 } 
-            : { name: fullSizeEmpanadaFlavors[0], quantity: 1 };
+        // Safely access the first flavor name
+        const firstFlavor = type === 'mini' 
+            ? (empanadaFlavors[0]?.name || 'Other')
+            : (fullSizeEmpanadaFlavors[0]?.name || 'Full Other');
+            
+        const newItem: FormOrderItem = { name: firstFlavor, quantity: 1 };
         if (type === 'mini') setMiniItems([...miniItems, newItem]);
         else setFullSizeItems([...fullSizeItems, newItem]);
     };

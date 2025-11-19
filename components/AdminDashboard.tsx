@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Order, ApprovalStatus, FollowUpStatus, PricingSettings } from '../types';
+import { Order, ApprovalStatus, FollowUpStatus, PricingSettings, Flavor } from '../types';
 import { parseOrderDateTime } from '../utils/dateUtils';
 import { saveOrderToDb, deleteOrderFromDb, updateSettingsInDb, saveOrdersBatch } from '../services/dbService';
 import { calculateOrderTotal } from '../utils/pricingUtils';
@@ -23,8 +23,8 @@ import { User } from 'firebase/auth';
 interface AdminDashboardProps {
     user: User;
     orders: Order[];
-    empanadaFlavors: string[];
-    fullSizeEmpanadaFlavors: string[];
+    empanadaFlavors: Flavor[];
+    fullSizeEmpanadaFlavors: Flavor[];
     importedSignatures: Set<string>;
     sheetUrl: string;
     pricing: PricingSettings;
@@ -90,8 +90,9 @@ export default function AdminDashboard({
     
     // Fallback default pricing if loading
     const safePricing = pricing || {
-        mini: { basePrice: 1.75, tiers: [] },
-        full: { basePrice: 3.00, tiers: [] },
+        mini: { basePrice: 1.75 },
+        full: { basePrice: 3.00 },
+        packages: [],
         salsaSmall: 2.00,
         salsaLarge: 4.00
     };
@@ -132,14 +133,15 @@ export default function AdminDashboard({
         });
     };
 
-    const handleAddNewFlavor = async (flavor: string, type: 'mini' | 'full') => {
+    const handleAddNewFlavor = async (flavorName: string, type: 'mini' | 'full') => {
+        // Check if flavor exists (by name)
         if (type === 'mini') {
-            if (!empanadaFlavors.includes(flavor)) {
-                await updateSettingsInDb({ empanadaFlavors: [...empanadaFlavors, flavor] });
+            if (!empanadaFlavors.some(f => f.name === flavorName)) {
+                await updateSettingsInDb({ empanadaFlavors: [...empanadaFlavors, { name: flavorName, visible: true }] });
             }
         } else {
-            if (!fullSizeEmpanadaFlavors.includes(flavor)) {
-                await updateSettingsInDb({ fullSizeEmpanadaFlavors: [...fullSizeEmpanadaFlavors, flavor] });
+            if (!fullSizeEmpanadaFlavors.some(f => f.name === flavorName)) {
+                await updateSettingsInDb({ fullSizeEmpanadaFlavors: [...fullSizeEmpanadaFlavors, { name: flavorName, visible: true }] });
             }
         }
     };
@@ -226,7 +228,7 @@ export default function AdminDashboard({
                 {view === 'dashboard' && (
                     <>
                         <DateRangeFilter onDateChange={setDateFilter} />
-                        <DashboardMetrics stats={stats} orders={filteredOrders} empanadaFlavors={empanadaFlavors} fullSizeEmpanadaFlavors={fullSizeEmpanadaFlavors} />
+                        <DashboardMetrics stats={stats} orders={filteredOrders} empanadaFlavors={empanadaFlavors.map(f => f.name)} fullSizeEmpanadaFlavors={fullSizeEmpanadaFlavors.map(f => f.name)} />
                     </>
                 )}
 

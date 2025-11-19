@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { User } from 'firebase/auth';
 
-import { Order, ApprovalStatus, PricingSettings } from './types';
+import { Order, ApprovalStatus, PricingSettings, Flavor } from './types';
 import { subscribeToOrders, subscribeToSettings, AppSettings, migrateLocalDataToFirestore } from './services/dbService';
 import { subscribeToAuth } from './services/authService';
 import { initialEmpanadaFlavors, initialFullSizeEmpanadaFlavors } from './data/mockData';
@@ -19,8 +19,8 @@ export default function App() {
 
   // Shared App State
   const [orders, setOrders] = useState<Order[]>([]);
-  const [empanadaFlavors, setEmpanadaFlavors] = useState<string[]>(initialEmpanadaFlavors);
-  const [fullSizeEmpanadaFlavors, setFullSizeEmpanadaFlavors] = useState<string[]>(initialFullSizeEmpanadaFlavors);
+  const [empanadaFlavors, setEmpanadaFlavors] = useState<Flavor[]>(initialEmpanadaFlavors.map(name => ({ name, visible: true })));
+  const [fullSizeEmpanadaFlavors, setFullSizeEmpanadaFlavors] = useState<Flavor[]>(initialFullSizeEmpanadaFlavors.map(name => ({ name, visible: true })));
   const [importedSignatures, setImportedSignatures] = useState<Set<string>>(new Set());
   const [sheetUrl, setSheetUrl] = useState<string>('');
   const [pricing, setPricing] = useState<PricingSettings | undefined>(undefined);
@@ -55,14 +55,23 @@ export default function App() {
               const localOrders: Order[] = localOrdersStr ? JSON.parse(localOrdersStr) : [];
               const localPending: Order[] = localPendingStr ? JSON.parse(localPendingStr) : [];
               
+              // Basic migration of flavors to object array if needed
+              const rawMini = JSON.parse(localStorage.getItem('empanadaFlavors') || JSON.stringify(initialEmpanadaFlavors));
+              const rawFull = JSON.parse(localStorage.getItem('fullSizeEmpanadaFlavors') || JSON.stringify(initialFullSizeEmpanadaFlavors));
+
               const localSettings: AppSettings = {
-                  empanadaFlavors: JSON.parse(localStorage.getItem('empanadaFlavors') || JSON.stringify(initialEmpanadaFlavors)),
-                  fullSizeEmpanadaFlavors: JSON.parse(localStorage.getItem('fullSizeEmpanadaFlavors') || JSON.stringify(initialFullSizeEmpanadaFlavors)),
+                  empanadaFlavors: Array.isArray(rawMini) && typeof rawMini[0] === 'string' 
+                    ? rawMini.map((f: string) => ({ name: f, visible: true })) 
+                    : rawMini,
+                  fullSizeEmpanadaFlavors: Array.isArray(rawFull) && typeof rawFull[0] === 'string' 
+                    ? rawFull.map((f: string) => ({ name: f, visible: true })) 
+                    : rawFull,
                   sheetUrl: localStorage.getItem('sheetUrl') || '',
                   importedSignatures: JSON.parse(localStorage.getItem('importedSignatures') || '[]'),
                   pricing: {
-                      mini: { basePrice: 1.75, tiers: [] },
-                      full: { basePrice: 3.00, tiers: [] },
+                      mini: { basePrice: 1.75 },
+                      full: { basePrice: 3.00 },
+                      packages: [],
                       salsaSmall: 2.00,
                       salsaLarge: 4.00
                   }
@@ -161,8 +170,9 @@ export default function App() {
                             importedSignatures={importedSignatures}
                             sheetUrl={sheetUrl}
                             pricing={pricing || {
-                                mini: { basePrice: 1.75, tiers: [] },
-                                full: { basePrice: 3.00, tiers: [] },
+                                mini: { basePrice: 1.75 },
+                                full: { basePrice: 3.00 },
+                                packages: [],
                                 salsaSmall: 2.00,
                                 salsaLarge: 4.00
                             }}

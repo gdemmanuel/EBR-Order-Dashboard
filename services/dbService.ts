@@ -11,7 +11,8 @@ import {
     writeBatch
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
-import { Order, ApprovalStatus, PricingSettings } from "../types";
+import { Order, ApprovalStatus, PricingSettings, Flavor } from "../types";
+import { initialEmpanadaFlavors, initialFullSizeEmpanadaFlavors } from "../data/mockData";
 
 // Collection References
 const ORDERS_COLLECTION = "orders";
@@ -19,21 +20,22 @@ const SETTINGS_COLLECTION = "app_settings";
 const GENERAL_SETTINGS_DOC = "general";
 
 export interface AppSettings {
-    empanadaFlavors: string[];
-    fullSizeEmpanadaFlavors: string[];
+    empanadaFlavors: Flavor[];
+    fullSizeEmpanadaFlavors: Flavor[];
     sheetUrl: string;
     importedSignatures: string[];
     pricing: PricingSettings;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
-    empanadaFlavors: [], // Will use defaults from App.tsx if empty
-    fullSizeEmpanadaFlavors: [],
+    empanadaFlavors: initialEmpanadaFlavors.map(f => ({ name: f, visible: true })),
+    fullSizeEmpanadaFlavors: initialFullSizeEmpanadaFlavors.map(f => ({ name: f, visible: true })),
     sheetUrl: '',
     importedSignatures: [],
     pricing: {
-        mini: { basePrice: 1.75, tiers: [] },
-        full: { basePrice: 3.00, tiers: [] },
+        mini: { basePrice: 1.75 },
+        full: { basePrice: 3.00 },
+        packages: [],
         salsaSmall: 2.00,
         salsaLarge: 4.00
     }
@@ -66,16 +68,39 @@ export const subscribeToSettings = (
 ) => {
     return onSnapshot(doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC), (docSnap) => {
         if (docSnap.exists()) {
-            const data = docSnap.data() as Partial<AppSettings>;
-            // Merge with defaults to ensure structure exists
-            onUpdate({
+            const data = docSnap.data();
+            
+            // Migration Logic: Handle legacy string arrays for flavors
+            let safeMiniFlavors: Flavor[] = DEFAULT_SETTINGS.empanadaFlavors;
+            if (data.empanadaFlavors && Array.isArray(data.empanadaFlavors)) {
+                if (data.empanadaFlavors.length > 0 && typeof data.empanadaFlavors[0] === 'string') {
+                    safeMiniFlavors = (data.empanadaFlavors as unknown as string[]).map(f => ({ name: f, visible: true }));
+                } else {
+                    safeMiniFlavors = data.empanadaFlavors as Flavor[];
+                }
+            }
+
+            let safeFullFlavors: Flavor[] = DEFAULT_SETTINGS.fullSizeEmpanadaFlavors;
+            if (data.fullSizeEmpanadaFlavors && Array.isArray(data.fullSizeEmpanadaFlavors)) {
+                if (data.fullSizeEmpanadaFlavors.length > 0 && typeof data.fullSizeEmpanadaFlavors[0] === 'string') {
+                    safeFullFlavors = (data.fullSizeEmpanadaFlavors as unknown as string[]).map(f => ({ name: f, visible: true }));
+                } else {
+                    safeFullFlavors = data.fullSizeEmpanadaFlavors as Flavor[];
+                }
+            }
+
+            const mergedSettings: AppSettings = {
                 ...DEFAULT_SETTINGS,
                 ...data,
+                empanadaFlavors: safeMiniFlavors,
+                fullSizeEmpanadaFlavors: safeFullFlavors,
                 pricing: {
                     ...DEFAULT_SETTINGS.pricing,
                     ...(data.pricing || {})
                 }
-            });
+            };
+            
+            onUpdate(mergedSettings);
         } else {
             // Initialize defaults if doc doesn't exist
             console.log("Settings doc not found, initializing defaults...");

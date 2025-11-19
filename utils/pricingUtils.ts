@@ -1,21 +1,26 @@
 
-import { OrderItem, PricingSettings, PricingTier } from '../types';
+import { OrderItem, PricingSettings, MenuPackage } from '../types';
 
-export const calculatePriceForType = (quantity: number, basePrice: number, tiers: PricingTier[] = []) => {
+/**
+ * Calculates the best price for a given quantity of items by applying package deals first.
+ */
+export const calculatePriceForType = (quantity: number, basePrice: number, packages: MenuPackage[] = [], type: 'mini' | 'full') => {
     if (quantity <= 0) return 0;
 
-    // Sort tiers by quantity descending (largest packages first)
-    const sortedTiers = [...tiers].sort((a, b) => b.quantity - a.quantity);
+    // Filter packages for this specific item type (mini/full) and sort by quantity descending (largest packages first)
+    const sortedPackages = packages
+        .filter(p => p.itemType === type)
+        .sort((a, b) => b.quantity - a.quantity);
     
     let remainingQty = quantity;
     let totalPrice = 0;
 
-    for (const tier of sortedTiers) {
-        if (tier.quantity <= 0) continue;
-        const numPackages = Math.floor(remainingQty / tier.quantity);
+    for (const pkg of sortedPackages) {
+        if (pkg.quantity <= 0) continue;
+        const numPackages = Math.floor(remainingQty / pkg.quantity);
         if (numPackages > 0) {
-            totalPrice += numPackages * tier.price;
-            remainingQty %= tier.quantity;
+            totalPrice += numPackages * pkg.price;
+            remainingQty %= pkg.quantity;
         }
     }
 
@@ -42,9 +47,10 @@ export const calculateOrderTotal = (items: OrderItem[], deliveryFee: number, pri
         .filter(i => i.name.includes('Salsa') && i.name.includes('Large'))
         .reduce((sum, i) => sum + (i.quantity || 0), 0);
 
-    // 2. Calculate Totals using Pricing Logic
-    const miniTotal = calculatePriceForType(miniItemsQty, pricing.mini.basePrice, pricing.mini.tiers);
-    const fullTotal = calculatePriceForType(fullItemsQty, pricing.full.basePrice, pricing.full.tiers);
+    // 2. Calculate Totals using Packages first, then Base Price
+    const miniTotal = calculatePriceForType(miniItemsQty, pricing.mini.basePrice, pricing.packages, 'mini');
+    const fullTotal = calculatePriceForType(fullItemsQty, pricing.full.basePrice, pricing.packages, 'full');
+    
     const salsaTotal = (smallSalsaQty * pricing.salsaSmall) + (largeSalsaQty * pricing.salsaLarge);
 
     return miniTotal + fullTotal + salsaTotal + (deliveryFee || 0);

@@ -52,19 +52,29 @@ export interface Order {
   approvalStatus: ApprovalStatus;
 }
 
-export interface PricingTier {
+export interface Flavor {
+    name: string;
+    visible: boolean;
+}
+
+export interface MenuPackage {
+    id: string;
+    name: string;
+    itemType: 'mini' | 'full';
     quantity: number;
     price: number;
+    maxFlavors: number; // Limit how many distinct flavors customer can pick
+    visible: boolean;
 }
 
 export interface ProductPricing {
-    basePrice: number;
-    tiers: PricingTier[];
+    basePrice: number; // Fallback for single items
 }
 
 export interface PricingSettings {
     mini: ProductPricing;
     full: ProductPricing;
+    packages: MenuPackage[];
     salsaSmall: number;
     salsaLarge: number;
 }

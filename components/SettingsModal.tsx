@@ -1,8 +1,8 @@
 
 import React, { useState } from 'react';
 import { AppSettings, updateSettingsInDb } from '../services/dbService';
-import { PricingSettings, PricingTier } from '../types';
-import { XMarkIcon, PlusIcon, TrashIcon, CheckCircleIcon } from './icons/Icons';
+import { PricingSettings, MenuPackage, Flavor } from '../types';
+import { XMarkIcon, PlusIcon, TrashIcon, CheckCircleIcon, CogIcon } from './icons/Icons';
 
 interface SettingsModalProps {
     settings: AppSettings;
@@ -11,18 +11,25 @@ interface SettingsModalProps {
 
 export default function SettingsModal({ settings, onClose }: SettingsModalProps) {
     const [activeTab, setActiveTab] = useState<'menu' | 'pricing'>('menu');
-    const [empanadaFlavors, setEmpanadaFlavors] = useState(settings.empanadaFlavors);
-    const [fullSizeEmpanadaFlavors, setFullSizeEmpanadaFlavors] = useState(settings.fullSizeEmpanadaFlavors);
-    const [pricing, setPricing] = useState<PricingSettings>(settings.pricing || {
-        mini: { basePrice: 1.75, tiers: [] },
-        full: { basePrice: 3.00, tiers: [] },
-        salsaSmall: 2.00,
-        salsaLarge: 4.00
-    });
+    
+    // Local state for editing
+    const [empanadaFlavors, setEmpanadaFlavors] = useState<Flavor[]>(settings.empanadaFlavors);
+    const [fullSizeEmpanadaFlavors, setFullSizeEmpanadaFlavors] = useState<Flavor[]>(settings.fullSizeEmpanadaFlavors);
+    const [pricing, setPricing] = useState<PricingSettings>(settings.pricing);
     
     const [newMiniFlavor, setNewMiniFlavor] = useState('');
     const [newFullFlavor, setNewFullFlavor] = useState('');
     const [isSaving, setIsSaving] = useState(false);
+
+    // New Package State
+    const [newPackage, setNewPackage] = useState<Partial<MenuPackage>>({
+        itemType: 'mini',
+        quantity: 12,
+        price: 20,
+        maxFlavors: 4,
+        visible: true,
+        name: ''
+    });
 
     const handleSave = async () => {
         setIsSaving(true);
@@ -35,13 +42,26 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
         onClose();
     };
 
+    // --- Menu Management Logic ---
     const addFlavor = (type: 'mini' | 'full') => {
         if (type === 'mini' && newMiniFlavor.trim()) {
-            setEmpanadaFlavors([...empanadaFlavors, newMiniFlavor.trim()]);
+            setEmpanadaFlavors([...empanadaFlavors, { name: newMiniFlavor.trim(), visible: true }]);
             setNewMiniFlavor('');
         } else if (type === 'full' && newFullFlavor.trim()) {
-            setFullSizeEmpanadaFlavors([...fullSizeEmpanadaFlavors, newFullFlavor.trim()]);
+            setFullSizeEmpanadaFlavors([...fullSizeEmpanadaFlavors, { name: newFullFlavor.trim(), visible: true }]);
             setNewFullFlavor('');
+        }
+    };
+
+    const toggleFlavorVisibility = (type: 'mini' | 'full', index: number) => {
+        if (type === 'mini') {
+            const updated = [...empanadaFlavors];
+            updated[index].visible = !updated[index].visible;
+            setEmpanadaFlavors(updated);
+        } else {
+            const updated = [...fullSizeEmpanadaFlavors];
+            updated[index].visible = !updated[index].visible;
+            setFullSizeEmpanadaFlavors(updated);
         }
     };
 
@@ -53,33 +73,47 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
         }
     };
 
-    const addTier = (type: 'mini' | 'full') => {
-        const newTier: PricingTier = { quantity: 12, price: 0 };
+    // --- Package Management Logic ---
+    const handleAddPackage = () => {
+        if (!newPackage.name || !newPackage.price || !newPackage.quantity) return;
+        
+        const pkg: MenuPackage = {
+            id: Date.now().toString(),
+            name: newPackage.name,
+            itemType: newPackage.itemType as 'mini' | 'full',
+            quantity: Number(newPackage.quantity),
+            price: Number(newPackage.price),
+            maxFlavors: Number(newPackage.maxFlavors) || Number(newPackage.quantity), // Default to quantity if not set
+            visible: true
+        };
+
         setPricing({
             ...pricing,
-            [type]: {
-                ...pricing[type],
-                tiers: [...pricing[type].tiers, newTier]
-            }
+            packages: [...(pricing.packages || []), pkg]
+        });
+        
+        // Reset form
+        setNewPackage({
+            itemType: 'mini',
+            quantity: 12,
+            price: 20,
+            maxFlavors: 4,
+            visible: true,
+            name: ''
         });
     };
 
-    const updateTier = (type: 'mini' | 'full', index: number, field: keyof PricingTier, value: number) => {
-        const newTiers = [...pricing[type].tiers];
-        newTiers[index] = { ...newTiers[index], [field]: value };
+    const removePackage = (id: string) => {
         setPricing({
             ...pricing,
-            [type]: { ...pricing[type], tiers: newTiers }
+            packages: pricing.packages.filter(p => p.id !== id)
         });
     };
-
-    const removeTier = (type: 'mini' | 'full', index: number) => {
+    
+    const togglePackageVisibility = (id: string) => {
         setPricing({
             ...pricing,
-            [type]: {
-                ...pricing[type],
-                tiers: pricing[type].tiers.filter((_, i) => i !== index)
-            }
+            packages: pricing.packages.map(p => p.id === id ? { ...p, visible: !p.visible } : p)
         });
     };
 
@@ -124,14 +158,23 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                     />
                                     <button onClick={() => addFlavor('mini')} className="bg-brand-orange text-white px-3 rounded-md hover:bg-opacity-90"><PlusIcon className="w-5 h-5" /></button>
                                 </div>
-                                <ul className="space-y-2 max-h-64 overflow-y-auto">
+                                <div className="space-y-2 max-h-64 overflow-y-auto">
                                     {empanadaFlavors.map((flavor, idx) => (
-                                        <li key={idx} className="flex justify-between items-center bg-white p-2 rounded shadow-sm text-sm">
-                                            <span>{flavor}</span>
+                                        <div key={idx} className="flex justify-between items-center bg-white p-2 rounded shadow-sm text-sm">
+                                            <div className="flex items-center gap-3">
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={flavor.visible} 
+                                                    onChange={() => toggleFlavorVisibility('mini', idx)}
+                                                    className="rounded text-brand-orange focus:ring-brand-orange"
+                                                    title="Visible on customer menu"
+                                                />
+                                                <span className={!flavor.visible ? 'text-gray-400 line-through' : ''}>{flavor.name}</span>
+                                            </div>
                                             <button onClick={() => removeFlavor('mini', idx)} className="text-red-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button>
-                                        </li>
+                                        </div>
                                     ))}
-                                </ul>
+                                </div>
                             </div>
 
                             {/* Full Size Flavors */}
@@ -147,126 +190,140 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                     />
                                     <button onClick={() => addFlavor('full')} className="bg-brand-orange text-white px-3 rounded-md hover:bg-opacity-90"><PlusIcon className="w-5 h-5" /></button>
                                 </div>
-                                <ul className="space-y-2 max-h-64 overflow-y-auto">
+                                <div className="space-y-2 max-h-64 overflow-y-auto">
                                     {fullSizeEmpanadaFlavors.map((flavor, idx) => (
-                                        <li key={idx} className="flex justify-between items-center bg-white p-2 rounded shadow-sm text-sm">
-                                            <span>{flavor}</span>
+                                        <div key={idx} className="flex justify-between items-center bg-white p-2 rounded shadow-sm text-sm">
+                                            <div className="flex items-center gap-3">
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={flavor.visible} 
+                                                    onChange={() => toggleFlavorVisibility('full', idx)}
+                                                    className="rounded text-brand-orange focus:ring-brand-orange"
+                                                    title="Visible on customer menu"
+                                                />
+                                                <span className={!flavor.visible ? 'text-gray-400 line-through' : ''}>{flavor.name}</span>
+                                            </div>
                                             <button onClick={() => removeFlavor('full', idx)} className="text-red-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button>
-                                        </li>
+                                        </div>
                                     ))}
-                                </ul>
+                                </div>
                             </div>
                         </div>
                     )}
 
                     {activeTab === 'pricing' && (
                         <div className="space-y-8">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                {/* Mini Pricing */}
-                                <div className="bg-white p-5 rounded-lg border border-brand-tan shadow-sm">
-                                    <h3 className="font-bold text-brand-brown text-lg mb-4 border-b pb-2">Mini Empanadas Pricing</h3>
-                                    <div className="mb-4">
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Base Price (Single Item)</label>
-                                        <div className="relative rounded-md shadow-sm max-w-[150px]">
+                            {/* Packages Section */}
+                            <div className="bg-white p-5 rounded-lg border border-brand-tan shadow-sm">
+                                <h3 className="font-bold text-brand-brown text-lg mb-4 border-b pb-2">Package Deals</h3>
+                                <p className="text-sm text-gray-600 mb-4">Define standard packages for your customers (e.g., "Dozen Minis").</p>
+                                
+                                {/* New Package Form */}
+                                <div className="grid grid-cols-1 md:grid-cols-6 gap-3 bg-gray-50 p-4 rounded-md mb-6 items-end border border-gray-200">
+                                    <div className="md:col-span-2">
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Name</label>
+                                        <input type="text" placeholder="e.g. Party Platter" value={newPackage.name} onChange={e => setNewPackage({...newPackage, name: e.target.value})} className="w-full text-sm rounded border-gray-300" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Type</label>
+                                        <select value={newPackage.itemType} onChange={e => setNewPackage({...newPackage, itemType: e.target.value as any})} className="w-full text-sm rounded border-gray-300">
+                                            <option value="mini">Mini</option>
+                                            <option value="full">Full-Size</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Qty</label>
+                                        <input type="number" placeholder="12" value={newPackage.quantity} onChange={e => setNewPackage({...newPackage, quantity: Number(e.target.value)})} className="w-full text-sm rounded border-gray-300" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Price ($)</label>
+                                        <input type="number" placeholder="20.00" value={newPackage.price} onChange={e => setNewPackage({...newPackage, price: Number(e.target.value)})} className="w-full text-sm rounded border-gray-300" />
+                                    </div>
+                                     <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1" title="How many DIFFERENT flavors can they pick?">Max Flavors</label>
+                                        <input type="number" placeholder="3" value={newPackage.maxFlavors} onChange={e => setNewPackage({...newPackage, maxFlavors: Number(e.target.value)})} className="w-full text-sm rounded border-gray-300" />
+                                    </div>
+                                    <div className="md:col-span-6 flex justify-end mt-2">
+                                        <button onClick={handleAddPackage} className="flex items-center gap-2 bg-brand-orange text-white px-4 py-2 rounded text-sm font-semibold hover:bg-opacity-90">
+                                            <PlusIcon className="w-4 h-4" /> Add Package
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Existing Packages List */}
+                                <div className="space-y-3">
+                                    {pricing.packages?.map((pkg) => (
+                                        <div key={pkg.id} className="flex flex-wrap md:flex-nowrap items-center justify-between bg-white p-3 rounded border border-gray-200 shadow-sm gap-4">
+                                            <div className="flex items-center gap-3">
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={pkg.visible} 
+                                                    onChange={() => togglePackageVisibility(pkg.id)}
+                                                    className="rounded text-brand-orange focus:ring-brand-orange"
+                                                    title="Visible to customers"
+                                                />
+                                                <div>
+                                                    <p className="font-bold text-brand-brown">{pkg.name}</p>
+                                                    <p className="text-xs text-gray-500">{pkg.quantity} {pkg.itemType === 'mini' ? 'Minis' : 'Full-Size'} • Max {pkg.maxFlavors} flavors</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-4">
+                                                <p className="font-bold text-lg text-brand-orange">${pkg.price.toFixed(2)}</p>
+                                                <button onClick={() => removePackage(pkg.id)} className="text-red-400 hover:text-red-600 p-1 bg-red-50 rounded-full"><TrashIcon className="w-4 h-4" /></button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {(!pricing.packages || pricing.packages.length === 0) && <p className="text-center text-gray-500 italic py-4">No packages defined. Customers will rely on base pricing.</p>}
+                                </div>
+                            </div>
+
+                            {/* Salsa Pricing */}
+                            <div className="bg-white p-5 rounded-lg border border-brand-tan shadow-sm">
+                                <h3 className="font-bold text-brand-brown text-lg mb-4 border-b pb-2">Salsa Pricing</h3>
+                                <div className="grid grid-cols-2 gap-6">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Small (4oz)</label>
+                                        <div className="relative rounded-md shadow-sm">
                                             <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3"><span className="text-gray-500 sm:text-sm">$</span></div>
                                             <input 
                                                 type="number" step="0.01"
-                                                value={pricing.mini.basePrice}
-                                                onChange={(e) => setPricing({...pricing, mini: {...pricing.mini, basePrice: parseFloat(e.target.value) || 0}})}
+                                                value={pricing.salsaSmall}
+                                                onChange={(e) => setPricing({...pricing, salsaSmall: parseFloat(e.target.value) || 0})}
                                                 className="block w-full rounded-md border-gray-300 pl-7 pr-3 focus:border-brand-orange focus:ring-brand-orange sm:text-sm" 
                                             />
                                         </div>
                                     </div>
-                                    
-                                    <div className="mt-4">
-                                        <div className="flex justify-between items-center mb-2">
-                                            <label className="block text-sm font-medium text-gray-700">Package Deals (Quantity Tiers)</label>
-                                            <button onClick={() => addTier('mini')} className="text-xs text-brand-orange hover:underline flex items-center gap-1"><PlusIcon className="w-3 h-3" /> Add Deal</button>
-                                        </div>
-                                        <div className="space-y-2">
-                                            {pricing.mini.tiers.map((tier, idx) => (
-                                                <div key={idx} className="flex items-center gap-2 bg-gray-50 p-2 rounded-md">
-                                                    <span className="text-sm text-gray-600">Buy</span>
-                                                    <input type="number" value={tier.quantity} onChange={(e) => updateTier('mini', idx, 'quantity', parseInt(e.target.value))} className="w-16 h-8 text-sm rounded border-gray-300" />
-                                                    <span className="text-sm text-gray-600">for</span>
-                                                    <div className="relative w-20">
-                                                        <span className="absolute left-2 top-1 text-gray-500 text-sm">$</span>
-                                                        <input type="number" value={tier.price} onChange={(e) => updateTier('mini', idx, 'price', parseFloat(e.target.value))} className="w-full h-8 text-sm pl-5 rounded border-gray-300" />
-                                                    </div>
-                                                    <button onClick={() => removeTier('mini', idx)} className="text-red-400 hover:text-red-600 ml-auto"><TrashIcon className="w-4 h-4" /></button>
-                                                </div>
-                                            ))}
-                                            {pricing.mini.tiers.length === 0 && <p className="text-xs text-gray-400 italic">No package deals set.</p>}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Full Pricing */}
-                                <div className="bg-white p-5 rounded-lg border border-brand-tan shadow-sm">
-                                    <h3 className="font-bold text-brand-brown text-lg mb-4 border-b pb-2">Full-Size Empanadas Pricing</h3>
-                                    <div className="mb-4">
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Base Price (Single Item)</label>
-                                        <div className="relative rounded-md shadow-sm max-w-[150px]">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Large (8oz)</label>
+                                        <div className="relative rounded-md shadow-sm">
                                             <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3"><span className="text-gray-500 sm:text-sm">$</span></div>
                                             <input 
                                                 type="number" step="0.01"
-                                                value={pricing.full.basePrice}
-                                                onChange={(e) => setPricing({...pricing, full: {...pricing.full, basePrice: parseFloat(e.target.value) || 0}})}
+                                                value={pricing.salsaLarge}
+                                                onChange={(e) => setPricing({...pricing, salsaLarge: parseFloat(e.target.value) || 0})}
                                                 className="block w-full rounded-md border-gray-300 pl-7 pr-3 focus:border-brand-orange focus:ring-brand-orange sm:text-sm" 
                                             />
                                         </div>
                                     </div>
+                                </div>
+                            </div>
 
-                                    <div className="mt-4">
-                                        <div className="flex justify-between items-center mb-2">
-                                            <label className="block text-sm font-medium text-gray-700">Package Deals (Quantity Tiers)</label>
-                                            <button onClick={() => addTier('full')} className="text-xs text-brand-orange hover:underline flex items-center gap-1"><PlusIcon className="w-3 h-3" /> Add Deal</button>
-                                        </div>
-                                        <div className="space-y-2">
-                                            {pricing.full.tiers.map((tier, idx) => (
-                                                <div key={idx} className="flex items-center gap-2 bg-gray-50 p-2 rounded-md">
-                                                    <span className="text-sm text-gray-600">Buy</span>
-                                                    <input type="number" value={tier.quantity} onChange={(e) => updateTier('full', idx, 'quantity', parseInt(e.target.value))} className="w-16 h-8 text-sm rounded border-gray-300" />
-                                                    <span className="text-sm text-gray-600">for</span>
-                                                    <div className="relative w-20">
-                                                        <span className="absolute left-2 top-1 text-gray-500 text-sm">$</span>
-                                                        <input type="number" value={tier.price} onChange={(e) => updateTier('full', idx, 'price', parseFloat(e.target.value))} className="w-full h-8 text-sm pl-5 rounded border-gray-300" />
-                                                    </div>
-                                                    <button onClick={() => removeTier('full', idx)} className="text-red-400 hover:text-red-600 ml-auto"><TrashIcon className="w-4 h-4" /></button>
-                                                </div>
-                                            ))}
-                                             {pricing.full.tiers.length === 0 && <p className="text-xs text-gray-400 italic">No package deals set.</p>}
+                             {/* Legacy/Base Pricing */}
+                             <div className="bg-gray-50 p-5 rounded-lg border border-gray-200 shadow-sm">
+                                <h3 className="font-bold text-gray-600 text-sm mb-4 uppercase tracking-wide">Fallback / Base Pricing (Single Item)</h3>
+                                <div className="grid grid-cols-2 gap-6">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Mini Base Price</label>
+                                        <div className="relative rounded-md shadow-sm">
+                                            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3"><span className="text-gray-500 sm:text-sm">$</span></div>
+                                            <input type="number" step="0.01" value={pricing.mini.basePrice} onChange={(e) => setPricing({...pricing, mini: { basePrice: parseFloat(e.target.value) || 0 }})} className="block w-full rounded-md border-gray-300 pl-7 pr-3 sm:text-sm" />
                                         </div>
                                     </div>
-                                </div>
-
-                                {/* Salsa Pricing */}
-                                <div className="md:col-span-2 bg-white p-5 rounded-lg border border-brand-tan shadow-sm">
-                                    <h3 className="font-bold text-brand-brown text-lg mb-4 border-b pb-2">Salsa Pricing</h3>
-                                    <div className="grid grid-cols-2 gap-6">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Small (4oz)</label>
-                                            <div className="relative rounded-md shadow-sm">
-                                                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3"><span className="text-gray-500 sm:text-sm">$</span></div>
-                                                <input 
-                                                    type="number" step="0.01"
-                                                    value={pricing.salsaSmall}
-                                                    onChange={(e) => setPricing({...pricing, salsaSmall: parseFloat(e.target.value) || 0})}
-                                                    className="block w-full rounded-md border-gray-300 pl-7 pr-3 focus:border-brand-orange focus:ring-brand-orange sm:text-sm" 
-                                                />
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-1">Large (8oz)</label>
-                                            <div className="relative rounded-md shadow-sm">
-                                                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3"><span className="text-gray-500 sm:text-sm">$</span></div>
-                                                <input 
-                                                    type="number" step="0.01"
-                                                    value={pricing.salsaLarge}
-                                                    onChange={(e) => setPricing({...pricing, salsaLarge: parseFloat(e.target.value) || 0})}
-                                                    className="block w-full rounded-md border-gray-300 pl-7 pr-3 focus:border-brand-orange focus:ring-brand-orange sm:text-sm" 
-                                                />
-                                            </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Full-Size Base Price</label>
+                                        <div className="relative rounded-md shadow-sm">
+                                            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3"><span className="text-gray-500 sm:text-sm">$</span></div>
+                                            <input type="number" step="0.01" value={pricing.full.basePrice} onChange={(e) => setPricing({...pricing, full: { basePrice: parseFloat(e.target.value) || 0 }})} className="block w-full rounded-md border-gray-300 pl-7 pr-3 sm:text-sm" />
                                         </div>
                                     </div>
                                 </div>
