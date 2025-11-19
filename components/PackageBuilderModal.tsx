@@ -17,14 +17,34 @@ export default function PackageBuilderModal({ pkg, flavors, onClose, onConfirm }
         const currentQty = builderSelections[flavorName] || 0;
         const totalSelected = Object.values(builderSelections).reduce((a, b) => a + b, 0);
         const distinctFlavors = Object.keys(builderSelections).filter(k => builderSelections[k] > 0).length;
+        const remaining = pkg.quantity - totalSelected;
         
-        // Rules
+        let actualChange = change;
+
+        // Logic for adding
         if (change > 0) {
-            if (totalSelected >= pkg.quantity) return; // Can't exceed total
-            if (currentQty === 0 && distinctFlavors >= pkg.maxFlavors) return; // Can't exceed max distinct flavors
+            if (remaining === 0) return; // Full
+            
+            // Check flavor limit (only if this is a NEW flavor for this selection)
+            if (currentQty === 0 && distinctFlavors >= pkg.maxFlavors) return; 
+
+            // Cap change at remaining amount (e.g., if +10 but only 4 left, add 4)
+            if (actualChange > remaining) {
+                actualChange = remaining;
+            }
         }
 
-        const newQty = Math.max(0, currentQty + change);
+        // Logic for removing
+        if (change < 0) {
+            // Don't go below 0
+            if (currentQty + change < 0) {
+                actualChange = -currentQty;
+            }
+        }
+
+        if (actualChange === 0) return;
+
+        const newQty = currentQty + actualChange;
         const newSelections = { ...builderSelections, [flavorName]: newQty };
         if (newQty === 0) delete newSelections[flavorName];
         
@@ -89,7 +109,8 @@ export default function PackageBuilderModal({ pkg, flavors, onClose, onConfirm }
                                 const qty = builderSelections[flavor.name] || 0;
                                 const distinctSelected = Object.keys(builderSelections).filter(k => builderSelections[k] > 0).length;
                                 
-                                const canAdd = totalSelected < pkg.quantity && (qty > 0 || distinctSelected < pkg.maxFlavors);
+                                // Determine if we can add ANY amount of this flavor
+                                const canAdd = remaining > 0 && (qty > 0 || distinctSelected < pkg.maxFlavors);
 
                                 return (
                                     <div key={flavor.name} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
@@ -99,19 +120,19 @@ export default function PackageBuilderModal({ pkg, flavors, onClose, onConfirm }
                                             <button
                                                 type="button"
                                                 onClick={() => fillRemaining(flavor.name)}
-                                                disabled={remaining <= 0 || (!canAdd && qty === 0)}
-                                                className="text-xs font-semibold text-brand-orange hover:text-brand-brown disabled:opacity-30 mr-2"
+                                                disabled={!canAdd}
+                                                className="text-xs font-semibold text-brand-orange hover:text-brand-brown disabled:opacity-30 mr-2 uppercase tracking-wide"
                                             >
                                                 Max
                                             </button>
 
                                             <button 
                                                 type="button"
-                                                onClick={() => updateBuilderSelection(flavor.name, -1)}
+                                                onClick={() => updateBuilderSelection(flavor.name, -10)}
                                                 disabled={qty === 0}
-                                                className="w-8 h-8 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center hover:bg-gray-200 disabled:opacity-30"
+                                                className="w-10 h-8 rounded-lg bg-gray-100 text-gray-600 text-xs font-bold flex items-center justify-center hover:bg-gray-200 disabled:opacity-30"
                                             >
-                                                -
+                                                -10
                                             </button>
                                             
                                             {/* Editable Input */}
@@ -122,22 +143,16 @@ export default function PackageBuilderModal({ pkg, flavors, onClose, onConfirm }
                                                 value={qty > 0 ? qty : ''}
                                                 placeholder="0"
                                                 onChange={(e) => setBuilderQuantity(flavor.name, parseInt(e.target.value) || 0)}
-                                                className="w-12 text-center font-bold border-gray-200 rounded p-1 text-sm focus:border-brand-orange focus:ring-brand-orange"
+                                                className="w-14 text-center font-bold border-gray-200 rounded p-1 text-sm focus:border-brand-orange focus:ring-brand-orange"
                                             />
                                             
                                             <button 
                                                 type="button"
-                                                onClick={() => {
-                                                    if (qty === 0) {
-                                                        fillRemaining(flavor.name);
-                                                    } else {
-                                                        updateBuilderSelection(flavor.name, 1);
-                                                    }
-                                                }}
+                                                onClick={() => updateBuilderSelection(flavor.name, 10)}
                                                 disabled={!canAdd}
-                                                className="w-8 h-8 rounded-full bg-brand-orange text-white flex items-center justify-center hover:bg-brand-orange/90 disabled:bg-gray-300"
+                                                className="w-10 h-8 rounded-lg bg-brand-orange text-white text-xs font-bold flex items-center justify-center hover:bg-brand-orange/90 disabled:bg-gray-300"
                                             >
-                                                +
+                                                +10
                                             </button>
                                         </div>
                                     </div>
