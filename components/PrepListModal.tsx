@@ -1,6 +1,6 @@
 
 import React, { useMemo, useState } from 'react';
-import { Order } from '../types';
+import { Order, FollowUpStatus } from '../types';
 import { XMarkIcon, ScaleIcon, PrinterIcon, CurrencyDollarIcon, ClockIcon } from './icons/Icons';
 import { AppSettings } from '../services/dbService';
 
@@ -44,6 +44,10 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
         let totalFullOrdered = 0;
 
         orders.forEach(order => {
+            // IMPORTANT: Ignore orders that are already completed/picked up for prep calculation.
+            // If the order is completed, it shouldn't contribute to "Need to Make" anymore.
+            if (order.followUpStatus === FollowUpStatus.COMPLETED) return;
+
             order.items.forEach(item => {
                 if (item.name.includes('Salsa')) return;
 
@@ -180,7 +184,7 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
                         </div>
                         <div>
                             <h2 className="text-2xl font-serif text-brand-brown">Prep & Inventory List</h2>
-                            <p className="text-sm text-gray-500">Adjust Inventory to see what needs to be made.</p>
+                            <p className="text-sm text-gray-500">Adjust Inventory to see what needs to be made. (Completed orders are excluded).</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-3">

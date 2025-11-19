@@ -2,7 +2,7 @@
 import React, { useState, useCallback } from 'react';
 import { Order, FollowUpStatus, ApprovalStatus } from '../types';
 import { generateFollowUpMessage, generateOrderConfirmationMessage } from '../services/geminiService';
-import { CalendarIcon, ClockIcon, UserIcon, PhoneIcon, MapPinIcon, CurrencyDollarIcon, SparklesIcon, XMarkIcon, PencilIcon, ClipboardDocumentCheckIcon, PaperAirplaneIcon, CreditCardIcon, ArrowTopRightOnSquareIcon, InstagramIcon, ChatBubbleOvalLeftEllipsisIcon, FacebookIcon, CheckCircleIcon, XCircleIcon, TrashIcon } from './icons/Icons';
+import { CalendarIcon, ClockIcon, UserIcon, PhoneIcon, MapPinIcon, CurrencyDollarIcon, SparklesIcon, XMarkIcon, PencilIcon, ClipboardDocumentCheckIcon, PaperAirplaneIcon, CreditCardIcon, ArrowTopRightOnSquareIcon, InstagramIcon, ChatBubbleOvalLeftEllipsisIcon, FacebookIcon, CheckCircleIcon, XCircleIcon, TrashIcon, TruckIcon } from './icons/Icons';
 
 interface OrderDetailModalProps {
   order: Order;
@@ -12,6 +12,7 @@ interface OrderDetailModalProps {
   onApprove?: (orderId: string) => void;
   onDeny?: (orderId: string) => void;
   onDelete?: (orderId: string) => void;
+  onDeductInventory?: (order: Order) => Promise<void>;
 }
 
 const DetailItem: React.FC<{ icon: React.ReactNode; label: string; value: string | number | null | undefined }> = ({ icon, label, value }) => {
@@ -27,9 +28,9 @@ const DetailItem: React.FC<{ icon: React.ReactNode; label: string; value: string
     );
 };
 
-export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onEdit, onApprove, onDeny, onDelete }: OrderDetailModalProps) {
+export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onEdit, onApprove, onDeny, onDelete, onDeductInventory }: OrderDetailModalProps) {
   const [generatedMessage, setGeneratedMessage] = useState<string>('');
-  const [loadingAction, setLoadingAction] = useState<'confirmation' | 'followup' | null>(null);
+  const [loadingAction, setLoadingAction] = useState<'confirmation' | 'followup' | 'inventory' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copiedState, setCopiedState] = useState<'instagram' | 'facebook' | null>(null);
 
@@ -67,6 +68,22 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
   
   const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
       onUpdateFollowUp(order.id, e.target.value as FollowUpStatus);
+  };
+
+  const handleDeductInventoryClick = async () => {
+      if (!onDeductInventory) return;
+      if (!window.confirm("This will deduct the items from your inventory and mark the order as Completed. Continue?")) return;
+      
+      setLoadingAction('inventory');
+      try {
+          await onDeductInventory(order);
+          // We don't close automatically so user can see the update, 
+          // but the parent usually updates the order prop which triggers re-render
+      } catch (e) {
+          setError("Failed to update inventory.");
+      } finally {
+          setLoadingAction(null);
+      }
   };
 
   const handleDeleteClick = () => {
@@ -225,7 +242,7 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
               </div>
             </div>
 
-            {/* Payment Summary - REDESIGNED */}
+            {/* Payment Summary */}
             <div>
                 <h3 className="text-lg font-semibold text-brand-brown/90 mb-2">Payment Summary</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-brand-tan/30 p-4 rounded-lg border border-brand-tan">
@@ -235,7 +252,6 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
                         <div className="text-gray-400 mt-1"><CurrencyDollarIcon className="w-5 h-5" /></div>
                         <div>
                             <p className="text-sm font-medium text-brand-brown/70">Balance Due</p>
-                             {/* Calculate balance due */}
                              {(() => {
                                  const balance = order.amountCharged - (order.amountCollected || 0);
                                  return balance > 0 ? (
@@ -259,10 +275,28 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
               </div>
             )}
             
-            {/* Follow-up Section */}
+            {/* Follow-up & Status Section */}
             <div className="bg-brand-tan/40 border border-brand-tan p-4 rounded-lg">
-              <h3 className="text-lg font-semibold text-brand-brown/90 mb-3">Customer Communication</h3>
-              <div className="flex flex-col sm:flex-row gap-4 items-end">
+              <h3 className="text-lg font-semibold text-brand-brown/90 mb-3">Order Status & Actions</h3>
+              
+              {/* Inventory Action */}
+              {onDeductInventory && order.followUpStatus !== FollowUpStatus.COMPLETED && (
+                  <div className="mb-4 p-3 bg-white rounded border border-gray-200 flex items-center justify-between">
+                      <div className="text-sm text-gray-600">
+                          <p className="font-medium text-brand-brown">Ready for Pickup/Delivery?</p>
+                          <p className="text-xs">Mark as completed and update stock levels.</p>
+                      </div>
+                      <button 
+                        onClick={handleDeductInventoryClick}
+                        disabled={loadingAction !== null}
+                        className="flex items-center gap-2 bg-green-600 text-white px-3 py-1.5 rounded shadow-sm text-sm font-medium hover:bg-green-700 transition-colors disabled:bg-gray-400"
+                      >
+                          {loadingAction === 'inventory' ? 'Updating...' : <>Mark Picked Up & Deduct Inventory <TruckIcon className="w-4 h-4" /></>}
+                      </button>
+                  </div>
+              )}
+
+              <div className="flex flex-col sm:flex-row gap-4 items-end border-t border-gray-200 pt-4">
                 <div>
                   <label htmlFor="followUpStatus" className="block text-sm font-medium text-brand-brown/90 mb-1">Status</label>
                   <select id="followUpStatus" value={order.followUpStatus} onChange={handleStatusChange} className="rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown">

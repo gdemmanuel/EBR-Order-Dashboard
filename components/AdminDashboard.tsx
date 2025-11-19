@@ -18,7 +18,7 @@ import DateRangeFilter from './DateRangeFilter';
 import SettingsModal from './SettingsModal';
 import ConfirmationModal from './ConfirmationModal';
 import PrepListModal from './PrepListModal';
-import { PlusCircleIcon, ListBulletIcon, CalendarDaysIcon, ArrowTopRightOnSquareIcon, CogIcon, ScaleIcon } from './icons/Icons';
+import { PlusCircleIcon, ListBulletIcon, CalendarDaysIcon, ArrowTopRightOnSquareIcon, CogIcon, ScaleIcon, MagnifyingGlassIcon } from './icons/Icons';
 import { User } from 'firebase/auth';
 
 interface AdminDashboardProps {
@@ -48,6 +48,7 @@ export default function AdminDashboard({
 
     const [view, setView] = useState<'dashboard' | 'list' | 'calendar'>('dashboard');
     const [dateFilter, setDateFilter] = useState<{ start?: string; end?: string }>({});
+    const [searchTerm, setSearchTerm] = useState(''); // Search State
     
     const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState(false);
     const [orderToEdit, setOrderToEdit] = useState<Order | undefined>(undefined);
@@ -73,6 +74,18 @@ export default function AdminDashboard({
 
     const filteredOrders = useMemo(() => {
         let result = activeOrders;
+
+        // 1. Search Filter (Overrides Date Filter if active)
+        if (searchTerm.trim()) {
+            const term = searchTerm.toLowerCase();
+            // Search by Customer Name or Phone
+            return result.filter(o => 
+                o.customerName.toLowerCase().includes(term) || 
+                (o.phoneNumber && o.phoneNumber.includes(term))
+            );
+        }
+
+        // 2. Date Filter (Only applies if no search term)
         if (dateFilter.start) {
             const start = new Date(dateFilter.start);
             start.setHours(0,0,0,0);
@@ -84,7 +97,7 @@ export default function AdminDashboard({
             result = result.filter(o => parseOrderDateTime(o) <= end);
         }
         return result;
-    }, [activeOrders, dateFilter]);
+    }, [activeOrders, dateFilter, searchTerm]);
 
     const stats = useMemo(() => {
         const totalRevenue = filteredOrders.reduce((sum, o) => sum + o.amountCharged, 0);
@@ -141,6 +154,40 @@ export default function AdminDashboard({
         await saveOrderToDb(orderToSave);
         setIsNewOrderModalOpen(false);
         setOrderToEdit(undefined);
+    };
+
+    const handleDeductInventory = async (order: Order) => {
+        const currentInventory = { ...safeSettings.inventory };
+        let changesMade = false;
+
+        order.items.forEach(item => {
+            if (item.name.includes('Salsa')) return; // Skip salsa for inventory deduction for now
+            
+            let flavor = item.name;
+            let type: 'mini' | 'full' = 'mini';
+            
+            if (item.name.startsWith('Full ')) {
+                type = 'full';
+                flavor = item.name.replace('Full ', '');
+            }
+            
+            if (!currentInventory[flavor]) {
+                currentInventory[flavor] = { mini: 0, full: 0 };
+            }
+            
+            // Deduct from inventory
+            currentInventory[flavor][type] -= item.quantity;
+            changesMade = true;
+        });
+
+        if (changesMade) {
+            await updateSettingsInDb({ inventory: currentInventory });
+            // Also mark order as completed
+            await saveOrderToDb({ ...order, followUpStatus: FollowUpStatus.COMPLETED });
+            if (selectedOrder && selectedOrder.id === order.id) {
+                setSelectedOrder({ ...order, followUpStatus: FollowUpStatus.COMPLETED });
+            }
+        }
     };
 
     const confirmDeleteOrder = (orderId: string) => {
@@ -239,14 +286,30 @@ export default function AdminDashboard({
             <Header user={user} variant="admin" />
             
             <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-                    <div className="flex bg-white rounded-lg shadow-sm p-1 border border-brand-tan">
-                        <button onClick={() => setView('dashboard')} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${view === 'dashboard' ? 'bg-brand-orange text-white' : 'text-brand-brown hover:bg-brand-tan/30'}`}>Dashboard</button>
-                        <button onClick={() => setView('list')} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${view === 'list' ? 'bg-brand-orange text-white' : 'text-brand-brown hover:bg-brand-tan/30'}`}><ListBulletIcon className="w-4 h-4" /> List</button>
-                        <button onClick={() => setView('calendar')} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${view === 'calendar' ? 'bg-brand-orange text-white' : 'text-brand-brown hover:bg-brand-tan/30'}`}><CalendarDaysIcon className="w-4 h-4" /> Calendar</button>
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+                    <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
+                        <div className="flex bg-white rounded-lg shadow-sm p-1 border border-brand-tan self-start">
+                            <button onClick={() => setView('dashboard')} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${view === 'dashboard' ? 'bg-brand-orange text-white' : 'text-brand-brown hover:bg-brand-tan/30'}`}>Dashboard</button>
+                            <button onClick={() => setView('list')} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${view === 'list' ? 'bg-brand-orange text-white' : 'text-brand-brown hover:bg-brand-tan/30'}`}><ListBulletIcon className="w-4 h-4" /> List</button>
+                            <button onClick={() => setView('calendar')} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${view === 'calendar' ? 'bg-brand-orange text-white' : 'text-brand-brown hover:bg-brand-tan/30'}`}><CalendarDaysIcon className="w-4 h-4" /> Calendar</button>
+                        </div>
+                        
+                        {/* Search Bar */}
+                        <div className="relative w-full sm:w-64">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
+                            </div>
+                            <input
+                                type="text"
+                                placeholder="Search Customer..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="block w-full pl-10 pr-3 py-2 border border-brand-tan rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:border-brand-orange focus:ring-1 focus:ring-brand-orange sm:text-sm shadow-sm"
+                            />
+                        </div>
                     </div>
 
-                    <div className="flex gap-3 flex-wrap">
+                    <div className="flex gap-3 flex-wrap w-full md:w-auto justify-end">
                         <button onClick={() => setIsPrepListOpen(true)} className="flex items-center gap-2 bg-white text-brand-brown border border-brand-tan font-semibold px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"><ScaleIcon className="w-5 h-5" /> Prep List</button>
                         <button onClick={() => setIsSettingsOpen(true)} className="flex items-center gap-2 bg-white text-brand-brown border border-brand-tan font-semibold px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"><CogIcon className="w-5 h-5" /> Settings</button>
                         <button onClick={() => setIsImportModalOpen(true)} className="flex items-center gap-2 bg-white text-brand-brown border border-brand-tan font-semibold px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"><ArrowTopRightOnSquareIcon className="w-5 h-5" /> Import</button>
@@ -266,7 +329,7 @@ export default function AdminDashboard({
                 )}
 
                 {view === 'list' && (
-                    <OrderList orders={activeOrders} onSelectOrder={setSelectedOrder} onPrintSelected={setPrintPreviewOrders} onDelete={confirmDeleteOrder} />
+                    <OrderList orders={searchTerm ? filteredOrders : activeOrders} onSelectOrder={setSelectedOrder} onPrintSelected={setPrintPreviewOrders} onDelete={confirmDeleteOrder} />
                 )}
 
                 {view === 'calendar' && (
@@ -298,6 +361,7 @@ export default function AdminDashboard({
                     onApprove={selectedOrder.approvalStatus === ApprovalStatus.PENDING ? handleApproveOrder : undefined}
                     onDeny={selectedOrder.approvalStatus === ApprovalStatus.PENDING ? handleDenyOrder : undefined}
                     onDelete={confirmDeleteOrder}
+                    onDeductInventory={handleDeductInventory}
                 />
             )}
 
