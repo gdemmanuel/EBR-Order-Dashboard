@@ -29,12 +29,9 @@ export interface AppSettings {
 
 export const subscribeToOrders = (
     onUpdate: (orders: Order[]) => void,
-    status: ApprovalStatus = ApprovalStatus.APPROVED
+    status: ApprovalStatus = ApprovalStatus.APPROVED,
+    onError?: (error: Error) => void
 ) => {
-    // Query orders where approvalStatus matches (or defaults to APPROVED if standard list)
-    // Note: Pending orders might need a separate query or just filtering client side if data is small.
-    // For small business volume (<2000 active orders), client-side filtering is cheaper/faster than multiple listeners.
-    
     const q = query(collection(db, ORDERS_COLLECTION));
     
     return onSnapshot(q, (snapshot) => {
@@ -45,6 +42,7 @@ export const subscribeToOrders = (
         onUpdate(orders);
     }, (error) => {
         console.error("Error fetching orders:", error);
+        if (onError) onError(error);
     });
 };
 
@@ -109,6 +107,11 @@ export const migrateLocalDataToFirestore = async (
     const snapshot = await getDocs(collection(db, ORDERS_COLLECTION));
     if (!snapshot.empty) {
         console.log("Database not empty, skipping migration.");
+        return;
+    }
+
+    if (localOrders.length === 0 && localPending.length === 0) {
+        console.log("No local data to migrate.");
         return;
     }
 
