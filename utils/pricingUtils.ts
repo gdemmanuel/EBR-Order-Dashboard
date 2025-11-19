@@ -73,8 +73,14 @@ export const calculateSupplyCost = (
         const cleanName = item.name.replace('Full ', '');
         
         // 1. Disco Cost
-        const discoCost = isFull ? settings.discoCosts.full : settings.discoCosts.mini;
-        totalCost += item.quantity * discoCost;
+        // Look up discos per empanada setting, defaulting to 1 if not set
+        const discosNeededPerItem = isFull 
+            ? (settings.prepSettings.discosPer?.full ?? 1) 
+            : (settings.prepSettings.discosPer?.mini ?? 1);
+            
+        const unitDiscoCost = isFull ? settings.discoCosts.full : settings.discoCosts.mini;
+        
+        totalCost += item.quantity * discosNeededPerItem * unitDiscoCost;
 
         // 2. Filling Cost
         // Logic: (Qty / 20) * LbsPer20 * CostPerLb

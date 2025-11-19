@@ -25,7 +25,18 @@ export default function App() {
   const [importedSignatures, setImportedSignatures] = useState<Set<string>>(new Set());
   const [sheetUrl, setSheetUrl] = useState<string>('');
   const [pricing, setPricing] = useState<PricingSettings | undefined>(undefined);
-  const [prepSettings, setPrepSettings] = useState<AppSettings['prepSettings']>({ lbsPer20: {}, fullSizeMultiplier: 2.0 });
+  
+  // Extended Settings State
+  const [prepSettings, setPrepSettings] = useState<AppSettings['prepSettings']>({ 
+      lbsPer20: {}, 
+      fullSizeMultiplier: 2.0,
+      discosPer: { mini: 1, full: 1 },
+      productionRates: { mini: 40, full: 25 }
+  });
+  const [laborWage, setLaborWage] = useState<number>(15.00);
+  const [materialCosts, setMaterialCosts] = useState<Record<string, number>>({});
+  const [discoCosts, setDiscoCosts] = useState<{mini: number, full: number}>({mini: 0.10, full: 0.15});
+  const [inventory, setInventory] = useState<Record<string, { mini: number; full: number }>>({});
   
   const [dbError, setDbError] = useState<string | null>(null);
   const [isMigrating, setIsMigrating] = useState(false);
@@ -122,8 +133,11 @@ export default function App() {
                   },
                   prepSettings: {
                       lbsPer20: {},
-                      fullSizeMultiplier: 2.0
+                      fullSizeMultiplier: 2.0,
+                      discosPer: { mini: 1, full: 1 },
+                      productionRates: { mini: 40, full: 25 }
                   },
+                  laborWage: 15.00,
                   materialCosts: {},
                   discoCosts: { mini: 0.10, full: 0.15 },
                   inventory: {}
@@ -151,7 +165,14 @@ export default function App() {
         if (settings.importedSignatures) setImportedSignatures(new Set(settings.importedSignatures));
         if (settings.sheetUrl) setSheetUrl(settings.sheetUrl);
         if (settings.pricing) setPricing(settings.pricing);
+        
+        // Expanded Settings
         if (settings.prepSettings) setPrepSettings(settings.prepSettings);
+        if (settings.laborWage !== undefined) setLaborWage(settings.laborWage);
+        if (settings.materialCosts) setMaterialCosts(settings.materialCosts);
+        if (settings.discoCosts) setDiscoCosts(settings.discoCosts);
+        if (settings.inventory) setInventory(settings.inventory);
+
     }, (error) => {
         console.warn("Could not load settings (likely public user restricted):", error.message);
     });
@@ -188,6 +209,20 @@ export default function App() {
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-orange"></div>
       </div>;
   }
+
+  // Construct Full Settings Object to Pass Down
+  const fullSettings: AppSettings = {
+      empanadaFlavors,
+      fullSizeEmpanadaFlavors,
+      sheetUrl,
+      importedSignatures: Array.from(importedSignatures),
+      pricing: pricing || { mini: { basePrice: 1.75 }, full: { basePrice: 3.00 }, packages: [], salsaSmall: 2, salsaLarge: 4 },
+      prepSettings,
+      laborWage,
+      materialCosts,
+      discoCosts,
+      inventory
+  };
 
   return (
     <Router>
@@ -230,6 +265,7 @@ export default function App() {
                                 salsaLarge: 4.00
                             }}
                             prepSettings={prepSettings}
+                            settings={fullSettings}
                         />
                     ) : (
                         <Navigate to="/login" replace />

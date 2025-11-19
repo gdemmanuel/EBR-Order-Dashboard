@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { AppSettings, updateSettingsInDb } from '../services/dbService';
 import { PricingSettings, MenuPackage, Flavor } from '../types';
-import { XMarkIcon, PlusIcon, TrashIcon, CheckCircleIcon, CogIcon, PencilIcon, ScaleIcon, CurrencyDollarIcon } from './icons/Icons';
+import { XMarkIcon, PlusIcon, TrashIcon, CheckCircleIcon, CogIcon, PencilIcon, ScaleIcon, CurrencyDollarIcon, ClockIcon } from './icons/Icons';
 
 interface SettingsModalProps {
     settings: AppSettings;
@@ -18,9 +18,15 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
     const [pricing, setPricing] = useState<PricingSettings>(settings.pricing);
     
     // Prep Settings State
-    const [prepSettings, setPrepSettings] = useState<AppSettings['prepSettings']>(settings.prepSettings || { lbsPer20: {}, fullSizeMultiplier: 2.0 });
+    const [prepSettings, setPrepSettings] = useState<AppSettings['prepSettings']>(settings.prepSettings || { 
+        lbsPer20: {}, 
+        fullSizeMultiplier: 2.0,
+        discosPer: { mini: 1, full: 1 },
+        productionRates: { mini: 40, full: 25 }
+    });
     
     // Cost Settings State
+    const [laborWage, setLaborWage] = useState<number>(settings.laborWage || 15.00);
     const [materialCosts, setMaterialCosts] = useState<Record<string, number>>(settings.materialCosts || {});
     const [discoCosts, setDiscoCosts] = useState<{mini: number, full: number}>(settings.discoCosts || {mini: 0.1, full: 0.15});
 
@@ -46,6 +52,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
             fullSizeEmpanadaFlavors,
             pricing,
             prepSettings,
+            laborWage,
             materialCosts,
             discoCosts
         });
@@ -408,31 +415,92 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                             <div className="bg-white p-5 rounded-lg border border-brand-tan shadow-sm">
                                 <div className="flex items-center justify-between border-b pb-2 mb-4">
                                     <div>
-                                        <h3 className="font-bold text-brand-brown text-lg">Ingredient Requirements</h3>
-                                        <p className="text-sm text-gray-600">Define how many pounds of material (filling) are needed for every 20 MINI empanadas.</p>
+                                        <h3 className="font-bold text-brand-brown text-lg">Prep Configuration</h3>
+                                        <p className="text-sm text-gray-600">Define how your empanadas are built to calculate material needs.</p>
                                     </div>
                                     <ScaleIcon className="w-6 h-6 text-brand-orange" />
                                 </div>
 
-                                <div className="bg-blue-50 border border-blue-200 rounded p-3 mb-6 flex items-start gap-3">
-                                    <div className="bg-blue-100 p-1 rounded-full"><CheckCircleIcon className="w-4 h-4 text-blue-700" /></div>
-                                    <div className="text-sm text-blue-800">
-                                        <p className="font-bold mb-1">How it works:</p>
-                                        <p>If "Beef" requires 0.8 lbs for 20 minis, enter 0.8 below. When you generate a prep list, the app will calculate total lbs based on order volume.</p>
+                                {/* General Prep Settings */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                                    {/* Conversions */}
+                                    <div className="space-y-4">
+                                         <h4 className="font-bold text-sm text-gray-700 border-b pb-1">Material Ratios</h4>
+                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-700 mb-1">Full-Size Multiplier</label>
+                                                <div className="flex items-center gap-2">
+                                                    <input 
+                                                        type="number" 
+                                                        step="0.1" 
+                                                        value={prepSettings.fullSizeMultiplier}
+                                                        onChange={(e) => setPrepSettings({...prepSettings, fullSizeMultiplier: parseFloat(e.target.value) || 0})}
+                                                        className="w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange sm:text-sm"
+                                                    />
+                                                </div>
+                                                <p className="text-xs text-gray-500 mt-1">Filling multiplier (Full vs Mini).</p>
+                                            </div>
+                                         </div>
+                                         <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-700 mb-1">Discos per Mini</label>
+                                                <input 
+                                                    type="number" step="1" 
+                                                    value={prepSettings.discosPer?.mini ?? 1}
+                                                    onChange={(e) => setPrepSettings({...prepSettings, discosPer: { ...prepSettings.discosPer, mini: parseInt(e.target.value) || 1 }})}
+                                                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange sm:text-sm"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-700 mb-1">Discos per Full</label>
+                                                <input 
+                                                    type="number" step="1" 
+                                                    value={prepSettings.discosPer?.full ?? 1}
+                                                    onChange={(e) => setPrepSettings({...prepSettings, discosPer: { ...prepSettings.discosPer, full: parseInt(e.target.value) || 1 }})}
+                                                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange sm:text-sm"
+                                                />
+                                            </div>
+                                         </div>
+                                    </div>
+
+                                    {/* Production Rates */}
+                                    <div className="space-y-4">
+                                        <h4 className="font-bold text-sm text-gray-700 border-b pb-1">Production Speed (Units per Hour)</h4>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-700 mb-1">Mini Empanadas/Hr</label>
+                                                <input 
+                                                    type="number" step="1" 
+                                                    value={prepSettings.productionRates?.mini ?? 40}
+                                                    onChange={(e) => setPrepSettings({
+                                                        ...prepSettings, 
+                                                        productionRates: { ...prepSettings.productionRates, mini: parseInt(e.target.value) || 0 }
+                                                    })}
+                                                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange sm:text-sm"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-700 mb-1">Full-Size Empanadas/Hr</label>
+                                                <input 
+                                                    type="number" step="1" 
+                                                    value={prepSettings.productionRates?.full ?? 25}
+                                                    onChange={(e) => setPrepSettings({
+                                                        ...prepSettings, 
+                                                        productionRates: { ...prepSettings.productionRates, full: parseInt(e.target.value) || 0 }
+                                                    })}
+                                                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange sm:text-sm"
+                                                />
+                                            </div>
+                                        </div>
+                                        <p className="text-xs text-gray-500">Used to estimate labor hours required.</p>
                                     </div>
                                 </div>
 
-                                <div className="mb-6">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Full-Size Multiplier</label>
-                                    <div className="flex items-center gap-2">
-                                        <input 
-                                            type="number" 
-                                            step="0.1" 
-                                            value={prepSettings.fullSizeMultiplier}
-                                            onChange={(e) => setPrepSettings({...prepSettings, fullSizeMultiplier: parseFloat(e.target.value) || 0})}
-                                            className="w-24 rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange sm:text-sm"
-                                        />
-                                        <span className="text-sm text-gray-500">(e.g. 2.0 means a Full Size uses 2x the filling of a Mini)</span>
+                                <h4 className="font-bold text-brand-brown text-md mb-3 mt-6 pt-4 border-t">Filling Requirements (Lbs per 20 Minis)</h4>
+                                <div className="bg-blue-50 border border-blue-200 rounded p-3 mb-4 flex items-start gap-3">
+                                    <div className="bg-blue-100 p-1 rounded-full"><CheckCircleIcon className="w-4 h-4 text-blue-700" /></div>
+                                    <div className="text-sm text-blue-800">
+                                        <p>If "Beef" requires 0.8 lbs for 20 minis, enter 0.8 below.</p>
                                     </div>
                                 </div>
 
@@ -469,31 +537,50 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                     <CurrencyDollarIcon className="w-6 h-6 text-green-600" />
                                 </div>
                                 
-                                <div className="mb-6 bg-green-50 border border-green-200 p-3 rounded-lg">
-                                    <h4 className="font-bold text-green-800 mb-2 text-sm">Discos / Shells (Cost per Unit)</h4>
-                                    <div className="flex gap-6">
+                                {/* Labor & Discos */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                                    <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-lg">
+                                        <h4 className="font-bold text-yellow-800 mb-2 text-sm flex items-center gap-2"><ClockIcon className="w-4 h-4"/> Labor Settings</h4>
                                         <div>
-                                            <label className="block text-xs text-green-800 mb-1">Mini Disco Cost</label>
+                                            <label className="block text-xs text-yellow-800 mb-1">Hourly Wage ($/hr)</label>
                                             <div className="relative rounded-md shadow-sm">
                                                 <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2"><span className="text-gray-500 text-xs">$</span></div>
                                                 <input 
-                                                    type="number" step="0.01" 
-                                                    value={discoCosts.mini}
-                                                    onChange={(e) => setDiscoCosts({...discoCosts, mini: parseFloat(e.target.value) || 0})}
-                                                    className="block w-24 rounded-md border-gray-300 pl-5 text-sm focus:border-green-500 focus:ring-green-500" 
+                                                    type="number" step="0.50" 
+                                                    value={laborWage}
+                                                    onChange={(e) => setLaborWage(parseFloat(e.target.value) || 0)}
+                                                    className="block w-24 rounded-md border-gray-300 pl-5 text-sm focus:border-yellow-500 focus:ring-yellow-500" 
                                                 />
                                             </div>
                                         </div>
-                                        <div>
-                                            <label className="block text-xs text-green-800 mb-1">Full-Size Disco Cost</label>
-                                            <div className="relative rounded-md shadow-sm">
-                                                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2"><span className="text-gray-500 text-xs">$</span></div>
-                                                <input 
-                                                    type="number" step="0.01" 
-                                                    value={discoCosts.full}
-                                                    onChange={(e) => setDiscoCosts({...discoCosts, full: parseFloat(e.target.value) || 0})}
-                                                    className="block w-24 rounded-md border-gray-300 pl-5 text-sm focus:border-green-500 focus:ring-green-500" 
-                                                />
+                                    </div>
+
+                                    <div className="bg-green-50 border border-green-200 p-3 rounded-lg">
+                                        <h4 className="font-bold text-green-800 mb-2 text-sm">Discos / Shells (Cost per Unit)</h4>
+                                        <div className="flex gap-6">
+                                            <div>
+                                                <label className="block text-xs text-green-800 mb-1">Mini Cost</label>
+                                                <div className="relative rounded-md shadow-sm">
+                                                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2"><span className="text-gray-500 text-xs">$</span></div>
+                                                    <input 
+                                                        type="number" step="0.01" 
+                                                        value={discoCosts.mini}
+                                                        onChange={(e) => setDiscoCosts({...discoCosts, mini: parseFloat(e.target.value) || 0})}
+                                                        className="block w-24 rounded-md border-gray-300 pl-5 text-sm focus:border-green-500 focus:ring-green-500" 
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs text-green-800 mb-1">Full-Size Cost</label>
+                                                <div className="relative rounded-md shadow-sm">
+                                                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2"><span className="text-gray-500 text-xs">$</span></div>
+                                                    <input 
+                                                        type="number" step="0.01" 
+                                                        value={discoCosts.full}
+                                                        onChange={(e) => setDiscoCosts({...discoCosts, full: parseFloat(e.target.value) || 0})}
+                                                        className="block w-24 rounded-md border-gray-300 pl-5 text-sm focus:border-green-500 focus:ring-green-500" 
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
                                     </div>

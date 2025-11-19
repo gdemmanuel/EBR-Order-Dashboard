@@ -1,7 +1,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { Order } from '../types';
-import { XMarkIcon, ScaleIcon, PrinterIcon, CurrencyDollarIcon } from './icons/Icons';
+import { XMarkIcon, ScaleIcon, PrinterIcon, CurrencyDollarIcon, ClockIcon } from './icons/Icons';
 import { AppSettings } from '../services/dbService';
 
 interface PrepListModalProps {
@@ -66,7 +66,11 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
             ...settings.empanadaFlavors.map(f => f.name)
         ])).sort();
 
-        let totalEstimatedCost = 0;
+        let totalEstimatedCost = 0; // Supply Cost
+        
+        // Disco Multipliers
+        const miniDiscosPer = settings.prepSettings?.discosPer?.mini || 1;
+        const fullDiscosPer = settings.prepSettings?.discosPer?.full || 1;
 
         const rows = allFlavors.map(flavor => {
             const miniOrd = miniCounts[flavor] || 0;
@@ -90,8 +94,8 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
             const costPerLb = settings.materialCosts[flavor] || 0;
             const fillingCost = totalLbs * costPerLb;
             
-            const miniDiscoCost = miniToMake * (settings.discoCosts?.mini || 0);
-            const fullDiscoCost = fullToMake * (settings.discoCosts?.full || 0);
+            const miniDiscoCost = miniToMake * miniDiscosPer * (settings.discoCosts?.mini || 0);
+            const fullDiscoCost = fullToMake * fullDiscosPer * (settings.discoCosts?.full || 0);
             
             const rowCost = fillingCost + miniDiscoCost + fullDiscoCost;
             totalEstimatedCost += rowCost;
@@ -116,6 +120,22 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
         // Calculate Disco Totals (To Make)
         const totalMiniToMake = rows.reduce((acc, r) => acc + r.miniToMake, 0);
         const totalFullToMake = rows.reduce((acc, r) => acc + r.fullToMake, 0);
+        
+        const totalMiniDiscosNeeded = totalMiniToMake * miniDiscosPer;
+        const totalFullDiscosNeeded = totalFullToMake * fullDiscosPer;
+        const totalDiscosNeeded = totalMiniDiscosNeeded + totalFullDiscosNeeded;
+
+        // --- Labor Calculations ---
+        const miniRate = settings.prepSettings?.productionRates?.mini || 40;
+        const fullRate = settings.prepSettings?.productionRates?.full || 25;
+        const hourlyWage = settings.laborWage || 15;
+
+        const miniHours = miniRate > 0 ? totalMiniToMake / miniRate : 0;
+        const fullHours = fullRate > 0 ? totalFullToMake / fullRate : 0;
+        const totalHours = miniHours + fullHours;
+        const totalLaborCost = totalHours * hourlyWage;
+
+        const totalBatchCost = totalEstimatedCost + totalLaborCost;
 
         return {
             rows,
@@ -123,7 +143,17 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
             totalFullOrdered,
             totalMiniToMake,
             totalFullToMake,
-            totalEstimatedCost
+            totalMiniDiscosNeeded,
+            totalFullDiscosNeeded,
+            totalDiscosNeeded,
+            totalEstimatedCost,
+            // Labor Data
+            miniRate,
+            fullRate,
+            hourlyWage,
+            totalHours,
+            totalLaborCost,
+            totalBatchCost
         };
 
     }, [orders, settings, inventory]);
@@ -163,28 +193,52 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
                 <div className="overflow-y-auto p-6 space-y-8 print:p-0">
                     
                     {/* Summary Section */}
-                    <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <section className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                        {/* 1. Discos */}
                         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                            <h4 className="text-xs font-bold text-blue-800 uppercase mb-1">Discos to Prep</h4>
+                            <h4 className="text-xs font-bold text-blue-800 uppercase mb-1">Total Discos</h4>
                             <div className="flex justify-between items-end">
-                                <div>
-                                    <p className="text-2xl font-bold text-blue-900">{prepData.totalMiniToMake} <span className="text-sm font-normal text-blue-700">Mini</span></p>
-                                    <p className="text-2xl font-bold text-purple-900">{prepData.totalFullToMake} <span className="text-sm font-normal text-purple-700">Full</span></p>
+                                <div className="w-full">
+                                    <div className="flex justify-between items-center border-b border-blue-200 pb-1 mb-1">
+                                        <span className="text-blue-700 text-sm">Mini:</span>
+                                        <span className="text-xl font-bold text-blue-900">{prepData.totalMiniDiscosNeeded}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-purple-700 text-sm">Full:</span>
+                                        <span className="text-xl font-bold text-purple-900">{prepData.totalFullDiscosNeeded}</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                         
-                         <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                            <h4 className="text-xs font-bold text-green-800 uppercase mb-1">Est. Supply Cost (Batch)</h4>
-                            <div className="flex items-center gap-2">
+                        {/* 2. Supply Cost */}
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                            <h4 className="text-xs font-bold text-green-800 uppercase mb-1">Est. Supply Cost</h4>
+                            <div className="flex items-center gap-2 mb-2">
                                 <CurrencyDollarIcon className="w-6 h-6 text-green-600" />
-                                <p className="text-3xl font-bold text-green-900">${prepData.totalEstimatedCost.toFixed(2)}</p>
+                                <p className="text-2xl font-bold text-green-900">${prepData.totalEstimatedCost.toFixed(2)}</p>
                             </div>
-                            <p className="text-xs text-green-700 mt-1">Based on "To Make" qty & current material costs.</p>
+                            <p className="text-[10px] text-green-700 leading-tight">Includes meat, fillings, and disco costs for production.</p>
                         </div>
 
-                         <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex flex-col justify-center items-start">
-                             <p className="text-sm text-amber-900 font-medium">Update Inventory counts in the table below to calculate exactly what needs to be made.</p>
+                        {/* 3. Labor Cost */}
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                            <h4 className="text-xs font-bold text-yellow-800 uppercase mb-1">Est. Labor Cost</h4>
+                            <div className="flex items-center gap-2 mb-1">
+                                <ClockIcon className="w-5 h-5 text-yellow-600" />
+                                <p className="text-2xl font-bold text-yellow-900">${prepData.totalLaborCost.toFixed(2)}</p>
+                            </div>
+                            <div className="text-xs text-yellow-800 flex justify-between border-t border-yellow-200 pt-1">
+                                <span>{prepData.totalHours.toFixed(1)} hrs</span>
+                                <span>@ ${prepData.hourlyWage}/hr</span>
+                            </div>
+                        </div>
+
+                        {/* 4. Total Batch Cost */}
+                         <div className="bg-gray-100 border border-gray-300 rounded-lg p-4 flex flex-col justify-center items-center">
+                             <h4 className="text-xs font-bold text-gray-600 uppercase mb-1">Total Batch Cost</h4>
+                             <p className="text-3xl font-bold text-brand-brown">${prepData.totalBatchCost.toFixed(2)}</p>
+                             <p className="text-xs text-gray-500 mt-1">Supplies + Labor</p>
                         </div>
                     </section>
 
@@ -208,8 +262,8 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
                                         
                                         {/* Material Columns */}
                                         <th className="px-3 py-3 text-right text-gray-600">Rate<br/>(lbs/20)</th>
-                                        <th className="px-3 py-3 text-right font-bold text-brand-orange">Filling<br/>Needed</th>
-                                        <th className="px-3 py-3 text-right text-green-700">Est.<br/>Cost</th>
+                                        <th className="px-3 py-3 text-right font-bold text-brand-orange">Material<br/>Needed</th>
+                                        <th className="px-3 py-3 text-right text-green-700">Supply<br/>Cost</th>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
@@ -223,9 +277,11 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
                                         <td className="px-2 py-3 text-center text-gray-500">-</td>
                                         <td className="px-2 py-3 text-center text-purple-900 bg-purple-50">{prepData.totalFullToMake}</td>
                                         <td className="px-3 py-3 text-right text-gray-400">-</td>
-                                        <td className="px-3 py-3 text-right text-gray-400">-</td>
+                                        <td className="px-3 py-3 text-right font-bold text-gray-800">
+                                            {prepData.totalDiscosNeeded} units
+                                        </td>
                                         <td className="px-3 py-3 text-right text-green-700">
-                                            ${((prepData.totalMiniToMake * (settings.discoCosts?.mini||0)) + (prepData.totalFullToMake * (settings.discoCosts?.full||0))).toFixed(2)}
+                                            ${((prepData.totalMiniDiscosNeeded * (settings.discoCosts?.mini||0)) + (prepData.totalFullDiscosNeeded * (settings.discoCosts?.full||0))).toFixed(2)}
                                         </td>
                                     </tr>
 

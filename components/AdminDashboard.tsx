@@ -38,7 +38,7 @@ export default function AdminDashboard({
     user, 
     orders, 
     empanadaFlavors, 
-    fullSizeEmpanadaFlavors,
+    fullSizeEmpanadaFlavors, 
     importedSignatures,
     sheetUrl,
     pricing,
@@ -108,7 +108,13 @@ export default function AdminDashboard({
             salsaSmall: 2.00,
             salsaLarge: 4.00
         },
-        prepSettings: prepSettings || { lbsPer20: {}, fullSizeMultiplier: 2.0 },
+        prepSettings: prepSettings || { 
+            lbsPer20: {}, 
+            fullSizeMultiplier: 2.0, 
+            discosPer: { mini: 1, full: 1 },
+            productionRates: { mini: 40, full: 25 } 
+        },
+        laborWage: 15.00,
         materialCosts: {},
         discoCosts: { mini: 0.10, full: 0.15 },
         inventory: {}
@@ -116,7 +122,6 @@ export default function AdminDashboard({
 
     // Fallback default pricing if loading
     const safePricing = safeSettings.pricing;
-    const safePrepSettings = safeSettings.prepSettings;
 
     const handleSaveOrder = async (orderData: Order | Omit<Order, 'id'>) => {
         // Note: Amount is already calculated by the form using dynamic pricing

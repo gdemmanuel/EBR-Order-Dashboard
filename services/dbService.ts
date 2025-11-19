@@ -28,7 +28,16 @@ export interface AppSettings {
     prepSettings: {
         lbsPer20: Record<string, number>; // Key: Flavor Name, Value: Lbs required for 20 mini empanadas
         fullSizeMultiplier: number; // How much bigger is a full size? Default 2.0
+        discosPer: {
+            mini: number;
+            full: number;
+        };
+        productionRates: {
+            mini: number; // Units per hour
+            full: number; // Units per hour
+        };
     };
+    laborWage: number; // Hourly wage in dollars
     materialCosts: Record<string, number>; // Key: Flavor Name, Value: Cost per lb
     discoCosts: {
         mini: number;
@@ -51,8 +60,11 @@ const DEFAULT_SETTINGS: AppSettings = {
     },
     prepSettings: {
         lbsPer20: {},
-        fullSizeMultiplier: 2.0
+        fullSizeMultiplier: 2.0,
+        discosPer: { mini: 1, full: 1 },
+        productionRates: { mini: 40, full: 25 }
     },
+    laborWage: 15.00,
     materialCosts: {},
     discoCosts: { mini: 0.10, full: 0.15 },
     inventory: {}
@@ -117,8 +129,17 @@ export const subscribeToSettings = (
                 },
                 prepSettings: {
                     ...DEFAULT_SETTINGS.prepSettings,
-                    ...(data.prepSettings || {})
+                    ...(data.prepSettings || {}),
+                    discosPer: {
+                        ...DEFAULT_SETTINGS.prepSettings.discosPer,
+                        ...(data.prepSettings?.discosPer || {})
+                    },
+                    productionRates: {
+                        ...DEFAULT_SETTINGS.prepSettings.productionRates,
+                        ...(data.prepSettings?.productionRates || {})
+                    }
                 },
+                laborWage: data.laborWage ?? DEFAULT_SETTINGS.laborWage,
                 materialCosts: data.materialCosts || DEFAULT_SETTINGS.materialCosts,
                 discoCosts: data.discoCosts || DEFAULT_SETTINGS.discoCosts,
                 inventory: data.inventory || DEFAULT_SETTINGS.inventory
@@ -209,7 +230,11 @@ export const migrateLocalDataToFirestore = async (
         ...DEFAULT_SETTINGS,
         ...localSettings,
         pricing: localSettings.pricing || DEFAULT_SETTINGS.pricing,
-        prepSettings: localSettings.prepSettings || DEFAULT_SETTINGS.prepSettings,
+        prepSettings: {
+            ...DEFAULT_SETTINGS.prepSettings,
+            ...(localSettings.prepSettings || {})
+        },
+        laborWage: localSettings.laborWage ?? DEFAULT_SETTINGS.laborWage,
         materialCosts: localSettings.materialCosts || DEFAULT_SETTINGS.materialCosts,
         discoCosts: localSettings.discoCosts || DEFAULT_SETTINGS.discoCosts,
         inventory: localSettings.inventory || DEFAULT_SETTINGS.inventory
