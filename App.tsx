@@ -10,15 +10,22 @@ import ImportOrderModal from './components/ImportOrderModal';
 import PrintPreviewPage from './components/PrintPreviewPage';
 import PendingOrders from './components/PendingOrders';
 import DateRangeFilter from './components/DateRangeFilter';
+import LoginPage from './components/LoginPage';
 import { PlusCircleIcon, ListBulletIcon, CalendarDaysIcon, ArrowTopRightOnSquareIcon } from './components/icons/Icons';
 import { Order, FollowUpStatus, ApprovalStatus, OrderItem } from './types';
 import { subscribeToOrders, subscribeToSettings, saveOrderToDb, deleteOrderFromDb, updateSettingsInDb, saveOrdersBatch, AppSettings, migrateLocalDataToFirestore } from './services/dbService';
+import { subscribeToAuth } from './services/authService';
 import { initialEmpanadaFlavors, initialFullSizeEmpanadaFlavors } from './data/mockData';
 import { parseOrderDateTime } from './utils/dateUtils';
 import { MINI_EMPANADA_PRICE, FULL_SIZE_EMPANADA_PRICE, SALSA_PRICES } from './config';
+import { User } from 'firebase/auth';
 
 export default function App() {
-  // State
+  // Auth State
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  // App State
   const [orders, setOrders] = useState<Order[]>([]);
   const [empanadaFlavors, setEmpanadaFlavors] = useState<string[]>(initialEmpanadaFlavors);
   const [fullSizeEmpanadaFlavors, setFullSizeEmpanadaFlavors] = useState<string[]>(initialFullSizeEmpanadaFlavors);
@@ -38,16 +45,25 @@ export default function App() {
   const [dbError, setDbError] = useState<string | null>(null);
   const [isMigrating, setIsMigrating] = useState(false);
 
-  // Migration Logic (Run once on mount)
+  // Auth Listener
   useEffect(() => {
+      const unsubscribe = subscribeToAuth((u) => {
+          setUser(u);
+          setAuthLoading(false);
+      });
+      return () => unsubscribe();
+  }, []);
+
+  // Migration Logic (Run once on mount if user is logged in)
+  useEffect(() => {
+      if (!user) return;
+
       const performMigration = async () => {
           setIsMigrating(true);
           try {
-              // Check if we have local data to migrate
               const localOrdersStr = localStorage.getItem('orders');
               const localPendingStr = localStorage.getItem('pendingOrders');
               
-              // Don't migrate if we have nothing
               if (!localOrdersStr && !localPendingStr) {
                   setIsMigrating(false);
                   return;
@@ -64,11 +80,6 @@ export default function App() {
               };
 
               await migrateLocalDataToFirestore(localOrders, localPending, localSettings);
-              
-              // Optional: Clear local storage after successful migration to prevent re-running
-              // localStorage.removeItem('orders');
-              // localStorage.removeItem('pendingOrders');
-              
           } catch (e) {
               console.error("Migration failed:", e);
           } finally {
@@ -77,19 +88,21 @@ export default function App() {
       };
       
       performMigration();
-  }, []);
+  }, [user]);
 
   // Data Subscriptions
   useEffect(() => {
+    if (!user) return;
+
     const unsubscribeOrders = subscribeToOrders(
         (updatedOrders) => {
             setOrders(updatedOrders);
-            setDbError(null); // Clear error on successful update
+            setDbError(null);
         }, 
         ApprovalStatus.APPROVED,
         (error) => {
             if (error.message.includes("permission-denied")) {
-                setDbError("Permission Denied: Your database is locked. Go to Firebase Console > Firestore Database > Rules and allow read/write access.");
+                setDbError("Permission Denied: Your database is locked. Please check Firebase Rules.");
             } else {
                 setDbError(`Database Error: ${error.message}`);
             }
@@ -107,9 +120,10 @@ export default function App() {
         unsubscribeOrders();
         unsubscribeSettings();
     };
-  }, []);
+  }, [user]);
 
-  // Derived State
+  // --- Derived State & Calculations ---
+
   const activeOrders = useMemo(() => orders.filter(o => o.approvalStatus === ApprovalStatus.APPROVED), [orders]);
   const pendingOrders = useMemo(() => orders.filter(o => o.approvalStatus === ApprovalStatus.PENDING), [orders]);
 
@@ -135,7 +149,6 @@ export default function App() {
       return { totalRevenue, ordersToFollowUp, totalEmpanadasSold };
   }, [filteredOrders]);
 
-  // Helper to calculate total price
   const calculateOrderTotal = (items: OrderItem[], deliveryFee: number) => {
       const miniTotal = items.filter(i => !i.name.startsWith('Full ') && !i.name.includes('Salsa')).reduce((sum, i) => sum + (i.quantity * MINI_EMPANADA_PRICE), 0);
       const fullTotal = items.filter(i => i.name.startsWith('Full ')).reduce((sum, i) => sum + (i.quantity * FULL_SIZE_EMPANADA_PRICE), 0);
@@ -148,17 +161,14 @@ export default function App() {
       return miniTotal + fullTotal + salsaTotal + deliveryFee;
   };
 
+  // --- Handlers ---
 
-  // Handlers
   const handleSaveOrder = async (orderData: Order | Omit<Order, 'id'>) => {
-      // Recalculate total on save to ensure data integrity
       const calculatedTotal = calculateOrderTotal(orderData.items, orderData.deliveryFee || 0);
       
       let orderToSave: Order;
       if ('id' in orderData) {
           orderToSave = { ...orderData as Order, amountCharged: calculatedTotal };
-          
-          // If modifying a pending order, assume it's being approved or at least reviewed
           if (orderToSave.approvalStatus === ApprovalStatus.PENDING) {
              orderToSave.approvalStatus = ApprovalStatus.APPROVED;
           }
@@ -218,12 +228,9 @@ export default function App() {
   };
 
   const handleOrdersImported = async (newOrders: Partial<Order>[], newSignatures: string[]) => {
-      // Convert partial orders to full orders with defaults
       const ordersToSave: Order[] = newOrders.map((pOrder, index) => {
           const items = pOrder.items || [];
-          const deliveryFee = 0; // Default delivery fee for imports, user can edit
-          
-          // Calculate totals based on items found using centralized logic
+          const deliveryFee = 0; 
           const calculatedTotal = calculateOrderTotal(items, deliveryFee);
 
           return {
@@ -250,17 +257,26 @@ export default function App() {
       });
 
       await saveOrdersBatch(ordersToSave);
-      
-      // Update signatures
       const updatedSignatures = [...Array.from(importedSignatures), ...newSignatures];
       await updateSettingsInDb({ importedSignatures: updatedSignatures });
-      
       setIsImportModalOpen(false);
   };
 
   const handleUpdateSheetUrl = async (url: string) => {
       await updateSettingsInDb({ sheetUrl: url });
   };
+
+  // --- Render Logic ---
+
+  if (authLoading) {
+      return <div className="min-h-screen flex items-center justify-center bg-brand-cream">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-orange"></div>
+      </div>;
+  }
+
+  if (!user) {
+      return <LoginPage />;
+  }
 
   if (printPreviewOrders) {
       return <PrintPreviewPage orders={printPreviewOrders} onExit={() => setPrintPreviewOrders(null)} />;
@@ -271,21 +287,18 @@ export default function App() {
       <Header />
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Error Banner */}
         {dbError && (
             <div className="bg-red-500 text-white px-4 py-3 rounded-lg mb-6 text-center font-medium shadow-md">
                 <p>{dbError}</p>
             </div>
         )}
 
-        {/* Migration Indicator */}
         {isMigrating && (
             <div className="bg-blue-100 text-blue-800 px-4 py-3 rounded-lg mb-6 text-center font-medium animate-pulse">
                 <p>Setting up your database and uploading existing orders...</p>
             </div>
         )}
 
-        {/* Controls */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
             <div className="flex bg-white rounded-lg shadow-sm p-1 border border-brand-tan">
                 <button 
@@ -366,7 +379,6 @@ export default function App() {
         )}
       </main>
 
-      {/* Modals */}
       {isNewOrderModalOpen && (
           <OrderFormModal 
               order={orderToEdit}
