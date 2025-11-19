@@ -1,3 +1,4 @@
+
 export enum ContactMethod {
   GF = 'Google Forms',
   IG = 'Instagram',
@@ -49,4 +50,21 @@ export interface Order {
   paymentStatus: PaymentStatus;
   specialInstructions: string | null;
   approvalStatus: ApprovalStatus;
+}
+
+export interface PricingTier {
+    quantity: number;
+    price: number;
+}
+
+export interface ProductPricing {
+    basePrice: number;
+    tiers: PricingTier[];
+}
+
+export interface PricingSettings {
+    mini: ProductPricing;
+    full: ProductPricing;
+    salsaSmall: number;
+    salsaLarge: number;
 }

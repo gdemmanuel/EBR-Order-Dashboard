@@ -11,7 +11,7 @@ import {
     writeBatch
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
-import { Order, ApprovalStatus } from "../types";
+import { Order, ApprovalStatus, PricingSettings } from "../types";
 
 // Collection References
 const ORDERS_COLLECTION = "orders";
@@ -23,7 +23,21 @@ export interface AppSettings {
     fullSizeEmpanadaFlavors: string[];
     sheetUrl: string;
     importedSignatures: string[];
+    pricing: PricingSettings;
 }
+
+const DEFAULT_SETTINGS: AppSettings = {
+    empanadaFlavors: [], // Will use defaults from App.tsx if empty
+    fullSizeEmpanadaFlavors: [],
+    sheetUrl: '',
+    importedSignatures: [],
+    pricing: {
+        mini: { basePrice: 1.75, tiers: [] },
+        full: { basePrice: 3.00, tiers: [] },
+        salsaSmall: 2.00,
+        salsaLarge: 4.00
+    }
+};
 
 // --- Real-time Subscriptions ---
 
@@ -47,15 +61,29 @@ export const subscribeToOrders = (
 };
 
 export const subscribeToSettings = (
-    onUpdate: (settings: AppSettings) => void
+    onUpdate: (settings: AppSettings) => void,
+    onError?: (error: Error) => void
 ) => {
-    return onSnapshot(doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC), (doc) => {
-        if (doc.exists()) {
-            onUpdate(doc.data() as AppSettings);
+    return onSnapshot(doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC), (docSnap) => {
+        if (docSnap.exists()) {
+            const data = docSnap.data() as Partial<AppSettings>;
+            // Merge with defaults to ensure structure exists
+            onUpdate({
+                ...DEFAULT_SETTINGS,
+                ...data,
+                pricing: {
+                    ...DEFAULT_SETTINGS.pricing,
+                    ...(data.pricing || {})
+                }
+            });
         } else {
             // Initialize defaults if doc doesn't exist
-            console.log("Settings doc not found, initializing...");
+            console.log("Settings doc not found, initializing defaults...");
+            onUpdate(DEFAULT_SETTINGS);
         }
+    }, (error) => {
+        console.error("Error fetching settings:", error);
+        if (onError) onError(error);
     });
 };
 
@@ -93,6 +121,7 @@ export const updateSettingsInDb = async (settings: Partial<AppSettings>) => {
         await setDoc(doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC), settings, { merge: true });
     } catch (error) {
         console.error("Error updating settings:", error);
+        throw error;
     }
 };
 
@@ -126,7 +155,14 @@ export const migrateLocalDataToFirestore = async (
 
     // 3. Add Settings
     const settingsRef = doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC);
-    batch.set(settingsRef, localSettings);
+    // Ensure we migrate pricing or default if not present locally
+    const settingsToSave = {
+        ...DEFAULT_SETTINGS,
+        ...localSettings,
+        pricing: localSettings.pricing || DEFAULT_SETTINGS.pricing
+    };
+    
+    batch.set(settingsRef, settingsToSave);
 
     await batch.commit();
     console.log("Migration complete.");

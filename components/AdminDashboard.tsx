@@ -1,9 +1,9 @@
 
 import React, { useState, useMemo } from 'react';
-import { Order, ApprovalStatus, FollowUpStatus } from '../types';
+import { Order, ApprovalStatus, FollowUpStatus, PricingSettings } from '../types';
 import { parseOrderDateTime } from '../utils/dateUtils';
 import { saveOrderToDb, deleteOrderFromDb, updateSettingsInDb, saveOrdersBatch } from '../services/dbService';
-import { MINI_EMPANADA_PRICE, FULL_SIZE_EMPANADA_PRICE, SALSA_PRICES } from '../config';
+import { calculateOrderTotal } from '../utils/pricingUtils';
 
 import Header from './Header';
 import DashboardMetrics from './DashboardMetrics';
@@ -15,7 +15,9 @@ import ImportOrderModal from './ImportOrderModal';
 import PrintPreviewPage from './PrintPreviewPage';
 import PendingOrders from './PendingOrders';
 import DateRangeFilter from './DateRangeFilter';
-import { PlusCircleIcon, ListBulletIcon, CalendarDaysIcon, ArrowTopRightOnSquareIcon } from './icons/Icons';
+import SettingsModal from './SettingsModal';
+import ConfirmationModal from './ConfirmationModal';
+import { PlusCircleIcon, ListBulletIcon, CalendarDaysIcon, ArrowTopRightOnSquareIcon, CogIcon } from './icons/Icons';
 import { User } from 'firebase/auth';
 
 interface AdminDashboardProps {
@@ -25,6 +27,7 @@ interface AdminDashboardProps {
     fullSizeEmpanadaFlavors: string[];
     importedSignatures: Set<string>;
     sheetUrl: string;
+    pricing: PricingSettings;
 }
 
 export default function AdminDashboard({ 
@@ -33,7 +36,8 @@ export default function AdminDashboard({
     empanadaFlavors, 
     fullSizeEmpanadaFlavors,
     importedSignatures,
-    sheetUrl 
+    sheetUrl,
+    pricing 
 }: AdminDashboardProps) {
 
     const [view, setView] = useState<'dashboard' | 'list' | 'calendar'>('dashboard');
@@ -45,6 +49,16 @@ export default function AdminDashboard({
     
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [printPreviewOrders, setPrintPreviewOrders] = useState<Order[] | null>(null);
+    
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    
+    // Confirmation Modal State
+    const [confirmModal, setConfirmModal] = useState<{
+        isOpen: boolean;
+        title: string;
+        message: string;
+        onConfirm: () => void;
+    }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
 
     // --- Derived State ---
     const activeOrders = useMemo(() => orders.filter(o => o.approvalStatus === ApprovalStatus.APPROVED), [orders]);
@@ -73,21 +87,20 @@ export default function AdminDashboard({
     }, [filteredOrders]);
 
     // --- Logic ---
-    const calculateOrderTotal = (items: any[], deliveryFee: number) => {
-      const miniTotal = items.filter(i => !i.name.startsWith('Full ') && !i.name.includes('Salsa')).reduce((sum, i) => sum + (i.quantity * MINI_EMPANADA_PRICE), 0);
-      const fullTotal = items.filter(i => i.name.startsWith('Full ')).reduce((sum, i) => sum + (i.quantity * FULL_SIZE_EMPANADA_PRICE), 0);
-      const salsaTotal = items.filter(i => i.name.includes('Salsa')).reduce((sum, i) => {
-           if(i.name.includes('Large')) return sum + (i.quantity * SALSA_PRICES['Large (8oz)']);
-           return sum + (i.quantity * SALSA_PRICES['Small (4oz)']);
-      }, 0);
-      return miniTotal + fullTotal + salsaTotal + deliveryFee;
+    
+    // Fallback default pricing if loading
+    const safePricing = pricing || {
+        mini: { basePrice: 1.75, tiers: [] },
+        full: { basePrice: 3.00, tiers: [] },
+        salsaSmall: 2.00,
+        salsaLarge: 4.00
     };
 
     const handleSaveOrder = async (orderData: Order | Omit<Order, 'id'>) => {
-        const calculatedTotal = calculateOrderTotal(orderData.items, orderData.deliveryFee || 0);
+        // Note: Amount is already calculated by the form using dynamic pricing
         let orderToSave: Order;
         if ('id' in orderData) {
-            orderToSave = { ...orderData as Order, amountCharged: calculatedTotal };
+            orderToSave = { ...orderData as Order };
             if (orderToSave.approvalStatus === ApprovalStatus.PENDING) {
                orderToSave.approvalStatus = ApprovalStatus.APPROVED;
             }
@@ -95,7 +108,6 @@ export default function AdminDashboard({
             orderToSave = {
                 ...orderData,
                 id: Date.now().toString(),
-                amountCharged: calculatedTotal
             };
         }
         await saveOrderToDb(orderToSave);
@@ -103,13 +115,21 @@ export default function AdminDashboard({
         setOrderToEdit(undefined);
     };
 
-    const handleDeleteOrder = async (orderId: string) => {
-        await deleteOrderFromDb(orderId);
-        if (selectedOrder?.id === orderId) setSelectedOrder(null);
-        if (orderToEdit?.id === orderId) {
-            setOrderToEdit(undefined);
-            setIsNewOrderModalOpen(false);
-        }
+    const confirmDeleteOrder = (orderId: string) => {
+        setConfirmModal({
+            isOpen: true,
+            title: "Delete Order",
+            message: "Are you sure you want to delete this order? This action cannot be undone.",
+            onConfirm: async () => {
+                await deleteOrderFromDb(orderId);
+                if (selectedOrder?.id === orderId) setSelectedOrder(null);
+                if (orderToEdit?.id === orderId) {
+                    setOrderToEdit(undefined);
+                    setIsNewOrderModalOpen(false);
+                }
+                setConfirmModal(prev => ({ ...prev, isOpen: false }));
+            }
+        });
     };
 
     const handleAddNewFlavor = async (flavor: string, type: 'mini' | 'full') => {
@@ -142,7 +162,8 @@ export default function AdminDashboard({
         const ordersToSave: Order[] = newOrders.map((pOrder, index) => {
             const items = pOrder.items || [];
             const deliveryFee = 0; 
-            const calculatedTotal = calculateOrderTotal(items, deliveryFee);
+            // Calculate price using current settings for imports
+            const calculatedTotal = calculateOrderTotal(items, deliveryFee, safePricing);
             return {
               id: `${Date.now()}-${index}`,
               pickupDate: pOrder.pickupDate || '',
@@ -192,6 +213,7 @@ export default function AdminDashboard({
                     </div>
 
                     <div className="flex gap-3">
+                        <button onClick={() => setIsSettingsOpen(true)} className="flex items-center gap-2 bg-white text-brand-brown border border-brand-tan font-semibold px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"><CogIcon className="w-5 h-5" /> Settings</button>
                         <button onClick={() => setIsImportModalOpen(true)} className="flex items-center gap-2 bg-white text-brand-brown border border-brand-tan font-semibold px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"><ArrowTopRightOnSquareIcon className="w-5 h-5" /> Import</button>
                         <button onClick={() => { setOrderToEdit(undefined); setIsNewOrderModalOpen(true); }} className="flex items-center gap-2 bg-brand-brown text-white font-semibold px-4 py-2 rounded-lg hover:bg-opacity-90 transition-colors shadow-sm"><PlusCircleIcon className="w-5 h-5" /> New Order</button>
                     </div>
@@ -209,14 +231,15 @@ export default function AdminDashboard({
                 )}
 
                 {view === 'list' && (
-                    <OrderList orders={activeOrders} onSelectOrder={setSelectedOrder} onPrintSelected={setPrintPreviewOrders} onDelete={handleDeleteOrder} />
+                    <OrderList orders={activeOrders} onSelectOrder={setSelectedOrder} onPrintSelected={setPrintPreviewOrders} onDelete={confirmDeleteOrder} />
                 )}
 
                 {view === 'calendar' && (
-                    <CalendarView orders={activeOrders} onSelectOrder={setSelectedOrder} onPrintSelected={setPrintPreviewOrders} onDelete={handleDeleteOrder} />
+                    <CalendarView orders={activeOrders} onSelectOrder={setSelectedOrder} onPrintSelected={setPrintPreviewOrders} onDelete={confirmDeleteOrder} />
                 )}
             </main>
 
+            {/* Modals */}
             {isNewOrderModalOpen && (
                 <OrderFormModal 
                     order={orderToEdit}
@@ -225,7 +248,8 @@ export default function AdminDashboard({
                     empanadaFlavors={empanadaFlavors}
                     fullSizeEmpanadaFlavors={fullSizeEmpanadaFlavors}
                     onAddNewFlavor={handleAddNewFlavor}
-                    onDelete={handleDeleteOrder}
+                    onDelete={confirmDeleteOrder}
+                    pricing={safePricing}
                 />
             )}
 
@@ -237,7 +261,7 @@ export default function AdminDashboard({
                     onEdit={(order) => { setSelectedOrder(null); setOrderToEdit(order); setIsNewOrderModalOpen(true); }}
                     onApprove={selectedOrder.approvalStatus === ApprovalStatus.PENDING ? handleApproveOrder : undefined}
                     onDeny={selectedOrder.approvalStatus === ApprovalStatus.PENDING ? handleDenyOrder : undefined}
-                    onDelete={handleDeleteOrder}
+                    onDelete={confirmDeleteOrder}
                 />
             )}
 
@@ -249,6 +273,29 @@ export default function AdminDashboard({
                     existingSignatures={importedSignatures}
                 />
             )}
+            
+            {isSettingsOpen && (
+                <SettingsModal 
+                    settings={{ 
+                        empanadaFlavors, 
+                        fullSizeEmpanadaFlavors, 
+                        sheetUrl, 
+                        importedSignatures: Array.from(importedSignatures), 
+                        pricing: safePricing 
+                    }}
+                    onClose={() => setIsSettingsOpen(false)}
+                />
+            )}
+
+            <ConfirmationModal 
+                isOpen={confirmModal.isOpen}
+                title={confirmModal.title}
+                message={confirmModal.message}
+                onConfirm={confirmModal.onConfirm}
+                onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                isDangerous={true}
+                confirmText="Delete"
+            />
         </div>
     );
 }

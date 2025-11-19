@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { User } from 'firebase/auth';
 
-import { Order, ApprovalStatus } from './types';
+import { Order, ApprovalStatus, PricingSettings } from './types';
 import { subscribeToOrders, subscribeToSettings, AppSettings, migrateLocalDataToFirestore } from './services/dbService';
 import { subscribeToAuth } from './services/authService';
 import { initialEmpanadaFlavors, initialFullSizeEmpanadaFlavors } from './data/mockData';
@@ -23,6 +23,7 @@ export default function App() {
   const [fullSizeEmpanadaFlavors, setFullSizeEmpanadaFlavors] = useState<string[]>(initialFullSizeEmpanadaFlavors);
   const [importedSignatures, setImportedSignatures] = useState<Set<string>>(new Set());
   const [sheetUrl, setSheetUrl] = useState<string>('');
+  const [pricing, setPricing] = useState<PricingSettings | undefined>(undefined);
   
   const [dbError, setDbError] = useState<string | null>(null);
   const [isMigrating, setIsMigrating] = useState(false);
@@ -59,6 +60,12 @@ export default function App() {
                   fullSizeEmpanadaFlavors: JSON.parse(localStorage.getItem('fullSizeEmpanadaFlavors') || JSON.stringify(initialFullSizeEmpanadaFlavors)),
                   sheetUrl: localStorage.getItem('sheetUrl') || '',
                   importedSignatures: JSON.parse(localStorage.getItem('importedSignatures') || '[]'),
+                  pricing: {
+                      mini: { basePrice: 1.75, tiers: [] },
+                      full: { basePrice: 3.00, tiers: [] },
+                      salsaSmall: 2.00,
+                      salsaLarge: 4.00
+                  }
               };
 
               await migrateLocalDataToFirestore(localOrders, localPending, localSettings);
@@ -75,23 +82,16 @@ export default function App() {
       performMigration();
   }, [user]);
 
-  // Data Subscriptions (Only if logged in for orders, but settings might be public in future?)
-  // For now, we need settings (flavors) for the public page too.
-  // We will make settings subscription always run if possible, but it depends on Firestore rules.
-  // If rules require auth for settings, we might need to open them up or use Cloud Functions.
-  // Assuming updated rules will allow public READ of settings or hardcode for now? 
-  // Better: The user must update rules to allow public to read /app_settings/general.
-  
+  // Data Subscriptions
   useEffect(() => {
-    // Always subscribe to settings (assuming rules allow public read of settings)
-    // Or if not, we rely on defaults for public page until logged in.
-    // But wait, we can't edit flavors without being logged in, so keeping them sync is good.
-    
     const unsubscribeSettings = subscribeToSettings((settings: AppSettings) => {
         if (settings.empanadaFlavors) setEmpanadaFlavors(settings.empanadaFlavors);
         if (settings.fullSizeEmpanadaFlavors) setFullSizeEmpanadaFlavors(settings.fullSizeEmpanadaFlavors);
         if (settings.importedSignatures) setImportedSignatures(new Set(settings.importedSignatures));
         if (settings.sheetUrl) setSheetUrl(settings.sheetUrl);
+        if (settings.pricing) setPricing(settings.pricing);
+    }, (error) => {
+        console.warn("Could not load settings (likely public user restricted):", error.message);
     });
 
     let unsubscribeOrders = () => {};
@@ -102,9 +102,7 @@ export default function App() {
                 setOrders(updatedOrders);
                 setDbError(null);
             }, 
-            ApprovalStatus.APPROVED, // This fetches all orders regardless of status? Actually dbService filters?
-            // Checking dbService... subscribeToOrders query doesn't seem to filter by status in the query provided previously.
-            // It grabs the whole collection.
+            ApprovalStatus.APPROVED,
             (error) => {
                 if (error.message.includes("permission-denied")) {
                     setDbError("Permission Denied: Your database is locked. Please check Firebase Rules.");
@@ -114,7 +112,7 @@ export default function App() {
             }
         );
     } else {
-        setOrders([]); // Clear sensitive orders if logged out
+        setOrders([]);
     }
 
     return () => {
@@ -139,6 +137,7 @@ export default function App() {
                     <CustomerOrderPage 
                         empanadaFlavors={empanadaFlavors} 
                         fullSizeEmpanadaFlavors={fullSizeEmpanadaFlavors} 
+                        pricing={pricing}
                     />
                 } 
             />
@@ -161,6 +160,12 @@ export default function App() {
                             fullSizeEmpanadaFlavors={fullSizeEmpanadaFlavors}
                             importedSignatures={importedSignatures}
                             sheetUrl={sheetUrl}
+                            pricing={pricing || {
+                                mini: { basePrice: 1.75, tiers: [] },
+                                full: { basePrice: 3.00, tiers: [] },
+                                salsaSmall: 2.00,
+                                salsaLarge: 4.00
+                            }}
                         />
                     ) : (
                         <Navigate to="/login" replace />
