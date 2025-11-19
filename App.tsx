@@ -25,6 +25,7 @@ export default function App() {
   const [importedSignatures, setImportedSignatures] = useState<Set<string>>(new Set());
   const [sheetUrl, setSheetUrl] = useState<string>('');
   const [pricing, setPricing] = useState<PricingSettings | undefined>(undefined);
+  const [prepSettings, setPrepSettings] = useState<AppSettings['prepSettings']>({ lbsPer20: {}, fullSizeMultiplier: 2.0 });
   
   const [dbError, setDbError] = useState<string | null>(null);
   const [isMigrating, setIsMigrating] = useState(false);
@@ -118,6 +119,10 @@ export default function App() {
                       packages: [],
                       salsaSmall: 2.00,
                       salsaLarge: 4.00
+                  },
+                  prepSettings: {
+                      lbsPer20: {},
+                      fullSizeMultiplier: 2.0
                   }
               };
 
@@ -143,6 +148,7 @@ export default function App() {
         if (settings.importedSignatures) setImportedSignatures(new Set(settings.importedSignatures));
         if (settings.sheetUrl) setSheetUrl(settings.sheetUrl);
         if (settings.pricing) setPricing(settings.pricing);
+        if (settings.prepSettings) setPrepSettings(settings.prepSettings);
     }, (error) => {
         console.warn("Could not load settings (likely public user restricted):", error.message);
     });
@@ -220,6 +226,7 @@ export default function App() {
                                 salsaSmall: 2.00,
                                 salsaLarge: 4.00
                             }}
+                            prepSettings={prepSettings}
                         />
                     ) : (
                         <Navigate to="/login" replace />

@@ -25,6 +25,10 @@ export interface AppSettings {
     sheetUrl: string;
     importedSignatures: string[];
     pricing: PricingSettings;
+    prepSettings: {
+        lbsPer20: Record<string, number>; // Key: Flavor Name, Value: Lbs required for 20 mini empanadas
+        fullSizeMultiplier: number; // How much bigger is a full size? Default 2.0
+    };
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -38,6 +42,10 @@ const DEFAULT_SETTINGS: AppSettings = {
         packages: [],
         salsaSmall: 2.00,
         salsaLarge: 4.00
+    },
+    prepSettings: {
+        lbsPer20: {},
+        fullSizeMultiplier: 2.0
     }
 };
 
@@ -97,6 +105,10 @@ export const subscribeToSettings = (
                 pricing: {
                     ...DEFAULT_SETTINGS.pricing,
                     ...(data.pricing || {})
+                },
+                prepSettings: {
+                    ...DEFAULT_SETTINGS.prepSettings,
+                    ...(data.prepSettings || {})
                 }
             };
             
@@ -184,7 +196,8 @@ export const migrateLocalDataToFirestore = async (
     const settingsToSave = {
         ...DEFAULT_SETTINGS,
         ...localSettings,
-        pricing: localSettings.pricing || DEFAULT_SETTINGS.pricing
+        pricing: localSettings.pricing || DEFAULT_SETTINGS.pricing,
+        prepSettings: localSettings.prepSettings || DEFAULT_SETTINGS.prepSettings
     };
     
     batch.set(settingsRef, settingsToSave);

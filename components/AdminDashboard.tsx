@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { Order, ApprovalStatus, FollowUpStatus, PricingSettings, Flavor } from '../types';
 import { parseOrderDateTime } from '../utils/dateUtils';
-import { saveOrderToDb, deleteOrderFromDb, updateSettingsInDb, saveOrdersBatch } from '../services/dbService';
+import { saveOrderToDb, deleteOrderFromDb, updateSettingsInDb, saveOrdersBatch, AppSettings } from '../services/dbService';
 import { calculateOrderTotal } from '../utils/pricingUtils';
 
 import Header from './Header';
@@ -17,7 +17,8 @@ import PendingOrders from './PendingOrders';
 import DateRangeFilter from './DateRangeFilter';
 import SettingsModal from './SettingsModal';
 import ConfirmationModal from './ConfirmationModal';
-import { PlusCircleIcon, ListBulletIcon, CalendarDaysIcon, ArrowTopRightOnSquareIcon, CogIcon } from './icons/Icons';
+import PrepListModal from './PrepListModal';
+import { PlusCircleIcon, ListBulletIcon, CalendarDaysIcon, ArrowTopRightOnSquareIcon, CogIcon, ScaleIcon } from './icons/Icons';
 import { User } from 'firebase/auth';
 
 interface AdminDashboardProps {
@@ -28,6 +29,7 @@ interface AdminDashboardProps {
     importedSignatures: Set<string>;
     sheetUrl: string;
     pricing: PricingSettings;
+    prepSettings?: AppSettings['prepSettings'];
 }
 
 export default function AdminDashboard({ 
@@ -37,7 +39,8 @@ export default function AdminDashboard({
     fullSizeEmpanadaFlavors,
     importedSignatures,
     sheetUrl,
-    pricing 
+    pricing,
+    prepSettings
 }: AdminDashboardProps) {
 
     const [view, setView] = useState<'dashboard' | 'list' | 'calendar'>('dashboard');
@@ -51,6 +54,7 @@ export default function AdminDashboard({
     const [printPreviewOrders, setPrintPreviewOrders] = useState<Order[] | null>(null);
     
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [isPrepListOpen, setIsPrepListOpen] = useState(false);
     
     // Confirmation Modal State
     const [confirmModal, setConfirmModal] = useState<{
@@ -96,6 +100,8 @@ export default function AdminDashboard({
         salsaSmall: 2.00,
         salsaLarge: 4.00
     };
+
+    const safePrepSettings = prepSettings || { lbsPer20: {}, fullSizeMultiplier: 2.0 };
 
     const handleSaveOrder = async (orderData: Order | Omit<Order, 'id'>) => {
         // Note: Amount is already calculated by the form using dynamic pricing
@@ -214,7 +220,8 @@ export default function AdminDashboard({
                         <button onClick={() => setView('calendar')} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${view === 'calendar' ? 'bg-brand-orange text-white' : 'text-brand-brown hover:bg-brand-tan/30'}`}><CalendarDaysIcon className="w-4 h-4" /> Calendar</button>
                     </div>
 
-                    <div className="flex gap-3">
+                    <div className="flex gap-3 flex-wrap">
+                        <button onClick={() => setIsPrepListOpen(true)} className="flex items-center gap-2 bg-white text-brand-brown border border-brand-tan font-semibold px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"><ScaleIcon className="w-5 h-5" /> Prep List</button>
                         <button onClick={() => setIsSettingsOpen(true)} className="flex items-center gap-2 bg-white text-brand-brown border border-brand-tan font-semibold px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"><CogIcon className="w-5 h-5" /> Settings</button>
                         <button onClick={() => setIsImportModalOpen(true)} className="flex items-center gap-2 bg-white text-brand-brown border border-brand-tan font-semibold px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"><ArrowTopRightOnSquareIcon className="w-5 h-5" /> Import</button>
                         <button onClick={() => { setOrderToEdit(undefined); setIsNewOrderModalOpen(true); }} className="flex items-center gap-2 bg-brand-brown text-white font-semibold px-4 py-2 rounded-lg hover:bg-opacity-90 transition-colors shadow-sm"><PlusCircleIcon className="w-5 h-5" /> New Order</button>
@@ -283,9 +290,25 @@ export default function AdminDashboard({
                         fullSizeEmpanadaFlavors, 
                         sheetUrl, 
                         importedSignatures: Array.from(importedSignatures), 
-                        pricing: safePricing 
+                        pricing: safePricing,
+                        prepSettings: safePrepSettings
                     }}
                     onClose={() => setIsSettingsOpen(false)}
+                />
+            )}
+            
+            {isPrepListOpen && (
+                <PrepListModal 
+                    orders={filteredOrders} 
+                    settings={{
+                        empanadaFlavors, 
+                        fullSizeEmpanadaFlavors, 
+                        sheetUrl, 
+                        importedSignatures: Array.from(importedSignatures), 
+                        pricing: safePricing,
+                        prepSettings: safePrepSettings
+                    }} 
+                    onClose={() => setIsPrepListOpen(false)} 
                 />
             )}
 

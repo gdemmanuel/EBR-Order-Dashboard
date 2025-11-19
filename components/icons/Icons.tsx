@@ -246,3 +246,10 @@ export const CogIcon = ({ title, ...props }: IconProps) => (
     <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
   </svg>
 );
+
+export const ScaleIcon = ({ title, ...props }: IconProps) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+        {title && <title>{title}</title>}
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v17.25m0 0c-1.48 0-2.194-.643-2.46-1.066-.595-.95-.146-2.256.66-3.345C10.84 15.035 11.38 14.25 12 14.25c.62 0 1.16.785 1.8 1.59.806 1.089 1.255 2.394.66 3.345-.266.423-.98 1.066-2.46 1.066zm11.25-9.75a5.25 5.25 0 11-10.5 0 5.25 5.25 0 0110.5 0zm-12 0a5.25 5.25 0 11-10.5 0 5.25 5.25 0 0110.5 0z" />
+    </svg>
+);

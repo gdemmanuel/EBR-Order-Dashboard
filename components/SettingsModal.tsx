@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { AppSettings, updateSettingsInDb } from '../services/dbService';
 import { PricingSettings, MenuPackage, Flavor } from '../types';
-import { XMarkIcon, PlusIcon, TrashIcon, CheckCircleIcon, CogIcon, PencilIcon } from './icons/Icons';
+import { XMarkIcon, PlusIcon, TrashIcon, CheckCircleIcon, CogIcon, PencilIcon, ScaleIcon } from './icons/Icons';
 
 interface SettingsModalProps {
     settings: AppSettings;
@@ -10,12 +10,15 @@ interface SettingsModalProps {
 }
 
 export default function SettingsModal({ settings, onClose }: SettingsModalProps) {
-    const [activeTab, setActiveTab] = useState<'menu' | 'pricing'>('menu');
+    const [activeTab, setActiveTab] = useState<'menu' | 'pricing' | 'prep'>('menu');
     
     // Local state for editing
     const [empanadaFlavors, setEmpanadaFlavors] = useState<Flavor[]>(settings.empanadaFlavors);
     const [fullSizeEmpanadaFlavors, setFullSizeEmpanadaFlavors] = useState<Flavor[]>(settings.fullSizeEmpanadaFlavors);
     const [pricing, setPricing] = useState<PricingSettings>(settings.pricing);
+    
+    // Prep Settings State
+    const [prepSettings, setPrepSettings] = useState<AppSettings['prepSettings']>(settings.prepSettings || { lbsPer20: {}, fullSizeMultiplier: 2.0 });
     
     const [newMiniFlavor, setNewMiniFlavor] = useState('');
     const [newFullFlavor, setNewFullFlavor] = useState('');
@@ -37,7 +40,8 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
         await updateSettingsInDb({
             empanadaFlavors,
             fullSizeEmpanadaFlavors,
-            pricing
+            pricing,
+            prepSettings
         });
         setIsSaving(false);
         onClose();
@@ -142,6 +146,18 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
         });
     };
 
+    // --- Prep Settings Logic ---
+    const updateLbsPer20 = (flavorName: string, value: string) => {
+        const numVal = parseFloat(value);
+        setPrepSettings({
+            ...prepSettings,
+            lbsPer20: {
+                ...prepSettings.lbsPer20,
+                [flavorName]: isNaN(numVal) ? 0 : numVal
+            }
+        });
+    };
+
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fade-in">
             <div className="bg-white rounded-lg shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col border border-brand-tan">
@@ -152,18 +168,24 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                     </button>
                 </header>
 
-                <div className="flex border-b border-gray-200">
+                <div className="flex border-b border-gray-200 overflow-x-auto">
                     <button
-                        className={`px-6 py-3 font-medium text-sm ${activeTab === 'menu' ? 'border-b-2 border-brand-orange text-brand-orange' : 'text-gray-500 hover:text-brand-brown'}`}
+                        className={`px-6 py-3 font-medium text-sm whitespace-nowrap ${activeTab === 'menu' ? 'border-b-2 border-brand-orange text-brand-orange' : 'text-gray-500 hover:text-brand-brown'}`}
                         onClick={() => setActiveTab('menu')}
                     >
                         Menu Management
                     </button>
                     <button
-                        className={`px-6 py-3 font-medium text-sm ${activeTab === 'pricing' ? 'border-b-2 border-brand-orange text-brand-orange' : 'text-gray-500 hover:text-brand-brown'}`}
+                        className={`px-6 py-3 font-medium text-sm whitespace-nowrap ${activeTab === 'pricing' ? 'border-b-2 border-brand-orange text-brand-orange' : 'text-gray-500 hover:text-brand-brown'}`}
                         onClick={() => setActiveTab('pricing')}
                     >
                         Pricing & Packages
+                    </button>
+                    <button
+                        className={`px-6 py-3 font-medium text-sm whitespace-nowrap ${activeTab === 'prep' ? 'border-b-2 border-brand-orange text-brand-orange' : 'text-gray-500 hover:text-brand-brown'}`}
+                        onClick={() => setActiveTab('prep')}
+                    >
+                        Prep Calculations
                     </button>
                 </div>
 
@@ -355,6 +377,61 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                             <input type="number" step="0.01" value={pricing.full.basePrice} onChange={(e) => setPricing({...pricing, full: { basePrice: parseFloat(e.target.value) || 0 }})} className="block w-full rounded-md border-gray-300 pl-7 pr-3 sm:text-sm" />
                                         </div>
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'prep' && (
+                        <div className="space-y-8">
+                            <div className="bg-white p-5 rounded-lg border border-brand-tan shadow-sm">
+                                <div className="flex items-center justify-between border-b pb-2 mb-4">
+                                    <div>
+                                        <h3 className="font-bold text-brand-brown text-lg">Ingredient Requirements</h3>
+                                        <p className="text-sm text-gray-600">Define how many pounds of material (filling) are needed for every 20 MINI empanadas.</p>
+                                    </div>
+                                    <ScaleIcon className="w-6 h-6 text-brand-orange" />
+                                </div>
+
+                                <div className="bg-blue-50 border border-blue-200 rounded p-3 mb-6 flex items-start gap-3">
+                                    <div className="bg-blue-100 p-1 rounded-full"><CheckCircleIcon className="w-4 h-4 text-blue-700" /></div>
+                                    <div className="text-sm text-blue-800">
+                                        <p className="font-bold mb-1">How it works:</p>
+                                        <p>If "Beef" requires 0.8 lbs for 20 minis, enter 0.8 below. When you generate a prep list, the app will calculate total lbs based on order volume.</p>
+                                    </div>
+                                </div>
+
+                                <div className="mb-6">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Full-Size Multiplier</label>
+                                    <div className="flex items-center gap-2">
+                                        <input 
+                                            type="number" 
+                                            step="0.1" 
+                                            value={prepSettings.fullSizeMultiplier}
+                                            onChange={(e) => setPrepSettings({...prepSettings, fullSizeMultiplier: parseFloat(e.target.value) || 0})}
+                                            className="w-24 rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange sm:text-sm"
+                                        />
+                                        <span className="text-sm text-gray-500">(e.g. 2.0 means a Full Size uses 2x the filling of a Mini)</span>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {empanadaFlavors.map((flavor) => (
+                                        <div key={flavor.name} className="border rounded-md p-3 bg-gray-50">
+                                            <label className="block text-xs font-bold text-gray-700 mb-1 truncate" title={flavor.name}>{flavor.name}</label>
+                                            <div className="flex items-center gap-2">
+                                                <input 
+                                                    type="number" 
+                                                    step="0.01" 
+                                                    placeholder="0.0"
+                                                    value={prepSettings.lbsPer20[flavor.name] || ''}
+                                                    onChange={(e) => updateLbsPer20(flavor.name, e.target.value)}
+                                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" 
+                                                />
+                                                <span className="text-xs text-gray-500 whitespace-nowrap">lbs / 20</span>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         </div>
