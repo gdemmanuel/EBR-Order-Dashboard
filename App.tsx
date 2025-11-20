@@ -7,7 +7,6 @@ import { Order, ApprovalStatus, PricingSettings, Flavor } from './types';
 import { subscribeToOrders, subscribeToSettings, AppSettings, migrateLocalDataToFirestore } from './services/dbService';
 import { subscribeToAuth } from './services/authService';
 import { initialEmpanadaFlavors, initialFullSizeEmpanadaFlavors } from './data/mockData';
-import { parseOrdersFromSheet } from './services/geminiService'; 
 
 import AdminDashboard from './components/AdminDashboard';
 import CustomerOrderPage from './components/CustomerOrderPage';
@@ -175,28 +174,26 @@ export default function App() {
 
     let unsubscribeOrders = () => {};
 
-    // Currently, we subscribe to orders even if public to check for busy slots, 
-    // BUT standard security rules might block public access to 'orders'.
-    // If rules block it, 'orders' will be empty for public user, meaning busy slots won't work.
-    // For this app iteration, we assume public read is allowed or handled via a public 'availability' collection in a real prod app.
-    // For now, we'll try to subscribe. If it fails (due to auth), we just catch the error.
-    unsubscribeOrders = subscribeToOrders(
-        (updatedOrders) => {
-            setOrders(updatedOrders);
-            setDbError(null);
-        }, 
-        ApprovalStatus.APPROVED,
-        (error) => {
-             // Only show error if logged in user
-             if (user) {
+    // FIX: Only subscribe to orders if user is authenticated to prevent Permission Denied errors.
+    // This means public users won't see live busy slots, but it prevents the app from crashing.
+    if (user) {
+        unsubscribeOrders = subscribeToOrders(
+            (updatedOrders) => {
+                setOrders(updatedOrders);
+                setDbError(null);
+            }, 
+            ApprovalStatus.APPROVED,
+            (error) => {
                  if (error.message.includes("permission-denied")) {
                     setDbError("Permission Denied: Database locked.");
                 } else {
                     setDbError(`Database Error: ${error.message}`);
                 }
-             }
-        }
-    );
+            }
+        );
+    } else {
+        setOrders([]);
+    }
 
     return () => {
         unsubscribeOrders();
