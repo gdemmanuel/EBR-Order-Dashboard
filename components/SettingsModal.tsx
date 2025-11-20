@@ -41,6 +41,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
         quantity: 12,
         price: 20,
         maxFlavors: 4,
+        increment: 1,
         visible: true,
         name: ''
     });
@@ -103,6 +104,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
             quantity: Number(packageForm.quantity),
             price: Number(packageForm.price),
             maxFlavors: Number(packageForm.maxFlavors) || Number(packageForm.quantity),
+            increment: Number(packageForm.increment) || 1,
             visible: packageForm.visible ?? true
         };
 
@@ -124,6 +126,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
             quantity: 12,
             price: 20,
             maxFlavors: 4,
+            increment: 1,
             visible: true,
             name: ''
         });
@@ -131,7 +134,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
     };
 
     const handleEditPackageClick = (pkg: MenuPackage) => {
-        setPackageForm({ ...pkg });
+        setPackageForm({ ...pkg, increment: pkg.increment || 10 }); // Default to 10 for old packages to match legacy behavior
         setEditingPackageId(pkg.id);
     };
 
@@ -147,6 +150,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                 quantity: 12,
                 price: 20,
                 maxFlavors: 4,
+                increment: 1,
                 visible: true,
                 name: ''
             });
@@ -295,7 +299,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                 <p className="text-sm text-gray-600 mb-4">Define standard packages for your customers (e.g., "Dozen Minis").</p>
                                 
                                 {/* Add/Edit Package Form */}
-                                <div className={`grid grid-cols-1 md:grid-cols-6 gap-3 rounded-md mb-6 items-end border p-4 ${editingPackageId ? 'bg-amber-50 border-amber-200' : 'bg-gray-50 border-gray-200'}`}>
+                                <div className={`grid grid-cols-1 md:grid-cols-7 gap-3 rounded-md mb-6 items-end border p-4 ${editingPackageId ? 'bg-amber-50 border-amber-200' : 'bg-gray-50 border-gray-200'}`}>
                                     <div className="md:col-span-2">
                                         <label className="block text-xs font-medium text-gray-700 mb-1">Name</label>
                                         <input type="text" placeholder="e.g. Party Platter" value={packageForm.name} onChange={e => setPackageForm({...packageForm, name: e.target.value})} className="w-full text-sm rounded border-gray-300" />
@@ -308,7 +312,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-medium text-gray-700 mb-1">Qty</label>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Total Qty</label>
                                         <input type="number" placeholder="12" value={packageForm.quantity} onChange={e => setPackageForm({...packageForm, quantity: Number(e.target.value)})} className="w-full text-sm rounded border-gray-300" />
                                     </div>
                                     <div>
@@ -319,9 +323,13 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                         <label className="block text-xs font-medium text-gray-700 mb-1" title="How many DIFFERENT flavors can they pick?">Max Flavors</label>
                                         <input type="number" placeholder="3" value={packageForm.maxFlavors} onChange={e => setPackageForm({...packageForm, maxFlavors: Number(e.target.value)})} className="w-full text-sm rounded border-gray-300" />
                                     </div>
-                                    <div className="md:col-span-6 flex justify-end mt-2 gap-2">
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1" title="Minimum per flavor / Step size">Increment</label>
+                                        <input type="number" placeholder="1" value={packageForm.increment} onChange={e => setPackageForm({...packageForm, increment: Number(e.target.value)})} className="w-full text-sm rounded border-gray-300" />
+                                    </div>
+                                    <div className="md:col-span-7 flex justify-end mt-2 gap-2">
                                         {editingPackageId && (
-                                            <button onClick={() => { setEditingPackageId(null); setPackageForm({ itemType: 'mini', quantity: 12, price: 20, maxFlavors: 4, visible: true, name: '' }); }} className="text-sm text-gray-500 hover:underline mr-2">Cancel Edit</button>
+                                            <button onClick={() => { setEditingPackageId(null); setPackageForm({ itemType: 'mini', quantity: 12, price: 20, maxFlavors: 4, increment: 1, visible: true, name: '' }); }} className="text-sm text-gray-500 hover:underline mr-2">Cancel Edit</button>
                                         )}
                                         <button onClick={handleAddOrUpdatePackage} className={`flex items-center gap-2 text-white px-4 py-2 rounded text-sm font-semibold hover:bg-opacity-90 ${editingPackageId ? 'bg-amber-600' : 'bg-brand-orange'}`}>
                                             {editingPackageId ? <><CheckCircleIcon className="w-4 h-4"/> Update Package</> : <><PlusIcon className="w-4 h-4" /> Add Package</>}
@@ -343,7 +351,9 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                                 />
                                                 <div>
                                                     <p className="font-bold text-brand-brown">{pkg.name}</p>
-                                                    <p className="text-xs text-gray-500">{pkg.quantity} {pkg.itemType === 'mini' ? 'Minis' : 'Full-Size'} • Max {pkg.maxFlavors} flavors</p>
+                                                    <p className="text-xs text-gray-500">
+                                                        {pkg.quantity} {pkg.itemType === 'mini' ? 'Minis' : 'Full-Size'} • Max {pkg.maxFlavors} flavors • Step {pkg.increment || 10}
+                                                    </p>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-4">

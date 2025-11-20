@@ -12,6 +12,10 @@ interface PackageBuilderModalProps {
 
 export default function PackageBuilderModal({ pkg, flavors, onClose, onConfirm }: PackageBuilderModalProps) {
     const [builderSelections, setBuilderSelections] = useState<{ [flavorName: string]: number }>({});
+    
+    // Default increment to 10 if not set to preserve legacy behavior for existing packages,
+    // or utilize the configured increment.
+    const step = pkg.increment || 10;
 
     const updateBuilderSelection = (flavorName: string, change: number) => {
         const currentQty = builderSelections[flavorName] || 0;
@@ -128,11 +132,11 @@ export default function PackageBuilderModal({ pkg, flavors, onClose, onConfirm }
 
                                             <button 
                                                 type="button"
-                                                onClick={() => updateBuilderSelection(flavor.name, -10)}
+                                                onClick={() => updateBuilderSelection(flavor.name, -step)}
                                                 disabled={qty === 0}
                                                 className="w-10 h-8 rounded-lg bg-gray-100 text-gray-600 text-xs font-bold flex items-center justify-center hover:bg-gray-200 disabled:opacity-30"
                                             >
-                                                -10
+                                                -{step}
                                             </button>
                                             
                                             {/* Editable Input */}
@@ -148,11 +152,11 @@ export default function PackageBuilderModal({ pkg, flavors, onClose, onConfirm }
                                             
                                             <button 
                                                 type="button"
-                                                onClick={() => updateBuilderSelection(flavor.name, 10)}
+                                                onClick={() => updateBuilderSelection(flavor.name, step)}
                                                 disabled={!canAdd}
                                                 className="w-10 h-8 rounded-lg bg-brand-orange text-white text-xs font-bold flex items-center justify-center hover:bg-brand-orange/90 disabled:bg-gray-300"
                                             >
-                                                +10
+                                                +{step}
                                             </button>
                                         </div>
                                     </div>

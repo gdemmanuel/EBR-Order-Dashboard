@@ -34,6 +34,12 @@ interface AdminDashboardProps {
     settings?: AppSettings;
 }
 
+// Helper to get local date string YYYY-MM-DD
+const getTodayStr = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
 export default function AdminDashboard({ 
     user, 
     orders, 
@@ -47,7 +53,12 @@ export default function AdminDashboard({
 }: AdminDashboardProps) {
 
     const [view, setView] = useState<'dashboard' | 'list' | 'calendar'>('dashboard');
-    const [dateFilter, setDateFilter] = useState<{ start?: string; end?: string }>({});
+    
+    // Initialize filter with Today as start date
+    const [dateFilter, setDateFilter] = useState<{ start?: string; end?: string }>({
+        start: getTodayStr()
+    });
+    
     const [searchTerm, setSearchTerm] = useState(''); // Search State
     
     const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState(false);
@@ -87,12 +98,15 @@ export default function AdminDashboard({
 
         // 2. Date Filter (Only applies if no search term)
         if (dateFilter.start) {
-            const start = new Date(dateFilter.start);
-            start.setHours(0,0,0,0);
+            // Construct local midnight date strictly from components to avoid UTC shifts
+            const [y, m, d] = dateFilter.start.split('-').map(Number);
+            const start = new Date(y, m - 1, d);
             result = result.filter(o => parseOrderDateTime(o) >= start);
         }
         if (dateFilter.end) {
-            const end = new Date(dateFilter.end);
+            // Construct local end-of-day date
+            const [y, m, d] = dateFilter.end.split('-').map(Number);
+            const end = new Date(y, m - 1, d);
             end.setHours(23,59,59,999);
             result = result.filter(o => parseOrderDateTime(o) <= end);
         }
@@ -309,7 +323,11 @@ export default function AdminDashboard({
 
                 {view === 'dashboard' && (
                     <>
-                        <DateRangeFilter onDateChange={setDateFilter} />
+                        <DateRangeFilter 
+                            initialStartDate={dateFilter.start}
+                            initialEndDate={dateFilter.end}
+                            onDateChange={setDateFilter} 
+                        />
                         <DashboardMetrics stats={stats} orders={filteredOrders} empanadaFlavors={empanadaFlavors.map(f => f.name)} fullSizeEmpanadaFlavors={fullSizeEmpanadaFlavors.map(f => f.name)} />
                     </>
                 )}

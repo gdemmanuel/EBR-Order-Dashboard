@@ -548,29 +548,33 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                         )}
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-4 border-t border-brand-tan pt-4">
-                        <ItemInputSection 
-                            title="Mini Empanadas"
-                            items={miniItems}
-                            flavors={empanadaFlavors}
-                            onItemChange={(index, field, value) => handleItemChange('mini', index, field, value)}
-                            onAddItem={() => addItem('mini')}
-                            onRemoveItem={(index) => removeItem('mini', index)}
-                            itemType="mini"
-                            availablePackages={pricing.packages?.filter(p => p.itemType === 'mini')}
-                            onAddPackage={setActivePackageBuilder}
-                        />
-                         <ItemInputSection 
-                            title="Full-Size Empanadas"
-                            items={fullSizeItems}
-                            flavors={fullSizeEmpanadaFlavors}
-                            onItemChange={(index, field, value) => handleItemChange('full', index, field, value)}
-                            onAddItem={() => addItem('full')}
-                            onRemoveItem={(index) => removeItem('full', index)}
-                            itemType="full"
-                            availablePackages={pricing.packages?.filter(p => p.itemType === 'full')}
-                            onAddPackage={setActivePackageBuilder}
-                        />
+                    <div className="space-y-8 border-t border-brand-tan pt-6">
+                        <div className="bg-white p-4 rounded-lg border border-brand-tan/50 shadow-sm">
+                            <ItemInputSection 
+                                title="Mini Empanadas"
+                                items={miniItems}
+                                flavors={empanadaFlavors}
+                                onItemChange={(index, field, value) => handleItemChange('mini', index, field, value)}
+                                onAddItem={() => addItem('mini')}
+                                onRemoveItem={(index) => removeItem('mini', index)}
+                                itemType="mini"
+                                availablePackages={pricing.packages?.filter(p => p.itemType === 'mini')}
+                                onAddPackage={setActivePackageBuilder}
+                            />
+                        </div>
+                        <div className="bg-white p-4 rounded-lg border border-brand-tan/50 shadow-sm">
+                            <ItemInputSection 
+                                title="Full-Size Empanadas"
+                                items={fullSizeItems}
+                                flavors={fullSizeEmpanadaFlavors}
+                                onItemChange={(index, field, value) => handleItemChange('full', index, field, value)}
+                                onAddItem={() => addItem('full')}
+                                onRemoveItem={(index) => removeItem('full', index)}
+                                itemType="full"
+                                availablePackages={pricing.packages?.filter(p => p.itemType === 'full')}
+                                onAddPackage={setActivePackageBuilder}
+                            />
+                        </div>
                     </div>
 
                     <div className="border-t border-brand-tan pt-4">
