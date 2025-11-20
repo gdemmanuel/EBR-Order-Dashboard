@@ -1,3 +1,4 @@
+
 import { Order, ContactMethod, FollowUpStatus, PaymentStatus, ApprovalStatus } from '../types';
 
 export const initialOrders: Order[] = [
@@ -89,7 +90,7 @@ export const initialOrders: Order[] = [
         amountCollected: 70,
         paymentMethod: 'Venmo',
         deliveryAddress: null,
-        followUpStatus: FollowUpStatus.CONTACTED,
+        followUpStatus: FollowUpStatus.PENDING,
         paymentStatus: PaymentStatus.PAID,
         specialInstructions: null,
         approvalStatus: ApprovalStatus.APPROVED,

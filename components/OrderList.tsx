@@ -182,8 +182,11 @@ export default function OrderList({ orders, title, onSelectOrder, onPrintSelecte
                                         {order.followUpStatus === FollowUpStatus.COMPLETED && (
                                             <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">Done</span>
                                         )}
-                                         {order.followUpStatus === FollowUpStatus.CONTACTED && (
-                                            <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">Contacted</span>
+                                         {order.followUpStatus === FollowUpStatus.CONFIRMED && (
+                                            <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">Confirmed</span>
+                                        )}
+                                        {order.followUpStatus === FollowUpStatus.PENDING && (
+                                            <span className="bg-gray-100 text-gray-800 text-xs font-medium px-2.5 py-0.5 rounded">Pending</span>
                                         )}
                                     </td>
                                     <td className="px-6 py-4 text-right">

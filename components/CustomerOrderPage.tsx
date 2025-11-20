@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { saveOrderToDb } from '../services/dbService';
 import { Order, OrderItem, PaymentStatus, FollowUpStatus, ApprovalStatus, PricingSettings, Flavor, MenuPackage, SalsaProduct } from '../types';
 import { SalsaSize } from '../config';
-import { TrashIcon, CheckCircleIcon, StarIcon } from './icons/Icons';
+import { TrashIcon, CheckCircleIcon, StarIcon, ChevronRightIcon } from './icons/Icons';
 import Header from './Header';
 import PackageBuilderModal from './PackageBuilderModal';
 
@@ -267,7 +267,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
     return (
         <div className="min-h-screen bg-brand-cream">
             <Header variant="public" />
-            <main className="max-w-3xl mx-auto px-4 py-8">
+            <main className="max-w-4xl mx-auto px-4 py-8">
                 <div className="text-center mb-10">
                     <h2 className="text-4xl font-serif text-brand-brown mb-3">Place Your Order</h2>
                     <p className="text-brand-brown/70 max-w-lg mx-auto">
@@ -276,12 +276,71 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-8">
+
+                    {/* --- Flavor Showcase --- */}
+                    <section className="bg-white p-8 rounded-xl shadow-sm border border-brand-tan">
+                        <h3 className="text-2xl font-serif text-brand-brown mb-6 text-center">Our Menu</h3>
+                        
+                        <div className="space-y-8">
+                            <div>
+                                <h4 className="text-lg font-bold text-brand-orange uppercase tracking-wider mb-4 text-center sm:text-left">Mini Empanadas</h4>
+                                <div className="flex flex-wrap gap-3 justify-center sm:justify-start">
+                                    {miniFlavors.map(f => (
+                                        <div key={f.name} className="inline-flex flex-col items-center sm:items-start bg-brand-tan/20 border border-brand-tan/30 px-4 py-2 rounded-full hover:bg-brand-tan/40 transition-colors">
+                                            <div className="flex items-center gap-1">
+                                                <span className="font-semibold text-brand-brown text-sm">{f.name}</span>
+                                                {f.surcharge && <span className="text-[10px] font-bold text-brand-orange bg-white px-1.5 py-0.5 rounded-full shadow-sm">+${f.surcharge.toFixed(2)}</span>}
+                                            </div>
+                                            {f.description && <span className="text-[11px] text-gray-500">{f.description}</span>}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div>
+                                <h4 className="text-lg font-bold text-brand-orange uppercase tracking-wider mb-4 text-center sm:text-left">Full-Size Empanadas</h4>
+                                <div className="flex flex-wrap gap-3 justify-center sm:justify-start">
+                                    {fullFlavors.map(f => (
+                                        <div key={f.name} className="inline-flex flex-col items-center sm:items-start bg-brand-tan/20 border border-brand-tan/30 px-4 py-2 rounded-full hover:bg-brand-tan/40 transition-colors">
+                                            <div className="flex items-center gap-1">
+                                                <span className="font-semibold text-brand-brown text-sm">{f.name}</span>
+                                                {f.surcharge && <span className="text-[10px] font-bold text-brand-orange bg-white px-1.5 py-0.5 rounded-full shadow-sm">+${f.surcharge.toFixed(2)}</span>}
+                                            </div>
+                                            {f.description && <span className="text-[11px] text-gray-500">{f.description}</span>}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {specialFlavors.length > 0 && (
+                                <details className="group">
+                                    <summary className="list-none cursor-pointer flex items-center gap-2 font-semibold text-purple-800 hover:text-purple-900 transition-colors">
+                                        <ChevronRightIcon className="w-4 h-4 transition-transform group-open:rotate-90" />
+                                        See Special Flavors & Platters
+                                    </summary>
+                                    <div className="mt-4 pl-4 animate-fade-in">
+                                        <div className="flex flex-wrap gap-3 justify-center sm:justify-start">
+                                            {specialFlavors.map(f => (
+                                                <div key={f.name} className="inline-flex flex-col items-center sm:items-start bg-purple-50 border border-purple-100 px-4 py-2 rounded-full hover:bg-purple-100 transition-colors">
+                                                    <div className="flex items-center gap-1">
+                                                        <span className="font-semibold text-purple-900 text-sm">{f.name}</span>
+                                                        {f.surcharge && <span className="text-[10px] font-bold text-brand-orange bg-white px-1.5 py-0.5 rounded-full shadow-sm">+${f.surcharge.toFixed(2)}</span>}
+                                                    </div>
+                                                    {f.description && <span className="text-[11px] text-gray-500">{f.description}</span>}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </details>
+                            )}
+                        </div>
+                    </section>
                     
                     {/* --- Section 1: Mini Empanadas --- */}
                     <section className="bg-white p-6 rounded-xl shadow-sm border border-brand-tan">
-                        <h3 className="text-xl font-serif text-brand-brown mb-4 border-b border-brand-tan pb-2">1. Mini Empanadas</h3>
+                        <h3 className="text-xl font-serif text-brand-brown mb-4 border-b border-brand-tan pb-2">Mini Empanadas</h3>
                         
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             {miniPackages.map(pkg => (
                                 <div key={pkg.id} className="border border-brand-tan rounded-lg p-4 hover:shadow-md transition-shadow bg-brand-cream/30 flex flex-col justify-between">
                                     <div>
@@ -303,29 +362,13 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                             ))}
                              {miniPackages.length === 0 && <p className="col-span-2 text-sm text-gray-500 italic">No mini packages available.</p>}
                         </div>
-
-                        {/* Mini Flavor Preview */}
-                         <div className="mb-2">
-                             <p className="text-sm font-semibold text-brand-brown mb-2">Available Mini Flavors:</p>
-                             <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
-                                 {miniFlavors.map(f => (
-                                     <div key={f.name} className="p-2 bg-gray-50 rounded border border-gray-100">
-                                         <div className="flex justify-between items-start">
-                                             <span className="font-medium block text-brand-brown">{f.name}</span>
-                                             {f.surcharge && <span className="bg-brand-orange/10 text-brand-orange px-1 rounded text-[10px] font-bold">+${f.surcharge.toFixed(2)}</span>}
-                                         </div>
-                                         {f.description && <span className="text-gray-500 mt-1 block leading-tight">{f.description}</span>}
-                                     </div>
-                                 ))}
-                             </div>
-                         </div>
                     </section>
                     
                     {/* --- Section 2: Full-Size Empanadas --- */}
                     <section className="bg-white p-6 rounded-xl shadow-sm border border-brand-tan">
-                        <h3 className="text-xl font-serif text-brand-brown mb-4 border-b border-brand-tan pb-2">2. Full-Size Empanadas</h3>
+                        <h3 className="text-xl font-serif text-brand-brown mb-4 border-b border-brand-tan pb-2">Full-Size Empanadas</h3>
                         
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             {fullPackages.map(pkg => (
                                 <div key={pkg.id} className="border border-brand-tan rounded-lg p-4 hover:shadow-md transition-shadow bg-brand-cream/30 flex flex-col justify-between">
                                     <div>
@@ -347,74 +390,38 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                             ))}
                             {fullPackages.length === 0 && <p className="col-span-2 text-sm text-gray-500 italic">No full-size packages available.</p>}
                         </div>
-
-                        {/* Full Flavor Preview */}
-                         <div className="mb-2">
-                             <p className="text-sm font-semibold text-brand-brown mb-2">Available Full-Size Flavors:</p>
-                             <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
-                                 {fullFlavors.map(f => (
-                                     <div key={f.name} className="p-2 bg-gray-50 rounded border border-gray-100">
-                                         <div className="flex justify-between items-start">
-                                             <span className="font-medium block text-brand-brown">{f.name}</span>
-                                             {f.surcharge && <span className="bg-brand-orange/10 text-brand-orange px-1 rounded text-[10px] font-bold">+${f.surcharge.toFixed(2)}</span>}
-                                         </div>
-                                         {f.description && <span className="text-gray-500 mt-1 block leading-tight">{f.description}</span>}
-                                     </div>
-                                 ))}
-                             </div>
-                         </div>
                     </section>
 
                      {/* --- Section 3: Party Platters & Specials --- */}
-                     {(specialPackages.length > 0 || specialFlavors.length > 0) && (
+                     {(specialPackages.length > 0) && (
                         <section className="bg-purple-50 p-6 rounded-xl shadow-sm border border-purple-200">
                             <div className="flex items-center gap-2 mb-4 border-b border-purple-200 pb-2">
                                 <StarIcon className="w-5 h-5 text-purple-600" />
-                                <h3 className="text-xl font-serif text-purple-900">3. Party Platters & Specials</h3>
+                                <h3 className="text-xl font-serif text-purple-900">Party Platters & Specials</h3>
                             </div>
                             
                             {/* Special Packages */}
-                            {specialPackages.length > 0 && (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                                    {specialPackages.map(pkg => (
-                                        <div key={pkg.id} className="border border-purple-200 rounded-lg p-4 hover:shadow-md transition-shadow bg-white flex flex-col justify-between">
-                                            <div>
-                                                <h4 className="font-bold text-purple-900 text-lg">{pkg.name}</h4>
-                                                <p className="text-sm text-gray-600 mb-2">{pkg.quantity} {pkg.itemType === 'mini' ? 'Mini' : 'Full-Size'} Items</p>
-                                                <p className="text-xs text-purple-600 font-medium">Special Item</p>
-                                            </div>
-                                            <div className="mt-4 flex items-center justify-between">
-                                                <span className="font-bold text-xl text-brand-orange">${pkg.price.toFixed(2)}</span>
-                                                <button 
-                                                    type="button"
-                                                    onClick={() => openPackageBuilder(pkg)}
-                                                    className="bg-purple-700 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-purple-800 transition-colors"
-                                                >
-                                                    Select
-                                                </button>
-                                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {specialPackages.map(pkg => (
+                                    <div key={pkg.id} className="border border-purple-200 rounded-lg p-4 hover:shadow-md transition-shadow bg-white flex flex-col justify-between">
+                                        <div>
+                                            <h4 className="font-bold text-purple-900 text-lg">{pkg.name}</h4>
+                                            <p className="text-sm text-gray-600 mb-2">{pkg.quantity} {pkg.itemType === 'mini' ? 'Mini' : 'Full-Size'} Items</p>
+                                            <p className="text-xs text-purple-600 font-medium">Special Item</p>
                                         </div>
-                                    ))}
-                                </div>
-                            )}
-
-                            {/* Special Flavors Preview */}
-                            {specialFlavors.length > 0 && (
-                                <div className="mb-2">
-                                    <p className="text-sm font-semibold text-purple-900 mb-2">Available Special Items:</p>
-                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
-                                        {specialFlavors.map(f => (
-                                            <div key={f.name} className="p-2 bg-white rounded border border-purple-100">
-                                                <div className="flex justify-between items-start">
-                                                    <span className="font-medium block text-purple-900">{f.name}</span>
-                                                    {f.surcharge && <span className="bg-brand-orange/10 text-brand-orange px-1 rounded text-[10px] font-bold">+${f.surcharge.toFixed(2)}</span>}
-                                                </div>
-                                                {f.description && <span className="text-gray-500 mt-1 block leading-tight">{f.description}</span>}
-                                            </div>
-                                        ))}
+                                        <div className="mt-4 flex items-center justify-between">
+                                            <span className="font-bold text-xl text-brand-orange">${pkg.price.toFixed(2)}</span>
+                                            <button 
+                                                type="button"
+                                                onClick={() => openPackageBuilder(pkg)}
+                                                className="bg-purple-700 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-purple-800 transition-colors"
+                                            >
+                                                Select
+                                            </button>
+                                        </div>
                                     </div>
-                                </div>
-                            )}
+                                ))}
+                            </div>
                         </section>
                      )}
 
@@ -443,7 +450,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
 
                     {/* Step 4: Salsas */}
                     <section className="bg-white p-6 rounded-xl shadow-sm border border-brand-tan">
-                        <h3 className="text-xl font-serif text-brand-brown mb-4 border-b border-brand-tan pb-2">4. Add Salsa & Extras (Optional)</h3>
+                        <h3 className="text-xl font-serif text-brand-brown mb-4 border-b border-brand-tan pb-2">Add Salsa & Extras (Optional)</h3>
                         <div className="space-y-2">
                             {salsaItems.length > 0 ? (
                                 salsaItems.map((salsa, idx) => (
@@ -468,7 +475,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
 
                     {/* Step 5: Info */}
                     <section className="bg-white p-6 rounded-xl shadow-sm border border-brand-tan">
-                        <h3 className="text-xl font-serif text-brand-brown mb-4 border-b border-brand-tan pb-2">5. Your Information</h3>
+                        <h3 className="text-xl font-serif text-brand-brown mb-4 border-b border-brand-tan pb-2">Your Information</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="md:col-span-2">
                                 <label className="block text-sm font-medium text-brand-brown/80 mb-1">Full Name</label>
@@ -537,7 +544,10 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                 {activePackageBuilder && (
                     <PackageBuilderModal 
                         pkg={activePackageBuilder}
-                        flavors={activePackageBuilder.itemType === 'mini' ? empanadaFlavors : fullSizeEmpanadaFlavors}
+                        flavors={activePackageBuilder.isSpecial 
+                            ? [...empanadaFlavors.filter(f => f.isSpecial), ...fullSizeEmpanadaFlavors.filter(f => f.isSpecial)] 
+                            : (activePackageBuilder.itemType === 'mini' ? empanadaFlavors.filter(f => !f.isSpecial) : fullSizeEmpanadaFlavors.filter(f => !f.isSpecial))
+                        }
                         onClose={() => setActivePackageBuilder(null)}
                         onConfirm={handlePackageConfirm}
                     />

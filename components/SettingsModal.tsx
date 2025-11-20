@@ -233,6 +233,16 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
             salsas: pricing.salsas.filter(s => s.id !== id)
         });
     };
+    
+    const updateSalsaPrice = (id: string, newPrice: string) => {
+         const updatedSalsas = pricing.salsas.map(s => 
+            s.id === id ? { ...s, price: parseFloat(newPrice) || 0 } : s
+        );
+        setPricing({
+            ...pricing,
+            salsas: updatedSalsas
+        });
+    };
 
     const toggleSalsaVisibility = (id: string) => {
         setPricing({
@@ -569,7 +579,16 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                                 <span className="font-medium text-brand-brown">{salsa.name}</span>
                                              </div>
                                              <div className="flex items-center gap-4">
-                                                 <span className="font-bold text-brand-orange">${salsa.price.toFixed(2)}</span>
+                                                 <div className="relative w-24">
+                                                     <span className="absolute inset-y-0 left-0 flex items-center pl-2 text-gray-500 text-xs">$</span>
+                                                     <input 
+                                                        type="number" 
+                                                        step="0.01"
+                                                        value={salsa.price}
+                                                        onChange={(e) => updateSalsaPrice(salsa.id, e.target.value)}
+                                                        className="block w-full rounded border-gray-300 pl-5 text-sm focus:border-brand-orange focus:ring-brand-orange" 
+                                                     />
+                                                 </div>
                                                  <button onClick={() => removeSalsa(salsa.id)} className="text-red-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button>
                                              </div>
                                          </div>

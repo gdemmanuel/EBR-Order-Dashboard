@@ -10,7 +10,7 @@ export enum ContactMethod {
 export enum FollowUpStatus {
   NEEDED = 'Follow-up Needed',
   PENDING = 'Pending',
-  CONTACTED = 'Contacted',
+  CONFIRMED = 'Confirmed',
   COMPLETED = 'Completed',
 }
 
