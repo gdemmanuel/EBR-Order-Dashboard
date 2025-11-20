@@ -355,7 +355,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-brand-brown/80 mb-1">Preferred Time</label>
-                                <p className="text-xs text-gray-500 mb-2">If your time is not available, please submit your order (TBD) and we will confirm availability.</p>
+                                <p className="text-xs text-gray-500 mb-2">If your time is not available, please submit your order and we will confirm availability.</p>
                                 {scheduling?.enabled ? (
                                     <div className="relative">
                                         <select 
