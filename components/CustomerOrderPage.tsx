@@ -82,12 +82,32 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
 
     // --- Calculate Estimated Total ---
     useEffect(() => {
+        // Base Package Price
         const packagesTotal = cartPackages.reduce((sum, p) => sum + p.price, 0);
+        
+        // Surcharges Calculation
+        let surchargeTotal = 0;
+        cartPackages.forEach(pkg => {
+            pkg.items.forEach(item => {
+                // Check Mini Flavors
+                const miniFlavor = empanadaFlavors.find(f => f.name === item.name);
+                if (miniFlavor && miniFlavor.surcharge) {
+                    surchargeTotal += (item.quantity * miniFlavor.surcharge);
+                }
+                // Check Full Flavors (Try match directly or with prefix)
+                const fullFlavor = fullSizeEmpanadaFlavors.find(f => f.name === item.name);
+                if (fullFlavor && fullFlavor.surcharge) {
+                    surchargeTotal += (item.quantity * fullFlavor.surcharge);
+                }
+            });
+        });
+
         const salsaTotal = salsaItems
             .filter(s => s.checked)
             .reduce((sum, s) => sum + (s.quantity * s.price), 0);
-        setEstimatedTotal(packagesTotal + salsaTotal);
-    }, [cartPackages, salsaItems, safePricing]);
+            
+        setEstimatedTotal(packagesTotal + salsaTotal + surchargeTotal);
+    }, [cartPackages, salsaItems, safePricing, empanadaFlavors, fullSizeEmpanadaFlavors]);
 
     // --- Package Builder Logic ---
     const openPackageBuilder = (pkg: MenuPackage) => {
@@ -277,15 +297,35 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
 
                         {/* Flavors Preview */}
                          <div className="mb-4">
-                             <p className="text-sm font-semibold text-brand-brown mb-2">Available Flavors:</p>
-                             <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+                             <p className="text-sm font-semibold text-brand-brown mb-2">Available Mini Flavors:</p>
+                             <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs mb-4">
                                  {empanadaFlavors.filter(f => f.visible).map(f => (
-                                     <div key={f.name} className="p-2 bg-gray-50 rounded">
-                                         <span className="font-medium block">{f.name}</span>
-                                         {f.description && <span className="text-gray-500">{f.description}</span>}
+                                     <div key={f.name} className="p-2 bg-gray-50 rounded border border-gray-100">
+                                         <div className="flex justify-between items-start">
+                                             <span className="font-medium block text-brand-brown">{f.name}</span>
+                                             {f.surcharge && <span className="bg-brand-orange/10 text-brand-orange px-1 rounded text-[10px] font-bold">+${f.surcharge.toFixed(2)}</span>}
+                                         </div>
+                                         {f.description && <span className="text-gray-500 mt-1 block leading-tight">{f.description}</span>}
                                      </div>
                                  ))}
                              </div>
+
+                             {fullSizeEmpanadaFlavors.filter(f => f.visible).length > 0 && (
+                                 <>
+                                     <p className="text-sm font-semibold text-brand-brown mb-2">Available Full-Size Flavors:</p>
+                                     <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+                                         {fullSizeEmpanadaFlavors.filter(f => f.visible).map(f => (
+                                             <div key={f.name} className="p-2 bg-gray-50 rounded border border-gray-100">
+                                                 <div className="flex justify-between items-start">
+                                                     <span className="font-medium block text-brand-brown">{f.name}</span>
+                                                     {f.surcharge && <span className="bg-brand-orange/10 text-brand-orange px-1 rounded text-[10px] font-bold">+${f.surcharge.toFixed(2)}</span>}
+                                                 </div>
+                                                 {f.description && <span className="text-gray-500 mt-1 block leading-tight">{f.description}</span>}
+                                             </div>
+                                         ))}
+                                     </div>
+                                 </>
+                             )}
                          </div>
 
                         {/* Cart Summary */}

@@ -118,8 +118,11 @@ export default function PackageBuilderModal({ pkg, flavors, onClose, onConfirm }
 
                                 return (
                                     <div key={flavor.name} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
-                                        <span className="font-medium text-brand-brown">{flavor.name}</span>
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex-grow pr-2">
+                                            <p className="font-medium text-brand-brown">{flavor.name}</p>
+                                            {flavor.description && <p className="text-xs text-gray-500">{flavor.description}</p>}
+                                        </div>
+                                        <div className="flex items-center gap-2 flex-shrink-0">
                                             {/* Max Button */}
                                             <button
                                                 type="button"

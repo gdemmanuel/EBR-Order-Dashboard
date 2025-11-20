@@ -101,6 +101,20 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
         }
     };
 
+    const updateFlavorSurcharge = (type: 'mini' | 'full', index: number, val: string) => {
+        const num = parseFloat(val);
+        const surcharge = isNaN(num) ? undefined : num;
+        if (type === 'mini') {
+            const updated = [...empanadaFlavors];
+            updated[index].surcharge = surcharge;
+            setEmpanadaFlavors(updated);
+        } else {
+            const updated = [...fullSizeEmpanadaFlavors];
+            updated[index].surcharge = surcharge;
+            setFullSizeEmpanadaFlavors(updated);
+        }
+    };
+
     const removeFlavor = (type: 'mini' | 'full', index: number) => {
         if (type === 'mini') {
             setEmpanadaFlavors(empanadaFlavors.filter((_, i) => i !== index));
@@ -301,13 +315,27 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                                 </div>
                                                 <button onClick={() => removeFlavor('mini', idx)} className="text-red-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button>
                                             </div>
-                                            <input 
-                                                type="text" 
-                                                placeholder="Description (optional)"
-                                                value={flavor.description || ''}
-                                                onChange={(e) => updateFlavorDescription('mini', idx, e.target.value)}
-                                                className="w-full text-xs border-gray-200 rounded focus:ring-brand-orange focus:border-brand-orange"
-                                            />
+                                            <div className="flex gap-2">
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="Description (optional)"
+                                                    value={flavor.description || ''}
+                                                    onChange={(e) => updateFlavorDescription('mini', idx, e.target.value)}
+                                                    className="flex-grow text-xs border-gray-200 rounded focus:ring-brand-orange focus:border-brand-orange"
+                                                />
+                                                <div className="w-20 relative">
+                                                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-1.5"><span className="text-gray-400 text-xs">+ $</span></div>
+                                                    <input 
+                                                        type="number" 
+                                                        step="0.05"
+                                                        placeholder="Extra"
+                                                        value={flavor.surcharge || ''}
+                                                        onChange={(e) => updateFlavorSurcharge('mini', idx, e.target.value)}
+                                                        className="w-full text-xs border-gray-200 rounded pl-6 focus:ring-brand-orange focus:border-brand-orange"
+                                                        title="Additional cost per unit"
+                                                    />
+                                                </div>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>
@@ -342,13 +370,27 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                                 </div>
                                                 <button onClick={() => removeFlavor('full', idx)} className="text-red-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button>
                                             </div>
-                                            <input 
-                                                type="text" 
-                                                placeholder="Description (optional)"
-                                                value={flavor.description || ''}
-                                                onChange={(e) => updateFlavorDescription('full', idx, e.target.value)}
-                                                className="w-full text-xs border-gray-200 rounded focus:ring-brand-orange focus:border-brand-orange"
-                                            />
+                                            <div className="flex gap-2">
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="Description (optional)"
+                                                    value={flavor.description || ''}
+                                                    onChange={(e) => updateFlavorDescription('full', idx, e.target.value)}
+                                                    className="flex-grow text-xs border-gray-200 rounded focus:ring-brand-orange focus:border-brand-orange"
+                                                />
+                                                <div className="w-20 relative">
+                                                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-1.5"><span className="text-gray-400 text-xs">+ $</span></div>
+                                                    <input 
+                                                        type="number" 
+                                                        step="0.05"
+                                                        placeholder="Extra"
+                                                        value={flavor.surcharge || ''}
+                                                        onChange={(e) => updateFlavorSurcharge('full', idx, e.target.value)}
+                                                        className="w-full text-xs border-gray-200 rounded pl-6 focus:ring-brand-orange focus:border-brand-orange"
+                                                        title="Additional cost per unit"
+                                                    />
+                                                </div>
+                                            </div>
                                         </div>
                                     ))}
                                 </div>

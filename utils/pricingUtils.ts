@@ -1,5 +1,5 @@
 
-import { OrderItem, PricingSettings, MenuPackage } from '../types';
+import { OrderItem, PricingSettings, MenuPackage, Flavor } from '../types';
 import { AppSettings } from '../services/dbService';
 
 /**
@@ -30,18 +30,22 @@ export const calculatePriceForType = (quantity: number, basePrice: number, packa
     return totalPrice;
 };
 
-export const calculateOrderTotal = (items: OrderItem[], deliveryFee: number, pricing: PricingSettings) => {
+export const calculateOrderTotal = (
+    items: OrderItem[], 
+    deliveryFee: number, 
+    pricing: PricingSettings,
+    miniFlavors: Flavor[] = [],
+    fullFlavors: Flavor[] = []
+) => {
     const salsas = pricing.salsas || [];
 
     // 1. Group Items
     // Mini & Full items are those not in the salsa list
-    const miniItemsQty = items
-        .filter(i => !i.name.startsWith('Full ') && !salsas.some(s => i.name === s.name))
-        .reduce((sum, i) => sum + (i.quantity || 0), 0);
+    const miniItems = items.filter(i => !i.name.startsWith('Full ') && !salsas.some(s => i.name === s.name));
+    const fullItems = items.filter(i => i.name.startsWith('Full ') && !salsas.some(s => i.name === s.name));
 
-    const fullItemsQty = items
-        .filter(i => i.name.startsWith('Full ') && !salsas.some(s => i.name === s.name))
-        .reduce((sum, i) => sum + (i.quantity || 0), 0);
+    const miniItemsQty = miniItems.reduce((sum, i) => sum + (i.quantity || 0), 0);
+    const fullItemsQty = fullItems.reduce((sum, i) => sum + (i.quantity || 0), 0);
     
     // Calculate Salsa Total explicitly from the dynamic list
     let salsaTotal = 0;
@@ -52,11 +56,32 @@ export const calculateOrderTotal = (items: OrderItem[], deliveryFee: number, pri
         }
     });
 
-    // 2. Calculate Totals using Packages first, then Base Price
-    const miniTotal = calculatePriceForType(miniItemsQty, pricing.mini.basePrice, pricing.packages, 'mini');
-    const fullTotal = calculatePriceForType(fullItemsQty, pricing.full.basePrice, pricing.packages, 'full');
+    // 2. Calculate Base Totals using Packages first, then Base Price
+    const miniBaseTotal = calculatePriceForType(miniItemsQty, pricing.mini.basePrice, pricing.packages, 'mini');
+    const fullBaseTotal = calculatePriceForType(fullItemsQty, pricing.full.basePrice, pricing.packages, 'full');
     
-    return miniTotal + fullTotal + salsaTotal + (deliveryFee || 0);
+    // 3. Calculate Surcharges
+    let surchargeTotal = 0;
+    
+    // Check Mini Items
+    miniItems.forEach(item => {
+        const flavorDef = miniFlavors.find(f => f.name === item.name);
+        if (flavorDef && flavorDef.surcharge) {
+            surchargeTotal += (item.quantity * flavorDef.surcharge);
+        }
+    });
+
+    // Check Full Items
+    fullItems.forEach(item => {
+        // Strip "Full " prefix to match flavor definition if needed, though usually Full flavors are stored with the prefix in settings?
+        // In AppSettings, fullSizeEmpanadaFlavors usually stores names like "Full Beef".
+        const flavorDef = fullFlavors.find(f => f.name === item.name);
+        if (flavorDef && flavorDef.surcharge) {
+            surchargeTotal += (item.quantity * flavorDef.surcharge);
+        }
+    });
+
+    return miniBaseTotal + fullBaseTotal + salsaTotal + surchargeTotal + (deliveryFee || 0);
 };
 
 /**

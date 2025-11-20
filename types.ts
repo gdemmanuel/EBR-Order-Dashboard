@@ -58,6 +58,7 @@ export interface Flavor {
     name: string;
     visible: boolean;
     description?: string;
+    surcharge?: number; // Additional cost per unit
 }
 
 export interface MenuPackage {

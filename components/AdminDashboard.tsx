@@ -255,7 +255,7 @@ export default function AdminDashboard({
             const items = pOrder.items || [];
             const deliveryFee = 0; 
             // Calculate price using current settings for imports
-            const calculatedTotal = calculateOrderTotal(items, deliveryFee, safePricing);
+            const calculatedTotal = calculateOrderTotal(items, deliveryFee, safePricing, empanadaFlavors, fullSizeEmpanadaFlavors);
             
             // Calculate supply cost using current settings for imports
             const calculatedCost = calculateSupplyCost(items, safeSettings);

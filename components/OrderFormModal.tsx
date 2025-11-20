@@ -259,7 +259,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
             setAmountCharged(data.amountCharged);
             
             // Check if the price was manually overridden in the past
-            const expected = calculateOrderTotal(items, delFee, pricing);
+            const expected = calculateOrderTotal(items, delFee, pricing, empanadaFlavors, fullSizeEmpanadaFlavors);
             // If difference is greater than 1 cent, assume manual override
             if (Math.abs(expected - data.amountCharged) > 0.01) {
                 setIsAutoPrice(false);
@@ -319,10 +319,10 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                 ...salsaItems.filter(s => s.checked).map(s => ({ name: s.name, quantity: Number(s.quantity) || 0 }))
             ];
             const currentFee = deliveryRequired ? (Number(deliveryFee) || 0) : 0;
-            const newTotal = calculateOrderTotal(currentItems, currentFee, pricing);
+            const newTotal = calculateOrderTotal(currentItems, currentFee, pricing, empanadaFlavors, fullSizeEmpanadaFlavors);
             setAmountCharged(newTotal);
         }
-    }, [miniItems, fullSizeItems, salsaItems, deliveryFee, deliveryRequired, pricing, isDirty, isAutoPrice]);
+    }, [miniItems, fullSizeItems, salsaItems, deliveryFee, deliveryRequired, pricing, isDirty, isAutoPrice, empanadaFlavors, fullSizeEmpanadaFlavors]);
 
     const markDirty = () => setIsDirty(true);
 
