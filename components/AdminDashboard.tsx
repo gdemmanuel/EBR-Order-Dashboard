@@ -147,7 +147,8 @@ export default function AdminDashboard({
             startTime: "09:00",
             endTime: "17:00",
             blockedDates: [],
-            closedDays: []
+            closedDays: [],
+            dateOverrides: {}
         },
         laborWage: 15.00,
         materialCosts: {},

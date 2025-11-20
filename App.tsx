@@ -40,7 +40,8 @@ export default function App() {
       startTime: "09:00",
       endTime: "17:00",
       blockedDates: [],
-      closedDays: []
+      closedDays: [],
+      dateOverrides: {}
   });
   const [laborWage, setLaborWage] = useState<number>(15.00);
   const [materialCosts, setMaterialCosts] = useState<Record<string, number>>({});
@@ -132,7 +133,7 @@ export default function App() {
                   importedSignatures: JSON.parse(localStorage.getItem('importedSignatures') || '[]'),
                   pricing: { mini: { basePrice: 1.75 }, full: { basePrice: 3.00 }, packages: [], salsas: [], salsaSmall: 2.00, salsaLarge: 4.00 },
                   prepSettings: { lbsPer20: {}, fullSizeMultiplier: 2.0, discosPer: { mini: 1, full: 1 }, discoPackSize: { mini: 10, full: 10 }, productionRates: { mini: 40, full: 25 } },
-                  scheduling: { enabled: true, intervalMinutes: 15, startTime: "09:00", endTime: "17:00", blockedDates: [], closedDays: [] },
+                  scheduling: { enabled: true, intervalMinutes: 15, startTime: "09:00", endTime: "17:00", blockedDates: [], closedDays: [], dateOverrides: {} },
                   laborWage: 15.00,
                   materialCosts: {},
                   discoCosts: { mini: 0.10, full: 0.15 },

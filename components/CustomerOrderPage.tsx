@@ -89,21 +89,44 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
 
         const normalizedDate = normalizeDateStr(pickupDate); // ensure YYYY-MM-DD
         
-        // Check recurring closed days
+        // 1. Check for Date Override (Highest Priority)
+        const override = scheduling.dateOverrides?.[normalizedDate];
+        
+        if (override) {
+            if (override.isClosed) {
+                return []; // Force Closed
+            }
+            // Custom Hours
+            if (override.customHours) {
+                const slots = generateTimeSlots(normalizedDate, override.customHours.start, override.customHours.end, scheduling.intervalMinutes);
+                const todaysBusyTimes = new Set(
+                    busySlots.filter(slot => slot.date === normalizedDate).map(slot => slot.time)
+                );
+                return slots.filter(time => !todaysBusyTimes.has(time));
+            }
+            // If override exists but isClosed is false and no custom hours, treat as normal open day below
+        }
+
+        // 2. Check Recurring Closed Days
         // Create date object from input string (handling timezone correctly requires splitting)
         const [y, m, d] = normalizedDate.split('-').map(Number);
         const dateObj = new Date(y, m - 1, d);
-        if (scheduling.closedDays && scheduling.closedDays.includes(dateObj.getDay())) {
-            return []; // Closed on this day of week
-        }
-
-        // Check specific blocked dates
-        if (scheduling.blockedDates.includes(normalizedDate)) {
+        
+        // Only apply closed days if NO override exists (an override can FORCE OPEN a closed day)
+        if (!override && scheduling.closedDays && scheduling.closedDays.includes(dateObj.getDay())) {
             return [];
         }
 
-        // Generate slots
-        const slots = generateTimeSlots(normalizedDate, scheduling.startTime, scheduling.endTime, scheduling.intervalMinutes);
+        // 3. Check Legacy Blocked Dates (if not using overrides)
+        if (!override && scheduling.blockedDates.includes(normalizedDate)) {
+            return [];
+        }
+
+        // Generate slots using default or custom start/end
+        const start = override?.customHours?.start || scheduling.startTime;
+        const end = override?.customHours?.end || scheduling.endTime;
+        
+        const slots = generateTimeSlots(normalizedDate, start, end, scheduling.intervalMinutes);
 
         // Filter out busy slots
         const todaysBusyTimes = new Set(
@@ -163,10 +186,15 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
             // Check availability again on submit
             if (scheduling?.enabled) {
                 const normalizedDate = normalizeDateStr(pickupDate);
+                const override = scheduling.dateOverrides?.[normalizedDate];
                 const [y, m, d] = normalizedDate.split('-').map(Number);
                 const dayOfWeek = new Date(y, m - 1, d).getDay();
 
-                if (scheduling.blockedDates.includes(normalizedDate) || (scheduling.closedDays && scheduling.closedDays.includes(dayOfWeek))) {
+                const isClosed = override?.isClosed 
+                    || (!override && scheduling.blockedDates.includes(normalizedDate))
+                    || (!override && scheduling.closedDays?.includes(dayOfWeek));
+
+                if (isClosed) {
                     throw new Error("Sorry, this date is unavailable. Please select another date.");
                 }
                 
@@ -250,6 +278,10 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
     // Helper to check if date is blocked for UI feedback
     const isDateBlocked = (dateStr: string) => {
         if (!scheduling?.enabled) return false;
+        
+        const override = scheduling.dateOverrides?.[dateStr];
+        if (override) return override.isClosed; // If explicit override says open, it's not blocked
+
         if (scheduling.blockedDates.includes(dateStr)) return true;
         const [y, m, d] = dateStr.split('-').map(Number);
         const day = new Date(y, m - 1, d).getDay();

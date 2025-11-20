@@ -46,8 +46,13 @@ export interface AppSettings {
         intervalMinutes: number; // e.g. 15
         startTime: string; // "09:00"
         endTime: string; // "17:00"
-        blockedDates: string[]; // ISO date strings "YYYY-MM-DD"
+        blockedDates: string[]; // ISO date strings "YYYY-MM-DD" (Legacy simple block)
         closedDays: number[]; // 0-6 (Sunday-Saturday) for recurring closed days
+        // New: Specific overrides for specific dates
+        dateOverrides: Record<string, {
+            isClosed: boolean;
+            customHours?: { start: string; end: string; };
+        }>; 
     };
     laborWage: number; // Hourly wage in dollars
     materialCosts: Record<string, number>; // Key: Flavor Name, Value: Cost per lb
@@ -87,7 +92,8 @@ const DEFAULT_SETTINGS: AppSettings = {
         startTime: "09:00",
         endTime: "17:00",
         blockedDates: [],
-        closedDays: [] 
+        closedDays: [],
+        dateOverrides: {}
     },
     laborWage: 15.00,
     materialCosts: {},
@@ -179,7 +185,8 @@ export const subscribeToSettings = (
                 scheduling: {
                     ...DEFAULT_SETTINGS.scheduling,
                     ...(data.scheduling || {}),
-                    closedDays: data.scheduling?.closedDays || [] // Ensure array exists
+                    closedDays: data.scheduling?.closedDays || [],
+                    dateOverrides: data.scheduling?.dateOverrides || {}
                 },
                 laborWage: data.laborWage ?? DEFAULT_SETTINGS.laborWage,
                 materialCosts: data.materialCosts || DEFAULT_SETTINGS.materialCosts,
@@ -279,7 +286,8 @@ export const migrateLocalDataToFirestore = async (
         scheduling: {
             ...DEFAULT_SETTINGS.scheduling,
             ...(localSettings.scheduling || {}),
-             closedDays: localSettings.scheduling?.closedDays || []
+             closedDays: localSettings.scheduling?.closedDays || [],
+             dateOverrides: localSettings.scheduling?.dateOverrides || {}
         },
         laborWage: localSettings.laborWage ?? DEFAULT_SETTINGS.laborWage,
         materialCosts: localSettings.materialCosts || DEFAULT_SETTINGS.materialCosts,
