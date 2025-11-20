@@ -39,7 +39,8 @@ export default function App() {
       intervalMinutes: 15,
       startTime: "09:00",
       endTime: "17:00",
-      blockedDates: []
+      blockedDates: [],
+      closedDays: []
   });
   const [laborWage, setLaborWage] = useState<number>(15.00);
   const [materialCosts, setMaterialCosts] = useState<Record<string, number>>({});
@@ -58,7 +59,6 @@ export default function App() {
   , [orders]);
 
   // Create a safe list of busy times to pass to the customer page (without PII)
-  // We use approved orders to block slots.
   const busySlots = useMemo(() => {
       return orders
         .filter(o => o.approvalStatus === ApprovalStatus.APPROVED)
@@ -132,7 +132,7 @@ export default function App() {
                   importedSignatures: JSON.parse(localStorage.getItem('importedSignatures') || '[]'),
                   pricing: { mini: { basePrice: 1.75 }, full: { basePrice: 3.00 }, packages: [], salsas: [], salsaSmall: 2.00, salsaLarge: 4.00 },
                   prepSettings: { lbsPer20: {}, fullSizeMultiplier: 2.0, discosPer: { mini: 1, full: 1 }, discoPackSize: { mini: 10, full: 10 }, productionRates: { mini: 40, full: 25 } },
-                  scheduling: { enabled: true, intervalMinutes: 15, startTime: "09:00", endTime: "17:00", blockedDates: [] },
+                  scheduling: { enabled: true, intervalMinutes: 15, startTime: "09:00", endTime: "17:00", blockedDates: [], closedDays: [] },
                   laborWage: 15.00,
                   materialCosts: {},
                   discoCosts: { mini: 0.10, full: 0.15 },
@@ -174,8 +174,6 @@ export default function App() {
 
     let unsubscribeOrders = () => {};
 
-    // FIX: Only subscribe to orders if user is authenticated to prevent Permission Denied errors.
-    // This means public users won't see live busy slots, but it prevents the app from crashing.
     if (user) {
         unsubscribeOrders = subscribeToOrders(
             (updatedOrders) => {
@@ -224,7 +222,6 @@ export default function App() {
   return (
     <Router>
         <Routes>
-            {/* Public Customer Route */}
             <Route 
                 path="/order" 
                 element={

@@ -1,8 +1,8 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { AppSettings, updateSettingsInDb } from '../services/dbService';
 import { PricingSettings, MenuPackage, Flavor, SalsaProduct } from '../types';
-import { XMarkIcon, PlusIcon, TrashIcon, CheckCircleIcon, CogIcon, PencilIcon, ScaleIcon, CurrencyDollarIcon, ClockIcon, SparklesIcon, CalendarDaysIcon } from './icons/Icons';
+import { XMarkIcon, PlusIcon, TrashIcon, CheckCircleIcon, CogIcon, PencilIcon, ScaleIcon, CurrencyDollarIcon, ClockIcon, SparklesIcon, CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon } from './icons/Icons';
 import { SUGGESTED_DESCRIPTIONS } from '../data/mockData';
 
 interface SettingsModalProps {
@@ -32,9 +32,12 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
         intervalMinutes: 15,
         startTime: "09:00",
         endTime: "17:00",
-        blockedDates: []
+        blockedDates: [],
+        closedDays: []
     });
-    const [newBlockedDate, setNewBlockedDate] = useState('');
+    
+    // Calendar View State
+    const [calendarViewDate, setCalendarViewDate] = useState(new Date());
     
     // Cost Settings State
     const [laborWage, setLaborWage] = useState<number>(settings.laborWage || 15.00);
@@ -83,7 +86,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
         onClose();
     };
 
-    // ... (Previous Menu/Package/Salsa/Prep logic remains unchanged) ...
+    // ... (Previous logic remains unchanged) ...
     const addFlavor = () => { if (newFlavorName.trim()) { setEmpanadaFlavors([...empanadaFlavors, { name: newFlavorName.trim(), visible: true, isSpecial: false }]); setNewFlavorName(''); } };
     const autoFillDescriptions = () => { setEmpanadaFlavors(empanadaFlavors.map(f => (!f.description ? { ...f, description: SUGGESTED_DESCRIPTIONS[f.name] || undefined } : f))); alert('Descriptions populated! Save to apply.'); };
     const toggleFlavorVisibility = (i: number) => { const u = [...empanadaFlavors]; u[i].visible = !u[i].visible; setEmpanadaFlavors(u); };
@@ -112,16 +115,40 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
     const updateMaterialCost = (f: string, v: string) => { setMaterialCosts({...materialCosts, [f]: parseFloat(v)||0}); };
 
     // --- Scheduling Logic ---
-    const addBlockedDate = () => {
-        if (newBlockedDate && !scheduling.blockedDates.includes(newBlockedDate)) {
-            setScheduling({ ...scheduling, blockedDates: [...scheduling.blockedDates, newBlockedDate].sort() });
-            setNewBlockedDate('');
+    const toggleClosedDay = (dayIndex: number) => {
+        const current = scheduling.closedDays || [];
+        if (current.includes(dayIndex)) {
+            setScheduling({ ...scheduling, closedDays: current.filter(d => d !== dayIndex) });
+        } else {
+            setScheduling({ ...scheduling, closedDays: [...current, dayIndex].sort() });
         }
     };
 
-    const removeBlockedDate = (date: string) => {
-        setScheduling({ ...scheduling, blockedDates: scheduling.blockedDates.filter(d => d !== date) });
+    const toggleBlockedDate = (dateStr: string) => {
+        const current = scheduling.blockedDates;
+        if (current.includes(dateStr)) {
+            setScheduling({ ...scheduling, blockedDates: current.filter(d => d !== dateStr) });
+        } else {
+            setScheduling({ ...scheduling, blockedDates: [...current, dateStr].sort() });
+        }
     };
+
+    // Calendar Generation Logic
+    const calendarGrid = useMemo(() => {
+        const year = calendarViewDate.getFullYear();
+        const month = calendarViewDate.getMonth();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const firstDayOfWeek = new Date(year, month, 1).getDay();
+        
+        const cells = [];
+        for (let i = 0; i < firstDayOfWeek; i++) cells.push(null);
+        for (let i = 1; i <= daysInMonth; i++) cells.push(new Date(year, month, i));
+        
+        return cells;
+    }, [calendarViewDate]);
+
+    const handlePrevMonth = () => setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() - 1, 1));
+    const handleNextMonth = () => setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() + 1, 1));
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fade-in">
@@ -155,48 +182,23 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                         <h3 className="font-bold text-brand-brown">Empanada Flavors</h3>
                                         <p className="text-sm text-gray-500">Manage standard and special flavors.</p>
                                     </div>
-                                    <button 
-                                        onClick={autoFillDescriptions} 
-                                        className="text-xs flex items-center gap-1 bg-blue-100 text-blue-800 px-2 py-1 rounded hover:bg-blue-200 transition-colors"
-                                        title="Automatically add descriptions to flavors that don't have one"
-                                    >
-                                        <SparklesIcon className="w-3 h-3" /> Auto-fill Descriptions
-                                    </button>
+                                    <button onClick={autoFillDescriptions} className="text-xs flex items-center gap-1 bg-blue-100 text-blue-800 px-2 py-1 rounded hover:bg-blue-200 transition-colors"><SparklesIcon className="w-3 h-3" /> Auto-fill Descriptions</button>
                                 </div>
-                                
-                                <div className="flex gap-2 mb-4">
-                                    <input 
-                                        type="text" 
-                                        value={newFlavorName}
-                                        onChange={(e) => setNewFlavorName(e.target.value)}
-                                        placeholder="New flavor name"
-                                        className="flex-grow rounded-md border-gray-300 shadow-sm focus:ring-brand-orange focus:border-brand-orange text-sm"
-                                    />
-                                    <button onClick={addFlavor} className="bg-brand-orange text-white px-3 rounded-md hover:bg-opacity-90"><PlusIcon className="w-5 h-5" /></button>
-                                </div>
+                                <div className="flex gap-2 mb-4"><input type="text" value={newFlavorName} onChange={(e) => setNewFlavorName(e.target.value)} placeholder="New flavor name" className="flex-grow rounded-md border-gray-300 shadow-sm focus:ring-brand-orange focus:border-brand-orange text-sm"/><button onClick={addFlavor} className="bg-brand-orange text-white px-3 rounded-md hover:bg-opacity-90"><PlusIcon className="w-5 h-5" /></button></div>
                                 <div className="space-y-2 max-h-96 overflow-y-auto">
                                     {empanadaFlavors.map((flavor, idx) => (
                                         <div key={idx} className="bg-white p-2 rounded shadow-sm text-sm">
                                             <div className="flex justify-between items-center mb-1">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="flex items-center gap-1">
-                                                        <input type="checkbox" checked={flavor.visible} onChange={() => toggleFlavorVisibility(idx)} className="rounded text-brand-orange focus:ring-brand-orange h-4 w-4"/>
-                                                        <label className="text-xs text-gray-500">Visible</label>
-                                                    </div>
-                                                    <div className="flex items-center gap-1">
-                                                        <input type="checkbox" checked={flavor.isSpecial || false} onChange={() => toggleFlavorSpecial(idx)} className="rounded text-purple-600 focus:ring-purple-600 h-4 w-4"/>
-                                                        <label className="text-xs text-purple-600 font-medium">Special?</label>
-                                                    </div>
+                                                    <div className="flex items-center gap-1"><input type="checkbox" checked={flavor.visible} onChange={() => toggleFlavorVisibility(idx)} className="rounded text-brand-orange focus:ring-brand-orange h-4 w-4"/><label className="text-xs text-gray-500">Visible</label></div>
+                                                    <div className="flex items-center gap-1"><input type="checkbox" checked={flavor.isSpecial || false} onChange={() => toggleFlavorSpecial(idx)} className="rounded text-purple-600 focus:ring-purple-600 h-4 w-4"/><label className="text-xs text-purple-600 font-medium">Special?</label></div>
                                                 </div>
                                                 <button onClick={() => removeFlavor(idx)} className="text-red-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button>
                                             </div>
                                             <div className="mb-2"><span className={`font-medium block ${!flavor.visible ? 'text-gray-400 line-through' : ''}`}>{flavor.name}</span></div>
                                             <div className="flex gap-2">
                                                 <input type="text" placeholder="Description" value={flavor.description || ''} onChange={(e) => updateFlavorDescription(idx, e.target.value)} className="flex-grow text-xs border-gray-200 rounded focus:ring-brand-orange focus:border-brand-orange"/>
-                                                <div className="w-20 relative">
-                                                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-1.5"><span className="text-gray-400 text-xs">+ $</span></div>
-                                                    <input type="number" step="0.05" placeholder="Extra" value={flavor.surcharge || ''} onChange={(e) => updateFlavorSurcharge(idx, e.target.value)} className="w-full text-xs border-gray-200 rounded pl-6 focus:ring-brand-orange focus:border-brand-orange"/>
-                                                </div>
+                                                <div className="w-20 relative"><div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-1.5"><span className="text-gray-400 text-xs">+ $</span></div><input type="number" step="0.05" placeholder="Extra" value={flavor.surcharge || ''} onChange={(e) => updateFlavorSurcharge(idx, e.target.value)} className="w-full text-xs border-gray-200 rounded pl-6 focus:ring-brand-orange focus:border-brand-orange"/></div>
                                             </div>
                                         </div>
                                     ))}
@@ -207,6 +209,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
 
                     {activeTab === 'pricing' && (
                         <div className="space-y-8">
+                            {/* Previous Pricing Code... */}
                             <div className="bg-white p-5 rounded-lg border border-brand-tan shadow-sm">
                                 <h3 className="font-bold text-brand-brown text-lg mb-4 border-b pb-2">Package Deals</h3>
                                 <div className={`grid grid-cols-1 md:grid-cols-8 gap-3 rounded-md mb-6 items-end border p-4 ${editingPackageId ? 'bg-amber-50 border-amber-200' : 'bg-gray-50 border-gray-200'}`}>
@@ -231,22 +234,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                     ))}
                                 </div>
                             </div>
-                            <div className="bg-white p-5 rounded-lg border border-brand-tan shadow-sm">
-                                <h3 className="font-bold text-brand-brown text-lg mb-4 border-b pb-2">Salsa & Extras</h3>
-                                <div className="flex items-end gap-3 mb-4 p-3 bg-gray-50 rounded border border-gray-200">
-                                    <div className="flex-grow"><label className="block text-xs font-medium text-gray-700 mb-1">Name</label><input type="text" value={newSalsaName} onChange={e => setNewSalsaName(e.target.value)} className="w-full text-sm rounded border-gray-300" /></div>
-                                    <div className="w-32"><label className="block text-xs font-medium text-gray-700 mb-1">Price</label><input type="number" step="0.01" value={newSalsaPrice} onChange={e => setNewSalsaPrice(e.target.value)} className="w-full text-sm rounded border-gray-300" /></div>
-                                    <button onClick={addSalsa} className="bg-brand-orange text-white px-4 py-2 rounded text-sm font-semibold hover:bg-opacity-90">Add</button>
-                                </div>
-                                <div className="space-y-2">
-                                    {(pricing.salsas || []).map((salsa) => (
-                                         <div key={salsa.id} className="flex justify-between items-center bg-white p-3 rounded border border-gray-200 shadow-sm">
-                                             <div className="flex items-center gap-3"><input type="checkbox" checked={salsa.visible} onChange={() => toggleSalsaVisibility(salsa.id)} className="rounded text-brand-orange focus:ring-brand-orange"/><span className="font-medium text-brand-brown">{salsa.name}</span></div>
-                                             <div className="flex items-center gap-4"><input type="number" step="0.01" value={salsa.price} onChange={(e) => updateSalsaPrice(salsa.id, e.target.value)} className="w-24 rounded border-gray-300 pl-2 text-sm"/><button onClick={() => removeSalsa(salsa.id)} className="text-red-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button></div>
-                                         </div>
-                                    ))}
-                                </div>
-                            </div>
+                            <div className="bg-white p-5 rounded-lg border border-brand-tan shadow-sm"><h3 className="font-bold text-brand-brown text-lg mb-4 border-b pb-2">Salsa & Extras</h3><div className="flex items-end gap-3 mb-4 p-3 bg-gray-50 rounded border border-gray-200"><div className="flex-grow"><label className="block text-xs font-medium text-gray-700 mb-1">Name</label><input type="text" value={newSalsaName} onChange={e => setNewSalsaName(e.target.value)} className="w-full text-sm rounded border-gray-300" /></div><div className="w-32"><label className="block text-xs font-medium text-gray-700 mb-1">Price</label><input type="number" step="0.01" value={newSalsaPrice} onChange={e => setNewSalsaPrice(e.target.value)} className="w-full text-sm rounded border-gray-300" /></div><button onClick={addSalsa} className="bg-brand-orange text-white px-4 py-2 rounded text-sm font-semibold hover:bg-opacity-90">Add</button></div><div className="space-y-2">{(pricing.salsas || []).map((salsa) => (<div key={salsa.id} className="flex justify-between items-center bg-white p-3 rounded border border-gray-200 shadow-sm"><div className="flex items-center gap-3"><input type="checkbox" checked={salsa.visible} onChange={() => toggleSalsaVisibility(salsa.id)} className="rounded text-brand-orange focus:ring-brand-orange"/><span className="font-medium text-brand-brown">{salsa.name}</span></div><div className="flex items-center gap-4"><input type="number" step="0.01" value={salsa.price} onChange={(e) => updateSalsaPrice(salsa.id, e.target.value)} className="w-24 rounded border-gray-300 pl-2 text-sm"/><button onClick={() => removeSalsa(salsa.id)} className="text-red-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button></div></div>))}</div></div>
                              <div className="bg-gray-50 p-5 rounded-lg border border-gray-200 shadow-sm"><h3 className="font-bold text-gray-600 text-sm mb-4 uppercase tracking-wide">Fallback / Base Pricing</h3><div className="grid grid-cols-2 gap-6"><div><label className="block text-sm font-medium text-gray-700 mb-1">Mini</label><input type="number" step="0.01" value={pricing.mini.basePrice} onChange={(e) => setPricing({...pricing, mini: { basePrice: parseFloat(e.target.value) || 0 }})} className="block w-full rounded-md border-gray-300" /></div><div><label className="block text-sm font-medium text-gray-700 mb-1">Full-Size</label><input type="number" step="0.01" value={pricing.full.basePrice} onChange={(e) => setPricing({...pricing, full: { basePrice: parseFloat(e.target.value) || 0 }})} className="block w-full rounded-md border-gray-300" /></div></div></div>
                         </div>
                     )}
@@ -267,65 +255,94 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                         <div>
                                             <label className="block text-xs font-medium text-gray-700 mb-1">Opening Time</label>
-                                            <input 
-                                                type="time" 
-                                                value={scheduling.startTime} 
-                                                onChange={(e) => setScheduling({ ...scheduling, startTime: e.target.value })}
-                                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange sm:text-sm"
-                                            />
+                                            <input type="time" value={scheduling.startTime} onChange={(e) => setScheduling({ ...scheduling, startTime: e.target.value })} className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange sm:text-sm" />
                                         </div>
                                         <div>
                                             <label className="block text-xs font-medium text-gray-700 mb-1">Closing Time</label>
-                                            <input 
-                                                type="time" 
-                                                value={scheduling.endTime} 
-                                                onChange={(e) => setScheduling({ ...scheduling, endTime: e.target.value })}
-                                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange sm:text-sm"
-                                            />
+                                            <input type="time" value={scheduling.endTime} onChange={(e) => setScheduling({ ...scheduling, endTime: e.target.value })} className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange sm:text-sm" />
                                         </div>
                                         <div>
                                             <label className="block text-xs font-medium text-gray-700 mb-1">Slot Interval (Min)</label>
-                                            <input 
-                                                type="number" 
-                                                step="5"
-                                                min="5"
-                                                value={scheduling.intervalMinutes} 
-                                                onChange={(e) => setScheduling({ ...scheduling, intervalMinutes: parseInt(e.target.value) || 15 })}
-                                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange sm:text-sm"
-                                            />
+                                            <input type="number" step="5" min="5" value={scheduling.intervalMinutes} onChange={(e) => setScheduling({ ...scheduling, intervalMinutes: parseInt(e.target.value) || 15 })} className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange sm:text-sm" />
                                         </div>
                                     </div>
 
-                                    <div className="flex items-center gap-2 bg-blue-50 p-3 rounded-md border border-blue-200">
-                                        <CheckCircleIcon className="w-5 h-5 text-blue-600" />
-                                        <p className="text-sm text-blue-800">
-                                            When an order is <strong>Approved</strong>, its 15-minute pickup slot will automatically be hidden from other customers.
-                                        </p>
-                                    </div>
-
-                                    {/* Blocked Dates */}
+                                    {/* Recurring Weekly Schedule */}
                                     <div className="bg-gray-50 p-4 rounded-md border border-gray-200">
                                         <h4 className="font-bold text-sm text-gray-700 mb-3 flex items-center gap-2">
-                                            <CalendarDaysIcon className="w-4 h-4" /> Blocked Dates (Holidays / Days Off)
+                                            Weekly Closed Days (Recurring)
                                         </h4>
-                                        <div className="flex gap-2 mb-3">
-                                            <input 
-                                                type="date" 
-                                                value={newBlockedDate}
-                                                onChange={(e) => setNewBlockedDate(e.target.value)}
-                                                className="rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange sm:text-sm"
-                                            />
-                                            <button onClick={addBlockedDate} className="bg-brand-brown text-white px-3 py-1.5 rounded-md text-sm hover:bg-opacity-90">Block Date</button>
-                                        </div>
                                         <div className="flex flex-wrap gap-2">
-                                            {scheduling.blockedDates.length === 0 && <span className="text-sm text-gray-400 italic">No dates blocked.</span>}
-                                            {scheduling.blockedDates.map(date => (
-                                                <span key={date} className="inline-flex items-center gap-1 bg-red-100 text-red-800 px-2 py-1 rounded-md text-xs font-medium">
-                                                    {date}
-                                                    <button onClick={() => removeBlockedDate(date)} className="hover:text-red-600"><XMarkIcon className="w-3 h-3" /></button>
-                                                </span>
-                                            ))}
+                                            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => {
+                                                const isClosed = scheduling.closedDays?.includes(index);
+                                                return (
+                                                    <button
+                                                        key={day}
+                                                        onClick={() => toggleClosedDay(index)}
+                                                        className={`w-10 h-10 rounded-full text-sm font-bold flex items-center justify-center transition-colors shadow-sm ${
+                                                            isClosed 
+                                                                ? 'bg-red-100 text-red-700 border border-red-300' 
+                                                                : 'bg-white text-brand-brown border border-gray-300 hover:bg-gray-50'
+                                                        }`}
+                                                        title={isClosed ? `Closed on ${day}s` : `Open on ${day}s`}
+                                                    >
+                                                        {day}
+                                                    </button>
+                                                );
+                                            })}
                                         </div>
+                                        <p className="text-xs text-gray-500 mt-2">Selected days will be permanently unavailable on the calendar.</p>
+                                    </div>
+
+                                    {/* Specific Blocked Dates Calendar */}
+                                    <div className="bg-white p-4 rounded-md border border-brand-tan">
+                                        <div className="flex justify-between items-center mb-4">
+                                            <h4 className="font-bold text-sm text-gray-700 flex items-center gap-2">
+                                                <CalendarDaysIcon className="w-4 h-4" /> Specific Blocked Dates
+                                            </h4>
+                                            <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-1">
+                                                <button onClick={handlePrevMonth} className="p-1 hover:bg-gray-200 rounded"><ChevronLeftIcon className="w-4 h-4"/></button>
+                                                <span className="text-sm font-medium min-w-[100px] text-center">{calendarViewDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</span>
+                                                <button onClick={handleNextMonth} className="p-1 hover:bg-gray-200 rounded"><ChevronRightIcon className="w-4 h-4"/></button>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-7 text-center text-xs font-medium text-gray-500 mb-2">
+                                            {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => <div key={i}>{d}</div>)}
+                                        </div>
+                                        <div className="grid grid-cols-7 gap-1">
+                                            {calendarGrid.map((date, i) => {
+                                                if (!date) return <div key={i} className="aspect-square"></div>;
+                                                
+                                                const dateStr = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                                                const isBlocked = scheduling.blockedDates.includes(dateStr);
+                                                const isClosedDay = scheduling.closedDays?.includes(date.getDay());
+                                                const isToday = new Date().toDateString() === date.toDateString();
+                                                
+                                                // Determine look
+                                                let bgClass = 'bg-white hover:bg-gray-50 border-gray-200 text-gray-700';
+                                                if (isClosedDay) bgClass = 'bg-gray-100 text-gray-400 cursor-not-allowed border-transparent';
+                                                else if (isBlocked) bgClass = 'bg-red-500 text-white border-red-600 hover:bg-red-600';
+                                                
+                                                if (isToday) bgClass += ' ring-2 ring-brand-orange z-10';
+
+                                                return (
+                                                    <button
+                                                        key={i}
+                                                        onClick={() => !isClosedDay && toggleBlockedDate(dateStr)}
+                                                        disabled={isClosedDay}
+                                                        className={`aspect-square flex items-center justify-center rounded border text-sm transition-all ${bgClass}`}
+                                                        title={isClosedDay ? "Closed weekly" : isBlocked ? "Click to unblock" : "Click to block"}
+                                                    >
+                                                        {date.getDate()}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                        <p className="text-xs text-gray-500 mt-3 flex items-center gap-3">
+                                            <span className="flex items-center gap-1"><span className="w-3 h-3 bg-red-500 rounded"></span> Blocked</span>
+                                            <span className="flex items-center gap-1"><span className="w-3 h-3 bg-gray-100 border border-gray-300 rounded"></span> Closed Weekly</span>
+                                        </p>
                                     </div>
                                 </div>
                             </div>
@@ -335,6 +352,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                     {activeTab === 'prep' && (
                         <div className="space-y-8">
                             <div className="bg-white p-5 rounded-lg border border-brand-tan shadow-sm">
+                                {/* Previous prep logic... */}
                                 <h3 className="font-bold text-brand-brown text-lg mb-4 border-b pb-2">Prep Configuration</h3>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                                      <div><label className="block text-xs font-medium text-gray-700 mb-1">Full-Size Multiplier</label><input type="number" step="0.1" value={prepSettings.fullSizeMultiplier} onChange={(e) => setPrepSettings({...prepSettings, fullSizeMultiplier: parseFloat(e.target.value) || 0})} className="w-full rounded-md border-gray-300" /></div>
@@ -352,6 +370,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
 
                     {activeTab === 'costs' && (
                         <div className="space-y-8">
+                             {/* Previous costs logic... */}
                             <div className="bg-white p-5 rounded-lg border border-brand-tan shadow-sm">
                                 <h3 className="font-bold text-brand-brown text-lg mb-4 border-b pb-2">Costs & Inventory</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">

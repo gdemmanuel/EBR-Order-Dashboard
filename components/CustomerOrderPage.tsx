@@ -88,8 +88,16 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
         if (!pickupDate || !scheduling || !scheduling.enabled) return [];
 
         const normalizedDate = normalizeDateStr(pickupDate); // ensure YYYY-MM-DD
+        
+        // Check recurring closed days
+        // Create date object from input string (handling timezone correctly requires splitting)
+        const [y, m, d] = normalizedDate.split('-').map(Number);
+        const dateObj = new Date(y, m - 1, d);
+        if (scheduling.closedDays && scheduling.closedDays.includes(dateObj.getDay())) {
+            return []; // Closed on this day of week
+        }
 
-        // Check blocked dates
+        // Check specific blocked dates
         if (scheduling.blockedDates.includes(normalizedDate)) {
             return [];
         }
@@ -98,7 +106,6 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
         const slots = generateTimeSlots(normalizedDate, scheduling.startTime, scheduling.endTime, scheduling.intervalMinutes);
 
         // Filter out busy slots
-        // Compare standard time strings "HH:MM AM/PM"
         const todaysBusyTimes = new Set(
             busySlots
                 .filter(slot => slot.date === normalizedDate)
@@ -153,15 +160,19 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
 
             if (finalItems.length === 0) throw new Error("Please add at least one package or item to your order.");
 
-            // Check if date is blocked (double check)
-            if (scheduling?.enabled && scheduling.blockedDates.includes(normalizeDateStr(pickupDate))) {
-                throw new Error("Sorry, this date is unavailable. Please select another date.");
-            }
+            // Check availability again on submit
+            if (scheduling?.enabled) {
+                const normalizedDate = normalizeDateStr(pickupDate);
+                const [y, m, d] = normalizedDate.split('-').map(Number);
+                const dayOfWeek = new Date(y, m - 1, d).getDay();
 
-            // Check if time slot is still valid (simple check)
-            // Ideally would check against DB again, but this is a basic check
-            if (scheduling?.enabled && busySlots.some(s => s.date === normalizeDateStr(pickupDate) && s.time === pickupTime)) {
-                throw new Error("Sorry, that time slot was just taken. Please select another time.");
+                if (scheduling.blockedDates.includes(normalizedDate) || (scheduling.closedDays && scheduling.closedDays.includes(dayOfWeek))) {
+                    throw new Error("Sorry, this date is unavailable. Please select another date.");
+                }
+                
+                if (busySlots.some(s => s.date === normalizedDate && s.time === pickupTime)) {
+                    throw new Error("Sorry, that time slot was just taken. Please select another time.");
+                }
             }
 
             const formattedDate = pickupDate ? `${pickupDate.split('-')[1]}/${pickupDate.split('-')[2]}/${pickupDate.split('-')[0]}` : '';
@@ -236,6 +247,15 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
     const standardFlavors = allVisibleFlavors.filter(f => !f.isSpecial);
     const specialFlavors = allVisibleFlavors.filter(f => f.isSpecial);
 
+    // Helper to check if date is blocked for UI feedback
+    const isDateBlocked = (dateStr: string) => {
+        if (!scheduling?.enabled) return false;
+        if (scheduling.blockedDates.includes(dateStr)) return true;
+        const [y, m, d] = dateStr.split('-').map(Number);
+        const day = new Date(y, m - 1, d).getDay();
+        return scheduling.closedDays?.includes(day);
+    };
+
     return (
         <div className="min-h-screen bg-brand-cream">
             <Header variant="public" />
@@ -287,7 +307,13 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                             <div>
                                 <label className="block text-sm font-medium text-brand-brown/80 mb-1">Preferred Date</label>
-                                <input type="date" required value={pickupDate} onChange={e => { setPickupDate(e.target.value); setPickupTime(''); }} className="w-full rounded-lg border-gray-300 focus:ring-brand-orange focus:border-brand-orange" />
+                                <input 
+                                    type="date" 
+                                    required 
+                                    value={pickupDate} 
+                                    onChange={e => { setPickupDate(e.target.value); setPickupTime(''); }} 
+                                    className="w-full rounded-lg border-gray-300 focus:ring-brand-orange focus:border-brand-orange" 
+                                />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-brand-brown/80 mb-1">Preferred Time</label>
@@ -308,11 +334,11 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                                         <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
                                             <ClockIcon className="w-5 h-5 text-gray-400" />
                                         </div>
-                                        {pickupDate && availableTimeSlots.length === 0 && !scheduling.blockedDates.includes(normalizeDateStr(pickupDate)) && (
-                                            <p className="text-xs text-red-500 mt-1">No time slots available for this date.</p>
-                                        )}
-                                        {pickupDate && scheduling.blockedDates.includes(normalizeDateStr(pickupDate)) && (
+                                        {pickupDate && isDateBlocked(normalizeDateStr(pickupDate)) && (
                                             <p className="text-xs text-red-500 mt-1">This date is unavailable.</p>
+                                        )}
+                                        {pickupDate && !isDateBlocked(normalizeDateStr(pickupDate)) && availableTimeSlots.length === 0 && (
+                                            <p className="text-xs text-red-500 mt-1">No time slots available for this date.</p>
                                         )}
                                     </div>
                                 ) : (

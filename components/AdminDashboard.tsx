@@ -45,7 +45,7 @@ export default function AdminDashboard({
     orders, 
     empanadaFlavors, 
     fullSizeEmpanadaFlavors, 
-    importedSignatures,
+    importedSignatures, 
     sheetUrl,
     pricing,
     prepSettings,
@@ -146,7 +146,8 @@ export default function AdminDashboard({
             intervalMinutes: 15,
             startTime: "09:00",
             endTime: "17:00",
-            blockedDates: []
+            blockedDates: [],
+            closedDays: []
         },
         laborWage: 15.00,
         materialCosts: {},
