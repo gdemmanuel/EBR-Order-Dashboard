@@ -31,29 +31,31 @@ export const calculatePriceForType = (quantity: number, basePrice: number, packa
 };
 
 export const calculateOrderTotal = (items: OrderItem[], deliveryFee: number, pricing: PricingSettings) => {
+    const salsas = pricing.salsas || [];
+
     // 1. Group Items
+    // Mini & Full items are those not in the salsa list
     const miniItemsQty = items
-        .filter(i => !i.name.startsWith('Full ') && !i.name.includes('Salsa'))
+        .filter(i => !i.name.startsWith('Full ') && !salsas.some(s => i.name === s.name))
         .reduce((sum, i) => sum + (i.quantity || 0), 0);
 
     const fullItemsQty = items
-        .filter(i => i.name.startsWith('Full '))
+        .filter(i => i.name.startsWith('Full ') && !salsas.some(s => i.name === s.name))
         .reduce((sum, i) => sum + (i.quantity || 0), 0);
     
-    const smallSalsaQty = items
-        .filter(i => i.name.includes('Salsa') && i.name.includes('Small'))
-        .reduce((sum, i) => sum + (i.quantity || 0), 0);
-        
-    const largeSalsaQty = items
-        .filter(i => i.name.includes('Salsa') && i.name.includes('Large'))
-        .reduce((sum, i) => sum + (i.quantity || 0), 0);
+    // Calculate Salsa Total explicitly from the dynamic list
+    let salsaTotal = 0;
+    items.forEach(item => {
+        const salsaProduct = salsas.find(s => s.name === item.name);
+        if (salsaProduct) {
+            salsaTotal += (item.quantity || 0) * salsaProduct.price;
+        }
+    });
 
     // 2. Calculate Totals using Packages first, then Base Price
     const miniTotal = calculatePriceForType(miniItemsQty, pricing.mini.basePrice, pricing.packages, 'mini');
     const fullTotal = calculatePriceForType(fullItemsQty, pricing.full.basePrice, pricing.packages, 'full');
     
-    const salsaTotal = (smallSalsaQty * pricing.salsaSmall) + (largeSalsaQty * pricing.salsaLarge);
-
     return miniTotal + fullTotal + salsaTotal + (deliveryFee || 0);
 };
 
@@ -65,9 +67,10 @@ export const calculateSupplyCost = (
     settings: AppSettings
 ): number => {
     let totalCost = 0;
+    const salsas = settings.pricing.salsas || [];
 
     items.forEach(item => {
-        if (item.name.includes('Salsa')) return; // Skip salsas for now or add simple cost logic later if needed
+        if (salsas.some(s => item.name === s.name)) return; // Skip salsas for ingredient calculation for now
 
         const isFull = item.name.startsWith('Full ');
         const cleanName = item.name.replace('Full ', '');

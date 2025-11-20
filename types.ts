@@ -8,6 +8,7 @@ export enum ContactMethod {
 }
 
 export enum FollowUpStatus {
+  PENDING = 'Pending',
   NEEDED = 'Follow-up Needed',
   CONTACTED = 'Contacted',
   COMPLETED = 'Completed',
@@ -56,6 +57,7 @@ export interface Order {
 export interface Flavor {
     name: string;
     visible: boolean;
+    description?: string;
 }
 
 export interface MenuPackage {
@@ -69,6 +71,13 @@ export interface MenuPackage {
     visible: boolean;
 }
 
+export interface SalsaProduct {
+    id: string;
+    name: string;
+    price: number;
+    visible: boolean;
+}
+
 export interface ProductPricing {
     basePrice: number; // Fallback for single items
 }
@@ -77,6 +86,8 @@ export interface PricingSettings {
     mini: ProductPricing;
     full: ProductPricing;
     packages: MenuPackage[];
-    salsaSmall: number;
-    salsaLarge: number;
+    salsas: SalsaProduct[];
+    // Deprecated but kept for type safety during migration if needed, though we will migrate away from them
+    salsaSmall?: number; 
+    salsaLarge?: number;
 }

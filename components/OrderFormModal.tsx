@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Order, OrderItem, ContactMethod, PaymentStatus, FollowUpStatus, ApprovalStatus, PricingSettings, Flavor, MenuPackage } from '../types';
-import { TrashIcon, PlusIcon, XMarkIcon, ShoppingBagIcon } from './icons/Icons';
+import { TrashIcon, PlusIcon, XMarkIcon, ShoppingBagIcon, CogIcon, ArrowUturnLeftIcon } from './icons/Icons';
 import { getAddressSuggestions } from '../services/geminiService';
 import { calculateOrderTotal, calculateSupplyCost } from '../utils/pricingUtils';
 import { SalsaSize } from '../config';
@@ -28,12 +28,11 @@ interface FormOrderItem {
     customName?: string;
 }
 
-type SalsaName = 'Salsa Verde' | 'Salsa Rosada';
-interface SalsaState {
-    name: SalsaName;
+interface DynamicSalsaState {
+    id: string;
+    name: string;
     checked: boolean;
     quantity: number | string;
-    size: SalsaSize;
 }
 
 const ItemInputSection: React.FC<{
@@ -137,11 +136,12 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
     const [customContactMethod, setCustomContactMethod] = useState('');
     const [miniItems, setMiniItems] = useState<FormOrderItem[]>([]);
     const [fullSizeItems, setFullSizeItems] = useState<FormOrderItem[]>([]);
-    const [salsaItems, setSalsaItems] = useState<SalsaState[]>([
-        { name: 'Salsa Verde', checked: false, quantity: 1, size: 'Small (4oz)' },
-        { name: 'Salsa Rosada', checked: false, quantity: 1, size: 'Small (4oz)' }
-    ]);
-    const [amountCharged, setAmountCharged] = useState(0);
+    const [salsaItems, setSalsaItems] = useState<DynamicSalsaState[]>([]);
+    
+    // Pricing State
+    const [amountCharged, setAmountCharged] = useState<number | string>(0);
+    const [isAutoPrice, setIsAutoPrice] = useState(true); // Track if we are in auto-calculate mode
+
     const [deliveryRequired, setDeliveryRequired] = useState(false);
     const [deliveryFee, setDeliveryFee] = useState<number | string>(0);
     const [deliveryAddress, setDeliveryAddress] = useState('');
@@ -160,6 +160,21 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
     // Package Builder State
     const [activePackageBuilder, setActivePackageBuilder] = useState<MenuPackage | null>(null);
 
+    // Initialize Salsas from pricing settings
+    useEffect(() => {
+        if (!pricing.salsas) return;
+        // Only initialize if we haven't populated from order yet, OR if we are just switching to adding mode
+        if (!order && salsaItems.length === 0) {
+            const initialSalsas = pricing.salsas.map(s => ({
+                id: s.id,
+                name: s.name,
+                checked: false,
+                quantity: 1
+            }));
+            setSalsaItems(initialSalsas);
+        }
+    }, [pricing.salsas]);
+
     const resetForm = () => {
         setCustomerName('');
         setPhoneNumber('');
@@ -170,16 +185,20 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         setMiniItems([]);
         setFullSizeItems([]);
         setAmountCharged(0);
+        setIsAutoPrice(true);
         setDeliveryRequired(false);
         setDeliveryFee(0);
         setDeliveryAddress('');
         setPaymentStatus(PaymentStatus.PENDING);
         setAmountCollected(0);
         setPaymentMethod('');
-        setSalsaItems([
-            { name: 'Salsa Verde', checked: false, quantity: 1, size: 'Small (4oz)' },
-            { name: 'Salsa Rosada', checked: false, quantity: 1, size: 'Small (4oz)' }
-        ]);
+        // Reset salsas based on available products
+        setSalsaItems((pricing.salsas || []).map(s => ({
+            id: s.id,
+            name: s.name,
+            checked: false,
+            quantity: 1
+        })));
         setSpecialInstructions('');
         setInitialLoadComplete(false);
     };
@@ -199,14 +218,23 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
             setCustomContactMethod(contact);
         }
 
-        setDeliveryRequired(data.deliveryRequired || false);
-        setDeliveryFee(data.deliveryFee || 0);
+        const delReq = data.deliveryRequired || false;
+        const delFee = data.deliveryFee || 0;
+
+        setDeliveryRequired(delReq);
+        setDeliveryFee(delFee);
         setDeliveryAddress(data.deliveryAddress || '');
 
         const items = data.items || [];
-        const isSalsa = (name: string) => name.includes('Salsa Verde') || name.includes('Salsa Rosada');
-        setMiniItems(items.filter(i => !i.name.startsWith('Full ') && !isSalsa(i.name)));
-        setFullSizeItems(items.filter(i => i.name.startsWith('Full ')));
+        
+        // Check if item matches any defined salsa
+        const isSalsa = (name: string) => (pricing.salsas || []).some(s => name === s.name || name.includes(s.name));
+        
+        const pMiniItems = items.filter(i => !i.name.startsWith('Full ') && !isSalsa(i.name));
+        const pFullItems = items.filter(i => i.name.startsWith('Full '));
+
+        setMiniItems(pMiniItems);
+        setFullSizeItems(pFullItems);
         
         setPaymentStatus((data as Order).paymentStatus || PaymentStatus.PENDING);
         setAmountCollected(data.amountCollected || 0);
@@ -214,27 +242,34 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         setSpecialInstructions(data.specialInstructions || '');
 
         // Populate salsa items
-        const initialSalsaState: SalsaState[] = [
-            { name: 'Salsa Verde', checked: false, quantity: 1, size: 'Small (4oz)' },
-            { name: 'Salsa Rosada', checked: false, quantity: 1, size: 'Small (4oz)' }
-        ];
-        items.forEach(item => {
-            if (item.name.includes('Salsa Verde')) {
-                initialSalsaState[0].checked = true;
-                initialSalsaState[0].quantity = item.quantity;
-                initialSalsaState[0].size = item.name.includes('Large') ? 'Large (8oz)' : 'Small (4oz)';
-            }
-            if (item.name.includes('Salsa Rosada')) {
-                initialSalsaState[1].checked = true;
-                initialSalsaState[1].quantity = item.quantity;
-                initialSalsaState[1].size = item.name.includes('Large') ? 'Large (8oz)' : 'Small (4oz)';
-            }
+        const currentSalsas = (pricing.salsas || []).map(product => {
+            // Attempt to find exact match or partial match
+            const foundItem = items.find(i => i.name === product.name || i.name.includes(product.name));
+            return {
+                id: product.id,
+                name: product.name,
+                checked: !!foundItem,
+                quantity: foundItem ? foundItem.quantity : 1
+            };
         });
-        setSalsaItems(initialSalsaState);
+        setSalsaItems(currentSalsas);
 
+        // Price Logic
         if (data.amountCharged !== undefined) {
             setAmountCharged(data.amountCharged);
+            
+            // Check if the price was manually overridden in the past
+            const expected = calculateOrderTotal(items, delFee, pricing);
+            // If difference is greater than 1 cent, assume manual override
+            if (Math.abs(expected - data.amountCharged) > 0.01) {
+                setIsAutoPrice(false);
+            } else {
+                setIsAutoPrice(true);
+            }
+        } else {
+            setIsAutoPrice(true);
         }
+        
         setInitialLoadComplete(true);
     };
 
@@ -276,22 +311,26 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
     const [isDirty, setIsDirty] = useState(false);
 
     useEffect(() => {
-        if (isDirty) {
+        // Only auto-calculate if the user hasn't overridden the price
+        if (isDirty && isAutoPrice) {
              const currentItems: OrderItem[] = [
                 ...miniItems.map(i => ({ name: i.name, quantity: Number(i.quantity) || 0 })),
                 ...fullSizeItems.map(i => ({ name: i.name, quantity: Number(i.quantity) || 0 })),
-                ...salsaItems.filter(s => s.checked).map(s => ({ name: `${s.name} - ${s.size}`, quantity: Number(s.quantity) || 0 }))
+                ...salsaItems.filter(s => s.checked).map(s => ({ name: s.name, quantity: Number(s.quantity) || 0 }))
             ];
             const currentFee = deliveryRequired ? (Number(deliveryFee) || 0) : 0;
             const newTotal = calculateOrderTotal(currentItems, currentFee, pricing);
             setAmountCharged(newTotal);
         }
-    }, [miniItems, fullSizeItems, salsaItems, deliveryFee, deliveryRequired, pricing, isDirty]);
+    }, [miniItems, fullSizeItems, salsaItems, deliveryFee, deliveryRequired, pricing, isDirty, isAutoPrice]);
 
     const markDirty = () => setIsDirty(true);
 
     useEffect(() => {
-        if ((Number(amountCollected) || 0) >= amountCharged && amountCharged > 0) {
+        const charged = Number(amountCharged) || 0;
+        const collected = Number(amountCollected) || 0;
+        
+        if (collected >= charged && charged > 0) {
             setPaymentStatus(PaymentStatus.PAID);
         } else if (pickupDate) {
             const today = new Date();
@@ -344,7 +383,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         else setFullSizeItems(fullSizeItems.filter((_, i) => i !== index));
     };
 
-    const handleSalsaChange = (index: number, field: keyof SalsaState, value: string | number | boolean) => {
+    const handleSalsaChange = (index: number, field: keyof DynamicSalsaState, value: string | number | boolean) => {
         markDirty();
         const newSalsaItems = [...salsaItems];
         const itemToUpdate = { ...newSalsaItems[index] };
@@ -352,7 +391,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         else if (field === 'quantity') {
             const strValue = String(value);
             if (/^\d*$/.test(strValue)) itemToUpdate.quantity = strValue;
-        } else if (field === 'size') itemToUpdate.size = value as SalsaSize;
+        }
         newSalsaItems[index] = itemToUpdate;
         setSalsaItems(newSalsaItems);
     };
@@ -391,6 +430,16 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         
         setActivePackageBuilder(null);
     };
+    
+    const toggleAutoPrice = () => {
+        if (!isAutoPrice) {
+            // Re-calculate immediately if turning ON auto mode
+            markDirty(); // This triggers the useEffect to recalculate
+            setIsAutoPrice(true);
+        } else {
+            setIsAutoPrice(false);
+        }
+    };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -413,7 +462,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         const empanadaItems: OrderItem[] = [...miniOrderItems, ...fullSizeOrderItems];
         const salsaOrderItems: OrderItem[] = salsaItems
             .filter(salsa => salsa.checked && (Number(salsa.quantity) || 0) > 0)
-            .map(salsa => ({ name: `${salsa.name} - ${salsa.size}`, quantity: Number(salsa.quantity) || 0 }));
+            .map(salsa => ({ name: salsa.name, quantity: Number(salsa.quantity) || 0 }));
 
         const allItems = [...empanadaItems, ...salsaOrderItems];
         const totalFullSize = fullSizeOrderItems.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
@@ -445,7 +494,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
             pickupTime: formattedTime,
             contactMethod: finalContactMethod,
             items: allItems,
-            amountCharged,
+            amountCharged: Number(amountCharged),
             totalCost: calculatedCost, // Save cost snapshot
             totalFullSize,
             totalMini,
@@ -503,8 +552,38 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                             <input type="time" value={pickupTime} onChange={e => setPickupTime(e.target.value)} required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown" />
                         </div>
                          <div>
-                            <label className="block text-sm font-medium text-brand-brown/90">Amount Charged ($)</label>
-                            <input type="number" step="0.01" value={amountCharged.toFixed(2)} readOnly className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-gray-100 text-brand-brown/70" />
+                            <div className="flex justify-between items-center mb-1">
+                                <label className="block text-sm font-medium text-brand-brown/90">Amount Charged ($)</label>
+                                <button 
+                                    type="button"
+                                    onClick={toggleAutoPrice} 
+                                    className={`text-xs font-medium px-2 py-0.5 rounded transition-colors border ${isAutoPrice ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'}`}
+                                    title={isAutoPrice ? "Calculated automatically. Click to switch to manual." : "Manual price set. Click to auto-calculate."}
+                                >
+                                    {isAutoPrice ? "Auto-Calc ON" : "Manual Price"}
+                                </button>
+                            </div>
+                            <div className="relative">
+                                <input 
+                                    type="number" 
+                                    step="0.01" 
+                                    value={amountCharged} 
+                                    onChange={(e) => {
+                                        setAmountCharged(e.target.value);
+                                        setIsAutoPrice(false);
+                                    }}
+                                    className={`mt-1 block w-full rounded-md shadow-sm focus:border-brand-orange focus:ring-brand-orange ${isAutoPrice ? 'bg-gray-50 text-brand-brown/70 border-gray-300' : 'bg-white text-brand-brown border-brand-orange ring-1 ring-brand-orange/20'}`} 
+                                />
+                                {!isAutoPrice && (
+                                     <div 
+                                        className="absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer"
+                                        onClick={toggleAutoPrice}
+                                        title="Revert to Auto-Calculation"
+                                    >
+                                        <ArrowUturnLeftIcon className="h-4 w-4 text-gray-400 hover:text-brand-orange" />
+                                    </div>
+                                )}
+                            </div>
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-brand-brown/90">Amount Collected ($)</label>
@@ -578,26 +657,26 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                     </div>
 
                     <div className="border-t border-brand-tan pt-4">
-                        <h3 className="text-lg font-semibold text-brand-brown/90 mb-3">Salsas</h3>
+                        <h3 className="text-lg font-semibold text-brand-brown/90 mb-3">Salsa & Extras</h3>
                         <div className="space-y-4">
-                            {salsaItems.map((salsa, index) => (
-                                <div key={salsa.name} className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                                    <div className="flex items-center">
-                                        <input type="checkbox" id={`salsa-${index}`} checked={salsa.checked} onChange={e => handleSalsaChange(index, 'checked', e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-brand-orange focus:ring-brand-orange" />
-                                        <label htmlFor={`salsa-${index}`} className="font-medium text-brand-brown w-32 ml-2">{salsa.name}</label>
-                                    </div>
-                                    {salsa.checked && (
-                                        <div className="flex items-center gap-2 animate-fade-in flex-grow sm:flex-grow-0">
-                                            <label htmlFor={`salsa-qty-${index}`} className="text-sm">Qty:</label>
-                                            <input type="number" id={`salsa-qty-${index}`} min="1" value={salsa.quantity} onChange={e => handleSalsaChange(index, 'quantity', e.target.value)} className="block w-20 rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm bg-white text-brand-brown" />
-                                            <select value={salsa.size} onChange={e => handleSalsaChange(index, 'size', e.target.value)} className="block w-32 rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm bg-white text-brand-brown">
-                                                <option value="Small (4oz)">Small</option>
-                                                <option value="Large (8oz)">Large</option>
-                                            </select>
+                            {(salsaItems.length > 0) ? (
+                                salsaItems.map((salsa, index) => (
+                                    <div key={salsa.id} className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                                        <div className="flex items-center">
+                                            <input type="checkbox" id={`salsa-${index}`} checked={salsa.checked} onChange={e => handleSalsaChange(index, 'checked', e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-brand-orange focus:ring-brand-orange" />
+                                            <label htmlFor={`salsa-${index}`} className="font-medium text-brand-brown min-w-[150px] ml-2">{salsa.name}</label>
                                         </div>
-                                    )}
-                                </div>
-                            ))}
+                                        {salsa.checked && (
+                                            <div className="flex items-center gap-2 animate-fade-in flex-grow sm:flex-grow-0">
+                                                <label htmlFor={`salsa-qty-${index}`} className="text-sm">Qty:</label>
+                                                <input type="number" id={`salsa-qty-${index}`} min="1" value={salsa.quantity} onChange={e => handleSalsaChange(index, 'quantity', e.target.value)} className="block w-20 rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm bg-white text-brand-brown" />
+                                            </div>
+                                        )}
+                                    </div>
+                                ))
+                            ) : (
+                                <p className="text-sm text-gray-500 italic">No salsas available.</p>
+                            )}
                         </div>
                     </div>
                     

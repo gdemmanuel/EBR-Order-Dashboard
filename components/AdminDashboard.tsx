@@ -132,8 +132,7 @@ export default function AdminDashboard({
             mini: { basePrice: 1.75 },
             full: { basePrice: 3.00 },
             packages: [],
-            salsaSmall: 2.00,
-            salsaLarge: 4.00
+            salsas: []
         },
         prepSettings: prepSettings || { 
             lbsPer20: {}, 
@@ -175,7 +174,10 @@ export default function AdminDashboard({
         let changesMade = false;
 
         order.items.forEach(item => {
-            if (item.name.includes('Salsa')) return; // Skip salsa for inventory deduction for now
+            // Check if item is salsa based on pricing definitions (avoid hardcoded 'Salsa' string if possible, 
+            // but for now string check is safer as name format is "Salsa Name - Size")
+            const isSalsa = safePricing.salsas.some(s => item.name.includes(s.name));
+            if (isSalsa) return; 
             
             let flavor = item.name;
             let type: 'mini' | 'full' = 'mini';
@@ -320,21 +322,24 @@ export default function AdminDashboard({
                 <PendingOrders orders={pendingOrders} onApprove={handleApproveOrder} onDeny={handleDenyOrder} onSelectOrder={setSelectedOrder} />
                 
                 {pendingOrders.length > 0 && <div className="mb-8" />}
+                
+                {/* Date Filter is now visible for both dashboard and list views for consistency */}
+                {view !== 'calendar' && (
+                    <DateRangeFilter 
+                        initialStartDate={dateFilter.start}
+                        initialEndDate={dateFilter.end}
+                        onDateChange={setDateFilter} 
+                    />
+                )}
 
                 {view === 'dashboard' && (
-                    <>
-                        <DateRangeFilter 
-                            initialStartDate={dateFilter.start}
-                            initialEndDate={dateFilter.end}
-                            onDateChange={setDateFilter} 
-                        />
-                        <DashboardMetrics stats={stats} orders={filteredOrders} empanadaFlavors={empanadaFlavors.map(f => f.name)} fullSizeEmpanadaFlavors={fullSizeEmpanadaFlavors.map(f => f.name)} />
-                    </>
+                    <DashboardMetrics stats={stats} orders={filteredOrders} empanadaFlavors={empanadaFlavors.map(f => f.name)} fullSizeEmpanadaFlavors={fullSizeEmpanadaFlavors.map(f => f.name)} />
                 )}
 
                 {view === 'list' && (
                     <OrderList 
-                        orders={searchTerm ? filteredOrders : activeOrders} 
+                        // Force filteredOrders so date range filter always applies to the list
+                        orders={filteredOrders} 
                         onSelectOrder={setSelectedOrder} 
                         onPrintSelected={setPrintPreviewOrders} 
                         onDelete={confirmDeleteOrder} 

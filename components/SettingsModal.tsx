@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { AppSettings, updateSettingsInDb } from '../services/dbService';
-import { PricingSettings, MenuPackage, Flavor } from '../types';
+import { PricingSettings, MenuPackage, Flavor, SalsaProduct } from '../types';
 import { XMarkIcon, PlusIcon, TrashIcon, CheckCircleIcon, CogIcon, PencilIcon, ScaleIcon, CurrencyDollarIcon, ClockIcon } from './icons/Icons';
 
 interface SettingsModalProps {
@@ -47,6 +47,10 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
     });
     const [editingPackageId, setEditingPackageId] = useState<string | null>(null);
 
+    // Salsa Form State
+    const [newSalsaName, setNewSalsaName] = useState('');
+    const [newSalsaPrice, setNewSalsaPrice] = useState('');
+
     const handleSave = async () => {
         setIsSaving(true);
         await updateSettingsInDb({
@@ -81,6 +85,18 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
         } else {
             const updated = [...fullSizeEmpanadaFlavors];
             updated[index].visible = !updated[index].visible;
+            setFullSizeEmpanadaFlavors(updated);
+        }
+    };
+    
+    const updateFlavorDescription = (type: 'mini' | 'full', index: number, desc: string) => {
+        if (type === 'mini') {
+            const updated = [...empanadaFlavors];
+            updated[index].description = desc;
+            setEmpanadaFlavors(updated);
+        } else {
+            const updated = [...fullSizeEmpanadaFlavors];
+            updated[index].description = desc;
             setFullSizeEmpanadaFlavors(updated);
         }
     };
@@ -164,6 +180,37 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
         });
     };
 
+    // --- Salsa Management Logic ---
+    const addSalsa = () => {
+        if (!newSalsaName || !newSalsaPrice) return;
+        const newSalsa: SalsaProduct = {
+            id: `salsa-${Date.now()}`,
+            name: newSalsaName,
+            price: parseFloat(newSalsaPrice) || 0,
+            visible: true
+        };
+        setPricing({
+            ...pricing,
+            salsas: [...(pricing.salsas || []), newSalsa]
+        });
+        setNewSalsaName('');
+        setNewSalsaPrice('');
+    };
+
+    const removeSalsa = (id: string) => {
+        setPricing({
+            ...pricing,
+            salsas: pricing.salsas.filter(s => s.id !== id)
+        });
+    };
+
+    const toggleSalsaVisibility = (id: string) => {
+        setPricing({
+            ...pricing,
+            salsas: pricing.salsas.map(s => s.id === id ? { ...s, visible: !s.visible } : s)
+        });
+    };
+
     // --- Prep Settings Logic ---
     const updateLbsPer20 = (flavorName: string, value: string) => {
         const numVal = parseFloat(value);
@@ -238,20 +285,29 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                     />
                                     <button onClick={() => addFlavor('mini')} className="bg-brand-orange text-white px-3 rounded-md hover:bg-opacity-90"><PlusIcon className="w-5 h-5" /></button>
                                 </div>
-                                <div className="space-y-2 max-h-64 overflow-y-auto">
+                                <div className="space-y-2 max-h-96 overflow-y-auto">
                                     {empanadaFlavors.map((flavor, idx) => (
-                                        <div key={idx} className="flex justify-between items-center bg-white p-2 rounded shadow-sm text-sm">
-                                            <div className="flex items-center gap-3">
-                                                <input 
-                                                    type="checkbox" 
-                                                    checked={flavor.visible} 
-                                                    onChange={() => toggleFlavorVisibility('mini', idx)}
-                                                    className="rounded text-brand-orange focus:ring-brand-orange"
-                                                    title="Visible on customer menu"
-                                                />
-                                                <span className={!flavor.visible ? 'text-gray-400 line-through' : ''}>{flavor.name}</span>
+                                        <div key={idx} className="bg-white p-2 rounded shadow-sm text-sm">
+                                            <div className="flex justify-between items-center mb-1">
+                                                <div className="flex items-center gap-3">
+                                                    <input 
+                                                        type="checkbox" 
+                                                        checked={flavor.visible} 
+                                                        onChange={() => toggleFlavorVisibility('mini', idx)}
+                                                        className="rounded text-brand-orange focus:ring-brand-orange"
+                                                        title="Visible on customer menu"
+                                                    />
+                                                    <span className={`font-medium ${!flavor.visible ? 'text-gray-400 line-through' : ''}`}>{flavor.name}</span>
+                                                </div>
+                                                <button onClick={() => removeFlavor('mini', idx)} className="text-red-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button>
                                             </div>
-                                            <button onClick={() => removeFlavor('mini', idx)} className="text-red-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button>
+                                            <input 
+                                                type="text" 
+                                                placeholder="Description (optional)"
+                                                value={flavor.description || ''}
+                                                onChange={(e) => updateFlavorDescription('mini', idx, e.target.value)}
+                                                className="w-full text-xs border-gray-200 rounded focus:ring-brand-orange focus:border-brand-orange"
+                                            />
                                         </div>
                                     ))}
                                 </div>
@@ -270,20 +326,29 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                     />
                                     <button onClick={() => addFlavor('full')} className="bg-brand-orange text-white px-3 rounded-md hover:bg-opacity-90"><PlusIcon className="w-5 h-5" /></button>
                                 </div>
-                                <div className="space-y-2 max-h-64 overflow-y-auto">
+                                <div className="space-y-2 max-h-96 overflow-y-auto">
                                     {fullSizeEmpanadaFlavors.map((flavor, idx) => (
-                                        <div key={idx} className="flex justify-between items-center bg-white p-2 rounded shadow-sm text-sm">
-                                            <div className="flex items-center gap-3">
-                                                <input 
-                                                    type="checkbox" 
-                                                    checked={flavor.visible} 
-                                                    onChange={() => toggleFlavorVisibility('full', idx)}
-                                                    className="rounded text-brand-orange focus:ring-brand-orange"
-                                                    title="Visible on customer menu"
-                                                />
-                                                <span className={!flavor.visible ? 'text-gray-400 line-through' : ''}>{flavor.name}</span>
+                                        <div key={idx} className="bg-white p-2 rounded shadow-sm text-sm">
+                                            <div className="flex justify-between items-center mb-1">
+                                                <div className="flex items-center gap-3">
+                                                    <input 
+                                                        type="checkbox" 
+                                                        checked={flavor.visible} 
+                                                        onChange={() => toggleFlavorVisibility('full', idx)}
+                                                        className="rounded text-brand-orange focus:ring-brand-orange"
+                                                        title="Visible on customer menu"
+                                                    />
+                                                    <span className={`font-medium ${!flavor.visible ? 'text-gray-400 line-through' : ''}`}>{flavor.name}</span>
+                                                </div>
+                                                <button onClick={() => removeFlavor('full', idx)} className="text-red-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button>
                                             </div>
-                                            <button onClick={() => removeFlavor('full', idx)} className="text-red-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button>
+                                            <input 
+                                                type="text" 
+                                                placeholder="Description (optional)"
+                                                value={flavor.description || ''}
+                                                onChange={(e) => updateFlavorDescription('full', idx, e.target.value)}
+                                                className="w-full text-xs border-gray-200 rounded focus:ring-brand-orange focus:border-brand-orange"
+                                            />
                                         </div>
                                     ))}
                                 </div>
@@ -369,32 +434,41 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
 
                             {/* Salsa Pricing */}
                             <div className="bg-white p-5 rounded-lg border border-brand-tan shadow-sm">
-                                <h3 className="font-bold text-brand-brown text-lg mb-4 border-b pb-2">Salsa Pricing</h3>
-                                <div className="grid grid-cols-2 gap-6">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Small (4oz)</label>
-                                        <div className="relative rounded-md shadow-sm">
-                                            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3"><span className="text-gray-500 sm:text-sm">$</span></div>
-                                            <input 
-                                                type="number" step="0.01"
-                                                value={pricing.salsaSmall}
-                                                onChange={(e) => setPricing({...pricing, salsaSmall: parseFloat(e.target.value) || 0})}
-                                                className="block w-full rounded-md border-gray-300 pl-7 pr-3 focus:border-brand-orange focus:ring-brand-orange sm:text-sm" 
-                                            />
-                                        </div>
+                                <h3 className="font-bold text-brand-brown text-lg mb-4 border-b pb-2">Salsa & Extras</h3>
+                                <p className="text-sm text-gray-600 mb-4">Add items like Salsa, Guacamole, etc.</p>
+                                
+                                <div className="flex items-end gap-3 mb-4 p-3 bg-gray-50 rounded border border-gray-200">
+                                    <div className="flex-grow">
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Product Name</label>
+                                        <input type="text" placeholder="e.g. Salsa Verde (4oz)" value={newSalsaName} onChange={e => setNewSalsaName(e.target.value)} className="w-full text-sm rounded border-gray-300" />
                                     </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-1">Large (8oz)</label>
-                                        <div className="relative rounded-md shadow-sm">
-                                            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3"><span className="text-gray-500 sm:text-sm">$</span></div>
-                                            <input 
-                                                type="number" step="0.01"
-                                                value={pricing.salsaLarge}
-                                                onChange={(e) => setPricing({...pricing, salsaLarge: parseFloat(e.target.value) || 0})}
-                                                className="block w-full rounded-md border-gray-300 pl-7 pr-3 focus:border-brand-orange focus:ring-brand-orange sm:text-sm" 
-                                            />
-                                        </div>
+                                    <div className="w-32">
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Price ($)</label>
+                                        <input type="number" step="0.01" placeholder="2.00" value={newSalsaPrice} onChange={e => setNewSalsaPrice(e.target.value)} className="w-full text-sm rounded border-gray-300" />
                                     </div>
+                                    <button onClick={addSalsa} className="bg-brand-orange text-white px-4 py-2 rounded text-sm font-semibold hover:bg-opacity-90">Add</button>
+                                </div>
+
+                                <div className="space-y-2">
+                                    {(pricing.salsas || []).map((salsa) => (
+                                         <div key={salsa.id} className="flex justify-between items-center bg-white p-3 rounded border border-gray-200 shadow-sm">
+                                             <div className="flex items-center gap-3">
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={salsa.visible} 
+                                                    onChange={() => toggleSalsaVisibility(salsa.id)}
+                                                    className="rounded text-brand-orange focus:ring-brand-orange"
+                                                    title="Visible to customers"
+                                                />
+                                                <span className="font-medium text-brand-brown">{salsa.name}</span>
+                                             </div>
+                                             <div className="flex items-center gap-4">
+                                                 <span className="font-bold text-brand-orange">${salsa.price.toFixed(2)}</span>
+                                                 <button onClick={() => removeSalsa(salsa.id)} className="text-red-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button>
+                                             </div>
+                                         </div>
+                                    ))}
+                                    {(!pricing.salsas || pricing.salsas.length === 0) && <p className="text-center text-gray-500 italic">No salsas defined.</p>}
                                 </div>
                             </div>
 
@@ -421,6 +495,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                         </div>
                     )}
 
+                    {/* Prep and Costs Tabs remain unchanged */}
                     {activeTab === 'prep' && (
                         <div className="space-y-8">
                             <div className="bg-white p-5 rounded-lg border border-brand-tan shadow-sm">

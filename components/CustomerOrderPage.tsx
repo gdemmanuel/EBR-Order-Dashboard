@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { saveOrderToDb } from '../services/dbService';
-import { Order, OrderItem, PaymentStatus, FollowUpStatus, ApprovalStatus, PricingSettings, Flavor, MenuPackage } from '../types';
+import { Order, OrderItem, PaymentStatus, FollowUpStatus, ApprovalStatus, PricingSettings, Flavor, MenuPackage, SalsaProduct } from '../types';
 import { SalsaSize } from '../config';
 import { TrashIcon, CheckCircleIcon } from './icons/Icons';
 import Header from './Header';
@@ -21,11 +21,12 @@ interface CartPackage {
     items: { name: string; quantity: number }[];
 }
 
-interface SalsaState {
-    name: 'Salsa Verde' | 'Salsa Rosada';
+interface DynamicSalsaState {
+    id: string;
+    name: string;
+    price: number;
     checked: boolean;
     quantity: number;
-    size: SalsaSize;
 }
 
 export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFlavors, pricing }: CustomerOrderPageProps) {
@@ -42,10 +43,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
     
     // Order State
     const [cartPackages, setCartPackages] = useState<CartPackage[]>([]);
-    const [salsaItems, setSalsaItems] = useState<SalsaState[]>([
-        { name: 'Salsa Verde', checked: false, quantity: 1, size: 'Small (4oz)' },
-        { name: 'Salsa Rosada', checked: false, quantity: 1, size: 'Small (4oz)' }
-    ]);
+    const [salsaItems, setSalsaItems] = useState<DynamicSalsaState[]>([]);
 
     // Delivery
     const [deliveryRequired, setDeliveryRequired] = useState(false);
@@ -63,16 +61,31 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
         mini: { basePrice: 1.75 },
         full: { basePrice: 3.00 },
         packages: [],
-        salsaSmall: 2.00,
-        salsaLarge: 4.00
+        salsas: []
     };
+
+    // Initialize salsas
+    useEffect(() => {
+        if (safePricing.salsas && safePricing.salsas.length > 0) {
+            const initialSalsas = safePricing.salsas
+                .filter(s => s.visible)
+                .map(s => ({
+                    id: s.id,
+                    name: s.name,
+                    price: s.price,
+                    checked: false,
+                    quantity: 1
+                }));
+            setSalsaItems(initialSalsas);
+        }
+    }, [safePricing.salsas]);
 
     // --- Calculate Estimated Total ---
     useEffect(() => {
         const packagesTotal = cartPackages.reduce((sum, p) => sum + p.price, 0);
         const salsaTotal = salsaItems
             .filter(s => s.checked)
-            .reduce((sum, s) => sum + (s.quantity * (s.size.includes('Small') ? safePricing.salsaSmall : safePricing.salsaLarge)), 0);
+            .reduce((sum, s) => sum + (s.quantity * s.price), 0);
         setEstimatedTotal(packagesTotal + salsaTotal);
     }, [cartPackages, salsaItems, safePricing]);
 
@@ -100,7 +113,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
         setCartPackages(cartPackages.filter(p => p.id !== id));
     };
 
-    const handleSalsaChange = (index: number, field: keyof SalsaState, value: any) => {
+    const handleSalsaChange = (index: number, field: keyof DynamicSalsaState, value: any) => {
         const newSalsaItems = [...salsaItems];
         newSalsaItems[index] = { ...newSalsaItems[index], [field]: value };
         setSalsaItems(newSalsaItems);
@@ -124,7 +137,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
 
             const salsaOrderItems: OrderItem[] = salsaItems
                 .filter(s => s.checked && s.quantity > 0)
-                .map(salsa => ({ name: `${salsa.name} - ${salsa.size}`, quantity: salsa.quantity }));
+                .map(salsa => ({ name: salsa.name, quantity: salsa.quantity }));
 
             const finalItems = [...allEmpanadas, ...salsaOrderItems];
 
@@ -262,6 +275,19 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                             )}
                         </div>
 
+                        {/* Flavors Preview */}
+                         <div className="mb-4">
+                             <p className="text-sm font-semibold text-brand-brown mb-2">Available Flavors:</p>
+                             <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+                                 {empanadaFlavors.filter(f => f.visible).map(f => (
+                                     <div key={f.name} className="p-2 bg-gray-50 rounded">
+                                         <span className="font-medium block">{f.name}</span>
+                                         {f.description && <span className="text-gray-500">{f.description}</span>}
+                                     </div>
+                                 ))}
+                             </div>
+                         </div>
+
                         {/* Cart Summary */}
                         {cartPackages.length > 0 && (
                             <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
@@ -288,25 +314,26 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
 
                     {/* Step 2: Salsas */}
                     <section className="bg-white p-6 rounded-xl shadow-sm border border-brand-tan">
-                        <h3 className="text-xl font-serif text-brand-brown mb-4 border-b border-brand-tan pb-2">2. Add Salsa (Optional)</h3>
+                        <h3 className="text-xl font-serif text-brand-brown mb-4 border-b border-brand-tan pb-2">2. Add Salsa & Extras (Optional)</h3>
                         <div className="space-y-2">
-                            {salsaItems.map((salsa, idx) => (
-                                <div key={salsa.name} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg border border-gray-200">
-                                    <div className="flex items-center">
-                                        <input type="checkbox" checked={salsa.checked} onChange={e => handleSalsaChange(idx, 'checked', e.target.checked)} className="h-5 w-5 text-brand-orange rounded focus:ring-brand-orange border-gray-300" />
-                                        <span className="ml-2 text-brand-brown font-medium">{salsa.name}</span>
-                                    </div>
-                                    {salsa.checked && (
-                                        <div className="flex gap-2">
-                                                <select value={salsa.size} onChange={e => handleSalsaChange(idx, 'size', e.target.value)} className="rounded-md border-gray-300 text-xs focus:ring-brand-orange focus:border-brand-orange py-1">
-                                                <option value="Small (4oz)">Small (${safePricing.salsaSmall})</option>
-                                                <option value="Large (8oz)">Large (${safePricing.salsaLarge})</option>
-                                            </select>
-                                            <input type="number" min="1" value={salsa.quantity} onChange={e => handleSalsaChange(idx, 'quantity', parseInt(e.target.value))} className="w-16 rounded-md border-gray-300 text-xs focus:ring-brand-orange focus:border-brand-orange py-1" />
+                            {salsaItems.length > 0 ? (
+                                salsaItems.map((salsa, idx) => (
+                                    <div key={salsa.id} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg border border-gray-200">
+                                        <div className="flex items-center">
+                                            <input type="checkbox" checked={salsa.checked} onChange={e => handleSalsaChange(idx, 'checked', e.target.checked)} className="h-5 w-5 text-brand-orange rounded focus:ring-brand-orange border-gray-300" />
+                                            <span className="ml-2 text-brand-brown font-medium">{salsa.name} <span className="text-gray-500 font-normal text-sm">(${salsa.price.toFixed(2)})</span></span>
                                         </div>
-                                    )}
-                                </div>
-                            ))}
+                                        {salsa.checked && (
+                                            <div className="flex gap-2 items-center">
+                                                <span className="text-xs">Qty:</span>
+                                                <input type="number" min="1" value={salsa.quantity} onChange={e => handleSalsaChange(idx, 'quantity', parseInt(e.target.value))} className="w-16 rounded-md border-gray-300 text-xs focus:ring-brand-orange focus:border-brand-orange py-1" />
+                                            </div>
+                                        )}
+                                    </div>
+                                ))
+                            ) : (
+                                <p className="text-sm text-gray-500 italic">No extras available.</p>
+                            )}
                         </div>
                     </section>
 

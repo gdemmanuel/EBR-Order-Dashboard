@@ -59,8 +59,12 @@ const DEFAULT_SETTINGS: AppSettings = {
         mini: { basePrice: 1.75 },
         full: { basePrice: 3.00 },
         packages: [],
-        salsaSmall: 2.00,
-        salsaLarge: 4.00
+        salsas: [
+            { id: 'salsa-verde-sm', name: 'Salsa Verde (4oz)', price: 2.00, visible: true },
+            { id: 'salsa-rosada-sm', name: 'Salsa Rosada (4oz)', price: 2.00, visible: true },
+            { id: 'salsa-verde-lg', name: 'Salsa Verde (8oz)', price: 4.00, visible: true },
+            { id: 'salsa-rosada-lg', name: 'Salsa Rosada (8oz)', price: 4.00, visible: true },
+        ]
     },
     prepSettings: {
         lbsPer20: {},
@@ -122,16 +126,24 @@ export const subscribeToSettings = (
                     safeFullFlavors = data.fullSizeEmpanadaFlavors as Flavor[];
                 }
             }
+            
+            // Migration Logic: Handle legacy Salsa settings
+            let safePricing = { ...DEFAULT_SETTINGS.pricing, ...(data.pricing || {}) };
+            if ((!safePricing.salsas || safePricing.salsas.length === 0) && (safePricing.salsaSmall || safePricing.salsaLarge)) {
+                safePricing.salsas = [
+                    { id: 'legacy-sm-v', name: 'Salsa Verde (Small)', price: safePricing.salsaSmall || 2.00, visible: true },
+                    { id: 'legacy-sm-r', name: 'Salsa Rosada (Small)', price: safePricing.salsaSmall || 2.00, visible: true },
+                    { id: 'legacy-lg-v', name: 'Salsa Verde (Large)', price: safePricing.salsaLarge || 4.00, visible: true },
+                    { id: 'legacy-lg-r', name: 'Salsa Rosada (Large)', price: safePricing.salsaLarge || 4.00, visible: true },
+                ];
+            }
 
             const mergedSettings: AppSettings = {
                 ...DEFAULT_SETTINGS,
                 ...data,
                 empanadaFlavors: safeMiniFlavors,
                 fullSizeEmpanadaFlavors: safeFullFlavors,
-                pricing: {
-                    ...DEFAULT_SETTINGS.pricing,
-                    ...(data.pricing || {})
-                },
+                pricing: safePricing,
                 prepSettings: {
                     ...DEFAULT_SETTINGS.prepSettings,
                     ...(data.prepSettings || {}),

@@ -129,6 +129,7 @@ export default function App() {
                       mini: { basePrice: 1.75 },
                       full: { basePrice: 3.00 },
                       packages: [],
+                      salsas: [],
                       salsaSmall: 2.00,
                       salsaLarge: 4.00
                   },
@@ -218,7 +219,7 @@ export default function App() {
       fullSizeEmpanadaFlavors,
       sheetUrl,
       importedSignatures: Array.from(importedSignatures),
-      pricing: pricing || { mini: { basePrice: 1.75 }, full: { basePrice: 3.00 }, packages: [], salsaSmall: 2, salsaLarge: 4 },
+      pricing: pricing || { mini: { basePrice: 1.75 }, full: { basePrice: 3.00 }, packages: [], salsas: [], salsaSmall: 2, salsaLarge: 4 },
       prepSettings,
       laborWage,
       materialCosts,
@@ -263,6 +264,7 @@ export default function App() {
                                 mini: { basePrice: 1.75 },
                                 full: { basePrice: 3.00 },
                                 packages: [],
+                                salsas: [],
                                 salsaSmall: 2.00,
                                 salsaLarge: 4.00
                             }}

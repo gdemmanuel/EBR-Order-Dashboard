@@ -329,11 +329,11 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
 
               {generatedMessage && (
                 <div className="mt-4">
-                  <label htmlFor="message" className="block text-sm font-medium text-brand-brown/90 mb-1">Generated Message:</label>
+                  <label htmlFor="message" className="block text-sm font-medium text-brand-brown/90 mb-1">Message Preview (Editable):</label>
                   <textarea
                     id="message"
-                    readOnly
                     value={generatedMessage}
+                    onChange={(e) => setGeneratedMessage(e.target.value)}
                     className="w-full h-32 p-2 border border-gray-300 rounded-md bg-white focus:ring-brand-orange focus:border-brand-orange"
                   />
                   <div className="mt-2 flex justify-end items-start gap-3 flex-wrap">
