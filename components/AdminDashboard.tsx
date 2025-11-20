@@ -141,6 +141,13 @@ export default function AdminDashboard({
             discoPackSize: { mini: 10, full: 10 },
             productionRates: { mini: 40, full: 25 } 
         },
+        scheduling: {
+            enabled: true,
+            intervalMinutes: 15,
+            startTime: "09:00",
+            endTime: "17:00",
+            blockedDates: []
+        },
         laborWage: 15.00,
         materialCosts: {},
         discoCosts: { mini: 0.10, full: 0.15 },

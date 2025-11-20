@@ -41,6 +41,13 @@ export interface AppSettings {
             full: number; // Units per hour
         };
     };
+    scheduling: {
+        enabled: boolean;
+        intervalMinutes: number; // e.g. 15
+        startTime: string; // "09:00"
+        endTime: string; // "17:00"
+        blockedDates: string[]; // ISO date strings "YYYY-MM-DD"
+    };
     laborWage: number; // Hourly wage in dollars
     materialCosts: Record<string, number>; // Key: Flavor Name, Value: Cost per lb
     discoCosts: {
@@ -72,6 +79,13 @@ const DEFAULT_SETTINGS: AppSettings = {
         discosPer: { mini: 1, full: 1 },
         discoPackSize: { mini: 10, full: 10 },
         productionRates: { mini: 40, full: 25 }
+    },
+    scheduling: {
+        enabled: true,
+        intervalMinutes: 15,
+        startTime: "09:00",
+        endTime: "17:00",
+        blockedDates: []
     },
     laborWage: 15.00,
     materialCosts: {},
@@ -159,6 +173,10 @@ export const subscribeToSettings = (
                         ...DEFAULT_SETTINGS.prepSettings.productionRates,
                         ...(data.prepSettings?.productionRates || {})
                     }
+                },
+                scheduling: {
+                    ...DEFAULT_SETTINGS.scheduling,
+                    ...(data.scheduling || {})
                 },
                 laborWage: data.laborWage ?? DEFAULT_SETTINGS.laborWage,
                 materialCosts: data.materialCosts || DEFAULT_SETTINGS.materialCosts,
@@ -254,6 +272,10 @@ export const migrateLocalDataToFirestore = async (
         prepSettings: {
             ...DEFAULT_SETTINGS.prepSettings,
             ...(localSettings.prepSettings || {})
+        },
+        scheduling: {
+            ...DEFAULT_SETTINGS.scheduling,
+            ...(localSettings.scheduling || {})
         },
         laborWage: localSettings.laborWage ?? DEFAULT_SETTINGS.laborWage,
         materialCosts: localSettings.materialCosts || DEFAULT_SETTINGS.materialCosts,
