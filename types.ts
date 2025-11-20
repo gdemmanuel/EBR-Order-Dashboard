@@ -8,8 +8,8 @@ export enum ContactMethod {
 }
 
 export enum FollowUpStatus {
-  PENDING = 'Pending',
   NEEDED = 'Follow-up Needed',
+  PENDING = 'Pending',
   CONTACTED = 'Contacted',
   COMPLETED = 'Completed',
 }

@@ -66,8 +66,31 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
     }
   }, [order]);
   
-  const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-      onUpdateFollowUp(order.id, e.target.value as FollowUpStatus);
+  const handleStatusChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const newStatus = e.target.value as FollowUpStatus;
+      
+      // If user is changing status to COMPLETED, ask about inventory
+      if (newStatus === FollowUpStatus.COMPLETED && order.followUpStatus !== FollowUpStatus.COMPLETED) {
+          // If inventory handler exists, prompt user
+          if (onDeductInventory) {
+              const shouldDeduct = window.confirm("Do you want to deduct these items from your Inventory?");
+              if (shouldDeduct) {
+                   setLoadingAction('inventory');
+                   try {
+                       await onDeductInventory(order);
+                       // onDeductInventory handles the status update to COMPLETED internally in parent
+                       return; 
+                   } catch (e) {
+                       setError("Failed to update inventory.");
+                   } finally {
+                       setLoadingAction(null);
+                   }
+                   return;
+              }
+          }
+      }
+
+      onUpdateFollowUp(order.id, newStatus);
   };
 
   const handleDeductInventoryClick = async () => {
