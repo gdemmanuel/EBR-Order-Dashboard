@@ -148,10 +148,18 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
             // Flatten packages into a single list of items for the order
             const allEmpanadas: OrderItem[] = [];
             cartPackages.forEach(pkg => {
+                const pkgDef = safePricing.packages?.find(def => def.id === pkg.packageId);
+                const isFullPackage = pkgDef?.itemType === 'full';
+
                 pkg.items.forEach(item => {
-                    const existing = allEmpanadas.find(i => i.name === item.name);
+                    let finalName = item.name;
+                    if (isFullPackage && !finalName.startsWith('Full ')) {
+                        finalName = `Full ${finalName}`;
+                    }
+
+                    const existing = allEmpanadas.find(i => i.name === finalName);
                     if (existing) existing.quantity += item.quantity;
-                    else allEmpanadas.push({ ...item });
+                    else allEmpanadas.push({ ...item, name: finalName });
                 });
             });
 
@@ -257,12 +265,9 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
     const fullPackages = safePricing.packages?.filter(p => p.itemType === 'full' && p.visible && !p.isSpecial) || [];
     const specialPackages = safePricing.packages?.filter(p => p.visible && p.isSpecial) || [];
     
-    const miniFlavors = empanadaFlavors.filter(f => f.visible && !f.isSpecial);
-    const fullFlavors = fullSizeEmpanadaFlavors.filter(f => f.visible && !f.isSpecial);
-    const specialFlavors = [
-        ...empanadaFlavors.filter(f => f.visible && f.isSpecial),
-        ...fullSizeEmpanadaFlavors.filter(f => f.visible && f.isSpecial)
-    ];
+    // Use empanadaFlavors (Mini) as source of truth for standard list
+    const standardFlavors = empanadaFlavors.filter(f => f.visible && !f.isSpecial);
+    const specialFlavors = empanadaFlavors.filter(f => f.visible && f.isSpecial);
 
     return (
         <div className="min-h-screen bg-brand-cream">
@@ -283,9 +288,9 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                         
                         <div className="space-y-8">
                             <div>
-                                <h4 className="text-lg font-bold text-brand-orange uppercase tracking-wider mb-4 text-center sm:text-left">Mini Empanadas</h4>
+                                <h4 className="text-lg font-bold text-brand-orange uppercase tracking-wider mb-4 text-center sm:text-left">Empanada Flavors</h4>
                                 <div className="flex flex-wrap gap-3 justify-center sm:justify-start">
-                                    {miniFlavors.map(f => (
+                                    {standardFlavors.map(f => (
                                         <div key={f.name} className="inline-flex flex-col items-center sm:items-start bg-brand-tan/20 border border-brand-tan/30 px-4 py-2 rounded-full hover:bg-brand-tan/40 transition-colors">
                                             <div className="flex items-center gap-1">
                                                 <span className="font-semibold text-brand-brown text-sm">{f.name}</span>
@@ -295,21 +300,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                                         </div>
                                     ))}
                                 </div>
-                            </div>
-
-                            <div>
-                                <h4 className="text-lg font-bold text-brand-orange uppercase tracking-wider mb-4 text-center sm:text-left">Full-Size Empanadas</h4>
-                                <div className="flex flex-wrap gap-3 justify-center sm:justify-start">
-                                    {fullFlavors.map(f => (
-                                        <div key={f.name} className="inline-flex flex-col items-center sm:items-start bg-brand-tan/20 border border-brand-tan/30 px-4 py-2 rounded-full hover:bg-brand-tan/40 transition-colors">
-                                            <div className="flex items-center gap-1">
-                                                <span className="font-semibold text-brand-brown text-sm">{f.name}</span>
-                                                {f.surcharge && <span className="text-[10px] font-bold text-brand-orange bg-white px-1.5 py-0.5 rounded-full shadow-sm">+${f.surcharge.toFixed(2)}</span>}
-                                            </div>
-                                            {f.description && <span className="text-[11px] text-gray-500">{f.description}</span>}
-                                        </div>
-                                    ))}
-                                </div>
+                                <p className="text-xs text-gray-500 mt-2 text-center sm:text-left">* Flavors available for both Mini and Full-Size empanadas.</p>
                             </div>
 
                             {specialFlavors.length > 0 && (
@@ -545,8 +536,8 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                     <PackageBuilderModal 
                         pkg={activePackageBuilder}
                         flavors={activePackageBuilder.isSpecial 
-                            ? [...empanadaFlavors.filter(f => f.isSpecial), ...fullSizeEmpanadaFlavors.filter(f => f.isSpecial)] 
-                            : (activePackageBuilder.itemType === 'mini' ? empanadaFlavors.filter(f => !f.isSpecial) : fullSizeEmpanadaFlavors.filter(f => !f.isSpecial))
+                            ? empanadaFlavors.filter(f => f.isSpecial)
+                            : empanadaFlavors.filter(f => !f.isSpecial)
                         }
                         onClose={() => setActivePackageBuilder(null)}
                         onConfirm={handlePackageConfirm}

@@ -163,9 +163,9 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
     const [activePackageBuilder, setActivePackageBuilder] = useState<MenuPackage | null>(null);
 
     // Filtered Flavor Lists
-    const standardMiniFlavors = empanadaFlavors.filter(f => !f.isSpecial);
-    const standardFullFlavors = fullSizeEmpanadaFlavors.filter(f => !f.isSpecial);
-    const allSpecialFlavors = [...empanadaFlavors.filter(f => f.isSpecial), ...fullSizeEmpanadaFlavors.filter(f => f.isSpecial)];
+    // Use empanadaFlavors (Mini) as the master list for dropdowns for consistency
+    const standardFlavors = empanadaFlavors.filter(f => !f.isSpecial);
+    const specialFlavors = empanadaFlavors.filter(f => f.isSpecial);
 
     // Initialize Salsas from pricing settings
     useEffect(() => {
@@ -237,10 +237,24 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         
         // Check if item matches any defined salsa
         const isSalsa = (name: string) => (pricing.salsas || []).some(s => name === s.name || name.includes(s.name));
-        const isSpecial = (name: string) => allSpecialFlavors.some(f => f.name === name);
         
+        // Check if item is a special (matches special flavor name)
+        const isSpecial = (name: string) => {
+             // Handle "Full " prefix removal for matching
+             const cleanName = name.replace('Full ', '');
+             return specialFlavors.some(f => f.name === cleanName);
+        };
+        
+        // Populate sections logic
+        // Mini: No 'Full ' prefix, not Salsa, not Special
         const pMiniItems = items.filter(i => !i.name.startsWith('Full ') && !isSalsa(i.name) && !isSpecial(i.name));
-        const pFullItems = items.filter(i => i.name.startsWith('Full ') && !isSalsa(i.name) && !isSpecial(i.name));
+        
+        // Full: Has 'Full ' prefix, not Salsa, not Special. We strip the prefix for the dropdown to work correctly.
+        const pFullItems = items
+            .filter(i => i.name.startsWith('Full ') && !isSalsa(i.name) && !isSpecial(i.name))
+            .map(i => ({ ...i, name: i.name.replace('Full ', '') }));
+
+        // Specials: Any matching special flavor
         const pSpecialItems = items.filter(i => !isSalsa(i.name) && isSpecial(i.name));
 
         setMiniItems(pMiniItems);
@@ -324,9 +338,10 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
     useEffect(() => {
         // Only auto-calculate if the user hasn't overridden the price
         if (isDirty && isAutoPrice) {
+             // Reconstruct full order items with correct prefixes for calculation
              const currentItems: OrderItem[] = [
                 ...miniItems.map(i => ({ name: i.name, quantity: Number(i.quantity) || 0 })),
-                ...fullSizeItems.map(i => ({ name: i.name, quantity: Number(i.quantity) || 0 })),
+                ...fullSizeItems.map(i => ({ name: `Full ${i.name}`, quantity: Number(i.quantity) || 0 })),
                 ...specialItems.map(i => ({ name: i.name, quantity: Number(i.quantity) || 0 })),
                 ...salsaItems.filter(s => s.checked).map(s => ({ name: s.name, quantity: Number(s.quantity) || 0 }))
             ];
@@ -385,9 +400,9 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
     const addItem = (type: 'mini' | 'full' | 'special') => {
         markDirty();
         let firstFlavor = 'Other';
-        if (type === 'mini') firstFlavor = standardMiniFlavors[0]?.name || 'Other';
-        else if (type === 'full') firstFlavor = standardFullFlavors[0]?.name || 'Full Other';
-        else firstFlavor = allSpecialFlavors[0]?.name || 'Other';
+        if (type === 'mini') firstFlavor = standardFlavors[0]?.name || 'Other';
+        else if (type === 'full') firstFlavor = standardFlavors[0]?.name || 'Other'; // Use standard list for full too
+        else firstFlavor = specialFlavors[0]?.name || 'Other';
 
         const newItem: FormOrderItem = { name: firstFlavor, quantity: 1 };
         
@@ -431,6 +446,8 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         const type = activePackageBuilder.itemType;
         const isSpecial = activePackageBuilder.isSpecial;
 
+        // Note: Items from PackageBuilder for Full Size do NOT have "Full " prefix yet.
+        // We add them as-is to the form state, and `handleSubmit` adds prefix.
         const formItems: FormOrderItem[] = items.map(i => ({ name: i.name, quantity: i.quantity }));
         
         // Consolidate with existing items
@@ -479,15 +496,21 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         e.preventDefault();
         
         const processItems = (items: FormOrderItem[], type: 'mini' | 'full' | 'special'): OrderItem[] => {
-            const otherOption = type === 'mini' ? 'Other' : type === 'full' ? 'Full Other' : 'Other';
             return items.map(item => {
                 let finalName = item.name;
                 if ((item.name === 'Other' || item.name === 'Full Other') && item.customName?.trim()) {
                     const customName = item.customName.trim();
                     // If adding new flavor, we default it to standard unless user goes to settings
                     onAddNewFlavor(customName, type === 'full' ? 'full' : 'mini'); 
-                    finalName = type === 'full' ? `Full ${customName}` : customName;
+                    finalName = customName;
                 }
+                
+                // IMPORTANT: If type is 'full', force prepend 'Full ' for backend/prep logic, unless already there.
+                // But wait, we used the clean names in the form.
+                if (type === 'full' && !finalName.startsWith('Full ')) {
+                    finalName = `Full ${finalName}`;
+                }
+
                 return { name: finalName, quantity: Number(item.quantity) || 0 };
             }).filter(item => item.quantity > 0);
         };
@@ -666,7 +689,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                         <ItemInputSection 
                             title="Mini Empanadas"
                             items={miniItems}
-                            flavors={standardMiniFlavors}
+                            flavors={standardFlavors}
                             onItemChange={(index, field, value) => handleItemChange('mini', index, field, value)}
                             onAddItem={() => addItem('mini')}
                             onRemoveItem={(index) => removeItem('mini', index)}
@@ -677,7 +700,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                         <ItemInputSection 
                             title="Full-Size Empanadas"
                             items={fullSizeItems}
-                            flavors={standardFullFlavors}
+                            flavors={standardFlavors} // Use same flavors for full size list
                             onItemChange={(index, field, value) => handleItemChange('full', index, field, value)}
                             onAddItem={() => addItem('full')}
                             onRemoveItem={(index) => removeItem('full', index)}
@@ -688,7 +711,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                         <ItemInputSection 
                             title="Party Platters & Specials"
                             items={specialItems}
-                            flavors={allSpecialFlavors}
+                            flavors={specialFlavors}
                             onItemChange={(index, field, value) => handleItemChange('special', index, field, value)}
                             onAddItem={() => addItem('special')}
                             onRemoveItem={(index) => removeItem('special', index)}
@@ -747,7 +770,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                 {activePackageBuilder && (
                     <PackageBuilderModal 
                         pkg={activePackageBuilder}
-                        flavors={activePackageBuilder.isSpecial ? allSpecialFlavors : (activePackageBuilder.itemType === 'mini' ? standardMiniFlavors : standardFullFlavors)}
+                        flavors={activePackageBuilder.isSpecial ? specialFlavors : standardFlavors}
                         onClose={() => setActivePackageBuilder(null)}
                         onConfirm={handlePackageConfirm}
                     />

@@ -13,8 +13,8 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
     const [activeTab, setActiveTab] = useState<'menu' | 'pricing' | 'prep' | 'costs'>('menu');
     
     // Local state for editing
+    // We only expose 'empanadaFlavors' (Mini) to the UI to serve as the master list.
     const [empanadaFlavors, setEmpanadaFlavors] = useState<Flavor[]>(settings.empanadaFlavors);
-    const [fullSizeEmpanadaFlavors, setFullSizeEmpanadaFlavors] = useState<Flavor[]>(settings.fullSizeEmpanadaFlavors);
     const [pricing, setPricing] = useState<PricingSettings>(settings.pricing);
     
     // Prep Settings State
@@ -31,11 +31,10 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
     const [materialCosts, setMaterialCosts] = useState<Record<string, number>>(settings.materialCosts || {});
     const [discoCosts, setDiscoCosts] = useState<{mini: number, full: number}>(settings.discoCosts || {mini: 0.1, full: 0.15});
 
-    const [newMiniFlavor, setNewMiniFlavor] = useState('');
-    const [newFullFlavor, setNewFullFlavor] = useState('');
+    const [newFlavorName, setNewFlavorName] = useState('');
     const [isSaving, setIsSaving] = useState(false);
 
-    // Package Form State (Used for both Add and Edit)
+    // Package Form State
     const [packageForm, setPackageForm] = useState<Partial<MenuPackage>>({
         itemType: 'mini',
         quantity: 12,
@@ -54,9 +53,17 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
 
     const handleSave = async () => {
         setIsSaving(true);
+        
+        // SYNC LOGIC: Reconstruct fullSizeEmpanadaFlavors based on the master empanadaFlavors list.
+        // This ensures that if "Beef" is added/removed/hidden, "Full Beef" is treated the same.
+        const syncedFullFlavors: Flavor[] = empanadaFlavors.map(f => ({
+            ...f,
+            name: `Full ${f.name}`, // Prepend "Full " for the backend system
+        }));
+
         await updateSettingsInDb({
             empanadaFlavors,
-            fullSizeEmpanadaFlavors,
+            fullSizeEmpanadaFlavors: syncedFullFlavors,
             pricing,
             prepSettings,
             laborWage,
@@ -67,73 +74,43 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
         onClose();
     };
 
-    // --- Menu Management Logic ---
-    const addFlavor = (type: 'mini' | 'full') => {
-        if (type === 'mini' && newMiniFlavor.trim()) {
-            setEmpanadaFlavors([...empanadaFlavors, { name: newMiniFlavor.trim(), visible: true, isSpecial: false }]);
-            setNewMiniFlavor('');
-        } else if (type === 'full' && newFullFlavor.trim()) {
-            setFullSizeEmpanadaFlavors([...fullSizeEmpanadaFlavors, { name: newFullFlavor.trim(), visible: true, isSpecial: false }]);
-            setNewFullFlavor('');
+    // --- Menu Management Logic (Unified) ---
+    const addFlavor = () => {
+        if (newFlavorName.trim()) {
+            const newFlavor: Flavor = { name: newFlavorName.trim(), visible: true, isSpecial: false };
+            setEmpanadaFlavors([...empanadaFlavors, newFlavor]);
+            setNewFlavorName('');
         }
     };
 
-    const toggleFlavorVisibility = (type: 'mini' | 'full', index: number) => {
-        if (type === 'mini') {
-            const updated = [...empanadaFlavors];
-            updated[index].visible = !updated[index].visible;
-            setEmpanadaFlavors(updated);
-        } else {
-            const updated = [...fullSizeEmpanadaFlavors];
-            updated[index].visible = !updated[index].visible;
-            setFullSizeEmpanadaFlavors(updated);
-        }
+    const toggleFlavorVisibility = (index: number) => {
+        const updated = [...empanadaFlavors];
+        updated[index].visible = !updated[index].visible;
+        setEmpanadaFlavors(updated);
     };
 
-    const toggleFlavorSpecial = (type: 'mini' | 'full', index: number) => {
-        if (type === 'mini') {
-            const updated = [...empanadaFlavors];
-            updated[index].isSpecial = !updated[index].isSpecial;
-            setEmpanadaFlavors(updated);
-        } else {
-            const updated = [...fullSizeEmpanadaFlavors];
-            updated[index].isSpecial = !updated[index].isSpecial;
-            setFullSizeEmpanadaFlavors(updated);
-        }
+    const toggleFlavorSpecial = (index: number) => {
+        const updated = [...empanadaFlavors];
+        updated[index].isSpecial = !updated[index].isSpecial;
+        setEmpanadaFlavors(updated);
     };
     
-    const updateFlavorDescription = (type: 'mini' | 'full', index: number, desc: string) => {
-        if (type === 'mini') {
-            const updated = [...empanadaFlavors];
-            updated[index].description = desc;
-            setEmpanadaFlavors(updated);
-        } else {
-            const updated = [...fullSizeEmpanadaFlavors];
-            updated[index].description = desc;
-            setFullSizeEmpanadaFlavors(updated);
-        }
+    const updateFlavorDescription = (index: number, desc: string) => {
+        const updated = [...empanadaFlavors];
+        updated[index].description = desc;
+        setEmpanadaFlavors(updated);
     };
 
-    const updateFlavorSurcharge = (type: 'mini' | 'full', index: number, val: string) => {
+    const updateFlavorSurcharge = (index: number, val: string) => {
         const num = parseFloat(val);
         const surcharge = isNaN(num) ? undefined : num;
-        if (type === 'mini') {
-            const updated = [...empanadaFlavors];
-            updated[index].surcharge = surcharge;
-            setEmpanadaFlavors(updated);
-        } else {
-            const updated = [...fullSizeEmpanadaFlavors];
-            updated[index].surcharge = surcharge;
-            setFullSizeEmpanadaFlavors(updated);
-        }
+        const updated = [...empanadaFlavors];
+        updated[index].surcharge = surcharge;
+        setEmpanadaFlavors(updated);
     };
 
-    const removeFlavor = (type: 'mini' | 'full', index: number) => {
-        if (type === 'mini') {
-            setEmpanadaFlavors(empanadaFlavors.filter((_, i) => i !== index));
-        } else {
-            setFullSizeEmpanadaFlavors(fullSizeEmpanadaFlavors.filter((_, i) => i !== index));
-        }
+    const removeFlavor = (index: number) => {
+        setEmpanadaFlavors(empanadaFlavors.filter((_, i) => i !== index));
     };
 
     // --- Package Management Logic ---
@@ -164,7 +141,6 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
             packages: updatedPackages
         });
         
-        // Reset form
         setPackageForm({
             itemType: 'mini',
             quantity: 12,
@@ -311,19 +287,21 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
 
                 <div className="overflow-y-auto p-6 flex-grow">
                     {activeTab === 'menu' && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            {/* Mini Flavors */}
+                        <div className="grid grid-cols-1 gap-8">
+                            {/* Unified Flavor Management */}
                             <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                                <h3 className="font-bold text-brand-brown mb-4">Mini Empanada Flavors</h3>
+                                <h3 className="font-bold text-brand-brown mb-4">Empanada Flavors</h3>
+                                <p className="text-sm text-gray-500 mb-4">These flavors will be available for both Mini and Full-Size empanadas.</p>
+                                
                                 <div className="flex gap-2 mb-4">
                                     <input 
                                         type="text" 
-                                        value={newMiniFlavor}
-                                        onChange={(e) => setNewMiniFlavor(e.target.value)}
+                                        value={newFlavorName}
+                                        onChange={(e) => setNewFlavorName(e.target.value)}
                                         placeholder="New flavor name"
                                         className="flex-grow rounded-md border-gray-300 shadow-sm focus:ring-brand-orange focus:border-brand-orange text-sm"
                                     />
-                                    <button onClick={() => addFlavor('mini')} className="bg-brand-orange text-white px-3 rounded-md hover:bg-opacity-90"><PlusIcon className="w-5 h-5" /></button>
+                                    <button onClick={addFlavor} className="bg-brand-orange text-white px-3 rounded-md hover:bg-opacity-90"><PlusIcon className="w-5 h-5" /></button>
                                 </div>
                                 <div className="space-y-2 max-h-96 overflow-y-auto">
                                     {empanadaFlavors.map((flavor, idx) => (
@@ -334,7 +312,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                                         <input 
                                                             type="checkbox" 
                                                             checked={flavor.visible} 
-                                                            onChange={() => toggleFlavorVisibility('mini', idx)}
+                                                            onChange={() => toggleFlavorVisibility(idx)}
                                                             className="rounded text-brand-orange focus:ring-brand-orange h-4 w-4"
                                                             title="Visible on customer menu"
                                                         />
@@ -344,14 +322,14 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                                         <input 
                                                             type="checkbox" 
                                                             checked={flavor.isSpecial || false} 
-                                                            onChange={() => toggleFlavorSpecial('mini', idx)}
+                                                            onChange={() => toggleFlavorSpecial(idx)}
                                                             className="rounded text-purple-600 focus:ring-purple-600 h-4 w-4"
                                                             title="Mark as Special Item/Platter Item"
                                                         />
                                                         <label className="text-xs text-purple-600 font-medium">Special?</label>
                                                     </div>
                                                 </div>
-                                                <button onClick={() => removeFlavor('mini', idx)} className="text-red-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button>
+                                                <button onClick={() => removeFlavor(idx)} className="text-red-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button>
                                             </div>
                                             
                                             <div className="mb-2">
@@ -363,7 +341,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                                     type="text" 
                                                     placeholder="Description (optional)"
                                                     value={flavor.description || ''}
-                                                    onChange={(e) => updateFlavorDescription('mini', idx, e.target.value)}
+                                                    onChange={(e) => updateFlavorDescription(idx, e.target.value)}
                                                     className="flex-grow text-xs border-gray-200 rounded focus:ring-brand-orange focus:border-brand-orange"
                                                 />
                                                 <div className="w-20 relative">
@@ -373,79 +351,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                                         step="0.05"
                                                         placeholder="Extra"
                                                         value={flavor.surcharge || ''}
-                                                        onChange={(e) => updateFlavorSurcharge('mini', idx, e.target.value)}
-                                                        className="w-full text-xs border-gray-200 rounded pl-6 focus:ring-brand-orange focus:border-brand-orange"
-                                                        title="Additional cost per unit"
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Full Size Flavors */}
-                            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                                <h3 className="font-bold text-brand-brown mb-4">Full-Size Empanada Flavors</h3>
-                                <div className="flex gap-2 mb-4">
-                                    <input 
-                                        type="text" 
-                                        value={newFullFlavor}
-                                        onChange={(e) => setNewFullFlavor(e.target.value)}
-                                        placeholder="New flavor name"
-                                        className="flex-grow rounded-md border-gray-300 shadow-sm focus:ring-brand-orange focus:border-brand-orange text-sm"
-                                    />
-                                    <button onClick={() => addFlavor('full')} className="bg-brand-orange text-white px-3 rounded-md hover:bg-opacity-90"><PlusIcon className="w-5 h-5" /></button>
-                                </div>
-                                <div className="space-y-2 max-h-96 overflow-y-auto">
-                                    {fullSizeEmpanadaFlavors.map((flavor, idx) => (
-                                        <div key={idx} className="bg-white p-2 rounded shadow-sm text-sm">
-                                            <div className="flex justify-between items-center mb-1">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="flex items-center gap-1">
-                                                        <input 
-                                                            type="checkbox" 
-                                                            checked={flavor.visible} 
-                                                            onChange={() => toggleFlavorVisibility('full', idx)}
-                                                            className="rounded text-brand-orange focus:ring-brand-orange h-4 w-4"
-                                                            title="Visible on customer menu"
-                                                        />
-                                                        <label className="text-xs text-gray-500">Visible</label>
-                                                    </div>
-                                                    <div className="flex items-center gap-1">
-                                                        <input 
-                                                            type="checkbox" 
-                                                            checked={flavor.isSpecial || false} 
-                                                            onChange={() => toggleFlavorSpecial('full', idx)}
-                                                            className="rounded text-purple-600 focus:ring-purple-600 h-4 w-4"
-                                                            title="Mark as Special Item/Platter Item"
-                                                        />
-                                                        <label className="text-xs text-purple-600 font-medium">Special?</label>
-                                                    </div>
-                                                </div>
-                                                <button onClick={() => removeFlavor('full', idx)} className="text-red-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button>
-                                            </div>
-
-                                            <div className="mb-2">
-                                                 <span className={`font-medium block ${!flavor.visible ? 'text-gray-400 line-through' : ''}`}>{flavor.name}</span>
-                                            </div>
-
-                                            <div className="flex gap-2">
-                                                <input 
-                                                    type="text" 
-                                                    placeholder="Description (optional)"
-                                                    value={flavor.description || ''}
-                                                    onChange={(e) => updateFlavorDescription('full', idx, e.target.value)}
-                                                    className="flex-grow text-xs border-gray-200 rounded focus:ring-brand-orange focus:border-brand-orange"
-                                                />
-                                                <div className="w-20 relative">
-                                                    <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-1.5"><span className="text-gray-400 text-xs">+ $</span></div>
-                                                    <input 
-                                                        type="number" 
-                                                        step="0.05"
-                                                        placeholder="Extra"
-                                                        value={flavor.surcharge || ''}
-                                                        onChange={(e) => updateFlavorSurcharge('full', idx, e.target.value)}
+                                                        onChange={(e) => updateFlavorSurcharge(idx, e.target.value)}
                                                         className="w-full text-xs border-gray-200 rounded pl-6 focus:ring-brand-orange focus:border-brand-orange"
                                                         title="Additional cost per unit"
                                                     />
