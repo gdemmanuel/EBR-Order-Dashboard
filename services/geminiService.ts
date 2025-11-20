@@ -37,55 +37,55 @@ const getApiKey = () => {
 const ai = new GoogleGenAI({ apiKey: getApiKey() });
 
 export async function generateFollowUpMessage(order: Order): Promise<string> {
-    const model = 'gemini-2.5-flash';
-    const itemsList = order.items.map(item => `- ${item.quantity} ${item.name}`).join('\n');
+  const model = 'gemini-2.5-flash';
+  const itemsList = order.items.map(item => `- ${item.quantity} ${item.name}`).join('\n');
+  
+  const prompt = `
+    You are the owner of "Empanadas by Rose". Generate a text message exactly following the template below.
+    Do not add any conversational filler before or after the template.
+    Do not use emojis.
 
-    const prompt = `
-        You are the owner of "Empanadas by Rose". Generate a text message exactly following the template below.
-        Do not add any conversational filler before or after the template.
-        Do not use emojis.
+    Order Details:
+    - Customer Name: ${order.customerName}
+    - Pickup/Delivery Date: ${order.pickupDate}
+    - Pickup Time: ${order.pickupTime}
+    - Items:
+    ${itemsList}
+    - Total Cost: ${order.amountCharged.toFixed(2)}
 
-        Order Details:
-        - Customer Name: ${order.customerName}
-        - Pickup/Delivery Date: ${order.pickupDate}
-        - Pickup Time: ${order.pickupTime}
-        - Items:
-        ${itemsList}
-        - Total Cost: ${order.amountCharged.toFixed(2)}
+    REQUIRED OUTPUT FORMAT:
+    Hi [Customer First Name],
 
-        REQUIRED OUTPUT FORMAT:
-        Hi [Customer First Name],
+    Just wanted to confirm your empanada order with us!
 
-        Just wanted to confirm your empanada order with us!
+    You've got a pickup scheduled for [Date] at [Time].
 
-        You've got a pickup scheduled for [Date] at [Time].
+    Here's a quick summary of your order:
+    [List of Items with bullets]
 
-        Here's a quick summary of your order:
-        [List of Items with bullets]
+    Your total cost for this order is $[Total]. Cash on pickup, please. Pick up address is: 27 Hastings Rd, Massapequa, NY
 
-        Your total cost for this order is $[Total]. Cash on pickup, please. Pick up address is: 27 Hastings Rd, Massapequa, NY
+    Please reply to this message to confirm everything looks correct.
 
-        Please reply to this message to confirm everything looks correct.
+    Thanks!
+  `;
+  
+  try {
+    const response = await ai.models.generateContent({
+        model: model,
+        contents: prompt
+    });
 
-        Thanks!
-    `;
-
-    try {
-        const response = await ai.models.generateContent({
-            model: model,
-            contents: prompt
-        });
-
-        const text = response.text;
-        if (text) {
-            return text.trim();
-        } else {
-            throw new Error("Received an empty response from the API.");
-        }
-    } catch (error) {
-        console.error("Error calling Gemini API:", error);
-        throw new Error("Failed to generate message from Gemini API.");
+    const text = response.text;
+    if (text) {
+        return text.trim();
+    } else {
+        throw new Error("Received an empty response from the API.");
     }
+  } catch (error) {
+    console.error("Error calling Gemini API:", error);
+    throw new Error("Failed to generate message from Gemini API.");
+  }
 }
 
 export async function generateOrderConfirmationMessage(order: Order): Promise<string> {

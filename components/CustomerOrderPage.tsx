@@ -266,8 +266,9 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
     const specialPackages = safePricing.packages?.filter(p => p.visible && p.isSpecial) || [];
     
     // Use empanadaFlavors (Mini) as source of truth for standard list
-    const standardFlavors = empanadaFlavors.filter(f => f.visible && !f.isSpecial);
-    const specialFlavors = empanadaFlavors.filter(f => f.visible && f.isSpecial);
+    // CHANGED: Now including Specials in the standard list so they appear in "Our Menu" and standard packages
+    const allVisibleFlavors = empanadaFlavors.filter(f => f.visible);
+    const specialFlavorsOnly = empanadaFlavors.filter(f => f.visible && f.isSpecial);
 
     return (
         <div className="min-h-screen bg-brand-cream">
@@ -290,10 +291,10 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                             <div>
                                 <h4 className="text-lg font-bold text-brand-orange uppercase tracking-wider mb-4 text-center sm:text-left">Empanada Flavors</h4>
                                 <div className="flex flex-wrap gap-3 justify-center sm:justify-start">
-                                    {standardFlavors.map(f => (
-                                        <div key={f.name} className="inline-flex flex-col items-center sm:items-start bg-brand-tan/20 border border-brand-tan/30 px-4 py-2 rounded-full hover:bg-brand-tan/40 transition-colors">
+                                    {allVisibleFlavors.map(f => (
+                                        <div key={f.name} className={`inline-flex flex-col items-center sm:items-start px-4 py-2 rounded-full transition-colors border ${f.isSpecial ? 'bg-purple-50 border-purple-100 hover:bg-purple-100' : 'bg-brand-tan/20 border-brand-tan/30 hover:bg-brand-tan/40'}`}>
                                             <div className="flex items-center gap-1">
-                                                <span className="font-semibold text-brand-brown text-sm">{f.name}</span>
+                                                <span className={`font-semibold text-sm ${f.isSpecial ? 'text-purple-900' : 'text-brand-brown'}`}>{f.name}</span>
                                                 {f.surcharge && <span className="text-[10px] font-bold text-brand-orange bg-white px-1.5 py-0.5 rounded-full shadow-sm">+${f.surcharge.toFixed(2)}</span>}
                                             </div>
                                             {f.description && <span className="text-[11px] text-gray-500">{f.description}</span>}
@@ -302,28 +303,6 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                                 </div>
                                 <p className="text-xs text-gray-500 mt-2 text-center sm:text-left">* Flavors available for both Mini and Full-Size empanadas.</p>
                             </div>
-
-                            {specialFlavors.length > 0 && (
-                                <details className="group">
-                                    <summary className="list-none cursor-pointer flex items-center gap-2 font-semibold text-purple-800 hover:text-purple-900 transition-colors">
-                                        <ChevronRightIcon className="w-4 h-4 transition-transform group-open:rotate-90" />
-                                        See Special Flavors & Platters
-                                    </summary>
-                                    <div className="mt-4 pl-4 animate-fade-in">
-                                        <div className="flex flex-wrap gap-3 justify-center sm:justify-start">
-                                            {specialFlavors.map(f => (
-                                                <div key={f.name} className="inline-flex flex-col items-center sm:items-start bg-purple-50 border border-purple-100 px-4 py-2 rounded-full hover:bg-purple-100 transition-colors">
-                                                    <div className="flex items-center gap-1">
-                                                        <span className="font-semibold text-purple-900 text-sm">{f.name}</span>
-                                                        {f.surcharge && <span className="text-[10px] font-bold text-brand-orange bg-white px-1.5 py-0.5 rounded-full shadow-sm">+${f.surcharge.toFixed(2)}</span>}
-                                                    </div>
-                                                    {f.description && <span className="text-[11px] text-gray-500">{f.description}</span>}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </details>
-                            )}
                         </div>
                     </section>
                     
@@ -535,10 +514,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                 {activePackageBuilder && (
                     <PackageBuilderModal 
                         pkg={activePackageBuilder}
-                        flavors={activePackageBuilder.isSpecial 
-                            ? empanadaFlavors.filter(f => f.isSpecial)
-                            : empanadaFlavors.filter(f => !f.isSpecial)
-                        }
+                        flavors={allVisibleFlavors}
                         onClose={() => setActivePackageBuilder(null)}
                         onConfirm={handlePackageConfirm}
                     />
