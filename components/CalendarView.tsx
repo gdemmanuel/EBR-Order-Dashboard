@@ -39,7 +39,13 @@ export default function CalendarView({ orders, onSelectOrder, onPrintSelected, o
         const map = new Map<string, string>();
         holidays.forEach(h => {
             // Key format: "MonthIndex-Day"
-            map.set(`${h.date.getMonth()}-${h.date.getDate()}`, h.name);
+            const key = `${h.date.getMonth()}-${h.date.getDate()}`;
+            if (map.has(key)) {
+                // Append if holiday already exists for this day
+                map.set(key, `${map.get(key)} / ${h.name}`);
+            } else {
+                map.set(key, h.name);
+            }
         });
         return map;
     }, [currentYear]);
