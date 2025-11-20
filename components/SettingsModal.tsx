@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { AppSettings, updateSettingsInDb } from '../services/dbService';
 import { PricingSettings, MenuPackage, Flavor, SalsaProduct } from '../types';
 import { XMarkIcon, PlusIcon, TrashIcon, CheckCircleIcon, CogIcon, PencilIcon, ScaleIcon, CurrencyDollarIcon, ClockIcon, SparklesIcon } from './icons/Icons';
+import { SUGGESTED_DESCRIPTIONS } from '../data/mockData';
 
 interface SettingsModalProps {
     settings: AppSettings;
@@ -81,6 +82,21 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
             setEmpanadaFlavors([...empanadaFlavors, newFlavor]);
             setNewFlavorName('');
         }
+    };
+
+    const autoFillDescriptions = () => {
+        const updated = empanadaFlavors.map(f => {
+            // Only update if description is missing
+            if (!f.description || f.description.trim() === '') {
+                const suggestion = SUGGESTED_DESCRIPTIONS[f.name];
+                if (suggestion) {
+                    return { ...f, description: suggestion };
+                }
+            }
+            return f;
+        });
+        setEmpanadaFlavors(updated);
+        alert('Descriptions populated! Click "Save All Changes" to apply.');
     };
 
     const toggleFlavorVisibility = (index: number) => {
@@ -290,8 +306,19 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                         <div className="grid grid-cols-1 gap-8">
                             {/* Unified Flavor Management */}
                             <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                                <h3 className="font-bold text-brand-brown mb-4">Empanada Flavors</h3>
-                                <p className="text-sm text-gray-500 mb-4">These flavors will be available for both Mini and Full-Size empanadas.</p>
+                                <div className="flex justify-between items-center mb-4">
+                                    <div>
+                                        <h3 className="font-bold text-brand-brown">Empanada Flavors</h3>
+                                        <p className="text-sm text-gray-500">Manage standard and special flavors.</p>
+                                    </div>
+                                    <button 
+                                        onClick={autoFillDescriptions} 
+                                        className="text-xs flex items-center gap-1 bg-blue-100 text-blue-800 px-2 py-1 rounded hover:bg-blue-200 transition-colors"
+                                        title="Automatically add descriptions to flavors that don't have one"
+                                    >
+                                        <SparklesIcon className="w-3 h-3" /> Auto-fill Descriptions
+                                    </button>
+                                </div>
                                 
                                 <div className="flex gap-2 mb-4">
                                     <input 
