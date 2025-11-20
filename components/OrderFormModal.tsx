@@ -45,10 +45,11 @@ const ItemInputSection: React.FC<{
     itemType: 'mini' | 'full';
     availablePackages?: MenuPackage[];
     onAddPackage: (pkg: MenuPackage) => void;
-}> = ({ title, items, flavors, onItemChange, onAddItem, onRemoveItem, itemType, availablePackages, onAddPackage }) => {
+    bgColor?: string;
+}> = ({ title, items, flavors, onItemChange, onAddItem, onRemoveItem, itemType, availablePackages, onAddPackage, bgColor = "bg-white" }) => {
     const otherOption = itemType === 'mini' ? 'Other' : 'Full Other';
     return (
-        <div>
+        <div className={`${bgColor} p-4 rounded-lg border border-brand-tan/50 shadow-sm`}>
             <div className="flex justify-between items-end mb-2">
                 <h3 className="text-lg font-semibold text-brand-brown/90">{title}</h3>
                 {availablePackages && availablePackages.length > 0 && (
@@ -136,6 +137,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
     const [customContactMethod, setCustomContactMethod] = useState('');
     const [miniItems, setMiniItems] = useState<FormOrderItem[]>([]);
     const [fullSizeItems, setFullSizeItems] = useState<FormOrderItem[]>([]);
+    const [specialItems, setSpecialItems] = useState<FormOrderItem[]>([]);
     const [salsaItems, setSalsaItems] = useState<DynamicSalsaState[]>([]);
     
     // Pricing State
@@ -159,6 +161,11 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
 
     // Package Builder State
     const [activePackageBuilder, setActivePackageBuilder] = useState<MenuPackage | null>(null);
+
+    // Filtered Flavor Lists
+    const standardMiniFlavors = empanadaFlavors.filter(f => !f.isSpecial);
+    const standardFullFlavors = fullSizeEmpanadaFlavors.filter(f => !f.isSpecial);
+    const allSpecialFlavors = [...empanadaFlavors.filter(f => f.isSpecial), ...fullSizeEmpanadaFlavors.filter(f => f.isSpecial)];
 
     // Initialize Salsas from pricing settings
     useEffect(() => {
@@ -184,6 +191,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         setCustomContactMethod('');
         setMiniItems([]);
         setFullSizeItems([]);
+        setSpecialItems([]);
         setAmountCharged(0);
         setIsAutoPrice(true);
         setDeliveryRequired(false);
@@ -229,12 +237,15 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         
         // Check if item matches any defined salsa
         const isSalsa = (name: string) => (pricing.salsas || []).some(s => name === s.name || name.includes(s.name));
+        const isSpecial = (name: string) => allSpecialFlavors.some(f => f.name === name);
         
-        const pMiniItems = items.filter(i => !i.name.startsWith('Full ') && !isSalsa(i.name));
-        const pFullItems = items.filter(i => i.name.startsWith('Full '));
+        const pMiniItems = items.filter(i => !i.name.startsWith('Full ') && !isSalsa(i.name) && !isSpecial(i.name));
+        const pFullItems = items.filter(i => i.name.startsWith('Full ') && !isSalsa(i.name) && !isSpecial(i.name));
+        const pSpecialItems = items.filter(i => !isSalsa(i.name) && isSpecial(i.name));
 
         setMiniItems(pMiniItems);
         setFullSizeItems(pFullItems);
+        setSpecialItems(pSpecialItems);
         
         setPaymentStatus((data as Order).paymentStatus || PaymentStatus.PENDING);
         setAmountCollected(data.amountCollected || 0);
@@ -316,13 +327,14 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
              const currentItems: OrderItem[] = [
                 ...miniItems.map(i => ({ name: i.name, quantity: Number(i.quantity) || 0 })),
                 ...fullSizeItems.map(i => ({ name: i.name, quantity: Number(i.quantity) || 0 })),
+                ...specialItems.map(i => ({ name: i.name, quantity: Number(i.quantity) || 0 })),
                 ...salsaItems.filter(s => s.checked).map(s => ({ name: s.name, quantity: Number(s.quantity) || 0 }))
             ];
             const currentFee = deliveryRequired ? (Number(deliveryFee) || 0) : 0;
             const newTotal = calculateOrderTotal(currentItems, currentFee, pricing, empanadaFlavors, fullSizeEmpanadaFlavors);
             setAmountCharged(newTotal);
         }
-    }, [miniItems, fullSizeItems, salsaItems, deliveryFee, deliveryRequired, pricing, isDirty, isAutoPrice, empanadaFlavors, fullSizeEmpanadaFlavors]);
+    }, [miniItems, fullSizeItems, specialItems, salsaItems, deliveryFee, deliveryRequired, pricing, isDirty, isAutoPrice, empanadaFlavors, fullSizeEmpanadaFlavors]);
 
     const markDirty = () => setIsDirty(true);
 
@@ -342,9 +354,15 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         }
     }, [amountCollected, amountCharged, pickupDate]);
     
-    const handleItemChange = (type: 'mini' | 'full', index: number, field: keyof FormOrderItem, value: string | number) => {
+    const handleItemChange = (type: 'mini' | 'full' | 'special', index: number, field: keyof FormOrderItem, value: string | number) => {
         markDirty();
-        const items = type === 'mini' ? miniItems : fullSizeItems;
+        let items: FormOrderItem[];
+        let updateFn: (i: FormOrderItem[]) => void;
+
+        if (type === 'mini') { items = miniItems; updateFn = setMiniItems; }
+        else if (type === 'full') { items = fullSizeItems; updateFn = setFullSizeItems; }
+        else { items = specialItems; updateFn = setSpecialItems; }
+
         const updatedItems = items.map((item, i) => {
             if (i === index) {
                 const updatedItem = { ...item };
@@ -361,26 +379,28 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
             }
             return item;
         });
-        if (type === 'mini') setMiniItems(updatedItems);
-        else setFullSizeItems(updatedItems);
+        updateFn(updatedItems);
     };
 
-    const addItem = (type: 'mini' | 'full') => {
+    const addItem = (type: 'mini' | 'full' | 'special') => {
         markDirty();
-        // Safely access the first flavor name
-        const firstFlavor = type === 'mini' 
-            ? (empanadaFlavors[0]?.name || 'Other')
-            : (fullSizeEmpanadaFlavors[0]?.name || 'Full Other');
-            
+        let firstFlavor = 'Other';
+        if (type === 'mini') firstFlavor = standardMiniFlavors[0]?.name || 'Other';
+        else if (type === 'full') firstFlavor = standardFullFlavors[0]?.name || 'Full Other';
+        else firstFlavor = allSpecialFlavors[0]?.name || 'Other';
+
         const newItem: FormOrderItem = { name: firstFlavor, quantity: 1 };
+        
         if (type === 'mini') setMiniItems([...miniItems, newItem]);
-        else setFullSizeItems([...fullSizeItems, newItem]);
+        else if (type === 'full') setFullSizeItems([...fullSizeItems, newItem]);
+        else setSpecialItems([...specialItems, newItem]);
     };
 
-    const removeItem = (type: 'mini' | 'full', index: number) => {
+    const removeItem = (type: 'mini' | 'full' | 'special', index: number) => {
         markDirty();
         if (type === 'mini') setMiniItems(miniItems.filter((_, i) => i !== index));
-        else setFullSizeItems(fullSizeItems.filter((_, i) => i !== index));
+        else if (type === 'full') setFullSizeItems(fullSizeItems.filter((_, i) => i !== index));
+        else setSpecialItems(specialItems.filter((_, i) => i !== index));
     };
 
     const handleSalsaChange = (index: number, field: keyof DynamicSalsaState, value: string | number | boolean) => {
@@ -409,10 +429,26 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         if (!activePackageBuilder) return;
         
         const type = activePackageBuilder.itemType;
+        const isSpecial = activePackageBuilder.isSpecial;
+
         const formItems: FormOrderItem[] = items.map(i => ({ name: i.name, quantity: i.quantity }));
         
         // Consolidate with existing items
-        const currentItems = type === 'mini' ? miniItems : fullSizeItems;
+        let currentItems: FormOrderItem[];
+        let updateFn: (i: FormOrderItem[]) => void;
+
+        // Route to correct list
+        if (isSpecial) {
+            currentItems = specialItems;
+            updateFn = setSpecialItems;
+        } else if (type === 'mini') {
+            currentItems = miniItems;
+            updateFn = setMiniItems;
+        } else {
+            currentItems = fullSizeItems;
+            updateFn = setFullSizeItems;
+        }
+
         const combinedItems = [...currentItems];
         
         formItems.forEach(newItem => {
@@ -425,9 +461,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
             }
         });
 
-        if (type === 'mini') setMiniItems(combinedItems);
-        else setFullSizeItems(combinedItems);
-        
+        updateFn(combinedItems);
         setActivePackageBuilder(null);
     };
     
@@ -444,13 +478,14 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         
-        const processItems = (items: FormOrderItem[], type: 'mini' | 'full'): OrderItem[] => {
-            const otherOption = type === 'mini' ? 'Other' : 'Full Other';
+        const processItems = (items: FormOrderItem[], type: 'mini' | 'full' | 'special'): OrderItem[] => {
+            const otherOption = type === 'mini' ? 'Other' : type === 'full' ? 'Full Other' : 'Other';
             return items.map(item => {
                 let finalName = item.name;
-                if (item.name === otherOption && item.customName?.trim()) {
+                if ((item.name === 'Other' || item.name === 'Full Other') && item.customName?.trim()) {
                     const customName = item.customName.trim();
-                    onAddNewFlavor(customName, type); 
+                    // If adding new flavor, we default it to standard unless user goes to settings
+                    onAddNewFlavor(customName, type === 'full' ? 'full' : 'mini'); 
                     finalName = type === 'full' ? `Full ${customName}` : customName;
                 }
                 return { name: finalName, quantity: Number(item.quantity) || 0 };
@@ -459,14 +494,17 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         
         const miniOrderItems = processItems(miniItems, 'mini');
         const fullSizeOrderItems = processItems(fullSizeItems, 'full');
-        const empanadaItems: OrderItem[] = [...miniOrderItems, ...fullSizeOrderItems];
+        const specialOrderItems = processItems(specialItems, 'special');
+        
+        const empanadaItems: OrderItem[] = [...miniOrderItems, ...fullSizeOrderItems, ...specialOrderItems];
         const salsaOrderItems: OrderItem[] = salsaItems
             .filter(salsa => salsa.checked && (Number(salsa.quantity) || 0) > 0)
             .map(salsa => ({ name: salsa.name, quantity: Number(salsa.quantity) || 0 }));
 
         const allItems = [...empanadaItems, ...salsaOrderItems];
-        const totalFullSize = fullSizeOrderItems.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
-        const totalMini = miniOrderItems.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+        
+        const finalTotalFull = allItems.filter(i => i.name.startsWith('Full ')).reduce((s, i) => s + i.quantity, 0);
+        const finalTotalMini = allItems.filter(i => !i.name.startsWith('Full ') && !pricing.salsas.some(s => i.name.includes(s.name))).reduce((s, i) => s + i.quantity, 0);
 
         const formattedDate = pickupDate ? `${pickupDate.split('-')[1]}/${pickupDate.split('-')[2]}/${pickupDate.split('-')[0]}` : '';
 
@@ -482,9 +520,6 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
 
         const finalContactMethod = contactMethod === 'Other' ? (customContactMethod.trim() || 'Other') : contactMethod;
         
-        // Calculate Cost Logic:
-        // We calculate cost now based on current settings and save it to the order.
-        // This ensures historical costs don't change if settings change later.
         const calculatedCost = calculateSupplyCost(allItems, settings);
 
         const orderData = {
@@ -496,8 +531,8 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
             items: allItems,
             amountCharged: Number(amountCharged),
             totalCost: calculatedCost, // Save cost snapshot
-            totalFullSize,
-            totalMini,
+            totalFullSize: finalTotalFull,
+            totalMini: finalTotalMini,
             deliveryRequired,
             deliveryFee: deliveryRequired ? (Number(deliveryFee) || 0) : 0,
             deliveryAddress: deliveryRequired ? deliveryAddress : null,
@@ -627,33 +662,41 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                         )}
                     </div>
 
-                    <div className="space-y-8 border-t border-brand-tan pt-6">
-                        <div className="bg-white p-4 rounded-lg border border-brand-tan/50 shadow-sm">
-                            <ItemInputSection 
-                                title="Mini Empanadas"
-                                items={miniItems}
-                                flavors={empanadaFlavors}
-                                onItemChange={(index, field, value) => handleItemChange('mini', index, field, value)}
-                                onAddItem={() => addItem('mini')}
-                                onRemoveItem={(index) => removeItem('mini', index)}
-                                itemType="mini"
-                                availablePackages={pricing.packages?.filter(p => p.itemType === 'mini')}
-                                onAddPackage={setActivePackageBuilder}
-                            />
-                        </div>
-                        <div className="bg-white p-4 rounded-lg border border-brand-tan/50 shadow-sm">
-                            <ItemInputSection 
-                                title="Full-Size Empanadas"
-                                items={fullSizeItems}
-                                flavors={fullSizeEmpanadaFlavors}
-                                onItemChange={(index, field, value) => handleItemChange('full', index, field, value)}
-                                onAddItem={() => addItem('full')}
-                                onRemoveItem={(index) => removeItem('full', index)}
-                                itemType="full"
-                                availablePackages={pricing.packages?.filter(p => p.itemType === 'full')}
-                                onAddPackage={setActivePackageBuilder}
-                            />
-                        </div>
+                    <div className="space-y-6 border-t border-brand-tan pt-6">
+                        <ItemInputSection 
+                            title="Mini Empanadas"
+                            items={miniItems}
+                            flavors={standardMiniFlavors}
+                            onItemChange={(index, field, value) => handleItemChange('mini', index, field, value)}
+                            onAddItem={() => addItem('mini')}
+                            onRemoveItem={(index) => removeItem('mini', index)}
+                            itemType="mini"
+                            availablePackages={pricing.packages?.filter(p => p.itemType === 'mini' && !p.isSpecial)}
+                            onAddPackage={setActivePackageBuilder}
+                        />
+                        <ItemInputSection 
+                            title="Full-Size Empanadas"
+                            items={fullSizeItems}
+                            flavors={standardFullFlavors}
+                            onItemChange={(index, field, value) => handleItemChange('full', index, field, value)}
+                            onAddItem={() => addItem('full')}
+                            onRemoveItem={(index) => removeItem('full', index)}
+                            itemType="full"
+                            availablePackages={pricing.packages?.filter(p => p.itemType === 'full' && !p.isSpecial)}
+                            onAddPackage={setActivePackageBuilder}
+                        />
+                        <ItemInputSection 
+                            title="Party Platters & Specials"
+                            items={specialItems}
+                            flavors={allSpecialFlavors}
+                            onItemChange={(index, field, value) => handleItemChange('special', index, field, value)}
+                            onAddItem={() => addItem('special')}
+                            onRemoveItem={(index) => removeItem('special', index)}
+                            itemType="mini" // Specials can be mini or full, but 'mini' satisfies the type constraint for itemType since we pass mixed flavors
+                            availablePackages={pricing.packages?.filter(p => p.isSpecial)}
+                            onAddPackage={setActivePackageBuilder}
+                            bgColor="bg-purple-50 border-purple-200"
+                        />
                     </div>
 
                     <div className="border-t border-brand-tan pt-4">
@@ -704,7 +747,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                 {activePackageBuilder && (
                     <PackageBuilderModal 
                         pkg={activePackageBuilder}
-                        flavors={activePackageBuilder.itemType === 'mini' ? empanadaFlavors : fullSizeEmpanadaFlavors}
+                        flavors={activePackageBuilder.isSpecial ? allSpecialFlavors : (activePackageBuilder.itemType === 'mini' ? standardMiniFlavors : standardFullFlavors)}
                         onClose={() => setActivePackageBuilder(null)}
                         onConfirm={handlePackageConfirm}
                     />

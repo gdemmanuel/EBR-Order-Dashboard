@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { AppSettings, updateSettingsInDb } from '../services/dbService';
 import { PricingSettings, MenuPackage, Flavor, SalsaProduct } from '../types';
-import { XMarkIcon, PlusIcon, TrashIcon, CheckCircleIcon, CogIcon, PencilIcon, ScaleIcon, CurrencyDollarIcon, ClockIcon } from './icons/Icons';
+import { XMarkIcon, PlusIcon, TrashIcon, CheckCircleIcon, CogIcon, PencilIcon, ScaleIcon, CurrencyDollarIcon, ClockIcon, SparklesIcon } from './icons/Icons';
 
 interface SettingsModalProps {
     settings: AppSettings;
@@ -43,6 +43,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
         maxFlavors: 4,
         increment: 1,
         visible: true,
+        isSpecial: false,
         name: ''
     });
     const [editingPackageId, setEditingPackageId] = useState<string | null>(null);
@@ -69,10 +70,10 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
     // --- Menu Management Logic ---
     const addFlavor = (type: 'mini' | 'full') => {
         if (type === 'mini' && newMiniFlavor.trim()) {
-            setEmpanadaFlavors([...empanadaFlavors, { name: newMiniFlavor.trim(), visible: true }]);
+            setEmpanadaFlavors([...empanadaFlavors, { name: newMiniFlavor.trim(), visible: true, isSpecial: false }]);
             setNewMiniFlavor('');
         } else if (type === 'full' && newFullFlavor.trim()) {
-            setFullSizeEmpanadaFlavors([...fullSizeEmpanadaFlavors, { name: newFullFlavor.trim(), visible: true }]);
+            setFullSizeEmpanadaFlavors([...fullSizeEmpanadaFlavors, { name: newFullFlavor.trim(), visible: true, isSpecial: false }]);
             setNewFullFlavor('');
         }
     };
@@ -85,6 +86,18 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
         } else {
             const updated = [...fullSizeEmpanadaFlavors];
             updated[index].visible = !updated[index].visible;
+            setFullSizeEmpanadaFlavors(updated);
+        }
+    };
+
+    const toggleFlavorSpecial = (type: 'mini' | 'full', index: number) => {
+        if (type === 'mini') {
+            const updated = [...empanadaFlavors];
+            updated[index].isSpecial = !updated[index].isSpecial;
+            setEmpanadaFlavors(updated);
+        } else {
+            const updated = [...fullSizeEmpanadaFlavors];
+            updated[index].isSpecial = !updated[index].isSpecial;
             setFullSizeEmpanadaFlavors(updated);
         }
     };
@@ -135,7 +148,8 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
             price: Number(packageForm.price),
             maxFlavors: Number(packageForm.maxFlavors) || Number(packageForm.quantity),
             increment: Number(packageForm.increment) || 1,
-            visible: packageForm.visible ?? true
+            visible: packageForm.visible ?? true,
+            isSpecial: packageForm.isSpecial ?? false
         };
 
         let updatedPackages = pricing.packages || [];
@@ -158,13 +172,14 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
             maxFlavors: 4,
             increment: 1,
             visible: true,
+            isSpecial: false,
             name: ''
         });
         setEditingPackageId(null);
     };
 
     const handleEditPackageClick = (pkg: MenuPackage) => {
-        setPackageForm({ ...pkg, increment: pkg.increment || 10 }); // Default to 10 for old packages to match legacy behavior
+        setPackageForm({ ...pkg, increment: pkg.increment || 10 }); 
         setEditingPackageId(pkg.id);
     };
 
@@ -182,6 +197,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                 maxFlavors: 4,
                 increment: 1,
                 visible: true,
+                isSpecial: false,
                 name: ''
             });
         }
@@ -304,17 +320,34 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                         <div key={idx} className="bg-white p-2 rounded shadow-sm text-sm">
                                             <div className="flex justify-between items-center mb-1">
                                                 <div className="flex items-center gap-3">
-                                                    <input 
-                                                        type="checkbox" 
-                                                        checked={flavor.visible} 
-                                                        onChange={() => toggleFlavorVisibility('mini', idx)}
-                                                        className="rounded text-brand-orange focus:ring-brand-orange"
-                                                        title="Visible on customer menu"
-                                                    />
-                                                    <span className={`font-medium ${!flavor.visible ? 'text-gray-400 line-through' : ''}`}>{flavor.name}</span>
+                                                    <div className="flex items-center gap-1">
+                                                        <input 
+                                                            type="checkbox" 
+                                                            checked={flavor.visible} 
+                                                            onChange={() => toggleFlavorVisibility('mini', idx)}
+                                                            className="rounded text-brand-orange focus:ring-brand-orange h-4 w-4"
+                                                            title="Visible on customer menu"
+                                                        />
+                                                        <label className="text-xs text-gray-500">Visible</label>
+                                                    </div>
+                                                    <div className="flex items-center gap-1">
+                                                        <input 
+                                                            type="checkbox" 
+                                                            checked={flavor.isSpecial || false} 
+                                                            onChange={() => toggleFlavorSpecial('mini', idx)}
+                                                            className="rounded text-purple-600 focus:ring-purple-600 h-4 w-4"
+                                                            title="Mark as Special Item/Platter Item"
+                                                        />
+                                                        <label className="text-xs text-purple-600 font-medium">Special?</label>
+                                                    </div>
                                                 </div>
                                                 <button onClick={() => removeFlavor('mini', idx)} className="text-red-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button>
                                             </div>
+                                            
+                                            <div className="mb-2">
+                                                <span className={`font-medium block ${!flavor.visible ? 'text-gray-400 line-through' : ''}`}>{flavor.name}</span>
+                                            </div>
+
                                             <div className="flex gap-2">
                                                 <input 
                                                     type="text" 
@@ -359,17 +392,34 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                         <div key={idx} className="bg-white p-2 rounded shadow-sm text-sm">
                                             <div className="flex justify-between items-center mb-1">
                                                 <div className="flex items-center gap-3">
-                                                    <input 
-                                                        type="checkbox" 
-                                                        checked={flavor.visible} 
-                                                        onChange={() => toggleFlavorVisibility('full', idx)}
-                                                        className="rounded text-brand-orange focus:ring-brand-orange"
-                                                        title="Visible on customer menu"
-                                                    />
-                                                    <span className={`font-medium ${!flavor.visible ? 'text-gray-400 line-through' : ''}`}>{flavor.name}</span>
+                                                    <div className="flex items-center gap-1">
+                                                        <input 
+                                                            type="checkbox" 
+                                                            checked={flavor.visible} 
+                                                            onChange={() => toggleFlavorVisibility('full', idx)}
+                                                            className="rounded text-brand-orange focus:ring-brand-orange h-4 w-4"
+                                                            title="Visible on customer menu"
+                                                        />
+                                                        <label className="text-xs text-gray-500">Visible</label>
+                                                    </div>
+                                                    <div className="flex items-center gap-1">
+                                                        <input 
+                                                            type="checkbox" 
+                                                            checked={flavor.isSpecial || false} 
+                                                            onChange={() => toggleFlavorSpecial('full', idx)}
+                                                            className="rounded text-purple-600 focus:ring-purple-600 h-4 w-4"
+                                                            title="Mark as Special Item/Platter Item"
+                                                        />
+                                                        <label className="text-xs text-purple-600 font-medium">Special?</label>
+                                                    </div>
                                                 </div>
                                                 <button onClick={() => removeFlavor('full', idx)} className="text-red-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button>
                                             </div>
+
+                                            <div className="mb-2">
+                                                 <span className={`font-medium block ${!flavor.visible ? 'text-gray-400 line-through' : ''}`}>{flavor.name}</span>
+                                            </div>
+
                                             <div className="flex gap-2">
                                                 <input 
                                                     type="text" 
@@ -406,7 +456,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                 <p className="text-sm text-gray-600 mb-4">Define standard packages for your customers (e.g., "Dozen Minis").</p>
                                 
                                 {/* Add/Edit Package Form */}
-                                <div className={`grid grid-cols-1 md:grid-cols-7 gap-3 rounded-md mb-6 items-end border p-4 ${editingPackageId ? 'bg-amber-50 border-amber-200' : 'bg-gray-50 border-gray-200'}`}>
+                                <div className={`grid grid-cols-1 md:grid-cols-8 gap-3 rounded-md mb-6 items-end border p-4 ${editingPackageId ? 'bg-amber-50 border-amber-200' : 'bg-gray-50 border-gray-200'}`}>
                                     <div className="md:col-span-2">
                                         <label className="block text-xs font-medium text-gray-700 mb-1">Name</label>
                                         <input type="text" placeholder="e.g. Party Platter" value={packageForm.name} onChange={e => setPackageForm({...packageForm, name: e.target.value})} className="w-full text-sm rounded border-gray-300" />
@@ -434,9 +484,20 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                         <label className="block text-xs font-medium text-gray-700 mb-1" title="Minimum per flavor / Step size">Increment</label>
                                         <input type="number" placeholder="1" value={packageForm.increment} onChange={e => setPackageForm({...packageForm, increment: Number(e.target.value)})} className="w-full text-sm rounded border-gray-300" />
                                     </div>
-                                    <div className="md:col-span-7 flex justify-end mt-2 gap-2">
+                                     <div className="flex items-center justify-center pb-2">
+                                        <div className="flex flex-col items-center">
+                                            <label className="block text-xs font-medium text-purple-600 mb-1">Special?</label>
+                                            <input 
+                                                type="checkbox" 
+                                                checked={packageForm.isSpecial || false} 
+                                                onChange={e => setPackageForm({...packageForm, isSpecial: e.target.checked})} 
+                                                className="rounded text-purple-600 focus:ring-purple-600 h-4 w-4" 
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="md:col-span-8 flex justify-end mt-2 gap-2">
                                         {editingPackageId && (
-                                            <button onClick={() => { setEditingPackageId(null); setPackageForm({ itemType: 'mini', quantity: 12, price: 20, maxFlavors: 4, increment: 1, visible: true, name: '' }); }} className="text-sm text-gray-500 hover:underline mr-2">Cancel Edit</button>
+                                            <button onClick={() => { setEditingPackageId(null); setPackageForm({ itemType: 'mini', quantity: 12, price: 20, maxFlavors: 4, increment: 1, visible: true, isSpecial: false, name: '' }); }} className="text-sm text-gray-500 hover:underline mr-2">Cancel Edit</button>
                                         )}
                                         <button onClick={handleAddOrUpdatePackage} className={`flex items-center gap-2 text-white px-4 py-2 rounded text-sm font-semibold hover:bg-opacity-90 ${editingPackageId ? 'bg-amber-600' : 'bg-brand-orange'}`}>
                                             {editingPackageId ? <><CheckCircleIcon className="w-4 h-4"/> Update Package</> : <><PlusIcon className="w-4 h-4" /> Add Package</>}
@@ -457,7 +518,10 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                                     title="Visible to customers"
                                                 />
                                                 <div>
-                                                    <p className="font-bold text-brand-brown">{pkg.name}</p>
+                                                    <div className="flex items-center gap-2">
+                                                        <p className="font-bold text-brand-brown">{pkg.name}</p>
+                                                        {pkg.isSpecial && <span className="bg-purple-100 text-purple-800 text-[10px] font-bold px-1.5 py-0.5 rounded">SPECIAL</span>}
+                                                    </div>
                                                     <p className="text-xs text-gray-500">
                                                         {pkg.quantity} {pkg.itemType === 'mini' ? 'Minis' : 'Full-Size'} • Max {pkg.maxFlavors} flavors • Step {pkg.increment || 10}
                                                     </p>
@@ -661,7 +725,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                     {empanadaFlavors.map((flavor) => (
                                         <div key={flavor.name} className="border rounded-md p-3 bg-gray-50">
-                                            <label className="block text-xs font-bold text-gray-700 mb-1 truncate" title={flavor.name}>{flavor.name}</label>
+                                            <label className="block text-xs font-bold text-gray-700 truncate" title={flavor.name}>{flavor.name}</label>
                                             <div className="flex items-center gap-2">
                                                 <input 
                                                     type="number" 

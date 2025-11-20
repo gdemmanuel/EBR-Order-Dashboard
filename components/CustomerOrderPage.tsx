@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { saveOrderToDb } from '../services/dbService';
 import { Order, OrderItem, PaymentStatus, FollowUpStatus, ApprovalStatus, PricingSettings, Flavor, MenuPackage, SalsaProduct } from '../types';
 import { SalsaSize } from '../config';
-import { TrashIcon, CheckCircleIcon } from './icons/Icons';
+import { TrashIcon, CheckCircleIcon, StarIcon } from './icons/Icons';
 import Header from './Header';
 import PackageBuilderModal from './PackageBuilderModal';
 
@@ -251,6 +251,18 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
             </div>
         );
     }
+    
+    // Filter Logic
+    const miniPackages = safePricing.packages?.filter(p => p.itemType === 'mini' && p.visible && !p.isSpecial) || [];
+    const fullPackages = safePricing.packages?.filter(p => p.itemType === 'full' && p.visible && !p.isSpecial) || [];
+    const specialPackages = safePricing.packages?.filter(p => p.visible && p.isSpecial) || [];
+    
+    const miniFlavors = empanadaFlavors.filter(f => f.visible && !f.isSpecial);
+    const fullFlavors = fullSizeEmpanadaFlavors.filter(f => f.visible && !f.isSpecial);
+    const specialFlavors = [
+        ...empanadaFlavors.filter(f => f.visible && f.isSpecial),
+        ...fullSizeEmpanadaFlavors.filter(f => f.visible && f.isSpecial)
+    ];
 
     return (
         <div className="min-h-screen bg-brand-cream">
@@ -264,16 +276,17 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-8">
-                    {/* Step 1: Packages */}
+                    
+                    {/* --- Section 1: Mini Empanadas --- */}
                     <section className="bg-white p-6 rounded-xl shadow-sm border border-brand-tan">
-                        <h3 className="text-xl font-serif text-brand-brown mb-4 border-b border-brand-tan pb-2">1. Choose Your Package</h3>
+                        <h3 className="text-xl font-serif text-brand-brown mb-4 border-b border-brand-tan pb-2">1. Mini Empanadas</h3>
                         
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-                            {safePricing.packages?.filter(p => p.visible).map(pkg => (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                            {miniPackages.map(pkg => (
                                 <div key={pkg.id} className="border border-brand-tan rounded-lg p-4 hover:shadow-md transition-shadow bg-brand-cream/30 flex flex-col justify-between">
                                     <div>
                                         <h4 className="font-bold text-brand-brown text-lg">{pkg.name}</h4>
-                                        <p className="text-sm text-gray-600 mb-2">{pkg.quantity} {pkg.itemType === 'mini' ? 'Mini' : 'Full-Size'} Empanadas</p>
+                                        <p className="text-sm text-gray-600 mb-2">{pkg.quantity} Mini Empanadas</p>
                                         <p className="text-xs text-gray-500">Select up to {pkg.maxFlavors} flavors</p>
                                     </div>
                                     <div className="mt-4 flex items-center justify-between">
@@ -288,18 +301,14 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                                     </div>
                                 </div>
                             ))}
-                            {(!safePricing.packages || safePricing.packages.filter(p => p.visible).length === 0) && (
-                                <div className="col-span-2 text-center py-8 text-gray-500">
-                                    No packages available at the moment.
-                                </div>
-                            )}
+                             {miniPackages.length === 0 && <p className="col-span-2 text-sm text-gray-500 italic">No mini packages available.</p>}
                         </div>
 
-                        {/* Flavors Preview */}
-                         <div className="mb-4">
+                        {/* Mini Flavor Preview */}
+                         <div className="mb-2">
                              <p className="text-sm font-semibold text-brand-brown mb-2">Available Mini Flavors:</p>
-                             <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs mb-4">
-                                 {empanadaFlavors.filter(f => f.visible).map(f => (
+                             <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+                                 {miniFlavors.map(f => (
                                      <div key={f.name} className="p-2 bg-gray-50 rounded border border-gray-100">
                                          <div className="flex justify-between items-start">
                                              <span className="font-medium block text-brand-brown">{f.name}</span>
@@ -309,52 +318,132 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                                      </div>
                                  ))}
                              </div>
-
-                             {fullSizeEmpanadaFlavors.filter(f => f.visible).length > 0 && (
-                                 <>
-                                     <p className="text-sm font-semibold text-brand-brown mb-2">Available Full-Size Flavors:</p>
-                                     <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
-                                         {fullSizeEmpanadaFlavors.filter(f => f.visible).map(f => (
-                                             <div key={f.name} className="p-2 bg-gray-50 rounded border border-gray-100">
-                                                 <div className="flex justify-between items-start">
-                                                     <span className="font-medium block text-brand-brown">{f.name}</span>
-                                                     {f.surcharge && <span className="bg-brand-orange/10 text-brand-orange px-1 rounded text-[10px] font-bold">+${f.surcharge.toFixed(2)}</span>}
-                                                 </div>
-                                                 {f.description && <span className="text-gray-500 mt-1 block leading-tight">{f.description}</span>}
-                                             </div>
-                                         ))}
-                                     </div>
-                                 </>
-                             )}
                          </div>
+                    </section>
+                    
+                    {/* --- Section 2: Full-Size Empanadas --- */}
+                    <section className="bg-white p-6 rounded-xl shadow-sm border border-brand-tan">
+                        <h3 className="text-xl font-serif text-brand-brown mb-4 border-b border-brand-tan pb-2">2. Full-Size Empanadas</h3>
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                            {fullPackages.map(pkg => (
+                                <div key={pkg.id} className="border border-brand-tan rounded-lg p-4 hover:shadow-md transition-shadow bg-brand-cream/30 flex flex-col justify-between">
+                                    <div>
+                                        <h4 className="font-bold text-brand-brown text-lg">{pkg.name}</h4>
+                                        <p className="text-sm text-gray-600 mb-2">{pkg.quantity} Full-Size Empanadas</p>
+                                        <p className="text-xs text-gray-500">Select up to {pkg.maxFlavors} flavors</p>
+                                    </div>
+                                    <div className="mt-4 flex items-center justify-between">
+                                        <span className="font-bold text-xl text-brand-orange">${pkg.price.toFixed(2)}</span>
+                                        <button 
+                                            type="button"
+                                            onClick={() => openPackageBuilder(pkg)}
+                                            className="bg-brand-brown text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-opacity-90 transition-colors"
+                                        >
+                                            Select
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                            {fullPackages.length === 0 && <p className="col-span-2 text-sm text-gray-500 italic">No full-size packages available.</p>}
+                        </div>
 
-                        {/* Cart Summary */}
-                        {cartPackages.length > 0 && (
-                            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                                <h4 className="font-bold text-brand-brown mb-3">Your Selections</h4>
-                                <div className="space-y-3">
-                                    {cartPackages.map((item, idx) => (
-                                        <div key={item.id} className="flex justify-between items-start bg-white p-3 rounded border border-gray-200">
+                        {/* Full Flavor Preview */}
+                         <div className="mb-2">
+                             <p className="text-sm font-semibold text-brand-brown mb-2">Available Full-Size Flavors:</p>
+                             <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+                                 {fullFlavors.map(f => (
+                                     <div key={f.name} className="p-2 bg-gray-50 rounded border border-gray-100">
+                                         <div className="flex justify-between items-start">
+                                             <span className="font-medium block text-brand-brown">{f.name}</span>
+                                             {f.surcharge && <span className="bg-brand-orange/10 text-brand-orange px-1 rounded text-[10px] font-bold">+${f.surcharge.toFixed(2)}</span>}
+                                         </div>
+                                         {f.description && <span className="text-gray-500 mt-1 block leading-tight">{f.description}</span>}
+                                     </div>
+                                 ))}
+                             </div>
+                         </div>
+                    </section>
+
+                     {/* --- Section 3: Party Platters & Specials --- */}
+                     {(specialPackages.length > 0 || specialFlavors.length > 0) && (
+                        <section className="bg-purple-50 p-6 rounded-xl shadow-sm border border-purple-200">
+                            <div className="flex items-center gap-2 mb-4 border-b border-purple-200 pb-2">
+                                <StarIcon className="w-5 h-5 text-purple-600" />
+                                <h3 className="text-xl font-serif text-purple-900">3. Party Platters & Specials</h3>
+                            </div>
+                            
+                            {/* Special Packages */}
+                            {specialPackages.length > 0 && (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                                    {specialPackages.map(pkg => (
+                                        <div key={pkg.id} className="border border-purple-200 rounded-lg p-4 hover:shadow-md transition-shadow bg-white flex flex-col justify-between">
                                             <div>
-                                                <p className="font-bold text-brand-brown">{item.name}</p>
-                                                <p className="text-xs text-gray-500">
-                                                    {item.items.map(i => `${i.quantity} ${i.name}`).join(', ')}
-                                                </p>
+                                                <h4 className="font-bold text-purple-900 text-lg">{pkg.name}</h4>
+                                                <p className="text-sm text-gray-600 mb-2">{pkg.quantity} {pkg.itemType === 'mini' ? 'Mini' : 'Full-Size'} Items</p>
+                                                <p className="text-xs text-purple-600 font-medium">Special Item</p>
                                             </div>
-                                            <div className="flex items-center gap-3">
-                                                <span className="font-medium">${item.price.toFixed(2)}</span>
-                                                <button type="button" onClick={() => removeCartPackage(item.id)} className="text-red-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button>
+                                            <div className="mt-4 flex items-center justify-between">
+                                                <span className="font-bold text-xl text-brand-orange">${pkg.price.toFixed(2)}</span>
+                                                <button 
+                                                    type="button"
+                                                    onClick={() => openPackageBuilder(pkg)}
+                                                    className="bg-purple-700 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-purple-800 transition-colors"
+                                                >
+                                                    Select
+                                                </button>
                                             </div>
                                         </div>
                                     ))}
                                 </div>
-                            </div>
-                        )}
-                    </section>
+                            )}
 
-                    {/* Step 2: Salsas */}
+                            {/* Special Flavors Preview */}
+                            {specialFlavors.length > 0 && (
+                                <div className="mb-2">
+                                    <p className="text-sm font-semibold text-purple-900 mb-2">Available Special Items:</p>
+                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+                                        {specialFlavors.map(f => (
+                                            <div key={f.name} className="p-2 bg-white rounded border border-purple-100">
+                                                <div className="flex justify-between items-start">
+                                                    <span className="font-medium block text-purple-900">{f.name}</span>
+                                                    {f.surcharge && <span className="bg-brand-orange/10 text-brand-orange px-1 rounded text-[10px] font-bold">+${f.surcharge.toFixed(2)}</span>}
+                                                </div>
+                                                {f.description && <span className="text-gray-500 mt-1 block leading-tight">{f.description}</span>}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </section>
+                     )}
+
+                    {/* Cart Summary */}
+                    {cartPackages.length > 0 && (
+                        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                            <h4 className="font-bold text-brand-brown mb-3">Your Selections</h4>
+                            <div className="space-y-3">
+                                {cartPackages.map((item, idx) => (
+                                    <div key={item.id} className="flex justify-between items-start bg-white p-3 rounded border border-gray-200">
+                                        <div>
+                                            <p className="font-bold text-brand-brown">{item.name}</p>
+                                            <p className="text-xs text-gray-500">
+                                                {item.items.map(i => `${i.quantity} ${i.name}`).join(', ')}
+                                            </p>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <span className="font-medium">${item.price.toFixed(2)}</span>
+                                            <button type="button" onClick={() => removeCartPackage(item.id)} className="text-red-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Step 4: Salsas */}
                     <section className="bg-white p-6 rounded-xl shadow-sm border border-brand-tan">
-                        <h3 className="text-xl font-serif text-brand-brown mb-4 border-b border-brand-tan pb-2">2. Add Salsa & Extras (Optional)</h3>
+                        <h3 className="text-xl font-serif text-brand-brown mb-4 border-b border-brand-tan pb-2">4. Add Salsa & Extras (Optional)</h3>
                         <div className="space-y-2">
                             {salsaItems.length > 0 ? (
                                 salsaItems.map((salsa, idx) => (
@@ -377,9 +466,9 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                         </div>
                     </section>
 
-                    {/* Step 3: Info */}
+                    {/* Step 5: Info */}
                     <section className="bg-white p-6 rounded-xl shadow-sm border border-brand-tan">
-                        <h3 className="text-xl font-serif text-brand-brown mb-4 border-b border-brand-tan pb-2">3. Your Information</h3>
+                        <h3 className="text-xl font-serif text-brand-brown mb-4 border-b border-brand-tan pb-2">5. Your Information</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="md:col-span-2">
                                 <label className="block text-sm font-medium text-brand-brown/80 mb-1">Full Name</label>
