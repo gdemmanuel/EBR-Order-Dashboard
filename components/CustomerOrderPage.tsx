@@ -266,9 +266,11 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
     const specialPackages = safePricing.packages?.filter(p => p.visible && p.isSpecial) || [];
     
     // Use empanadaFlavors (Mini) as source of truth for standard list
-    // CHANGED: Now including Specials in the standard list so they appear in "Our Menu" and standard packages
     const allVisibleFlavors = empanadaFlavors.filter(f => f.visible);
-    const specialFlavorsOnly = empanadaFlavors.filter(f => f.visible && f.isSpecial);
+    
+    // Separate Standard vs Special for the display list
+    const standardFlavors = allVisibleFlavors.filter(f => !f.isSpecial);
+    const specialFlavors = allVisibleFlavors.filter(f => f.isSpecial);
 
     return (
         <div className="min-h-screen bg-brand-cream">
@@ -288,21 +290,44 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                         <h3 className="text-2xl font-serif text-brand-brown mb-6 text-center">Our Menu</h3>
                         
                         <div className="space-y-8">
+                            {/* Standard Flavors Grid */}
                             <div>
                                 <h4 className="text-lg font-bold text-brand-orange uppercase tracking-wider mb-4 text-center sm:text-left">Empanada Flavors</h4>
-                                <div className="flex flex-wrap gap-3 justify-center sm:justify-start">
-                                    {allVisibleFlavors.map(f => (
-                                        <div key={f.name} className={`inline-flex flex-col items-center sm:items-start px-4 py-2 rounded-full transition-colors border ${f.isSpecial ? 'bg-purple-50 border-purple-100 hover:bg-purple-100' : 'bg-brand-tan/20 border-brand-tan/30 hover:bg-brand-tan/40'}`}>
-                                            <div className="flex items-center gap-1">
-                                                <span className={`font-semibold text-sm ${f.isSpecial ? 'text-purple-900' : 'text-brand-brown'}`}>{f.name}</span>
-                                                {f.surcharge && <span className="text-[10px] font-bold text-brand-orange bg-white px-1.5 py-0.5 rounded-full shadow-sm">+${f.surcharge.toFixed(2)}</span>}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                                    {standardFlavors.map(f => (
+                                        <div key={f.name} className="p-3 border-b border-brand-tan/50 sm:border sm:rounded-lg sm:bg-brand-cream/20 hover:bg-brand-cream/40 transition-colors">
+                                            <div className="flex justify-between items-baseline">
+                                                <span className="font-bold text-brand-brown text-sm">{f.name}</span>
                                             </div>
-                                            {f.description && <span className="text-[11px] text-gray-500">{f.description}</span>}
+                                            {f.description && <p className="text-xs text-gray-500 mt-1 leading-tight">{f.description}</p>}
                                         </div>
                                     ))}
                                 </div>
-                                <p className="text-xs text-gray-500 mt-2 text-center sm:text-left">* Flavors available for both Mini and Full-Size empanadas.</p>
+                                <p className="text-xs text-gray-500 mt-4 text-center sm:text-left">* Flavors available for both Mini and Full-Size empanadas.</p>
                             </div>
+
+                            {/* Special Flavors Dropdown */}
+                            {specialFlavors.length > 0 && (
+                                <details className="group bg-purple-50 rounded-lg border border-purple-100 overflow-hidden">
+                                    <summary className="list-none cursor-pointer flex items-center justify-between p-4 font-semibold text-purple-900 hover:bg-purple-100 transition-colors">
+                                        <div className="flex items-center gap-2">
+                                            <StarIcon className="w-5 h-5 text-purple-600" />
+                                            <span>Specialty Flavors & Platters</span>
+                                        </div>
+                                        <ChevronRightIcon className="w-5 h-5 transition-transform group-open:rotate-90 text-purple-400" />
+                                    </summary>
+                                    <div className="p-4 border-t border-purple-100 animate-fade-in">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                                            {specialFlavors.map(f => (
+                                                <div key={f.name} className="p-3 bg-white rounded-lg border border-purple-100 shadow-sm">
+                                                    <div className="font-bold text-purple-900 text-sm">{f.name}</div>
+                                                    {f.description && <p className="text-xs text-gray-500 mt-1 leading-tight">{f.description}</p>}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </details>
+                            )}
                         </div>
                     </section>
                     
