@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { Order } from '../types';
 
@@ -36,42 +37,55 @@ const getApiKey = () => {
 const ai = new GoogleGenAI({ apiKey: getApiKey() });
 
 export async function generateFollowUpMessage(order: Order): Promise<string> {
-  const model = 'gemini-2.5-flash';
+    const model = 'gemini-2.5-flash';
+    const itemsList = order.items.map(item => `- ${item.quantity} ${item.name}`).join('\n');
 
-  const itemsList = order.items.map(item => `${item.quantity} ${item.name}`).join(', ');
-  
-  const prompt = `
-    You are a friendly business owner of an empanada shop.
-    Generate a short, friendly, and casual follow-up message for a customer via SMS or a messaging app.
-    Do not use emojis. Keep it concise, around 2-3 sentences.
-    
-    Here is the customer and order information:
-    - Customer Name: ${order.customerName}
-    - Items Ordered: ${itemsList}
-    
-    The message should:
-    1. Greet the customer by their first name (if their name is "John Doe", use "John").
-    2. Mention their recent empanada order.
-    3. Ask if they enjoyed everything.
-    4. Thank them for their business.
-  `;
-  
-  try {
-    const response = await ai.models.generateContent({
-        model: model,
-        contents: prompt
-    });
+    const prompt = `
+        You are the owner of "Empanadas by Rose". Generate a text message exactly following the template below.
+        Do not add any conversational filler before or after the template.
+        Do not use emojis.
 
-    const text = response.text;
-    if (text) {
-        return text.trim();
-    } else {
-        throw new Error("Received an empty response from the API.");
+        Order Details:
+        - Customer Name: ${order.customerName}
+        - Pickup/Delivery Date: ${order.pickupDate}
+        - Pickup Time: ${order.pickupTime}
+        - Items:
+        ${itemsList}
+        - Total Cost: ${order.amountCharged.toFixed(2)}
+
+        REQUIRED OUTPUT FORMAT:
+        Hi [Customer First Name],
+
+        Just wanted to confirm your empanada order with us!
+
+        You've got a pickup scheduled for [Date] at [Time].
+
+        Here's a quick summary of your order:
+        [List of Items with bullets]
+
+        Your total cost for this order is $[Total]. Cash on pickup, please. Pick up address is: 27 Hastings Rd, Massapequa, NY
+
+        Please reply to this message to confirm everything looks correct.
+
+        Thanks!
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: model,
+            contents: prompt
+        });
+
+        const text = response.text;
+        if (text) {
+            return text.trim();
+        } else {
+            throw new Error("Received an empty response from the API.");
+        }
+    } catch (error) {
+        console.error("Error calling Gemini API:", error);
+        throw new Error("Failed to generate message from Gemini API.");
     }
-  } catch (error) {
-    console.error("Error calling Gemini API:", error);
-    throw new Error("Failed to generate message from Gemini API.");
-  }
 }
 
 export async function generateOrderConfirmationMessage(order: Order): Promise<string> {
@@ -79,24 +93,33 @@ export async function generateOrderConfirmationMessage(order: Order): Promise<st
     const itemsList = order.items.map(item => `- ${item.quantity} ${item.name}`).join('\n');
 
     const prompt = `
-        You are the owner of a friendly empanada business, and you're texting a customer to confirm their order.
-        Write a short, friendly, and professional confirmation message. It should sound like a real person wrote it, not a robot.
+        You are the owner of "Empanadas by Rose". Generate a text message confirmation exactly following the format below.
+        Do not add any conversational filler before or after the template.
         Do not use emojis.
 
-        Here is the order information:
+        Order Details:
         - Customer Name: ${order.customerName}
         - Pickup/Delivery Date: ${order.pickupDate}
         - Pickup Time: ${order.pickupTime}
-        - Items Ordered:
+        - Items:
         ${itemsList}
-        - Total Cost: $${order.amountCharged.toFixed(2)}
-        ${order.deliveryRequired ? `- Delivery Address: ${order.deliveryAddress}` : ''}
+        - Total Cost: ${order.amountCharged.toFixed(2)}
 
-        The message must:
-        1. Greet the customer warmly by their first name.
-        2. Provide a quick summary of their order details (date, time, items, and total cost).
-        3. Politely ask them to reply to this message to confirm everything looks correct.
-        4. End with a friendly closing like "Thanks!" or "Talk soon!".
+        REQUIRED OUTPUT FORMAT:
+        Hi [Customer First Name],
+
+        Just wanted to confirm your empanada order with us!
+
+        You've got a pickup scheduled for [Date] at [Time].
+
+        Here's a quick summary of your order:
+        [List of Items with bullets]
+
+        Your total cost for this order is $[Total]. Cash on pickup, please. Pick up address is: 27 Hastings Rd, Massapequa, NY
+
+        Please reply to this message to confirm everything looks correct.
+
+        Thanks!
     `;
 
     try {
