@@ -183,8 +183,8 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
 
             if (finalItems.length === 0) throw new Error("Please add at least one package or item to your order.");
 
-            // Check availability again on submit
-            if (scheduling?.enabled) {
+            // Check availability again on submit ONLY IF A TIME WAS SELECTED
+            if (scheduling?.enabled && pickupTime) {
                 const normalizedDate = normalizeDateStr(pickupDate);
                 const override = scheduling.dateOverrides?.[normalizedDate];
                 const [y, m, d] = normalizedDate.split('-').map(Number);
@@ -206,13 +206,19 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
             const formattedDate = pickupDate ? `${pickupDate.split('-')[1]}/${pickupDate.split('-')[2]}/${pickupDate.split('-')[0]}` : '';
             
             // Reformat 24h time from native picker if not using smart scheduling, OR use existing 12h from dropdown
-            let formattedTime = pickupTime;
-            if (!scheduling?.enabled && pickupTime.includes(':') && !pickupTime.includes('M')) {
-                 const [h, m] = pickupTime.split(':');
-                const hour = parseInt(h);
-                const ampm = hour >= 12 ? 'PM' : 'AM';
-                const hour12 = hour % 12 || 12;
-                formattedTime = `${hour12}:${m} ${ampm}`;
+            // Default to TBD if no time selected
+            let formattedTime = 'TBD';
+            
+            if (pickupTime) {
+                if (!scheduling?.enabled && pickupTime.includes(':') && !pickupTime.includes('M')) {
+                    const [h, m] = pickupTime.split(':');
+                    const hour = parseInt(h);
+                    const ampm = hour >= 12 ? 'PM' : 'AM';
+                    const hour12 = hour % 12 || 12;
+                    formattedTime = `${hour12}:${m} ${ampm}`;
+                } else {
+                    formattedTime = pickupTime;
+                }
             }
 
             const totalMini = cartPackages.filter(p => safePricing.packages?.find(def => def.id === p.packageId)?.itemType === 'mini').reduce((sum, p) => sum + (safePricing.packages?.find(def => def.id === p.packageId)?.quantity || 0), 0);
@@ -349,16 +355,16 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-brand-brown/80 mb-1">Preferred Time</label>
+                                <p className="text-xs text-gray-500 mb-2">If your time is not available, please submit your order (TBD) and we will confirm availability.</p>
                                 {scheduling?.enabled ? (
                                     <div className="relative">
                                         <select 
-                                            required 
                                             value={pickupTime} 
                                             onChange={e => setPickupTime(e.target.value)} 
-                                            disabled={!pickupDate || availableTimeSlots.length === 0}
+                                            disabled={!pickupDate}
                                             className="w-full rounded-lg border-gray-300 focus:ring-brand-orange focus:border-brand-orange appearance-none"
                                         >
-                                            <option value="">Select a time</option>
+                                            <option value="">Select a time (Optional)</option>
                                             {availableTimeSlots.map(time => (
                                                 <option key={time} value={time}>{time}</option>
                                             ))}
@@ -374,7 +380,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                                         )}
                                     </div>
                                 ) : (
-                                    <input type="time" required value={pickupTime} onChange={e => setPickupTime(e.target.value)} className="w-full rounded-lg border-gray-300 focus:ring-brand-orange focus:border-brand-orange" />
+                                    <input type="time" value={pickupTime} onChange={e => setPickupTime(e.target.value)} className="w-full rounded-lg border-gray-300 focus:ring-brand-orange focus:border-brand-orange" />
                                 )}
                             </div>
                         </div>
