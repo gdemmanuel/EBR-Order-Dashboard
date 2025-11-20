@@ -256,27 +256,27 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                     </button>
                 </header>
 
-                <div className="flex border-b border-gray-200 overflow-x-auto">
+                <div className="flex flex-wrap border-b border-gray-200">
                     <button
-                        className={`px-6 py-3 font-medium text-sm whitespace-nowrap ${activeTab === 'menu' ? 'border-b-2 border-brand-orange text-brand-orange' : 'text-gray-500 hover:text-brand-brown'}`}
+                        className={`flex-1 px-4 py-3 font-medium text-sm whitespace-nowrap transition-colors ${activeTab === 'menu' ? 'border-b-2 border-brand-orange text-brand-orange bg-brand-orange/5' : 'text-gray-500 hover:text-brand-brown hover:bg-gray-50'}`}
                         onClick={() => setActiveTab('menu')}
                     >
                         Menu Management
                     </button>
                     <button
-                        className={`px-6 py-3 font-medium text-sm whitespace-nowrap ${activeTab === 'pricing' ? 'border-b-2 border-brand-orange text-brand-orange' : 'text-gray-500 hover:text-brand-brown'}`}
+                        className={`flex-1 px-4 py-3 font-medium text-sm whitespace-nowrap transition-colors ${activeTab === 'pricing' ? 'border-b-2 border-brand-orange text-brand-orange bg-brand-orange/5' : 'text-gray-500 hover:text-brand-brown hover:bg-gray-50'}`}
                         onClick={() => setActiveTab('pricing')}
                     >
                         Pricing & Packages
                     </button>
                     <button
-                        className={`px-6 py-3 font-medium text-sm whitespace-nowrap ${activeTab === 'prep' ? 'border-b-2 border-brand-orange text-brand-orange' : 'text-gray-500 hover:text-brand-brown'}`}
+                        className={`flex-1 px-4 py-3 font-medium text-sm whitespace-nowrap transition-colors ${activeTab === 'prep' ? 'border-b-2 border-brand-orange text-brand-orange bg-brand-orange/5' : 'text-gray-500 hover:text-brand-brown hover:bg-gray-50'}`}
                         onClick={() => setActiveTab('prep')}
                     >
                         Prep Calculations
                     </button>
                     <button
-                        className={`px-6 py-3 font-medium text-sm whitespace-nowrap ${activeTab === 'costs' ? 'border-b-2 border-brand-orange text-brand-orange' : 'text-gray-500 hover:text-brand-brown'}`}
+                        className={`flex-1 px-4 py-3 font-medium text-sm whitespace-nowrap transition-colors ${activeTab === 'costs' ? 'border-b-2 border-brand-orange text-brand-orange bg-brand-orange/5' : 'text-gray-500 hover:text-brand-brown hover:bg-gray-50'}`}
                         onClick={() => setActiveTab('costs')}
                     >
                         Inventory & Costs
