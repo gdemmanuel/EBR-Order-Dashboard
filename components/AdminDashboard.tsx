@@ -30,7 +30,6 @@ interface AdminDashboardProps {
     sheetUrl: string;
     pricing: PricingSettings;
     prepSettings?: AppSettings['prepSettings'];
-    // We need full settings accessible here to pass down
     settings?: AppSettings;
 }
 
@@ -47,9 +46,9 @@ export default function AdminDashboard({
     fullSizeEmpanadaFlavors, 
     importedSignatures, 
     sheetUrl,
-    pricing,
+    pricing, 
     prepSettings,
-    settings // Optional prop, but we should construct a safe object if missing
+    settings 
 }: AdminDashboardProps) {
 
     const [view, setView] = useState<'dashboard' | 'list' | 'calendar'>('dashboard');
@@ -61,6 +60,7 @@ export default function AdminDashboard({
     
     const [searchTerm, setSearchTerm] = useState(''); // Search State
     const [statusFilter, setStatusFilter] = useState<FollowUpStatus | null>(null); // Status Filter State
+    const [viewingCancelled, setViewingCancelled] = useState(false); // Cancelled View State
     
     const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState(false);
     const [orderToEdit, setOrderToEdit] = useState<Order | undefined>(undefined);
@@ -83,10 +83,11 @@ export default function AdminDashboard({
     // --- Derived State ---
     const activeOrders = useMemo(() => orders.filter(o => o.approvalStatus === ApprovalStatus.APPROVED), [orders]);
     const pendingOrders = useMemo(() => orders.filter(o => o.approvalStatus === ApprovalStatus.PENDING), [orders]);
+    const cancelledOrders = useMemo(() => orders.filter(o => o.approvalStatus === ApprovalStatus.CANCELLED), [orders]);
 
-    // 1. Base Filtered Orders (by Date & Search) - Used for Dashboard Stats
+    // Filter Logic based on View Mode (Active vs Cancelled)
     const filteredOrders = useMemo(() => {
-        let result = activeOrders;
+        let result = viewingCancelled ? cancelledOrders : activeOrders;
 
         // 1. Search Filter (Overrides Date Filter if active)
         if (searchTerm.trim()) {
@@ -100,7 +101,7 @@ export default function AdminDashboard({
 
         // 2. Date Filter (Only applies if no search term)
         if (dateFilter.start) {
-            // Construct local midnight date strictly from components to avoid UTC shifts
+            // Construct local midnight date strictly from components
             const [y, m, d] = dateFilter.start.split('-').map(Number);
             const start = new Date(y, m - 1, d);
             result = result.filter(o => parseOrderDateTime(o) >= start);
@@ -113,62 +114,54 @@ export default function AdminDashboard({
             result = result.filter(o => parseOrderDateTime(o) <= end);
         }
         return result;
-    }, [activeOrders, dateFilter, searchTerm]);
+    }, [activeOrders, cancelledOrders, viewingCancelled, dateFilter, searchTerm]);
 
-    // 2. List Orders (Base Filtered + Status Filter) - Used for List View
+    // List View specific filtering
     const ordersForList = useMemo(() => {
         if (!statusFilter) return filteredOrders;
         return filteredOrders.filter(o => o.followUpStatus === statusFilter);
     }, [filteredOrders, statusFilter]);
 
+    // Stats Logic (ALWAYS uses activeOrders, never Cancelled)
     const stats = useMemo(() => {
-        const totalRevenue = filteredOrders.reduce((sum, o) => sum + o.amountCharged, 0);
-        const ordersToFollowUp = filteredOrders.filter(o => o.followUpStatus === FollowUpStatus.NEEDED).length;
-        const totalEmpanadasSold = filteredOrders.reduce((sum, o) => sum + o.totalMini + o.totalFullSize, 0);
+        // Re-run filters on activeOrders specifically for stats to ensure they match date range but ignore "viewingCancelled" toggle
+        let result = activeOrders;
+        if (dateFilter.start) {
+            const [y, m, d] = dateFilter.start.split('-').map(Number);
+            const start = new Date(y, m - 1, d);
+            result = result.filter(o => parseOrderDateTime(o) >= start);
+        }
+        if (dateFilter.end) {
+            const [y, m, d] = dateFilter.end.split('-').map(Number);
+            const end = new Date(y, m - 1, d);
+            end.setHours(23,59,59,999);
+            result = result.filter(o => parseOrderDateTime(o) <= end);
+        }
+
+        const totalRevenue = result.reduce((sum, o) => sum + o.amountCharged, 0);
+        const ordersToFollowUp = result.filter(o => o.followUpStatus === FollowUpStatus.NEEDED).length;
+        const totalEmpanadasSold = result.reduce((sum, o) => sum + o.totalMini + o.totalFullSize, 0);
+        
         return { totalRevenue, ordersToFollowUp, totalEmpanadasSold };
-    }, [filteredOrders]);
+    }, [activeOrders, dateFilter]);
 
     // --- Logic ---
-    
-    // Safe Full Settings Object construction
     const safeSettings: AppSettings = settings || {
         empanadaFlavors,
         fullSizeEmpanadaFlavors,
         sheetUrl,
         importedSignatures: Array.from(importedSignatures),
-        pricing: pricing || {
-            mini: { basePrice: 1.75 },
-            full: { basePrice: 3.00 },
-            packages: [],
-            salsas: []
-        },
-        prepSettings: prepSettings || { 
-            lbsPer20: {}, 
-            fullSizeMultiplier: 2.0, 
-            discosPer: { mini: 1, full: 1 },
-            discoPackSize: { mini: 10, full: 10 },
-            productionRates: { mini: 40, full: 25 } 
-        },
-        scheduling: {
-            enabled: true,
-            intervalMinutes: 15,
-            startTime: "09:00",
-            endTime: "17:00",
-            blockedDates: [],
-            closedDays: [],
-            dateOverrides: {}
-        },
+        pricing: pricing || { mini: { basePrice: 1.75 }, full: { basePrice: 3.00 }, packages: [], salsas: [] },
+        prepSettings: prepSettings || { lbsPer20: {}, fullSizeMultiplier: 2.0, discosPer: { mini: 1, full: 1 }, discoPackSize: { mini: 10, full: 10 }, productionRates: { mini: 40, full: 25 } },
+        scheduling: { enabled: true, intervalMinutes: 15, startTime: "09:00", endTime: "17:00", blockedDates: [], closedDays: [], dateOverrides: {} },
         laborWage: 15.00,
         materialCosts: {},
         discoCosts: { mini: 0.10, full: 0.15 },
         inventory: {}
     };
-
-    // Fallback default pricing if loading
     const safePricing = safeSettings.pricing;
 
     const handleSaveOrder = async (orderData: Order | Omit<Order, 'id'>) => {
-        // Note: Amount is already calculated by the form using dynamic pricing
         let orderToSave: Order;
         if ('id' in orderData) {
             orderToSave = { ...orderData as Order };
@@ -176,10 +169,7 @@ export default function AdminDashboard({
                orderToSave.approvalStatus = ApprovalStatus.APPROVED;
             }
         } else {
-            orderToSave = {
-                ...orderData,
-                id: Date.now().toString(),
-            };
+            orderToSave = { ...orderData, id: Date.now().toString() };
         }
         await saveOrderToDb(orderToSave);
         setIsNewOrderModalOpen(false);
@@ -189,37 +179,20 @@ export default function AdminDashboard({
     const handleDeductInventory = async (order: Order) => {
         const currentInventory = { ...safeSettings.inventory };
         let changesMade = false;
-
         order.items.forEach(item => {
-            // Check if item is salsa based on pricing definitions (avoid hardcoded 'Salsa' string if possible, 
-            // but for now string check is safer as name format is "Salsa Name - Size")
             const isSalsa = safePricing.salsas.some(s => item.name.includes(s.name));
             if (isSalsa) return; 
-            
             let flavor = item.name;
             let type: 'mini' | 'full' = 'mini';
-            
-            if (item.name.startsWith('Full ')) {
-                type = 'full';
-                flavor = item.name.replace('Full ', '');
-            }
-            
-            if (!currentInventory[flavor]) {
-                currentInventory[flavor] = { mini: 0, full: 0 };
-            }
-            
-            // Deduct from inventory
+            if (item.name.startsWith('Full ')) { type = 'full'; flavor = item.name.replace('Full ', ''); }
+            if (!currentInventory[flavor]) { currentInventory[flavor] = { mini: 0, full: 0 }; }
             currentInventory[flavor][type] -= item.quantity;
             changesMade = true;
         });
-
         if (changesMade) {
             await updateSettingsInDb({ inventory: currentInventory });
-            // Also mark order as completed
             await saveOrderToDb({ ...order, followUpStatus: FollowUpStatus.COMPLETED });
-            if (selectedOrder && selectedOrder.id === order.id) {
-                setSelectedOrder({ ...order, followUpStatus: FollowUpStatus.COMPLETED });
-            }
+            if (selectedOrder && selectedOrder.id === order.id) { setSelectedOrder({ ...order, followUpStatus: FollowUpStatus.COMPLETED }); }
         }
     };
 
@@ -231,25 +204,17 @@ export default function AdminDashboard({
             onConfirm: async () => {
                 await deleteOrderFromDb(orderId);
                 if (selectedOrder?.id === orderId) setSelectedOrder(null);
-                if (orderToEdit?.id === orderId) {
-                    setOrderToEdit(undefined);
-                    setIsNewOrderModalOpen(false);
-                }
+                if (orderToEdit?.id === orderId) { setOrderToEdit(undefined); setIsNewOrderModalOpen(false); }
                 setConfirmModal(prev => ({ ...prev, isOpen: false }));
             }
         });
     };
 
     const handleAddNewFlavor = async (flavorName: string, type: 'mini' | 'full') => {
-        // Check if flavor exists (by name)
         if (type === 'mini') {
-            if (!empanadaFlavors.some(f => f.name === flavorName)) {
-                await updateSettingsInDb({ empanadaFlavors: [...empanadaFlavors, { name: flavorName, visible: true }] });
-            }
+            if (!empanadaFlavors.some(f => f.name === flavorName)) { await updateSettingsInDb({ empanadaFlavors: [...empanadaFlavors, { name: flavorName, visible: true }] }); }
         } else {
-            if (!fullSizeEmpanadaFlavors.some(f => f.name === flavorName)) {
-                await updateSettingsInDb({ fullSizeEmpanadaFlavors: [...fullSizeEmpanadaFlavors, { name: flavorName, visible: true }] });
-            }
+            if (!fullSizeEmpanadaFlavors.some(f => f.name === flavorName)) { await updateSettingsInDb({ fullSizeEmpanadaFlavors: [...fullSizeEmpanadaFlavors, { name: flavorName, visible: true }] }); }
         }
     };
 
@@ -264,19 +229,19 @@ export default function AdminDashboard({
     };
 
     const handleDenyOrder = async (orderId: string) => {
-        await deleteOrderFromDb(orderId);
+        // Denying pending sets to Cancelled (soft delete) instead of hard delete?
+        // Or sticking with previous logic: Deny = Delete. User requested "Cancelled" status which implies keeping it.
+        // Let's set Deny to Cancelled for consistency with "Cancelled" request.
+        const order = orders.find(o => o.id === orderId);
+        if (order) await saveOrderToDb({ ...order, approvalStatus: ApprovalStatus.CANCELLED });
     };
 
     const handleOrdersImported = async (newOrders: Partial<Order>[], newSignatures: string[]) => {
         const ordersToSave: Order[] = newOrders.map((pOrder, index) => {
             const items = pOrder.items || [];
             const deliveryFee = 0; 
-            // Calculate price using current settings for imports
             const calculatedTotal = calculateOrderTotal(items, deliveryFee, safePricing, empanadaFlavors, fullSizeEmpanadaFlavors);
-            
-            // Calculate supply cost using current settings for imports
             const calculatedCost = calculateSupplyCost(items, safeSettings);
-
             return {
               id: `${Date.now()}-${index}`,
               pickupDate: pOrder.pickupDate || '',
@@ -288,7 +253,7 @@ export default function AdminDashboard({
               totalFullSize: items.filter(i => i.name.includes('Full')).reduce((s, i) => s + i.quantity, 0),
               totalMini: items.filter(i => !i.name.includes('Full') && !i.name.includes('Salsa')).reduce((s, i) => s + i.quantity, 0),
               amountCharged: calculatedTotal,
-              totalCost: calculatedCost, // Save calculated cost
+              totalCost: calculatedCost, 
               deliveryRequired: pOrder.deliveryRequired || false,
               deliveryFee: deliveryFee,
               amountCollected: 0,
@@ -306,13 +271,9 @@ export default function AdminDashboard({
         setIsImportModalOpen(false);
     };
 
-    const handleUpdateSheetUrl = async (url: string) => {
-        await updateSettingsInDb({ sheetUrl: url });
-    };
+    const handleUpdateSheetUrl = async (url: string) => { await updateSettingsInDb({ sheetUrl: url }); };
 
-    if (printPreviewOrders) {
-        return <PrintPreviewPage orders={printPreviewOrders} onExit={() => setPrintPreviewOrders(null)} />;
-    }
+    if (printPreviewOrders) { return <PrintPreviewPage orders={printPreviewOrders} onExit={() => setPrintPreviewOrders(null)} />; }
 
     return (
         <div className="min-h-screen bg-brand-cream">
@@ -322,7 +283,7 @@ export default function AdminDashboard({
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
                     <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
                         <div className="flex bg-white rounded-lg shadow-sm p-1 border border-brand-tan self-start">
-                            <button onClick={() => { setView('dashboard'); setStatusFilter(null); }} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${view === 'dashboard' ? 'bg-brand-orange text-white' : 'text-brand-brown hover:bg-brand-tan/30'}`}>Dashboard</button>
+                            <button onClick={() => { setView('dashboard'); setStatusFilter(null); setViewingCancelled(false); }} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${view === 'dashboard' ? 'bg-brand-orange text-white' : 'text-brand-brown hover:bg-brand-tan/30'}`}>Dashboard</button>
                             <button onClick={() => setView('list')} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${view === 'list' ? 'bg-brand-orange text-white' : 'text-brand-brown hover:bg-brand-tan/30'}`}><ListBulletIcon className="w-4 h-4" /> List</button>
                             <button onClick={() => setView('calendar')} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${view === 'calendar' ? 'bg-brand-orange text-white' : 'text-brand-brown hover:bg-brand-tan/30'}`}><CalendarDaysIcon className="w-4 h-4" /> Calendar</button>
                         </div>
@@ -340,7 +301,6 @@ export default function AdminDashboard({
                 
                 {pendingOrders.length > 0 && <div className="mb-8" />}
                 
-                {/* Date Filter is now visible for both dashboard and list views for consistency */}
                 {view !== 'calendar' && (
                     <DateRangeFilter 
                         initialStartDate={dateFilter.start}
@@ -352,10 +312,11 @@ export default function AdminDashboard({
                 {view === 'dashboard' && (
                     <DashboardMetrics 
                         stats={stats} 
-                        orders={filteredOrders} // Use base filtered orders so stats don't jump around
+                        orders={activeOrders} // Use base Active orders for graphs, ignoring cancelled view
                         empanadaFlavors={empanadaFlavors.map(f => f.name)} 
                         fullSizeEmpanadaFlavors={fullSizeEmpanadaFlavors.map(f => f.name)} 
                         onFilterStatus={(status) => {
+                            setViewingCancelled(false);
                             setStatusFilter(status);
                             setView('list');
                         }}
@@ -364,7 +325,7 @@ export default function AdminDashboard({
 
                 {view === 'list' && (
                     <OrderList 
-                        // Use list-specific orders (which might have extra status filters)
+                        title={viewingCancelled ? 'Cancelled Orders' : 'Active Orders'}
                         orders={ordersForList} 
                         onSelectOrder={setSelectedOrder} 
                         onPrintSelected={setPrintPreviewOrders} 
@@ -372,7 +333,7 @@ export default function AdminDashboard({
                         searchTerm={searchTerm}
                         onSearchChange={setSearchTerm}
                         activeStatusFilter={statusFilter}
-                        onClearStatusFilter={() => setStatusFilter(null)}
+                        onClearStatusFilter={() => { setStatusFilter(null); setViewingCancelled(false); }}
                     />
                 )}
 
@@ -393,8 +354,7 @@ export default function AdminDashboard({
                     onDelete={confirmDeleteOrder}
                     pricing={safePricing}
                     settings={safeSettings}
-                    // Pass orders for busy slot calculation
-                    existingOrders={activeOrders} 
+                    existingOrders={orders} // Pass ALL orders so we can search full customer history
                 />
             )}
 
@@ -405,46 +365,39 @@ export default function AdminDashboard({
                     onUpdateFollowUp={handleUpdateFollowUp}
                     onEdit={(order) => { setSelectedOrder(null); setOrderToEdit(order); setIsNewOrderModalOpen(true); }}
                     onApprove={selectedOrder.approvalStatus === ApprovalStatus.PENDING ? handleApproveOrder : undefined}
-                    onDeny={selectedOrder.approvalStatus === ApprovalStatus.PENDING ? handleDenyOrder : undefined}
+                    onDeny={selectedOrder.approvalStatus === ApprovalStatus.PENDING ? handleDenyOrder : (orderId) => saveOrderToDb({ ...selectedOrder, approvalStatus: ApprovalStatus.CANCELLED })}
                     onDelete={confirmDeleteOrder}
                     onDeductInventory={handleDeductInventory}
                 />
             )}
 
-            {isImportModalOpen && (
-                <ImportOrderModal 
-                    onClose={() => setIsImportModalOpen(false)}
-                    onOrdersImported={handleOrdersImported}
-                    onUpdateSheetUrl={handleUpdateSheetUrl}
-                    existingSignatures={importedSignatures}
-                />
-            )}
-            
-            {isSettingsOpen && (
-                <SettingsModal 
-                    settings={safeSettings}
-                    onClose={() => setIsSettingsOpen(false)}
-                />
-            )}
-            
+            {isImportModalOpen && (<ImportOrderModal onClose={() => setIsImportModalOpen(false)} onOrdersImported={handleOrdersImported} onUpdateSheetUrl={handleUpdateSheetUrl} existingSignatures={importedSignatures} />)}
+            {isSettingsOpen && (<SettingsModal settings={safeSettings} onClose={() => setIsSettingsOpen(false)} />)}
             {isPrepListOpen && (
                 <PrepListModal 
-                    orders={filteredOrders} 
-                    settings={safeSettings}
+                    // IMPORTANT: Prep List should ONLY show active orders, even if we are viewing Cancelled list
+                    orders={activeOrders.filter(o => {
+                        // Re-apply date filter logic to match dashboard scope
+                        const d = parseOrderDateTime(o);
+                        if (dateFilter.start) {
+                            const [y, m, d_start] = dateFilter.start.split('-').map(Number);
+                            if (d < new Date(y, m - 1, d_start)) return false;
+                        }
+                        if (dateFilter.end) {
+                            const [y, m, d_end] = dateFilter.end.split('-').map(Number);
+                            const end = new Date(y, m - 1, d_end);
+                            end.setHours(23,59,59,999);
+                            if (d > end) return false;
+                        }
+                        return true;
+                    })} 
+                    settings={safeSettings} 
                     onClose={() => setIsPrepListOpen(false)} 
-                    onUpdateSettings={updateSettingsInDb}
+                    onUpdateSettings={updateSettingsInDb} 
                 />
             )}
 
-            <ConfirmationModal 
-                isOpen={confirmModal.isOpen}
-                title={confirmModal.title}
-                message={confirmModal.message}
-                onConfirm={confirmModal.onConfirm}
-                onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
-                isDangerous={true}
-                confirmText="Delete"
-            />
+            <ConfirmationModal isOpen={confirmModal.isOpen} title={confirmModal.title} message={confirmModal.message} onConfirm={confirmModal.onConfirm} onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))} isDangerous={true} confirmText="Delete" />
         </div>
     );
 }

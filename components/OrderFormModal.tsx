@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Order, OrderItem, ContactMethod, PaymentStatus, FollowUpStatus, ApprovalStatus, PricingSettings, Flavor, MenuPackage } from '../types';
-import { TrashIcon, PlusIcon, XMarkIcon, ShoppingBagIcon, CogIcon, ArrowUturnLeftIcon, ClockIcon } from './icons/Icons';
+import { TrashIcon, PlusIcon, XMarkIcon, ShoppingBagIcon, CogIcon, ArrowUturnLeftIcon, ClockIcon, UserIcon } from './icons/Icons';
 import { getAddressSuggestions } from '../services/geminiService';
 import { calculateOrderTotal, calculateSupplyCost } from '../utils/pricingUtils';
 import { SalsaSize } from '../config';
@@ -171,6 +171,10 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
     const [userLocation, setUserLocation] = useState<{latitude: number, longitude: number} | null>(null);
 
     const [showTimePicker, setShowTimePicker] = useState(false);
+    
+    // Customer Suggestions State
+    const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
+    const [filteredCustomers, setFilteredCustomers] = useState<{name: string, phone: string | null, method: string}[]>([]);
 
     // Package Builder State
     const [activePackageBuilder, setActivePackageBuilder] = useState<MenuPackage | null>(null);
@@ -178,6 +182,50 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
     // Filtered Flavor Lists
     const standardFlavors = empanadaFlavors;
     const specialFlavors = empanadaFlavors.filter(f => f.isSpecial);
+
+    // Extract unique customers from existing orders for auto-fill
+    const uniqueCustomers = useMemo(() => {
+        const customers = new Map<string, {name: string, phone: string | null, method: string}>();
+        existingOrders.forEach(o => {
+            if (o.customerName && !customers.has(o.customerName.toLowerCase())) {
+                customers.set(o.customerName.toLowerCase(), {
+                    name: o.customerName,
+                    phone: o.phoneNumber,
+                    method: o.contactMethod
+                });
+            }
+        });
+        return Array.from(customers.values());
+    }, [existingOrders]);
+
+    // Handle Customer Name Change & Suggestions
+    const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value;
+        setCustomerName(val);
+        
+        if (val.length > 1) {
+            const matches = uniqueCustomers.filter(c => c.name.toLowerCase().includes(val.toLowerCase()));
+            setFilteredCustomers(matches.slice(0, 5)); // Limit to 5
+            setShowCustomerSuggestions(matches.length > 0);
+        } else {
+            setShowCustomerSuggestions(false);
+        }
+    };
+
+    const selectCustomer = (customer: {name: string, phone: string | null, method: string}) => {
+        setCustomerName(customer.name);
+        if (customer.phone) setPhoneNumber(customer.phone);
+        
+        if (Object.values(ContactMethod).includes(customer.method as ContactMethod)) {
+            setContactMethod(customer.method);
+            setCustomContactMethod('');
+        } else {
+            setContactMethod('Other');
+            setCustomContactMethod(customer.method);
+        }
+        
+        setShowCustomerSuggestions(false);
+    };
 
     // Initialize Salsas from pricing settings
     useEffect(() => {
@@ -601,9 +649,24 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
 
                 <form onSubmit={handleSubmit} className="overflow-y-auto p-6 space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                        <div className="md:col-span-2">
+                        <div className="md:col-span-2 relative">
                              <label className="block text-sm font-medium text-brand-brown/90">Customer Name</label>
-                            <input type="text" value={customerName} onChange={e => setCustomerName(e.target.value)} required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown" />
+                            <input type="text" value={customerName} onChange={handleNameChange} required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown" autoComplete="off" />
+                            {showCustomerSuggestions && (
+                                <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-md mt-1 shadow-lg max-h-40 overflow-y-auto">
+                                    {filteredCustomers.map((customer, idx) => (
+                                        <button 
+                                            key={idx}
+                                            type="button"
+                                            onClick={() => selectCustomer(customer)}
+                                            className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-brand-tan/30 flex justify-between items-center"
+                                        >
+                                            <span className="font-medium">{customer.name}</span>
+                                            <span className="text-xs text-gray-500">{customer.phone || 'No Phone'}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-brand-brown/90">Phone Number</label>

@@ -24,6 +24,7 @@ export enum ApprovalStatus {
   PENDING = 'Pending Approval',
   APPROVED = 'Approved',
   DENIED = 'Denied',
+  CANCELLED = 'Cancelled',
 }
 
 export interface OrderItem {
