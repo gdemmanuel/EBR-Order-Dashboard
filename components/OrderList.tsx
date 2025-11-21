@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Order, PaymentStatus, FollowUpStatus } from '../types';
-import { TrashIcon, PrinterIcon, MagnifyingGlassIcon } from './icons/Icons';
+import { TrashIcon, PrinterIcon, MagnifyingGlassIcon, XMarkIcon } from './icons/Icons';
 import { parseOrderDateTime } from '../utils/dateUtils';
 
 interface OrderListProps {
@@ -12,9 +12,11 @@ interface OrderListProps {
     onDelete?: (orderId: string) => void;
     searchTerm?: string;
     onSearchChange?: (term: string) => void;
+    activeStatusFilter?: FollowUpStatus | null;
+    onClearStatusFilter?: () => void;
 }
 
-export default function OrderList({ orders, title, onSelectOrder, onPrintSelected, onDelete, searchTerm, onSearchChange }: OrderListProps) {
+export default function OrderList({ orders, title, onSelectOrder, onPrintSelected, onDelete, searchTerm, onSearchChange, activeStatusFilter, onClearStatusFilter }: OrderListProps) {
     const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
     const [sortConfig, setSortConfig] = useState<{ key: keyof Order | 'pickupDateObj', direction: 'asc' | 'desc' }>({ key: 'pickupDateObj', direction: 'asc' });
 
@@ -77,7 +79,17 @@ export default function OrderList({ orders, title, onSelectOrder, onPrintSelecte
     return (
         <div className="bg-white border border-brand-tan rounded-lg shadow-sm overflow-hidden">
              <div className="p-4 border-b border-brand-tan bg-brand-tan/10 flex flex-col sm:flex-row justify-between items-center gap-4">
-                <h2 className="text-xl font-serif text-brand-brown">{title || 'All Orders'}</h2>
+                <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-xl font-serif text-brand-brown">{title || 'All Orders'}</h2>
+                    {activeStatusFilter && onClearStatusFilter && (
+                        <span className="inline-flex items-center gap-1 bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded-full">
+                            Filter: {activeStatusFilter}
+                            <button onClick={onClearStatusFilter} className="hover:text-blue-900">
+                                <XMarkIcon className="w-3 h-3" />
+                            </button>
+                        </span>
+                    )}
+                </div>
                 
                 <div className="flex items-center gap-3 w-full sm:w-auto">
                     {onSearchChange && (

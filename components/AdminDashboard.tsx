@@ -60,6 +60,7 @@ export default function AdminDashboard({
     });
     
     const [searchTerm, setSearchTerm] = useState(''); // Search State
+    const [statusFilter, setStatusFilter] = useState<FollowUpStatus | null>(null); // Status Filter State
     
     const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState(false);
     const [orderToEdit, setOrderToEdit] = useState<Order | undefined>(undefined);
@@ -83,6 +84,7 @@ export default function AdminDashboard({
     const activeOrders = useMemo(() => orders.filter(o => o.approvalStatus === ApprovalStatus.APPROVED), [orders]);
     const pendingOrders = useMemo(() => orders.filter(o => o.approvalStatus === ApprovalStatus.PENDING), [orders]);
 
+    // 1. Base Filtered Orders (by Date & Search) - Used for Dashboard Stats
     const filteredOrders = useMemo(() => {
         let result = activeOrders;
 
@@ -112,6 +114,12 @@ export default function AdminDashboard({
         }
         return result;
     }, [activeOrders, dateFilter, searchTerm]);
+
+    // 2. List Orders (Base Filtered + Status Filter) - Used for List View
+    const ordersForList = useMemo(() => {
+        if (!statusFilter) return filteredOrders;
+        return filteredOrders.filter(o => o.followUpStatus === statusFilter);
+    }, [filteredOrders, statusFilter]);
 
     const stats = useMemo(() => {
         const totalRevenue = filteredOrders.reduce((sum, o) => sum + o.amountCharged, 0);
@@ -314,7 +322,7 @@ export default function AdminDashboard({
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
                     <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
                         <div className="flex bg-white rounded-lg shadow-sm p-1 border border-brand-tan self-start">
-                            <button onClick={() => setView('dashboard')} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${view === 'dashboard' ? 'bg-brand-orange text-white' : 'text-brand-brown hover:bg-brand-tan/30'}`}>Dashboard</button>
+                            <button onClick={() => { setView('dashboard'); setStatusFilter(null); }} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${view === 'dashboard' ? 'bg-brand-orange text-white' : 'text-brand-brown hover:bg-brand-tan/30'}`}>Dashboard</button>
                             <button onClick={() => setView('list')} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${view === 'list' ? 'bg-brand-orange text-white' : 'text-brand-brown hover:bg-brand-tan/30'}`}><ListBulletIcon className="w-4 h-4" /> List</button>
                             <button onClick={() => setView('calendar')} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${view === 'calendar' ? 'bg-brand-orange text-white' : 'text-brand-brown hover:bg-brand-tan/30'}`}><CalendarDaysIcon className="w-4 h-4" /> Calendar</button>
                         </div>
@@ -342,18 +350,29 @@ export default function AdminDashboard({
                 )}
 
                 {view === 'dashboard' && (
-                    <DashboardMetrics stats={stats} orders={filteredOrders} empanadaFlavors={empanadaFlavors.map(f => f.name)} fullSizeEmpanadaFlavors={fullSizeEmpanadaFlavors.map(f => f.name)} />
+                    <DashboardMetrics 
+                        stats={stats} 
+                        orders={filteredOrders} // Use base filtered orders so stats don't jump around
+                        empanadaFlavors={empanadaFlavors.map(f => f.name)} 
+                        fullSizeEmpanadaFlavors={fullSizeEmpanadaFlavors.map(f => f.name)} 
+                        onFilterStatus={(status) => {
+                            setStatusFilter(status);
+                            setView('list');
+                        }}
+                    />
                 )}
 
                 {view === 'list' && (
                     <OrderList 
-                        // Force filteredOrders so date range filter always applies to the list
-                        orders={filteredOrders} 
+                        // Use list-specific orders (which might have extra status filters)
+                        orders={ordersForList} 
                         onSelectOrder={setSelectedOrder} 
                         onPrintSelected={setPrintPreviewOrders} 
                         onDelete={confirmDeleteOrder} 
                         searchTerm={searchTerm}
                         onSearchChange={setSearchTerm}
+                        activeStatusFilter={statusFilter}
+                        onClearStatusFilter={() => setStatusFilter(null)}
                     />
                 )}
 
