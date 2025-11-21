@@ -229,9 +229,6 @@ export default function AdminDashboard({
     };
 
     const handleDenyOrder = async (orderId: string) => {
-        // Denying pending sets to Cancelled (soft delete) instead of hard delete?
-        // Or sticking with previous logic: Deny = Delete. User requested "Cancelled" status which implies keeping it.
-        // Let's set Deny to Cancelled for consistency with "Cancelled" request.
         const order = orders.find(o => o.id === orderId);
         if (order) await saveOrderToDb({ ...order, approvalStatus: ApprovalStatus.CANCELLED });
     };
@@ -315,9 +312,16 @@ export default function AdminDashboard({
                         orders={activeOrders} // Use base Active orders for graphs, ignoring cancelled view
                         empanadaFlavors={empanadaFlavors.map(f => f.name)} 
                         fullSizeEmpanadaFlavors={fullSizeEmpanadaFlavors.map(f => f.name)} 
+                        pendingCount={pendingOrders.length}
+                        cancelledCount={cancelledOrders.length}
                         onFilterStatus={(status) => {
-                            setViewingCancelled(false);
-                            setStatusFilter(status);
+                            if (status === 'CANCELLED') {
+                                setViewingCancelled(true);
+                                setStatusFilter(null);
+                            } else {
+                                setViewingCancelled(false);
+                                setStatusFilter(status);
+                            }
                             setView('list');
                         }}
                     />
