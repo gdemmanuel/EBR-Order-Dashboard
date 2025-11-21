@@ -18,6 +18,26 @@ interface OrderListProps {
     onFilterChange?: (filter: string) => void;
 }
 
+// Helper to render status badges cleanly
+const StatusBadge = ({ status, approvalStatus }: { status: FollowUpStatus, approvalStatus: ApprovalStatus }) => {
+    if (approvalStatus === ApprovalStatus.CANCELLED) {
+        return <span className="bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded border border-red-200">Cancelled</span>;
+    }
+
+    switch (status) {
+        case FollowUpStatus.NEEDED:
+            return <span className="bg-amber-100 text-amber-800 text-xs font-medium px-2.5 py-0.5 rounded border border-amber-200">Follow-up</span>;
+        case FollowUpStatus.PENDING:
+            return <span className="bg-blue-50 text-blue-600 text-xs font-medium px-2.5 py-0.5 rounded border border-blue-100">Pending</span>;
+        case FollowUpStatus.CONFIRMED:
+            return <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded border border-blue-200">Confirmed</span>;
+        case FollowUpStatus.COMPLETED:
+            return <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded border border-green-200">Done</span>;
+        default:
+            return <span className="bg-gray-100 text-gray-600 text-xs font-medium px-2.5 py-0.5 rounded border border-gray-200">{status || 'Unknown'}</span>;
+    }
+};
+
 export default function OrderList({ 
     orders, 
     title, 
@@ -226,24 +246,7 @@ export default function OrderList({
                                         )}
                                     </td>
                                     <td className="px-6 py-4">
-                                        {order.approvalStatus === ApprovalStatus.CANCELLED ? (
-                                            <span className="bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded">Cancelled</span>
-                                        ) : (
-                                            <>
-                                                {order.followUpStatus === FollowUpStatus.NEEDED && (
-                                                    <span className="bg-amber-100 text-amber-800 text-xs font-medium px-2.5 py-0.5 rounded">Follow-up</span>
-                                                )}
-                                                {order.followUpStatus === FollowUpStatus.COMPLETED && (
-                                                    <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">Done</span>
-                                                )}
-                                                {order.followUpStatus === FollowUpStatus.CONFIRMED && (
-                                                    <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">Confirmed</span>
-                                                )}
-                                                {order.followUpStatus === FollowUpStatus.PENDING && (
-                                                    <span className="bg-gray-100 text-gray-800 text-xs font-medium px-2.5 py-0.5 rounded">Pending</span>
-                                                )}
-                                            </>
-                                        )}
+                                        <StatusBadge status={order.followUpStatus} approvalStatus={order.approvalStatus} />
                                     </td>
                                     <td className="px-6 py-4 text-right">
                                         {onDelete && (

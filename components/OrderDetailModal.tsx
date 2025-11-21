@@ -316,11 +316,13 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
             <div className="bg-brand-tan/40 border border-brand-tan p-4 rounded-lg">
               <div className="flex justify-between items-start mb-3">
                   <h3 className="text-lg font-semibold text-brand-brown/90">Order Status & Actions</h3>
-                  {/* Move Cancel Button Here */}
+                  
+                  {/* CANCEL BUTTON - Positioned Here */}
                   {order.approvalStatus === ApprovalStatus.APPROVED && onDeny && (
                       <button 
                         onClick={handleCancelOrder} 
-                        className="text-xs flex items-center gap-1 bg-white text-red-600 border border-red-200 px-2 py-1 rounded hover:bg-red-50 transition-colors"
+                        className="text-xs flex items-center gap-1 bg-white text-red-600 border border-red-200 px-2 py-1 rounded hover:bg-red-50 transition-colors shadow-sm"
+                        title="Cancel this order (removes from active view)"
                       >
                           <XCircleIcon className="w-4 h-4" /> Cancel Order
                       </button>
