@@ -100,8 +100,6 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
       setLoadingAction('inventory');
       try {
           await onDeductInventory(order);
-          // We don't close automatically so user can see the update, 
-          // but the parent usually updates the order prop which triggers re-render
       } catch (e) {
           setError("Failed to update inventory.");
       } finally {
@@ -112,6 +110,13 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
   const handleDeleteClick = () => {
       if (onDelete && window.confirm("Are you sure you want to delete this order? This action cannot be undone.")) {
           onDelete(order.id);
+      }
+  };
+
+  const handleCancelOrder = () => {
+      if (window.confirm("Are you sure you want to cancel this order? It will be removed from active lists and totals.")) {
+          if (onDeny) onDeny(order.id); 
+          onClose();
       }
   };
 
@@ -199,13 +204,15 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
                     Delete
                   </button>
               )}
-              <button
-                onClick={() => onEdit(order)}
-                className="flex items-center gap-2 bg-white text-brand-brown font-semibold px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors border border-gray-300"
-              >
-                <PencilIcon className="w-4 h-4" />
-                Edit
-              </button>
+              {order.approvalStatus !== ApprovalStatus.CANCELLED && (
+                  <button
+                    onClick={() => onEdit(order)}
+                    className="flex items-center gap-2 bg-white text-brand-brown font-semibold px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors border border-gray-300"
+                  >
+                    <PencilIcon className="w-4 h-4" />
+                    Edit
+                  </button>
+              )}
               <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1">
                 <XMarkIcon className="w-6 h-6" />
               </button>
@@ -213,6 +220,13 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
           </header>
           
           <div className="overflow-y-auto p-6 space-y-6">
+            {order.approvalStatus === ApprovalStatus.CANCELLED && (
+                <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded" role="alert">
+                    <p className="font-bold">Order Cancelled</p>
+                    <p className="text-sm">This order is cancelled and excluded from totals.</p>
+                </div>
+            )}
+
             {/* Customer & Order Info */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-4">
@@ -300,10 +314,21 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
             
             {/* Follow-up & Status Section */}
             <div className="bg-brand-tan/40 border border-brand-tan p-4 rounded-lg">
-              <h3 className="text-lg font-semibold text-brand-brown/90 mb-3">Order Status & Actions</h3>
+              <div className="flex justify-between items-start mb-3">
+                  <h3 className="text-lg font-semibold text-brand-brown/90">Order Status & Actions</h3>
+                  {/* Move Cancel Button Here */}
+                  {order.approvalStatus === ApprovalStatus.APPROVED && onDeny && (
+                      <button 
+                        onClick={handleCancelOrder} 
+                        className="text-xs flex items-center gap-1 bg-white text-red-600 border border-red-200 px-2 py-1 rounded hover:bg-red-50 transition-colors"
+                      >
+                          <XCircleIcon className="w-4 h-4" /> Cancel Order
+                      </button>
+                  )}
+              </div>
               
               {/* Inventory Action */}
-              {onDeductInventory && order.followUpStatus !== FollowUpStatus.COMPLETED && (
+              {onDeductInventory && order.followUpStatus !== FollowUpStatus.COMPLETED && order.approvalStatus === ApprovalStatus.APPROVED && (
                   <div className="mb-4 p-3 bg-white rounded border border-gray-200 flex items-center justify-between">
                       <div className="text-sm text-gray-600">
                           <p className="font-medium text-brand-brown">Ready for Pickup/Delivery?</p>
