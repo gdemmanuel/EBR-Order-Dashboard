@@ -81,8 +81,14 @@ export interface SalsaProduct {
     visible: boolean;
 }
 
+export interface PricingTier {
+    minQuantity: number;
+    price: number;
+}
+
 export interface ProductPricing {
     basePrice: number; // Fallback for single items
+    tiers?: PricingTier[]; // Volume discounts (e.g. 40+ items = cheaper price)
 }
 
 export interface PricingSettings {

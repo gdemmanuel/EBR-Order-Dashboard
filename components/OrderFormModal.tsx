@@ -1,12 +1,13 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Order, OrderItem, ContactMethod, PaymentStatus, FollowUpStatus, ApprovalStatus, PricingSettings, Flavor, MenuPackage } from '../types';
-import { TrashIcon, PlusIcon, XMarkIcon, ShoppingBagIcon, CogIcon, ArrowUturnLeftIcon } from './icons/Icons';
+import { TrashIcon, PlusIcon, XMarkIcon, ShoppingBagIcon, CogIcon, ArrowUturnLeftIcon, ClockIcon } from './icons/Icons';
 import { getAddressSuggestions } from '../services/geminiService';
 import { calculateOrderTotal, calculateSupplyCost } from '../utils/pricingUtils';
 import { SalsaSize } from '../config';
 import PackageBuilderModal from './PackageBuilderModal';
 import { AppSettings } from '../services/dbService';
+import { generateTimeSlots, normalizeDateStr } from '../utils/dateUtils';
 
 interface OrderFormModalProps {
     order?: Order;
@@ -17,8 +18,8 @@ interface OrderFormModalProps {
     onAddNewFlavor: (flavor: string, type: 'mini' | 'full') => void;
     onDelete?: (orderId: string) => void;
     pricing: PricingSettings;
-    // Add settings prop to access cost data
     settings: AppSettings;
+    existingOrders?: Order[]; // Needed for smart slot calc
 }
 
 // Local state type to allow empty string for quantity and other number inputs
@@ -48,27 +49,37 @@ const ItemInputSection: React.FC<{
     bgColor?: string;
 }> = ({ title, items, flavors, onItemChange, onAddItem, onRemoveItem, itemType, availablePackages, onAddPackage, bgColor = "bg-white" }) => {
     const otherOption = itemType === 'mini' ? 'Other' : 'Full Other';
+    const [isPackageMenuOpen, setIsPackageMenuOpen] = useState(false);
+
     return (
         <div className={`${bgColor} p-4 rounded-lg border border-brand-tan/50 shadow-sm`}>
             <div className="flex justify-between items-end mb-2">
                 <h3 className="text-lg font-semibold text-brand-brown/90">{title}</h3>
                 {availablePackages && availablePackages.length > 0 && (
-                    <div className="relative group">
-                         <button type="button" className="text-xs bg-brand-tan/50 hover:bg-brand-orange hover:text-white text-brand-brown px-2 py-1 rounded flex items-center gap-1 transition-colors">
+                    <div className="relative">
+                         <button 
+                            type="button" 
+                            onClick={() => setIsPackageMenuOpen(!isPackageMenuOpen)}
+                            className="text-xs bg-brand-tan/50 hover:bg-brand-orange hover:text-white text-brand-brown px-2 py-1 rounded flex items-center gap-1 transition-colors"
+                         >
                             <ShoppingBagIcon className="w-3 h-3" /> Quick Add Package
                          </button>
-                         <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded shadow-lg z-20 hidden group-hover:block">
-                            {availablePackages.map(pkg => (
-                                <button 
-                                    key={pkg.id} 
-                                    type="button" 
-                                    onClick={() => onAddPackage(pkg)}
-                                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                >
-                                    {pkg.name} ({pkg.quantity})
-                                </button>
-                            ))}
-                         </div>
+                         {isPackageMenuOpen && (
+                             <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded shadow-lg z-20 animate-fade-in">
+                                {availablePackages.map(pkg => (
+                                    <button 
+                                        key={pkg.id} 
+                                        type="button" 
+                                        onClick={() => { onAddPackage(pkg); setIsPackageMenuOpen(false); }}
+                                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 border-b border-gray-50 last:border-0"
+                                    >
+                                        {pkg.name} ({pkg.quantity})
+                                    </button>
+                                ))}
+                             </div>
+                         )}
+                         {/* Overlay to close menu when clicking outside */}
+                         {isPackageMenuOpen && <div className="fixed inset-0 z-10" onClick={() => setIsPackageMenuOpen(false)}></div>}
                     </div>
                 )}
             </div>
@@ -128,7 +139,7 @@ const formatDateToYYYYMMDD = (dateStr: string | undefined): string => {
     return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 };
 
-export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors, fullSizeEmpanadaFlavors, onAddNewFlavor, onDelete, pricing, settings }: OrderFormModalProps) {
+export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors, fullSizeEmpanadaFlavors, onAddNewFlavor, onDelete, pricing, settings, existingOrders = [] }: OrderFormModalProps) {
     const [customerName, setCustomerName] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
     const [pickupDate, setPickupDate] = useState('');
@@ -159,12 +170,12 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
     const [addressError, setAddressError] = useState<string | null>(null);
     const [userLocation, setUserLocation] = useState<{latitude: number, longitude: number} | null>(null);
 
+    const [showTimePicker, setShowTimePicker] = useState(false);
+
     // Package Builder State
     const [activePackageBuilder, setActivePackageBuilder] = useState<MenuPackage | null>(null);
 
     // Filtered Flavor Lists
-    // Use empanadaFlavors (Mini) as the master list for dropdowns for consistency
-    // CHANGED: We now allow ALL flavors (including specials) in the standard dropdowns
     const standardFlavors = empanadaFlavors;
     const specialFlavors = empanadaFlavors.filter(f => f.isSpecial);
 
@@ -182,6 +193,36 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
             setSalsaItems(initialSalsas);
         }
     }, [pricing.salsas]);
+
+    // --- Smart Slot Generation Logic (Duplicate from Customer Page to run locally) ---
+    const availableTimeSlots = useMemo(() => {
+        if (!pickupDate || !settings.scheduling || !settings.scheduling.enabled) return [];
+
+        const normalizedDate = normalizeDateStr(pickupDate);
+        const override = settings.scheduling.dateOverrides?.[normalizedDate];
+        
+        // Only use override if it has custom hours, otherwise default rules
+        const start = override?.customHours?.start || settings.scheduling.startTime;
+        const end = override?.customHours?.end || settings.scheduling.endTime;
+        
+        // Generate base slots
+        const slots = generateTimeSlots(normalizedDate, start, end, settings.scheduling.intervalMinutes);
+
+        // Filter out busy slots (using existingOrders prop)
+        const busySlots = existingOrders.map(o => ({
+            date: normalizeDateStr(o.pickupDate),
+            time: o.pickupTime
+        }));
+
+        const todaysBusyTimes = new Set(
+            busySlots
+                .filter(slot => slot.date === normalizedDate)
+                .map(slot => slot.time)
+        );
+
+        return slots.filter(time => !todaysBusyTimes.has(time));
+    }, [pickupDate, settings.scheduling, existingOrders]);
+
 
     const resetForm = () => {
         setCustomerName('');
@@ -236,32 +277,16 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
 
         const items = data.items || [];
         
-        // Check if item matches any defined salsa
         const isSalsa = (name: string) => (pricing.salsas || []).some(s => name === s.name || name.includes(s.name));
-        
-        // Check if item is a special (matches special flavor name)
-        // Note: With unified lists, an item can be both 'Standard' and 'Special'. 
-        // We prioritize grouping them into "Specials" section if they were saved there, 
-        // but since we don't store "section" info, we infer.
-        // However, now that standard list includes specials, we should probably prioritize Standard sections
-        // unless it was specifically a "Package" that was special?
-        // For simplicity, we'll stick to: If it's a special flavor, put it in special section to highlight it,
-        // unless it has a "Full " prefix which might go to Full section.
         const isSpecial = (name: string) => {
              const cleanName = name.replace('Full ', '');
              return specialFlavors.some(f => f.name === cleanName);
         };
         
-        // Populate sections logic
-        // Mini: No 'Full ' prefix, not Salsa. (If it's special, we can put it here OR special section. Let's put in Special if marked)
         const pMiniItems = items.filter(i => !i.name.startsWith('Full ') && !isSalsa(i.name) && !isSpecial(i.name));
-        
-        // Full: Has 'Full ' prefix, not Salsa.
         const pFullItems = items
             .filter(i => i.name.startsWith('Full ') && !isSalsa(i.name) && !isSpecial(i.name))
             .map(i => ({ ...i, name: i.name.replace('Full ', '') }));
-
-        // Specials: Any matching special flavor (Mini or Full)
         const pSpecialItems = items.filter(i => !isSalsa(i.name) && isSpecial(i.name));
 
         setMiniItems(pMiniItems);
@@ -273,7 +298,6 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         setPaymentMethod(data.paymentMethod || '');
         setSpecialInstructions(data.specialInstructions || '');
 
-        // Populate salsa items
         const currentSalsas = (pricing.salsas || []).map(product => {
             const foundItem = items.find(i => i.name === product.name || i.name.includes(product.name));
             return {
@@ -320,6 +344,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         }
     }, [deliveryRequired]);
 
+    // Address Suggestions (unchanged) ...
     useEffect(() => {
         if (!deliveryRequired) { setAddressSuggestions([]); return; }
         const handler = setTimeout(async () => {
@@ -354,6 +379,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
 
     const markDirty = () => setIsDirty(true);
 
+    // ... (handleItemChange, addItem, removeItem, etc. unchanged) ...
     useEffect(() => {
         const charged = Number(amountCharged) || 0;
         const collected = Number(amountCollected) || 0;
@@ -439,7 +465,6 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         }
     };
 
-    // Package Builder Handlers
     const handlePackageConfirm = (items: { name: string; quantity: number }[]) => {
         markDirty();
         if (!activePackageBuilder) return;
@@ -596,11 +621,63 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-brand-brown/90">Pickup Date</label>
-                            <input type="date" value={pickupDate} onChange={e => setPickupDate(e.target.value)} required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown" />
+                            <div className="flex gap-2">
+                                <input type="date" value={pickupDate} onChange={e => { setPickupDate(e.target.value); setPickupTime(''); }} required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown" />
+                                <button 
+                                    type="button"
+                                    onClick={() => setPickupDate(new Date().toISOString().split('T')[0])}
+                                    className="mt-1 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-md text-xs font-semibold text-gray-600 border border-gray-300"
+                                >
+                                    Today
+                                </button>
+                            </div>
                         </div>
                          <div>
                             <label className="block text-sm font-medium text-brand-brown/90">Pickup Time</label>
-                            <input type="time" value={pickupTime} onChange={e => setPickupTime(e.target.value)} required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown" />
+                            <div className="relative flex gap-2 mt-1">
+                                <input type="time" value={pickupTime} onChange={e => setPickupTime(e.target.value)} required className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown" />
+                                {settings.scheduling?.enabled && (
+                                    <div className="relative">
+                                        <button 
+                                            type="button"
+                                            disabled={!pickupDate}
+                                            onClick={() => setShowTimePicker(!showTimePicker)}
+                                            className="h-full px-3 bg-brand-tan/50 hover:bg-brand-orange hover:text-white text-brand-brown rounded-md text-xs font-semibold border border-brand-tan whitespace-nowrap disabled:opacity-50 flex items-center gap-1"
+                                        >
+                                            <ClockIcon className="w-4 h-4" /> Select Slot
+                                        </button>
+                                        {showTimePicker && (
+                                            <>
+                                                <div className="fixed inset-0 z-10" onClick={() => setShowTimePicker(false)}></div>
+                                                <div className="absolute right-0 top-full mt-1 bg-white border border-gray-300 shadow-lg rounded-md w-48 max-h-60 overflow-y-auto z-20">
+                                                    {availableTimeSlots.length > 0 ? (
+                                                        availableTimeSlots.map(slot => (
+                                                            <button 
+                                                                key={slot}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    // Convert 12h slot back to 24h for input
+                                                                    const [time, modifier] = slot.split(' ');
+                                                                    let [hours, minutes] = time.split(':');
+                                                                    if (hours === '12') hours = '00';
+                                                                    if (modifier === 'PM') hours = String(parseInt(hours, 10) + 12);
+                                                                    setPickupTime(`${hours.padStart(2, '0')}:${minutes}`);
+                                                                    setShowTimePicker(false);
+                                                                }}
+                                                                className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-gray-700"
+                                                            >
+                                                                {slot}
+                                                            </button>
+                                                        ))
+                                                    ) : (
+                                                        <div className="p-3 text-xs text-gray-500 text-center">No slots available for this date.</div>
+                                                    )}
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                          <div>
                             <div className="flex justify-between items-center mb-1">
@@ -636,6 +713,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                                 )}
                             </div>
                         </div>
+                        {/* ... Rest of the form remains same ... */}
                         <div>
                             <label className="block text-sm font-medium text-brand-brown/90">Amount Collected ($)</label>
                             <input type="number" step="0.01" min="0" value={amountCollected} onChange={e => setAmountCollected(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown" />
@@ -650,6 +728,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                         </div>
                     </div>
                     
+                    {/* ... Delivery Section ... */}
                     <div className="border-t border-brand-tan pt-4">
                          <div className="flex items-center">
                             <input type="checkbox" id="delivery" checked={deliveryRequired} onChange={e => {setDeliveryRequired(e.target.checked); markDirty();}} className="h-4 w-4 rounded border-gray-300 text-brand-orange focus:ring-brand-orange" />
@@ -715,6 +794,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                         />
                     </div>
 
+                    {/* ... Rest of form ... */}
                     <div className="border-t border-brand-tan pt-4">
                         <h3 className="text-lg font-semibold text-brand-brown/90 mb-3">Salsa & Extras</h3>
                         <div className="space-y-4">
@@ -759,7 +839,6 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                     </footer>
                 </form>
                 
-                {/* Package Builder Modal for Admin */}
                 {activePackageBuilder && (
                     <PackageBuilderModal 
                         pkg={activePackageBuilder}

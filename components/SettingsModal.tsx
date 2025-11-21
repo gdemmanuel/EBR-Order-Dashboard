@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { AppSettings, updateSettingsInDb } from '../services/dbService';
-import { PricingSettings, MenuPackage, Flavor, SalsaProduct } from '../types';
+import { PricingSettings, MenuPackage, Flavor, SalsaProduct, PricingTier } from '../types';
 import { XMarkIcon, PlusIcon, TrashIcon, CheckCircleIcon, CogIcon, PencilIcon, ScaleIcon, CurrencyDollarIcon, ClockIcon, SparklesIcon, CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon } from './icons/Icons';
 import { SUGGESTED_DESCRIPTIONS } from '../data/mockData';
 
@@ -66,6 +66,9 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
     const [newSalsaName, setNewSalsaName] = useState('');
     const [newSalsaPrice, setNewSalsaPrice] = useState('');
 
+    // Tier Form State
+    const [newTier, setNewTier] = useState<{type: 'mini'|'full', minQty: string, price: string}>({ type: 'mini', minQty: '', price: '' });
+
     const handleSave = async () => {
         setIsSaving(true);
         
@@ -115,6 +118,34 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
     const toggleSalsaVisibility = (id: string) => { setPricing({...pricing, salsas: pricing.salsas.map(s => s.id === id ? {...s, visible: !s.visible} : s)}); };
     const updateLbsPer20 = (f: string, v: string) => { setPrepSettings({...prepSettings, lbsPer20: {...prepSettings.lbsPer20, [f]: parseFloat(v)||0}}); };
     const updateMaterialCost = (f: string, v: string) => { setMaterialCosts({...materialCosts, [f]: parseFloat(v)||0}); };
+
+    // Tier Logic
+    const addTier = () => {
+        const minQ = parseInt(newTier.minQty);
+        const p = parseFloat(newTier.price);
+        if (!minQ || isNaN(p)) return;
+        
+        const currentTiers = pricing[newTier.type].tiers || [];
+        // Replace if exists or add new
+        const updated = [...currentTiers.filter(t => t.minQuantity !== minQ), { minQuantity: minQ, price: p }];
+        updated.sort((a,b) => a.minQuantity - b.minQuantity);
+        
+        setPricing({
+            ...pricing,
+            [newTier.type]: { ...pricing[newTier.type], tiers: updated }
+        });
+        setNewTier({ ...newTier, minQty: '', price: '' });
+    };
+
+    const removeTier = (type: 'mini'|'full', minQty: number) => {
+        setPricing({
+            ...pricing,
+            [type]: { 
+                ...pricing[type], 
+                tiers: (pricing[type].tiers || []).filter(t => t.minQuantity !== minQty) 
+            }
+        });
+    };
 
     // --- Scheduling Logic ---
     const toggleClosedDay = (dayIndex: number) => {
@@ -205,195 +236,85 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
 
                     {activeTab === 'pricing' && (
                         <div className="space-y-8">
-                            {/* ... Pricing Content (unchanged) ... */}
+                            {/* ... Packages Content ... */}
                              <div className="bg-white p-5 rounded-lg border border-brand-tan shadow-sm"><h3 className="font-bold text-brand-brown text-lg mb-4 border-b pb-2">Package Deals</h3><div className={`grid grid-cols-1 md:grid-cols-8 gap-3 rounded-md mb-6 items-end border p-4 ${editingPackageId ? 'bg-amber-50 border-amber-200' : 'bg-gray-50 border-gray-200'}`}><div className="md:col-span-2"><label className="block text-xs font-medium text-gray-700 mb-1">Name</label><input type="text" value={packageForm.name} onChange={e => setPackageForm({...packageForm, name: e.target.value})} className="w-full text-sm rounded border-gray-300" /></div><div><label className="block text-xs font-medium text-gray-700 mb-1">Type</label><select value={packageForm.itemType} onChange={e => setPackageForm({...packageForm, itemType: e.target.value as any})} className="w-full text-sm rounded border-gray-300"><option value="mini">Mini</option><option value="full">Full</option></select></div><div><label className="block text-xs font-medium text-gray-700 mb-1">Total Qty</label><input type="number" value={packageForm.quantity} onChange={e => setPackageForm({...packageForm, quantity: Number(e.target.value)})} className="w-full text-sm rounded border-gray-300" /></div><div><label className="block text-xs font-medium text-gray-700 mb-1">Price ($)</label><input type="number" value={packageForm.price} onChange={e => setPackageForm({...packageForm, price: Number(e.target.value)})} className="w-full text-sm rounded border-gray-300" /></div><div><label className="block text-xs font-medium text-gray-700 mb-1">Max Flavors</label><input type="number" value={packageForm.maxFlavors} onChange={e => setPackageForm({...packageForm, maxFlavors: Number(e.target.value)})} className="w-full text-sm rounded border-gray-300" /></div><div><label className="block text-xs font-medium text-gray-700 mb-1">Increment</label><input type="number" value={packageForm.increment} onChange={e => setPackageForm({...packageForm, increment: Number(e.target.value)})} className="w-full text-sm rounded border-gray-300" /></div><div className="flex items-center justify-center pb-2"><div className="flex flex-col items-center"><label className="block text-xs font-medium text-purple-600 mb-1">Special?</label><input type="checkbox" checked={packageForm.isSpecial || false} onChange={e => setPackageForm({...packageForm, isSpecial: e.target.checked})} className="rounded text-purple-600 focus:ring-purple-600 h-4 w-4" /></div></div><div className="md:col-span-8 flex justify-end mt-2 gap-2">{editingPackageId && <button onClick={() => { setEditingPackageId(null); setPackageForm({ itemType: 'mini', quantity: 12, price: 20, maxFlavors: 4, increment: 1, visible: true, isSpecial: false, name: '' }); }} className="text-sm text-gray-500 hover:underline mr-2">Cancel Edit</button>}<button onClick={handleAddOrUpdatePackage} className={`flex items-center gap-2 text-white px-4 py-2 rounded text-sm font-semibold hover:bg-opacity-90 ${editingPackageId ? 'bg-amber-600' : 'bg-brand-orange'}`}>{editingPackageId ? <><CheckCircleIcon className="w-4 h-4"/> Update</> : <><PlusIcon className="w-4 h-4" /> Add</>}</button></div></div><div className="space-y-3">{pricing.packages?.map((pkg) => (<div key={pkg.id} className={`flex flex-wrap md:flex-nowrap items-center justify-between bg-white p-3 rounded border shadow-sm gap-4 ${editingPackageId === pkg.id ? 'border-amber-500 ring-1 ring-amber-500' : 'border-gray-200'}`}><div className="flex items-center gap-3"><input type="checkbox" checked={pkg.visible} onChange={() => togglePackageVisibility(pkg.id)} className="rounded text-brand-orange focus:ring-brand-orange" title="Visible to customers"/><div><div className="flex items-center gap-2"><p className="font-bold text-brand-brown">{pkg.name}</p>{pkg.isSpecial && <span className="bg-purple-100 text-purple-800 text-[10px] font-bold px-1.5 py-0.5 rounded">SPECIAL</span>}</div><p className="text-xs text-gray-500">{pkg.quantity} {pkg.itemType} • Max {pkg.maxFlavors} flavors</p></div></div><div className="flex items-center gap-4"><p className="font-bold text-lg text-brand-orange">${pkg.price.toFixed(2)}</p><button onClick={() => handleEditPackageClick(pkg)} className="text-gray-500 hover:text-brand-brown"><PencilIcon className="w-4 h-4" /></button><button onClick={() => removePackage(pkg.id)} className="text-red-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button></div></div>))}</div></div>
                              <div className="bg-white p-5 rounded-lg border border-brand-tan shadow-sm"><h3 className="font-bold text-brand-brown text-lg mb-4 border-b pb-2">Salsa & Extras</h3><div className="flex items-end gap-3 mb-4 p-3 bg-gray-50 rounded border border-gray-200"><div className="flex-grow"><label className="block text-xs font-medium text-gray-700 mb-1">Name</label><input type="text" value={newSalsaName} onChange={e => setNewSalsaName(e.target.value)} className="w-full text-sm rounded border-gray-300" /></div><div className="w-32"><label className="block text-xs font-medium text-gray-700 mb-1">Price</label><input type="number" step="0.01" value={newSalsaPrice} onChange={e => setNewSalsaPrice(e.target.value)} className="w-full text-sm rounded border-gray-300" /></div><button onClick={addSalsa} className="bg-brand-orange text-white px-4 py-2 rounded text-sm font-semibold hover:bg-opacity-90">Add</button></div><div className="space-y-2">{(pricing.salsas || []).map((salsa) => (<div key={salsa.id} className="flex justify-between items-center bg-white p-3 rounded border border-gray-200 shadow-sm"><div className="flex items-center gap-3"><input type="checkbox" checked={salsa.visible} onChange={() => toggleSalsaVisibility(salsa.id)} className="rounded text-brand-orange focus:ring-brand-orange"/><span className="font-medium text-brand-brown">{salsa.name}</span></div><div className="flex items-center gap-4"><input type="number" step="0.01" value={salsa.price} onChange={(e) => updateSalsaPrice(salsa.id, e.target.value)} className="w-24 rounded border-gray-300 pl-2 text-sm"/><button onClick={() => removeSalsa(salsa.id)} className="text-red-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button></div></div>))}</div></div>
-                             <div className="bg-gray-50 p-5 rounded-lg border border-gray-200 shadow-sm"><h3 className="font-bold text-gray-600 text-sm mb-4 uppercase tracking-wide">Fallback / Base Pricing</h3><div className="grid grid-cols-2 gap-6"><div><label className="block text-sm font-medium text-gray-700 mb-1">Mini</label><input type="number" step="0.01" value={pricing.mini.basePrice} onChange={(e) => setPricing({...pricing, mini: { basePrice: parseFloat(e.target.value) || 0 }})} className="block w-full rounded-md border-gray-300" /></div><div><label className="block text-sm font-medium text-gray-700 mb-1">Full-Size</label><input type="number" step="0.01" value={pricing.full.basePrice} onChange={(e) => setPricing({...pricing, full: { basePrice: parseFloat(e.target.value) || 0 }})} className="block w-full rounded-md border-gray-300" /></div></div></div>
+                             
+                             {/* Fallback & Tiered Pricing */}
+                             <div className="bg-gray-50 p-5 rounded-lg border border-gray-200 shadow-sm">
+                                <h3 className="font-bold text-gray-600 text-sm mb-4 uppercase tracking-wide">Fallback / Volume Pricing (Single Item)</h3>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    {/* Mini Pricing */}
+                                    <div>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <label className="block text-sm font-bold text-brand-brown">Mini Base Price</label>
+                                            <div className="relative w-24">
+                                                <span className="absolute inset-y-0 left-0 pl-2 flex items-center text-gray-500 text-xs">$</span>
+                                                <input type="number" step="0.01" value={pricing.mini.basePrice} onChange={(e) => setPricing({...pricing, mini: { ...pricing.mini, basePrice: parseFloat(e.target.value) || 0 }})} className="block w-full rounded-md border-gray-300 pl-5 text-sm" />
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="bg-white border border-gray-200 rounded p-3">
+                                            <p className="text-xs font-semibold text-gray-500 mb-2">Volume Tiers (Discount by Qty)</p>
+                                            <div className="space-y-2 mb-2">
+                                                {(pricing.mini.tiers || []).map((tier, idx) => (
+                                                    <div key={idx} className="flex justify-between items-center text-xs bg-gray-50 p-1 rounded">
+                                                        <span>{tier.minQuantity}+ items</span>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-bold">${tier.price.toFixed(2)}</span>
+                                                            <button onClick={() => removeTier('mini', tier.minQuantity)} className="text-red-400 hover:text-red-600"><XMarkIcon className="w-3 h-3"/></button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            <div className="flex gap-2 items-center">
+                                                <input type="number" placeholder="Min Qty" value={newTier.type === 'mini' ? newTier.minQty : ''} onChange={e => setNewTier({ type: 'mini', minQty: e.target.value, price: newTier.type === 'mini' ? newTier.price : '' })} className="w-20 text-xs rounded border-gray-300"/>
+                                                <input type="number" placeholder="Price" value={newTier.type === 'mini' ? newTier.price : ''} onChange={e => setNewTier({ type: 'mini', minQty: newTier.type === 'mini' ? newTier.minQty : '', price: e.target.value })} className="w-20 text-xs rounded border-gray-300"/>
+                                                <button onClick={addTier} className="text-xs bg-brand-orange text-white px-2 py-1 rounded">Add</button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Full Pricing */}
+                                    <div>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <label className="block text-sm font-bold text-brand-brown">Full Base Price</label>
+                                            <div className="relative w-24">
+                                                <span className="absolute inset-y-0 left-0 pl-2 flex items-center text-gray-500 text-xs">$</span>
+                                                <input type="number" step="0.01" value={pricing.full.basePrice} onChange={(e) => setPricing({...pricing, full: { ...pricing.full, basePrice: parseFloat(e.target.value) || 0 }})} className="block w-full rounded-md border-gray-300 pl-5 text-sm" />
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="bg-white border border-gray-200 rounded p-3">
+                                            <p className="text-xs font-semibold text-gray-500 mb-2">Volume Tiers (Discount by Qty)</p>
+                                            <div className="space-y-2 mb-2">
+                                                {(pricing.full.tiers || []).map((tier, idx) => (
+                                                    <div key={idx} className="flex justify-between items-center text-xs bg-gray-50 p-1 rounded">
+                                                        <span>{tier.minQuantity}+ items</span>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="font-bold">${tier.price.toFixed(2)}</span>
+                                                            <button onClick={() => removeTier('full', tier.minQuantity)} className="text-red-400 hover:text-red-600"><XMarkIcon className="w-3 h-3"/></button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            <div className="flex gap-2 items-center">
+                                                <input type="number" placeholder="Min Qty" value={newTier.type === 'full' ? newTier.minQty : ''} onChange={e => setNewTier({ type: 'full', minQty: e.target.value, price: newTier.type === 'full' ? newTier.price : '' })} className="w-20 text-xs rounded border-gray-300"/>
+                                                <input type="number" placeholder="Price" value={newTier.type === 'full' ? newTier.price : ''} onChange={e => setNewTier({ type: 'full', minQty: newTier.type === 'full' ? newTier.minQty : '', price: e.target.value })} className="w-20 text-xs rounded border-gray-300"/>
+                                                <button onClick={addTier} className="text-xs bg-brand-orange text-white px-2 py-1 rounded">Add</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     )}
 
                     {activeTab === 'scheduling' && (
                         <div className="space-y-8">
-                            <div className="bg-white p-5 rounded-lg border border-brand-tan shadow-sm">
-                                <div className="flex items-center justify-between border-b pb-2 mb-4">
-                                    <div>
-                                        <h3 className="font-bold text-brand-brown text-lg">Smart Scheduling</h3>
-                                        <p className="text-sm text-gray-600">Control available dates and time slots for customers.</p>
-                                    </div>
-                                    <ClockIcon className="w-6 h-6 text-brand-orange" />
-                                </div>
-
-                                <div className="space-y-6">
-                                    {/* Global Settings */}
-                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                        <div>
-                                            <label className="block text-xs font-medium text-gray-700 mb-1">Opening Time</label>
-                                            <input type="time" value={scheduling.startTime} onChange={(e) => setScheduling({ ...scheduling, startTime: e.target.value })} className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange sm:text-sm" />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-medium text-gray-700 mb-1">Closing Time</label>
-                                            <input type="time" value={scheduling.endTime} onChange={(e) => setScheduling({ ...scheduling, endTime: e.target.value })} className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange sm:text-sm" />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-medium text-gray-700 mb-1">Slot Interval (Min)</label>
-                                            <input type="number" step="5" min="5" value={scheduling.intervalMinutes} onChange={(e) => setScheduling({ ...scheduling, intervalMinutes: parseInt(e.target.value) || 15 })} className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange sm:text-sm" />
-                                        </div>
-                                    </div>
-
-                                    {/* Recurring Weekly Schedule */}
-                                    <div className="bg-gray-50 p-4 rounded-md border border-gray-200">
-                                        <h4 className="font-bold text-sm text-gray-700 mb-3 flex items-center gap-2">
-                                            Weekly Closed Days (Recurring)
-                                        </h4>
-                                        <div className="flex flex-wrap gap-2">
-                                            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => {
-                                                const isClosed = scheduling.closedDays?.includes(index);
-                                                return (
-                                                    <button
-                                                        key={day}
-                                                        onClick={() => toggleClosedDay(index)}
-                                                        className={`w-10 h-10 rounded-full text-sm font-bold flex items-center justify-center transition-colors shadow-sm ${
-                                                            isClosed 
-                                                                ? 'bg-red-100 text-red-700 border border-red-300' 
-                                                                : 'bg-white text-brand-brown border border-gray-300 hover:bg-gray-50'
-                                                        }`}
-                                                        title={isClosed ? `Closed on ${day}s` : `Open on ${day}s`}
-                                                    >
-                                                        {day}
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                        <p className="text-xs text-gray-500 mt-2">Selected days will be permanently unavailable unless overridden below.</p>
-                                    </div>
-
-                                    {/* Specific Date Overrides Calendar */}
-                                    <div className="bg-white p-4 rounded-md border border-brand-tan flex flex-col md:flex-row gap-6">
-                                        <div className="flex-grow">
-                                            <div className="flex justify-between items-center mb-4">
-                                                <h4 className="font-bold text-sm text-gray-700 flex items-center gap-2">
-                                                    <CalendarDaysIcon className="w-4 h-4" /> Date Overrides
-                                                </h4>
-                                                <div className="flex items-center gap-2 bg-gray-50 rounded-lg p-1">
-                                                    <button onClick={handlePrevMonth} className="p-1 hover:bg-gray-200 rounded"><ChevronLeftIcon className="w-4 h-4"/></button>
-                                                    <span className="text-sm font-medium min-w-[100px] text-center">{calendarViewDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</span>
-                                                    <button onClick={handleNextMonth} className="p-1 hover:bg-gray-200 rounded"><ChevronRightIcon className="w-4 h-4"/></button>
-                                                </div>
-                                            </div>
-
-                                            <div className="grid grid-cols-7 text-center text-xs font-medium text-gray-500 mb-2">
-                                                {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => <div key={i}>{d}</div>)}
-                                            </div>
-                                            <div className="grid grid-cols-7 gap-1">
-                                                {calendarGrid.map((date, i) => {
-                                                    if (!date) return <div key={i} className="aspect-square"></div>;
-                                                    
-                                                    const dateStr = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-                                                    
-                                                    const override = scheduling.dateOverrides?.[dateStr];
-                                                    const isClosedWeekly = scheduling.closedDays?.includes(date.getDay());
-                                                    const isSelected = selectedDate === dateStr;
-                                                    const isToday = new Date().toDateString() === date.toDateString();
-                                                    
-                                                    // Styling based on state
-                                                    let bgClass = 'bg-white hover:bg-gray-50 border-gray-200 text-gray-700';
-                                                    
-                                                    if (override) {
-                                                        if (override.isClosed) bgClass = 'bg-red-100 text-red-700 border-red-300 font-bold'; // Force Closed
-                                                        else bgClass = 'bg-green-100 text-green-700 border-green-300 font-bold'; // Custom Open
-                                                    } else if (isClosedWeekly) {
-                                                        bgClass = 'bg-gray-100 text-gray-400 border-transparent'; // Default Closed
-                                                    }
-
-                                                    if (isSelected) bgClass += ' ring-2 ring-brand-orange z-10';
-                                                    if (isToday) bgClass += ' ring-1 ring-blue-400';
-
-                                                    return (
-                                                        <button
-                                                            key={i}
-                                                            onClick={() => handleDateClick(dateStr)}
-                                                            className={`aspect-square flex items-center justify-center rounded border text-sm transition-all ${bgClass}`}
-                                                        >
-                                                            {date.getDate()}
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                            <div className="mt-3 flex gap-4 text-xs text-gray-500">
-                                                <span className="flex items-center gap-1"><span className="w-3 h-3 bg-gray-100 border rounded"></span> Closed Weekly</span>
-                                                <span className="flex items-center gap-1"><span className="w-3 h-3 bg-red-100 border border-red-300 rounded"></span> Force Closed</span>
-                                                <span className="flex items-center gap-1"><span className="w-3 h-3 bg-green-100 border border-green-300 rounded"></span> Custom Open</span>
-                                            </div>
-                                        </div>
-                                        
-                                        {/* Date Settings Panel */}
-                                        <div className="w-full md:w-64 bg-gray-50 p-4 rounded border border-gray-200 h-fit">
-                                            <h4 className="font-bold text-brand-brown text-sm mb-3 border-b pb-2">
-                                                {selectedDate ? new Date(selectedDate).toLocaleDateString(undefined, { weekday: 'short', month: 'long', day: 'numeric' }) : 'Select a Date'}
-                                            </h4>
-                                            
-                                            {selectedDate ? (
-                                                <div className="space-y-3">
-                                                    <div className="space-y-2">
-                                                        <label className="flex items-center gap-2 text-sm cursor-pointer">
-                                                            <input 
-                                                                type="radio" name="dateType" 
-                                                                checked={!scheduling.dateOverrides?.[selectedDate]}
-                                                                onChange={() => updateDateOverride(selectedDate, 'default')}
-                                                                className="text-brand-orange focus:ring-brand-orange"
-                                                            />
-                                                            <span>Standard Rules</span>
-                                                        </label>
-                                                        <label className="flex items-center gap-2 text-sm cursor-pointer">
-                                                            <input 
-                                                                type="radio" name="dateType" 
-                                                                checked={scheduling.dateOverrides?.[selectedDate]?.isClosed === true}
-                                                                onChange={() => updateDateOverride(selectedDate, 'closed')}
-                                                                className="text-red-600 focus:ring-red-600"
-                                                            />
-                                                            <span>Force Closed</span>
-                                                        </label>
-                                                        <label className="flex items-center gap-2 text-sm cursor-pointer">
-                                                            <input 
-                                                                type="radio" name="dateType" 
-                                                                checked={scheduling.dateOverrides?.[selectedDate]?.isClosed === false}
-                                                                onChange={() => updateDateOverride(selectedDate, 'custom')}
-                                                                className="text-green-600 focus:ring-green-600"
-                                                            />
-                                                            <span>Custom Hours</span>
-                                                        </label>
-                                                    </div>
-
-                                                    {scheduling.dateOverrides?.[selectedDate]?.isClosed === false && (
-                                                        <div className="pt-2 border-t border-gray-200 animate-fade-in">
-                                                            <div className="mb-2">
-                                                                <label className="block text-xs font-medium text-gray-600 mb-1">Open Time</label>
-                                                                <input 
-                                                                    type="time" 
-                                                                    value={scheduling.dateOverrides[selectedDate]?.customHours?.start || scheduling.startTime} 
-                                                                    onChange={(e) => updateDateOverride(selectedDate, 'custom', e.target.value, scheduling.dateOverrides?.[selectedDate]?.customHours?.end)}
-                                                                    className="w-full rounded border-gray-300 text-xs" 
-                                                                />
-                                                            </div>
-                                                            <div>
-                                                                <label className="block text-xs font-medium text-gray-600 mb-1">Close Time</label>
-                                                                <input 
-                                                                    type="time" 
-                                                                    value={scheduling.dateOverrides[selectedDate]?.customHours?.end || scheduling.endTime} 
-                                                                    onChange={(e) => updateDateOverride(selectedDate, 'custom', scheduling.dateOverrides?.[selectedDate]?.customHours?.start, e.target.value)}
-                                                                    className="w-full rounded border-gray-300 text-xs" 
-                                                                />
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ) : (
-                                                <p className="text-xs text-gray-400 italic">Click a date on the calendar to configure overrides (e.g., block a holiday or open on a closed day).</p>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                            {/* ... Scheduling Content (unchanged) ... */}
+                            <div className="bg-white p-5 rounded-lg border border-brand-tan shadow-sm"><div className="flex items-center justify-between border-b pb-2 mb-4"><div><h3 className="font-bold text-brand-brown text-lg">Smart Scheduling</h3><p className="text-sm text-gray-600">Control available dates and time slots for customers.</p></div><ClockIcon className="w-6 h-6 text-brand-orange" /></div><div className="space-y-6"><div className="grid grid-cols-1 sm:grid-cols-3 gap-4"><div><label className="block text-xs font-medium text-gray-700 mb-1">Opening Time</label><input type="time" value={scheduling.startTime} onChange={(e) => setScheduling({ ...scheduling, startTime: e.target.value })} className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange sm:text-sm" /></div><div><label className="block text-xs font-medium text-gray-700 mb-1">Closing Time</label><input type="time" value={scheduling.endTime} onChange={(e) => setScheduling({ ...scheduling, endTime: e.target.value })} className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange sm:text-sm" /></div><div><label className="block text-xs font-medium text-gray-700 mb-1">Slot Interval (Min)</label><input type="number" step="5" min="5" value={scheduling.intervalMinutes} onChange={(e) => setScheduling({ ...scheduling, intervalMinutes: parseInt(e.target.value) || 15 })} className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange sm:text-sm" /></div></div><div className="bg-gray-50 p-4 rounded-md border border-gray-200"><h4 className="font-bold text-sm text-gray-700 mb-3 flex items-center gap-2">Weekly Closed Days (Recurring)</h4><div className="flex flex-wrap gap-2">{['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => { const isClosed = scheduling.closedDays?.includes(index); return (<button key={day} onClick={() => toggleClosedDay(index)} className={`w-10 h-10 rounded-full text-sm font-bold flex items-center justify-center transition-colors shadow-sm ${isClosed ? 'bg-red-100 text-red-700 border border-red-300' : 'bg-white text-brand-brown border border-gray-300 hover:bg-gray-50'}`} title={isClosed ? `Closed on ${day}s` : `Open on ${day}s`}>{day}</button>); })}</div><p className="text-xs text-gray-500 mt-2">Selected days will be permanently unavailable unless overridden below.</p></div><div className="bg-white p-4 rounded-md border border-brand-tan flex flex-col md:flex-row gap-6"><div className="flex-grow"><div className="flex justify-between items-center mb-4"><h4 className="font-bold text-sm text-gray-700 flex items-center gap-2"><CalendarDaysIcon className="w-4 h-4" /> Date Overrides</h4><div className="flex items-center gap-2 bg-gray-50 rounded-lg p-1"><button onClick={handlePrevMonth} className="p-1 hover:bg-gray-200 rounded"><ChevronLeftIcon className="w-4 h-4"/></button><span className="text-sm font-medium min-w-[100px] text-center">{calendarViewDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</span><button onClick={handleNextMonth} className="p-1 hover:bg-gray-200 rounded"><ChevronRightIcon className="w-4 h-4"/></button></div></div><div className="grid grid-cols-7 text-center text-xs font-medium text-gray-500 mb-2">{['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => <div key={i}>{d}</div>)}</div><div className="grid grid-cols-7 gap-1">{calendarGrid.map((date, i) => { if (!date) return <div key={i} className="aspect-square"></div>; const dateStr = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`; const override = scheduling.dateOverrides?.[dateStr]; const isClosedWeekly = scheduling.closedDays?.includes(date.getDay()); const isSelected = selectedDate === dateStr; const isToday = new Date().toDateString() === date.toDateString(); let bgClass = 'bg-white hover:bg-gray-50 border-gray-200 text-gray-700'; if (override) { if (override.isClosed) bgClass = 'bg-red-100 text-red-700 border-red-300 font-bold'; else bgClass = 'bg-green-100 text-green-700 border-green-300 font-bold'; } else if (isClosedWeekly) { bgClass = 'bg-gray-100 text-gray-400 border-transparent'; } if (isSelected) bgClass += ' ring-2 ring-brand-orange z-10'; if (isToday) bgClass += ' ring-1 ring-blue-400'; return (<button key={i} onClick={() => handleDateClick(dateStr)} className={`aspect-square flex items-center justify-center rounded border text-sm transition-all ${bgClass}`}>{date.getDate()}</button>); })}</div><div className="mt-3 flex gap-4 text-xs text-gray-500"><span className="flex items-center gap-1"><span className="w-3 h-3 bg-gray-100 border rounded"></span> Closed Weekly</span><span className="flex items-center gap-1"><span className="w-3 h-3 bg-red-100 border border-red-300 rounded"></span> Force Closed</span><span className="flex items-center gap-1"><span className="w-3 h-3 bg-green-100 border border-green-300 rounded"></span> Custom Open</span></div></div><div className="w-full md:w-64 bg-gray-50 p-4 rounded border border-gray-200 h-fit"><h4 className="font-bold text-brand-brown text-sm mb-3 border-b pb-2">{selectedDate ? new Date(selectedDate).toLocaleDateString(undefined, { weekday: 'short', month: 'long', day: 'numeric' }) : 'Select a Date'}</h4>{selectedDate ? (<div className="space-y-3"><div className="space-y-2"><label className="flex items-center gap-2 text-sm cursor-pointer"><input type="radio" name="dateType" checked={!scheduling.dateOverrides?.[selectedDate]} onChange={() => updateDateOverride(selectedDate, 'default')} className="text-brand-orange focus:ring-brand-orange"/><span>Standard Rules</span></label><label className="flex items-center gap-2 text-sm cursor-pointer"><input type="radio" name="dateType" checked={scheduling.dateOverrides?.[selectedDate]?.isClosed === true} onChange={() => updateDateOverride(selectedDate, 'closed')} className="text-red-600 focus:ring-red-600"/><span>Force Closed</span></label><label className="flex items-center gap-2 text-sm cursor-pointer"><input type="radio" name="dateType" checked={scheduling.dateOverrides?.[selectedDate]?.isClosed === false} onChange={() => updateDateOverride(selectedDate, 'custom')} className="text-green-600 focus:ring-green-600"/><span>Custom Hours</span></label></div>{scheduling.dateOverrides?.[selectedDate]?.isClosed === false && (<div className="pt-2 border-t border-gray-200 animate-fade-in"><div className="mb-2"><label className="block text-xs font-medium text-gray-600 mb-1">Open Time</label><input type="time" value={scheduling.dateOverrides[selectedDate]?.customHours?.start || scheduling.startTime} onChange={(e) => updateDateOverride(selectedDate, 'custom', e.target.value, scheduling.dateOverrides?.[selectedDate]?.customHours?.end)} className="w-full rounded border-gray-300 text-xs" /></div><div><label className="block text-xs font-medium text-gray-600 mb-1">Close Time</label><input type="time" value={scheduling.dateOverrides[selectedDate]?.customHours?.end || scheduling.endTime} onChange={(e) => updateDateOverride(selectedDate, 'custom', scheduling.dateOverrides?.[selectedDate]?.customHours?.start, e.target.value)} className="w-full rounded border-gray-300 text-xs" /></div></div>)}</div>) : (<p className="text-xs text-gray-400 italic">Click a date on the calendar to configure overrides (e.g., block a holiday or open on a closed day).</p>)}</div></div></div></div>
                         </div>
                     )}
 

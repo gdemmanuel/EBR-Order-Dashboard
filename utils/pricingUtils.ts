@@ -1,11 +1,26 @@
 
-import { OrderItem, PricingSettings, MenuPackage, Flavor } from '../types';
+import { OrderItem, PricingSettings, MenuPackage, Flavor, PricingTier } from '../types';
 import { AppSettings } from '../services/dbService';
+
+/**
+ * Determines the unit price based on total quantity and defined tiers.
+ * If no tier matches, returns basePrice.
+ */
+const getUnitPrice = (quantity: number, basePrice: number, tiers: PricingTier[] = []) => {
+    if (!tiers || tiers.length === 0) return basePrice;
+    
+    // Find the highest tier that matches the quantity
+    // Sort tiers by minQuantity descending to find the highest applicable threshold first
+    const sortedTiers = [...tiers].sort((a, b) => b.minQuantity - a.minQuantity);
+    
+    const applicableTier = sortedTiers.find(tier => quantity >= tier.minQuantity);
+    return applicableTier ? applicableTier.price : basePrice;
+};
 
 /**
  * Calculates the best price for a given quantity of items by applying package deals first.
  */
-export const calculatePriceForType = (quantity: number, basePrice: number, packages: MenuPackage[] = [], type: 'mini' | 'full') => {
+export const calculatePriceForType = (quantity: number, basePrice: number, tiers: PricingTier[] = [], packages: MenuPackage[] = [], type: 'mini' | 'full') => {
     if (quantity <= 0) return 0;
 
     // Filter packages for this specific item type (mini/full) and sort by quantity descending (largest packages first)
@@ -25,8 +40,12 @@ export const calculatePriceForType = (quantity: number, basePrice: number, packa
         }
     }
 
-    // Remainder at base price
-    totalPrice += remainingQty * basePrice;
+    // Remainder pricing:
+    // We determine the "Base Price" based on the TOTAL quantity ordered (tiered logic),
+    // but apply it only to the remaining units that weren't in a package.
+    const currentUnitPrice = getUnitPrice(quantity, basePrice, tiers);
+    
+    totalPrice += remainingQty * currentUnitPrice;
     return totalPrice;
 };
 
@@ -56,9 +75,9 @@ export const calculateOrderTotal = (
         }
     });
 
-    // 2. Calculate Base Totals using Packages first, then Base Price
-    const miniBaseTotal = calculatePriceForType(miniItemsQty, pricing.mini.basePrice, pricing.packages, 'mini');
-    const fullBaseTotal = calculatePriceForType(fullItemsQty, pricing.full.basePrice, pricing.packages, 'full');
+    // 2. Calculate Base Totals using Packages first, then Base/Tiered Price
+    const miniBaseTotal = calculatePriceForType(miniItemsQty, pricing.mini.basePrice, pricing.mini.tiers, pricing.packages, 'mini');
+    const fullBaseTotal = calculatePriceForType(fullItemsQty, pricing.full.basePrice, pricing.full.tiers, pricing.packages, 'full');
     
     // 3. Calculate Surcharges
     let surchargeTotal = 0;
@@ -73,8 +92,7 @@ export const calculateOrderTotal = (
 
     // Check Full Items
     fullItems.forEach(item => {
-        // Strip "Full " prefix to match flavor definition if needed, though usually Full flavors are stored with the prefix in settings?
-        // In AppSettings, fullSizeEmpanadaFlavors usually stores names like "Full Beef".
+        // Strip "Full " prefix to match flavor definition if needed
         const flavorDef = fullFlavors.find(f => f.name === item.name);
         if (flavorDef && flavorDef.surcharge) {
             surchargeTotal += (item.quantity * flavorDef.surcharge);

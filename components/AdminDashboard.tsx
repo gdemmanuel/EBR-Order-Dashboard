@@ -374,6 +374,8 @@ export default function AdminDashboard({
                     onDelete={confirmDeleteOrder}
                     pricing={safePricing}
                     settings={safeSettings}
+                    // Pass orders for busy slot calculation
+                    existingOrders={activeOrders} 
                 />
             )}
 

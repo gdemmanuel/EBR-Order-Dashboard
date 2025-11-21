@@ -297,7 +297,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
     return (
         <div className="min-h-screen bg-brand-cream">
             <Header variant="public" />
-            <main className="max-w-4xl mx-auto px-4 py-8">
+            <main className="max-w-4xl mx-auto px-4 py-8 pb-24 sm:pb-8">
                 <div className="text-center mb-10">
                     <h2 className="text-4xl font-serif text-brand-brown mb-3">Place Your Order</h2>
                     <p className="text-brand-brown/70 max-w-lg mx-auto">Choose from our delicious packages. Everything is made fresh to order!</p>
@@ -391,9 +391,18 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                     </section>
 
                     {/* Footer Total */}
-                    <div className="bg-brand-brown text-brand-cream p-6 rounded-xl shadow-lg flex flex-col sm:flex-row justify-between items-center gap-4 sticky bottom-4 z-10">
-                        <div className="text-center sm:text-left"><p className="text-sm opacity-80">Estimated Total</p><p className="text-3xl font-bold">${estimatedTotal.toFixed(2)}*</p></div>
-                        <button type="submit" disabled={isSubmitting} className="w-full sm:w-auto bg-brand-orange text-white font-bold text-lg px-8 py-3 rounded-lg hover:bg-brand-orange/90 transition-all shadow-md disabled:bg-gray-500 disabled:cursor-not-allowed">{isSubmitting ? 'Sending...' : 'Submit Order'}</button>
+                    <div className="bg-brand-brown text-brand-cream p-3 sm:p-6 rounded-xl shadow-lg flex flex-row justify-between items-center gap-2 sticky bottom-4 z-10 mx-2 sm:mx-0">
+                        <div className="text-left">
+                            <p className="text-xs opacity-80">Estimated Total</p>
+                            <p className="text-xl sm:text-3xl font-bold">${estimatedTotal.toFixed(2)}*</p>
+                        </div>
+                        <button 
+                            type="submit" 
+                            disabled={isSubmitting} 
+                            className="bg-brand-orange text-white font-bold text-sm sm:text-lg px-4 sm:px-8 py-2 sm:py-3 rounded-lg hover:bg-brand-orange/90 transition-all shadow-md disabled:bg-gray-500 disabled:cursor-not-allowed whitespace-nowrap"
+                        >
+                            {isSubmitting ? 'Sending...' : 'Submit Order'}
+                        </button>
                     </div>
                     
                      {error && (<div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert"><strong className="font-bold">Error: </strong><span className="block sm:inline">{error}</span></div>)}

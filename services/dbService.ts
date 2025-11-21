@@ -69,8 +69,8 @@ const DEFAULT_SETTINGS: AppSettings = {
     sheetUrl: '',
     importedSignatures: [],
     pricing: {
-        mini: { basePrice: 1.75 },
-        full: { basePrice: 3.00 },
+        mini: { basePrice: 1.75, tiers: [] },
+        full: { basePrice: 3.00, tiers: [] },
         packages: [],
         salsas: [
             { id: 'salsa-verde-sm', name: 'Salsa Verde (4oz)', price: 2.00, visible: true },
@@ -159,6 +159,9 @@ export const subscribeToSettings = (
                     { id: 'legacy-lg-r', name: 'Salsa Rosada (Large)', price: safePricing.salsaLarge || 4.00, visible: true },
                 ];
             }
+            // Initialize tiers if missing
+            if (!safePricing.mini.tiers) safePricing.mini.tiers = [];
+            if (!safePricing.full.tiers) safePricing.full.tiers = [];
 
             const mergedSettings: AppSettings = {
                 ...DEFAULT_SETTINGS,
