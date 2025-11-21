@@ -218,7 +218,15 @@ export default function AdminDashboard({
                     />
                 )}
 
-                {view === 'calendar' && <CalendarView orders={activeOrders} onSelectOrder={setSelectedOrder} onPrintSelected={setPrintPreviewOrders} onDelete={confirmDeleteOrder} />}
+                {view === 'calendar' && (
+                    <CalendarView 
+                        orders={activeOrders} 
+                        onSelectOrder={setSelectedOrder} 
+                        onPrintSelected={setPrintPreviewOrders} 
+                        onDelete={confirmDeleteOrder}
+                        settings={safeSettings} // PASS SETTINGS HERE
+                    />
+                )}
             </main>
 
             {isNewOrderModalOpen && <OrderFormModal order={orderToEdit} onClose={() => setIsNewOrderModalOpen(false)} onSave={handleSaveOrder} empanadaFlavors={empanadaFlavors} fullSizeEmpanadaFlavors={fullSizeEmpanadaFlavors} onAddNewFlavor={handleAddNewFlavor} onDelete={confirmDeleteOrder} pricing={safePricing} settings={safeSettings} existingOrders={orders} />}
