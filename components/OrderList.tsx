@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Order, PaymentStatus, FollowUpStatus } from '../types';
+import { Order, PaymentStatus, FollowUpStatus, ApprovalStatus } from '../types';
 import { TrashIcon, PrinterIcon, MagnifyingGlassIcon, XMarkIcon } from './icons/Icons';
 import { parseOrderDateTime } from '../utils/dateUtils';
 
@@ -14,9 +14,23 @@ interface OrderListProps {
     onSearchChange?: (term: string) => void;
     activeStatusFilter?: FollowUpStatus | null;
     onClearStatusFilter?: () => void;
+    currentFilter?: string;
+    onFilterChange?: (filter: string) => void;
 }
 
-export default function OrderList({ orders, title, onSelectOrder, onPrintSelected, onDelete, searchTerm, onSearchChange, activeStatusFilter, onClearStatusFilter }: OrderListProps) {
+export default function OrderList({ 
+    orders, 
+    title, 
+    onSelectOrder, 
+    onPrintSelected, 
+    onDelete, 
+    searchTerm, 
+    onSearchChange, 
+    activeStatusFilter, 
+    onClearStatusFilter,
+    currentFilter,
+    onFilterChange
+}: OrderListProps) {
     const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
     const [sortConfig, setSortConfig] = useState<{ key: keyof Order | 'pickupDateObj', direction: 'asc' | 'desc' }>({ key: 'pickupDateObj', direction: 'asc' });
 
@@ -78,22 +92,46 @@ export default function OrderList({ orders, title, onSelectOrder, onPrintSelecte
 
     return (
         <div className="bg-white border border-brand-tan rounded-lg shadow-sm overflow-hidden">
-             <div className="p-4 border-b border-brand-tan bg-brand-tan/10 flex flex-col sm:flex-row justify-between items-center gap-4">
-                <div className="flex items-center gap-2 flex-wrap">
-                    <h2 className="text-xl font-serif text-brand-brown">{title || 'All Orders'}</h2>
-                    {activeStatusFilter && onClearStatusFilter && (
-                        <span className="inline-flex items-center gap-1 bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded-full">
-                            Filter: {activeStatusFilter}
-                            <button onClick={onClearStatusFilter} className="hover:text-blue-900">
-                                <XMarkIcon className="w-3 h-3" />
-                            </button>
-                        </span>
+             <div className="p-4 border-b border-brand-tan bg-brand-tan/10 flex flex-col md:flex-row justify-between items-center gap-4">
+                <div className="flex items-center gap-4 flex-wrap w-full md:w-auto">
+                    <h2 className="text-xl font-serif text-brand-brown whitespace-nowrap">{title || 'Orders'}</h2>
+                    
+                    {/* Render Filter Dropdown if handler provided */}
+                    {onFilterChange ? (
+                        <div className="relative w-full sm:w-auto">
+                            <select 
+                                value={currentFilter || 'ALL'} 
+                                onChange={(e) => onFilterChange(e.target.value)}
+                                className="appearance-none w-full sm:w-auto border border-brand-tan hover:border-brand-orange rounded-lg text-sm py-1.5 pl-3 pr-8 focus:ring-brand-orange focus:border-brand-orange bg-white text-brand-brown font-medium cursor-pointer shadow-sm transition-colors"
+                            >
+                                <option value="ALL">All Active</option>
+                                <option value={FollowUpStatus.NEEDED}>Follow-up Needed</option>
+                                <option value={FollowUpStatus.PENDING}>Pending</option>
+                                <option value={FollowUpStatus.CONFIRMED}>Confirmed</option>
+                                <option value={FollowUpStatus.COMPLETED}>Completed</option>
+                                <option disabled>──────────</option>
+                                <option value="CANCELLED">Cancelled Orders</option>
+                            </select>
+                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-brand-brown">
+                                <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                            </div>
+                        </div>
+                    ) : (
+                        // Fallback to old badge style if no dropdown handler
+                        activeStatusFilter && onClearStatusFilter && (
+                            <span className="inline-flex items-center gap-1 bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded-full">
+                                Filter: {activeStatusFilter}
+                                <button onClick={onClearStatusFilter} className="hover:text-blue-900">
+                                    <XMarkIcon className="w-3 h-3" />
+                                </button>
+                            </span>
+                        )
                     )}
                 </div>
                 
-                <div className="flex items-center gap-3 w-full sm:w-auto">
+                <div className="flex items-center gap-3 w-full md:w-auto">
                     {onSearchChange && (
-                        <div className="relative flex-grow sm:flex-grow-0 w-full sm:w-auto">
+                        <div className="relative flex-grow md:flex-grow-0">
                             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                 <MagnifyingGlassIcon className="h-4 w-4 text-gray-400" />
                             </div>
@@ -102,7 +140,7 @@ export default function OrderList({ orders, title, onSelectOrder, onPrintSelecte
                                 placeholder="Search Customer..."
                                 value={searchTerm || ''}
                                 onChange={(e) => onSearchChange(e.target.value)}
-                                className="pl-9 pr-3 py-1.5 text-sm border border-brand-tan rounded-lg focus:ring-brand-orange focus:border-brand-orange w-full sm:w-64"
+                                className="pl-9 pr-3 py-1.5 text-sm border border-brand-tan rounded-lg focus:ring-brand-orange focus:border-brand-orange w-full md:w-64"
                             />
                         </div>
                     )}
@@ -188,17 +226,23 @@ export default function OrderList({ orders, title, onSelectOrder, onPrintSelecte
                                         )}
                                     </td>
                                     <td className="px-6 py-4">
-                                        {order.followUpStatus === FollowUpStatus.NEEDED && (
-                                            <span className="bg-amber-100 text-amber-800 text-xs font-medium px-2.5 py-0.5 rounded">Follow-up</span>
-                                        )}
-                                        {order.followUpStatus === FollowUpStatus.COMPLETED && (
-                                            <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">Done</span>
-                                        )}
-                                         {order.followUpStatus === FollowUpStatus.CONFIRMED && (
-                                            <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">Confirmed</span>
-                                        )}
-                                        {order.followUpStatus === FollowUpStatus.PENDING && (
-                                            <span className="bg-gray-100 text-gray-800 text-xs font-medium px-2.5 py-0.5 rounded">Pending</span>
+                                        {order.approvalStatus === ApprovalStatus.CANCELLED ? (
+                                            <span className="bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded">Cancelled</span>
+                                        ) : (
+                                            <>
+                                                {order.followUpStatus === FollowUpStatus.NEEDED && (
+                                                    <span className="bg-amber-100 text-amber-800 text-xs font-medium px-2.5 py-0.5 rounded">Follow-up</span>
+                                                )}
+                                                {order.followUpStatus === FollowUpStatus.COMPLETED && (
+                                                    <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">Done</span>
+                                                )}
+                                                {order.followUpStatus === FollowUpStatus.CONFIRMED && (
+                                                    <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">Confirmed</span>
+                                                )}
+                                                {order.followUpStatus === FollowUpStatus.PENDING && (
+                                                    <span className="bg-gray-100 text-gray-800 text-xs font-medium px-2.5 py-0.5 rounded">Pending</span>
+                                                )}
+                                            </>
                                         )}
                                     </td>
                                     <td className="px-6 py-4 text-right">
