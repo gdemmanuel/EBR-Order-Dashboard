@@ -47,6 +47,7 @@ export default function App() {
   const [materialCosts, setMaterialCosts] = useState<Record<string, number>>({});
   const [discoCosts, setDiscoCosts] = useState<{mini: number, full: number}>({mini: 0.10, full: 0.15});
   const [inventory, setInventory] = useState<Record<string, { mini: number; full: number }>>({});
+  const [expenseCategories, setExpenseCategories] = useState<string[]>(['Packaging', 'Marketing', 'Rent', 'Utilities', 'Equipment', 'Other']);
   
   const [dbError, setDbError] = useState<string | null>(null);
   const [isMigrating, setIsMigrating] = useState(false);
@@ -137,7 +138,8 @@ export default function App() {
                   laborWage: 15.00,
                   materialCosts: {},
                   discoCosts: { mini: 0.10, full: 0.15 },
-                  inventory: {}
+                  inventory: {},
+                  expenseCategories: ['Packaging', 'Marketing', 'Rent', 'Utilities', 'Equipment', 'Other']
               };
 
               await migrateLocalDataToFirestore(localOrders, localPending, localSettings);
@@ -168,6 +170,7 @@ export default function App() {
         if (settings.materialCosts) setMaterialCosts(settings.materialCosts);
         if (settings.discoCosts) setDiscoCosts(settings.discoCosts);
         if (settings.inventory) setInventory(settings.inventory);
+        if (settings.expenseCategories) setExpenseCategories(settings.expenseCategories);
 
     }, (error) => {
         console.warn("Could not load settings:", error.message);
@@ -217,7 +220,8 @@ export default function App() {
       laborWage,
       materialCosts,
       discoCosts,
-      inventory
+      inventory,
+      expenseCategories
   };
 
   return (

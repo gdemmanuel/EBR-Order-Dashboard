@@ -55,6 +55,14 @@ export interface Order {
   approvalStatus: ApprovalStatus;
 }
 
+export interface Expense {
+    id: string;
+    date: string; // YYYY-MM-DD
+    category: string;
+    description: string;
+    amount: number;
+}
+
 export interface Flavor {
     name: string;
     visible: boolean;

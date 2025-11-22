@@ -11,11 +11,12 @@ import {
     writeBatch
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
-import { Order, ApprovalStatus, PricingSettings, Flavor } from "../types";
+import { Order, ApprovalStatus, PricingSettings, Flavor, Expense } from "../types";
 import { initialEmpanadaFlavors, initialFullSizeEmpanadaFlavors } from "../data/mockData";
 
 // Collection References
 const ORDERS_COLLECTION = "orders";
+const EXPENSES_COLLECTION = "expenses";
 const SETTINGS_COLLECTION = "app_settings";
 const GENERAL_SETTINGS_DOC = "general";
 
@@ -61,6 +62,7 @@ export interface AppSettings {
         full: number;
     };
     inventory: Record<string, { mini: number; full: number }>; // Key: Flavor Name, Value: counts
+    expenseCategories: string[]; // Categories for Expenses
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -98,7 +100,8 @@ const DEFAULT_SETTINGS: AppSettings = {
     laborWage: 15.00,
     materialCosts: {},
     discoCosts: { mini: 0.10, full: 0.15 },
-    inventory: {}
+    inventory: {},
+    expenseCategories: ['Packaging', 'Marketing', 'Rent', 'Utilities', 'Equipment', 'Other']
 };
 
 // --- Real-time Subscriptions ---
@@ -118,6 +121,24 @@ export const subscribeToOrders = (
         onUpdate(orders);
     }, (error) => {
         console.error("Error fetching orders:", error);
+        if (onError) onError(error);
+    });
+};
+
+export const subscribeToExpenses = (
+    onUpdate: (expenses: Expense[]) => void,
+    onError?: (error: Error) => void
+) => {
+    const q = query(collection(db, EXPENSES_COLLECTION));
+    
+    return onSnapshot(q, (snapshot) => {
+        const expenses: Expense[] = [];
+        snapshot.forEach((doc) => {
+            expenses.push(doc.data() as Expense);
+        });
+        onUpdate(expenses);
+    }, (error) => {
+        console.error("Error fetching expenses:", error);
         if (onError) onError(error);
     });
 };
@@ -194,7 +215,8 @@ export const subscribeToSettings = (
                 laborWage: data.laborWage ?? DEFAULT_SETTINGS.laborWage,
                 materialCosts: data.materialCosts || DEFAULT_SETTINGS.materialCosts,
                 discoCosts: data.discoCosts || DEFAULT_SETTINGS.discoCosts,
-                inventory: data.inventory || DEFAULT_SETTINGS.inventory
+                inventory: data.inventory || DEFAULT_SETTINGS.inventory,
+                expenseCategories: data.expenseCategories || DEFAULT_SETTINGS.expenseCategories
             };
             
             onUpdate(mergedSettings);
@@ -234,6 +256,24 @@ export const deleteOrderFromDb = async (orderId: string) => {
         await deleteDoc(doc(db, ORDERS_COLLECTION, orderId));
     } catch (error) {
         console.error("Error deleting order:", error);
+        throw error;
+    }
+};
+
+export const saveExpenseToDb = async (expense: Expense) => {
+    try {
+        await setDoc(doc(db, EXPENSES_COLLECTION, expense.id), expense);
+    } catch (error) {
+        console.error("Error saving expense:", error);
+        throw error;
+    }
+};
+
+export const deleteExpenseFromDb = async (expenseId: string) => {
+    try {
+        await deleteDoc(doc(db, EXPENSES_COLLECTION, expenseId));
+    } catch (error) {
+        console.error("Error deleting expense:", error);
         throw error;
     }
 };
@@ -295,7 +335,8 @@ export const migrateLocalDataToFirestore = async (
         laborWage: localSettings.laborWage ?? DEFAULT_SETTINGS.laborWage,
         materialCosts: localSettings.materialCosts || DEFAULT_SETTINGS.materialCosts,
         discoCosts: localSettings.discoCosts || DEFAULT_SETTINGS.discoCosts,
-        inventory: localSettings.inventory || DEFAULT_SETTINGS.inventory
+        inventory: localSettings.inventory || DEFAULT_SETTINGS.inventory,
+        expenseCategories: localSettings.expenseCategories || DEFAULT_SETTINGS.expenseCategories
     };
     
     batch.set(settingsRef, settingsToSave);
