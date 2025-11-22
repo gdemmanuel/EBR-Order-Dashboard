@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { Order } from '../types';
+import { Order, Expense } from '../types';
 
 // Safe API Key retrieval for Vite/Vercel deployments
 // In a browser environment (Vite), accessing process.env directly can cause a crash
@@ -214,6 +214,16 @@ const orderSchema = {
     }
 };
 
+const expenseSchema = {
+    type: Type.OBJECT,
+    properties: {
+        date: { type: Type.STRING, description: "YYYY-MM-DD" },
+        amount: { type: Type.NUMBER },
+        description: { type: Type.STRING },
+        category: { type: Type.STRING }
+    }
+};
+
 // Sleep helper for rate limiting
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -398,4 +408,48 @@ export async function parseOrdersFromSheet(
         newOrders: allParsedOrders, 
         newSignatures: newRowSignatures 
     };
+}
+
+export async function parseReceiptImage(base64Image: string, mimeType: string, categories: string[]): Promise<Partial<Expense>> {
+  const model = 'gemini-2.5-flash';
+  const prompt = `
+    Analyze this receipt image. Extract the following details:
+    1. Date: The transaction date in YYYY-MM-DD format. If not found, use today's date.
+    2. Amount: The total amount paid.
+    3. Description: The vendor name.
+    4. Category: Choose the best fit from this list: [${categories.join(', ')}]. If unsure, use 'Other'.
+
+    Return the result as a valid JSON object with keys: 'date', 'amount', 'description', 'category'.
+    Do not include markdown formatting or code blocks. Just the JSON string.
+  `;
+
+  const imagePart = {
+    inlineData: {
+      mimeType: mimeType,
+      data: base64Image
+    }
+  };
+
+  try {
+    const response = await ai.models.generateContent({
+        model: model,
+        contents: { parts: [
+             { text: prompt },
+             imagePart
+        ] },
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: expenseSchema
+        }
+    });
+    
+    const jsonText = response.text?.trim();
+    if (jsonText) {
+        return JSON.parse(jsonText) as Partial<Expense>;
+    }
+    throw new Error("Empty response from AI");
+  } catch (error) {
+    console.error("Error parsing receipt:", error);
+    throw new Error("Failed to scan receipt.");
+  }
 }
