@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
 import { Expense } from '../types';
-import { XMarkIcon, PlusIcon, TrashIcon, CalendarIcon, CurrencyDollarIcon, DocumentTextIcon, CameraIcon } from './icons/Icons';
+import { XMarkIcon, PlusIcon, TrashIcon, CalendarIcon, CurrencyDollarIcon, DocumentTextIcon, CameraIcon, CheckCircleIcon } from './icons/Icons';
 import { parseReceiptImage } from '../services/geminiService';
 
 interface ExpenseModalProps {
@@ -22,6 +22,7 @@ export default function ExpenseModal({ expenses, categories, onClose, onSave, on
     const [amount, setAmount] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [isScanning, setIsScanning] = useState(false);
+    const [scanSuccess, setScanSuccess] = useState(false);
     
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -42,6 +43,7 @@ export default function ExpenseModal({ expenses, categories, onClose, onSave, on
             // Reset form
             setDescription('');
             setAmount('');
+            setScanSuccess(false);
             // Keep date and category for ease of entry
         } catch (error) {
             console.error("Failed to save expense", error);
@@ -61,6 +63,7 @@ export default function ExpenseModal({ expenses, categories, onClose, onSave, on
         if (!file) return;
 
         setIsScanning(true);
+        setScanSuccess(false);
         try {
             const base64 = await new Promise<string>((resolve, reject) => {
                 const reader = new FileReader();
@@ -81,11 +84,9 @@ export default function ExpenseModal({ expenses, categories, onClose, onSave, on
             if (extractedData.category && categories.includes(extractedData.category)) {
                 setCategory(extractedData.category);
             } else if (extractedData.category) {
-                 // If AI suggests a category not in our list, default to Other but maybe log it? 
-                 // Or strictly respect the list passed to prompt.
-                 // The prompt asks to choose from list or 'Other', so it should match.
                  setCategory(categories.includes(extractedData.category) ? extractedData.category : 'Other');
             }
+            setScanSuccess(true);
 
         } catch (error) {
             console.error("Scan failed", error);
@@ -138,14 +139,20 @@ export default function ExpenseModal({ expenses, categories, onClose, onSave, on
                                 type="button"
                                 onClick={() => fileInputRef.current?.click()}
                                 disabled={isScanning}
-                                className="w-full flex justify-center items-center gap-2 py-3 px-4 border-2 border-dashed border-brand-orange/50 rounded-lg text-brand-orange bg-brand-orange/5 hover:bg-brand-orange/10 transition-colors mb-4"
+                                className={`w-full flex justify-center items-center gap-2 py-3 px-4 border-2 border-dashed rounded-lg transition-colors mb-4 ${scanSuccess ? 'border-green-400 bg-green-50 text-green-700' : 'border-brand-orange/50 text-brand-orange bg-brand-orange/5 hover:bg-brand-orange/10'}`}
                             >
                                 {isScanning ? (
-                                    <>Scanning Receipt... <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-brand-orange"></div></>
+                                    <>Scanning... <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-brand-orange"></div></>
+                                ) : scanSuccess ? (
+                                    <><CheckCircleIcon className="w-5 h-5" /> Scan Complete! (Click to Retry)</>
                                 ) : (
                                     <><CameraIcon className="w-5 h-5" /> Scan Receipt (Auto-fill)</>
                                 )}
                             </button>
+                            
+                            <p className="text-[10px] text-gray-400 text-center -mt-3 mb-2">
+                                Note: Receipt images are processed to extract data but are not saved to cloud storage.
+                            </p>
 
                             <div>
                                 <label className="block text-xs font-bold text-gray-700 mb-1">Date</label>
@@ -168,10 +175,15 @@ export default function ExpenseModal({ expenses, categories, onClose, onSave, on
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-gray-700 mb-1">Description (Optional)</label>
+                                <label className="block text-xs font-bold text-gray-700 mb-1">Description / Items</label>
                                 <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><DocumentTextIcon className="w-4 h-4 text-gray-400"/></div>
-                                    <input type="text" value={description} onChange={e => setDescription(e.target.value)} placeholder="e.g. Monthly rent" className="pl-9 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
+                                    <textarea 
+                                        value={description} 
+                                        onChange={e => setDescription(e.target.value)} 
+                                        placeholder="e.g. Vendor Name - Item 1, Item 2..." 
+                                        rows={3}
+                                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm p-2" 
+                                    />
                                 </div>
                             </div>
                             <button type="submit" disabled={isSaving || isScanning} className="w-full flex justify-center items-center gap-2 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand-orange hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-orange disabled:opacity-50">
@@ -189,11 +201,11 @@ export default function ExpenseModal({ expenses, categories, onClose, onSave, on
                                 .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                                 .map(expense => (
                                     <div key={expense.id} className="flex justify-between items-center p-3 bg-gray-50 rounded border border-gray-200">
-                                        <div>
+                                        <div className="overflow-hidden">
                                             <p className="text-sm font-bold text-brand-brown">{expense.category}</p>
-                                            <p className="text-xs text-gray-500">{expense.date} {expense.description ? `• ${expense.description}` : ''}</p>
+                                            <p className="text-xs text-gray-500 truncate">{expense.date} • {expense.description}</p>
                                         </div>
-                                        <div className="flex items-center gap-3">
+                                        <div className="flex items-center gap-3 flex-shrink-0 ml-2">
                                             <span className="font-bold text-red-600 text-sm">-${expense.amount.toFixed(2)}</span>
                                             <button onClick={() => handleDelete(expense.id)} className="text-gray-400 hover:text-red-500">
                                                 <TrashIcon className="w-4 h-4" />
