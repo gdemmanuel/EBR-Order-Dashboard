@@ -21,7 +21,6 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
     const [discoCosts, setDiscoCosts] = useState<{mini: number, full: number}>(settings.discoCosts);
     const [expenseCategories, setExpenseCategories] = useState<string[]>(settings.expenseCategories);
     
-    // Employees (Directly from props to ensure sync)
     const employees = settings.employees || []; 
     const [newEmpName, setNewEmpName] = useState('');
     const [newEmpRate, setNewEmpRate] = useState('');
@@ -39,7 +38,6 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
     const [newTier, setNewTier] = useState<{type: 'mini'|'full', minQty: string, price: string}>({ type: 'mini', minQty: '', price: '' });
     const [newCategory, setNewCategory] = useState('');
 
-    // Main Save Handler (For non-employee settings)
     const handleSave = async () => {
         setIsSaving(true);
         const syncedFullFlavors: Flavor[] = empanadaFlavors.map(f => ({ ...f, name: `Full ${f.name}` }));
@@ -49,7 +47,6 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
         try { await updateSettingsInDb(settingsToSave); } catch (e) { console.error(e); alert("Failed to save settings."); } finally { setIsSaving(false); onClose(); }
     };
 
-    // --- Direct Employee Handlers ---
     const handleAddOrUpdateEmployee = async () => {
         if (!newEmpName.trim() || !newEmpRate) return;
         setIsSaving(true);
@@ -70,7 +67,6 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                 await addEmployeeToDb(newEmp);
             }
             
-            // Clear form
             setNewEmpName(''); setNewEmpRate(''); setNewEmpMini(''); setNewEmpFull(''); setEditingEmployeeId(null);
         } catch (e) {
             console.error("Error saving employee", e);
@@ -102,7 +98,6 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
         setNewEmpName(''); setNewEmpRate(''); setNewEmpMini(''); setNewEmpFull(''); setEditingEmployeeId(null);
     };
 
-    // ... (Other existing handlers unchanged) ...
     const addFlavor = () => { if (newFlavorName.trim()) { setEmpanadaFlavors([...empanadaFlavors, { name: newFlavorName.trim(), visible: true, isSpecial: false }]); setNewFlavorName(''); } };
     const autoFillDescriptions = () => { setEmpanadaFlavors(empanadaFlavors.map(f => (!f.description ? { ...f, description: SUGGESTED_DESCRIPTIONS[f.name] || undefined } : f))); alert('Descriptions populated! Save to apply.'); };
     const toggleFlavorVisibility = (i: number) => { const u = [...empanadaFlavors]; u[i].visible = !u[i].visible; setEmpanadaFlavors(u); };

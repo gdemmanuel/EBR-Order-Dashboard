@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Shift, Employee } from '../types';
 import { XMarkIcon, PlusIcon, ClockIcon, CurrencyDollarIcon, TrashIcon } from './icons/Icons';
