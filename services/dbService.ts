@@ -148,7 +148,6 @@ export const subscribeToSettings = (
                 prepSettings: { ...DEFAULT_SETTINGS.prepSettings, ...(data.prepSettings || {}) },
                 scheduling: { ...DEFAULT_SETTINGS.scheduling, ...(data.scheduling || {}) },
                 expenseCategories: data.expenseCategories || DEFAULT_SETTINGS.expenseCategories,
-                // Explicitly ensure employees array exists
                 employees: Array.isArray(data.employees) ? data.employees : []
             };
             onUpdate(mergedSettings);
@@ -193,7 +192,10 @@ export const deleteShiftFromDb = async (shiftId: string) => {
 };
 
 export const updateSettingsInDb = async (settings: Partial<AppSettings>) => {
-    // FORCE merge to be true, but ensure employees is overwritten if present
+    // DEBUG LOG
+    if (settings.employees) {
+        console.log("updateSettingsInDb: Saving employees array", settings.employees);
+    }
     await setDoc(doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC), settings, { merge: true });
 };
 
