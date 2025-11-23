@@ -89,7 +89,8 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
             name: `Full ${f.name}`, 
         }));
 
-        await updateSettingsInDb({
+        // Ensure clean objects for saving
+        const settingsToSave: Partial<AppSettings> = {
             empanadaFlavors,
             fullSizeEmpanadaFlavors: syncedFullFlavors,
             pricing,
@@ -99,10 +100,19 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
             materialCosts,
             discoCosts,
             expenseCategories,
-            employees // Ensure employees state is saved
-        });
-        setIsSaving(false);
-        onClose();
+            employees: [...employees] // Explicit copy of employees array
+        };
+
+        try {
+            console.log("Saving settings:", settingsToSave);
+            await updateSettingsInDb(settingsToSave);
+        } catch (e) {
+            console.error("Error saving settings", e);
+            alert("Failed to save settings. Please check your connection.");
+        } finally {
+            setIsSaving(false);
+            onClose();
+        }
     };
 
     // ... (Existing Handlers) ...
