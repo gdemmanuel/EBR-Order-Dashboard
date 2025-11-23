@@ -11,12 +11,14 @@ import {
     writeBatch
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
-import { Order, ApprovalStatus, PricingSettings, Flavor, Expense } from "../types";
+import { Order, ApprovalStatus, PricingSettings, Flavor, Expense, Employee, Shift } from "../types";
 import { initialEmpanadaFlavors, initialFullSizeEmpanadaFlavors } from "../data/mockData";
 
 // Collection References
 const ORDERS_COLLECTION = "orders";
 const EXPENSES_COLLECTION = "expenses";
+const EMPLOYEES_COLLECTION = "employees";
+const SHIFTS_COLLECTION = "shifts";
 const SETTINGS_COLLECTION = "app_settings";
 const GENERAL_SETTINGS_DOC = "general";
 
@@ -27,42 +29,26 @@ export interface AppSettings {
     importedSignatures: string[];
     pricing: PricingSettings;
     prepSettings: {
-        lbsPer20: Record<string, number>; // Key: Flavor Name, Value: Lbs required for 20 mini empanadas
-        fullSizeMultiplier: number; // How much bigger is a full size? Default 2.0
-        discosPer: {
-            mini: number;
-            full: number;
-        };
-        discoPackSize: {
-            mini: number;
-            full: number;
-        };
-        productionRates: {
-            mini: number; // Units per hour
-            full: number; // Units per hour
-        };
+        lbsPer20: Record<string, number>; 
+        fullSizeMultiplier: number; 
+        discosPer: { mini: number; full: number; };
+        discoPackSize: { mini: number; full: number; };
+        productionRates: { mini: number; full: number; };
     };
     scheduling: {
         enabled: boolean;
-        intervalMinutes: number; // e.g. 15
-        startTime: string; // "09:00"
-        endTime: string; // "17:00"
-        blockedDates: string[]; // ISO date strings "YYYY-MM-DD" (Legacy simple block)
-        closedDays: number[]; // 0-6 (Sunday-Saturday) for recurring closed days
-        // New: Specific overrides for specific dates
-        dateOverrides: Record<string, {
-            isClosed: boolean;
-            customHours?: { start: string; end: string; };
-        }>; 
+        intervalMinutes: number;
+        startTime: string;
+        endTime: string;
+        blockedDates: string[];
+        closedDays: number[];
+        dateOverrides: Record<string, { isClosed: boolean; customHours?: { start: string; end: string; }; }>; 
     };
-    laborWage: number; // Hourly wage in dollars
-    materialCosts: Record<string, number>; // Key: Flavor Name, Value: Cost per lb
-    discoCosts: {
-        mini: number;
-        full: number;
-    };
-    inventory: Record<string, { mini: number; full: number }>; // Key: Flavor Name, Value: counts
-    expenseCategories: string[]; // Categories for Expenses
+    laborWage: number; 
+    materialCosts: Record<string, number>; 
+    discoCosts: { mini: number; full: number; };
+    inventory: Record<string, { mini: number; full: number }>;
+    expenseCategories: string[];
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -101,7 +87,7 @@ const DEFAULT_SETTINGS: AppSettings = {
     materialCosts: {},
     discoCosts: { mini: 0.10, full: 0.15 },
     inventory: {},
-    expenseCategories: ['Packaging', 'Marketing', 'Rent', 'Utilities', 'Equipment', 'Other']
+    expenseCategories: ['Packaging', 'Marketing', 'Rent', 'Utilities', 'Equipment', 'Ingredients', 'Other']
 };
 
 // --- Real-time Subscriptions ---
@@ -112,17 +98,11 @@ export const subscribeToOrders = (
     onError?: (error: Error) => void
 ) => {
     const q = query(collection(db, ORDERS_COLLECTION));
-    
     return onSnapshot(q, (snapshot) => {
         const orders: Order[] = [];
-        snapshot.forEach((doc) => {
-            orders.push(doc.data() as Order);
-        });
+        snapshot.forEach((doc) => orders.push(doc.data() as Order));
         onUpdate(orders);
-    }, (error) => {
-        console.error("Error fetching orders:", error);
-        if (onError) onError(error);
-    });
+    }, onError);
 };
 
 export const subscribeToExpenses = (
@@ -130,17 +110,35 @@ export const subscribeToExpenses = (
     onError?: (error: Error) => void
 ) => {
     const q = query(collection(db, EXPENSES_COLLECTION));
-    
     return onSnapshot(q, (snapshot) => {
         const expenses: Expense[] = [];
-        snapshot.forEach((doc) => {
-            expenses.push(doc.data() as Expense);
-        });
+        snapshot.forEach((doc) => expenses.push(doc.data() as Expense));
         onUpdate(expenses);
-    }, (error) => {
-        console.error("Error fetching expenses:", error);
-        if (onError) onError(error);
-    });
+    }, onError);
+};
+
+export const subscribeToEmployees = (
+    onUpdate: (employees: Employee[]) => void,
+    onError?: (error: Error) => void
+) => {
+    const q = query(collection(db, EMPLOYEES_COLLECTION));
+    return onSnapshot(q, (snapshot) => {
+        const employees: Employee[] = [];
+        snapshot.forEach((doc) => employees.push(doc.data() as Employee));
+        onUpdate(employees);
+    }, onError);
+};
+
+export const subscribeToShifts = (
+    onUpdate: (shifts: Shift[]) => void,
+    onError?: (error: Error) => void
+) => {
+    const q = query(collection(db, SHIFTS_COLLECTION));
+    return onSnapshot(q, (snapshot) => {
+        const shifts: Shift[] = [];
+        snapshot.forEach((doc) => shifts.push(doc.data() as Shift));
+        onUpdate(shifts);
+    }, onError);
 };
 
 export const subscribeToSettings = (
@@ -151,7 +149,7 @@ export const subscribeToSettings = (
         if (docSnap.exists()) {
             const data = docSnap.data();
             
-            // Migration Logic: Handle legacy string arrays for flavors
+            // Migration logic for legacy data shapes
             let safeMiniFlavors: Flavor[] = DEFAULT_SETTINGS.empanadaFlavors;
             if (data.empanadaFlavors && Array.isArray(data.empanadaFlavors)) {
                 if (data.empanadaFlavors.length > 0 && typeof data.empanadaFlavors[0] === 'string') {
@@ -170,17 +168,7 @@ export const subscribeToSettings = (
                 }
             }
             
-            // Migration Logic: Handle legacy Salsa settings
             let safePricing = { ...DEFAULT_SETTINGS.pricing, ...(data.pricing || {}) };
-            if ((!safePricing.salsas || safePricing.salsas.length === 0) && (safePricing.salsaSmall || safePricing.salsaLarge)) {
-                safePricing.salsas = [
-                    { id: 'legacy-sm-v', name: 'Salsa Verde (Small)', price: safePricing.salsaSmall || 2.00, visible: true },
-                    { id: 'legacy-sm-r', name: 'Salsa Rosada (Small)', price: safePricing.salsaSmall || 2.00, visible: true },
-                    { id: 'legacy-lg-v', name: 'Salsa Verde (Large)', price: safePricing.salsaLarge || 4.00, visible: true },
-                    { id: 'legacy-lg-r', name: 'Salsa Rosada (Large)', price: safePricing.salsaLarge || 4.00, visible: true },
-                ];
-            }
-            // Initialize tiers if missing
             if (!safePricing.mini.tiers) safePricing.mini.tiers = [];
             if (!safePricing.full.tiers) safePricing.full.tiers = [];
 
@@ -190,28 +178,8 @@ export const subscribeToSettings = (
                 empanadaFlavors: safeMiniFlavors,
                 fullSizeEmpanadaFlavors: safeFullFlavors,
                 pricing: safePricing,
-                prepSettings: {
-                    ...DEFAULT_SETTINGS.prepSettings,
-                    ...(data.prepSettings || {}),
-                    discosPer: {
-                        ...DEFAULT_SETTINGS.prepSettings.discosPer,
-                        ...(data.prepSettings?.discosPer || {})
-                    },
-                    discoPackSize: {
-                        ...DEFAULT_SETTINGS.prepSettings.discoPackSize,
-                        ...(data.prepSettings?.discoPackSize || {})
-                    },
-                    productionRates: {
-                        ...DEFAULT_SETTINGS.prepSettings.productionRates,
-                        ...(data.prepSettings?.productionRates || {})
-                    }
-                },
-                scheduling: {
-                    ...DEFAULT_SETTINGS.scheduling,
-                    ...(data.scheduling || {}),
-                    closedDays: data.scheduling?.closedDays || [],
-                    dateOverrides: data.scheduling?.dateOverrides || {}
-                },
+                prepSettings: { ...DEFAULT_SETTINGS.prepSettings, ...(data.prepSettings || {}) },
+                scheduling: { ...DEFAULT_SETTINGS.scheduling, ...(data.scheduling || {}) },
                 laborWage: data.laborWage ?? DEFAULT_SETTINGS.laborWage,
                 materialCosts: data.materialCosts || DEFAULT_SETTINGS.materialCosts,
                 discoCosts: data.discoCosts || DEFAULT_SETTINGS.discoCosts,
@@ -221,126 +189,62 @@ export const subscribeToSettings = (
             
             onUpdate(mergedSettings);
         } else {
-            // Initialize defaults if doc doesn't exist
-            console.log("Settings doc not found, initializing defaults...");
             onUpdate(DEFAULT_SETTINGS);
         }
-    }, (error) => {
-        console.error("Error fetching settings:", error);
-        if (onError) onError(error);
-    });
+    }, onError);
 };
 
 // --- CRUD Operations ---
 
 export const saveOrderToDb = async (order: Order) => {
-    try {
-        await setDoc(doc(db, ORDERS_COLLECTION, order.id), order);
-    } catch (error) {
-        console.error("Error saving order:", error);
-        throw error;
-    }
+    await setDoc(doc(db, ORDERS_COLLECTION, order.id), order);
 };
 
 export const saveOrdersBatch = async (orders: Order[]) => {
     const batch = writeBatch(db);
-    orders.forEach(order => {
-        const ref = doc(db, ORDERS_COLLECTION, order.id);
-        batch.set(ref, order);
-    });
+    orders.forEach(order => { const ref = doc(db, ORDERS_COLLECTION, order.id); batch.set(ref, order); });
     await batch.commit();
 };
 
 export const deleteOrderFromDb = async (orderId: string) => {
-    try {
-        await deleteDoc(doc(db, ORDERS_COLLECTION, orderId));
-    } catch (error) {
-        console.error("Error deleting order:", error);
-        throw error;
-    }
+    await deleteDoc(doc(db, ORDERS_COLLECTION, orderId));
 };
 
 export const saveExpenseToDb = async (expense: Expense) => {
-    try {
-        await setDoc(doc(db, EXPENSES_COLLECTION, expense.id), expense);
-    } catch (error) {
-        console.error("Error saving expense:", error);
-        throw error;
-    }
+    await setDoc(doc(db, EXPENSES_COLLECTION, expense.id), expense);
 };
 
 export const deleteExpenseFromDb = async (expenseId: string) => {
-    try {
-        await deleteDoc(doc(db, EXPENSES_COLLECTION, expenseId));
-    } catch (error) {
-        console.error("Error deleting expense:", error);
-        throw error;
-    }
+    await deleteDoc(doc(db, EXPENSES_COLLECTION, expenseId));
+};
+
+export const saveEmployeeToDb = async (employee: Employee) => {
+    await setDoc(doc(db, EMPLOYEES_COLLECTION, employee.id), employee);
+};
+
+export const deleteEmployeeFromDb = async (employeeId: string) => {
+    await deleteDoc(doc(db, EMPLOYEES_COLLECTION, employeeId));
+};
+
+export const saveShiftToDb = async (shift: Shift) => {
+    await setDoc(doc(db, SHIFTS_COLLECTION, shift.id), shift);
+};
+
+export const deleteShiftFromDb = async (shiftId: string) => {
+    await deleteDoc(doc(db, SHIFTS_COLLECTION, shiftId));
 };
 
 export const updateSettingsInDb = async (settings: Partial<AppSettings>) => {
-    try {
-        await setDoc(doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC), settings, { merge: true });
-    } catch (error) {
-        console.error("Error updating settings:", error);
-        throw error;
-    }
+    await setDoc(doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC), settings, { merge: true });
 };
 
-// --- Migration Helper ---
-
-export const migrateLocalDataToFirestore = async (
-    localOrders: Order[],
-    localPending: Order[],
-    localSettings: AppSettings
-) => {
-    // 1. Check if DB is empty to avoid overwriting cloud data
+export const migrateLocalDataToFirestore = async (localOrders: Order[], localPending: Order[], localSettings: AppSettings) => {
     const snapshot = await getDocs(collection(db, ORDERS_COLLECTION));
-    if (!snapshot.empty) {
-        console.log("Database not empty, skipping migration.");
-        return;
-    }
+    if (!snapshot.empty) return;
+    if (localOrders.length === 0 && localPending.length === 0) return;
 
-    if (localOrders.length === 0 && localPending.length === 0) {
-        console.log("No local data to migrate.");
-        return;
-    }
-
-    console.log("Migrating local data to Firebase...");
     const batch = writeBatch(db);
-
-    // 2. Add Orders
-    [...localOrders, ...localPending].forEach(order => {
-        const ref = doc(db, ORDERS_COLLECTION, order.id);
-        batch.set(ref, order);
-    });
-
-    // 3. Add Settings
-    const settingsRef = doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC);
-    // Ensure we migrate pricing or default if not present locally
-    const settingsToSave = {
-        ...DEFAULT_SETTINGS,
-        ...localSettings,
-        pricing: localSettings.pricing || DEFAULT_SETTINGS.pricing,
-        prepSettings: {
-            ...DEFAULT_SETTINGS.prepSettings,
-            ...(localSettings.prepSettings || {})
-        },
-        scheduling: {
-            ...DEFAULT_SETTINGS.scheduling,
-            ...(localSettings.scheduling || {}),
-             closedDays: localSettings.scheduling?.closedDays || [],
-             dateOverrides: localSettings.scheduling?.dateOverrides || {}
-        },
-        laborWage: localSettings.laborWage ?? DEFAULT_SETTINGS.laborWage,
-        materialCosts: localSettings.materialCosts || DEFAULT_SETTINGS.materialCosts,
-        discoCosts: localSettings.discoCosts || DEFAULT_SETTINGS.discoCosts,
-        inventory: localSettings.inventory || DEFAULT_SETTINGS.inventory,
-        expenseCategories: localSettings.expenseCategories || DEFAULT_SETTINGS.expenseCategories
-    };
-    
-    batch.set(settingsRef, settingsToSave);
-
+    [...localOrders, ...localPending].forEach(order => batch.set(doc(db, ORDERS_COLLECTION, order.id), order));
+    batch.set(doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC), localSettings);
     await batch.commit();
-    console.log("Migration complete.");
 };
