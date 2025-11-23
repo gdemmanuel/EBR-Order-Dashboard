@@ -90,7 +90,16 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
         }));
 
         // STRICT COPY of employees to ensure React state proxies don't interfere with Firebase
-        const cleanEmployees = employees.map(e => ({ ...e }));
+        // This is the critical fix for saving employees
+        const cleanEmployees = employees.map(e => ({ 
+            id: e.id,
+            name: e.name,
+            hourlyRate: e.hourlyRate,
+            speedMini: e.speedMini,
+            speedFull: e.speedFull,
+            color: e.color,
+            isActive: e.isActive
+        }));
 
         const settingsToSave: Partial<AppSettings> = {
             empanadaFlavors,
@@ -155,7 +164,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
     const addCategory = () => { if (newCategory.trim() && !expenseCategories.includes(newCategory.trim())) { setExpenseCategories([...expenseCategories, newCategory.trim()]); setNewCategory(''); } };
     const removeCategory = (cat: string) => { setExpenseCategories(expenseCategories.filter(c => c !== cat)); };
 
-    // Employee Logic
+    // Employee Logic - Fixed to ensure state updates correctly
     const addOrUpdateEmployee = () => {
         if (newEmpName.trim() && newEmpRate) {
             const newEmp: Employee = {
