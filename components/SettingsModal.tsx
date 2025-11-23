@@ -56,6 +56,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
     const [newEmpMini, setNewEmpMini] = useState('');
     const [newEmpFull, setNewEmpFull] = useState('');
     const [newEmpColor, setNewEmpColor] = useState('#3b82f6');
+    const [editingEmployeeId, setEditingEmployeeId] = useState<string | null>(null);
 
     const [newFlavorName, setNewFlavorName] = useState('');
     const [isSaving, setIsSaving] = useState(false);
@@ -98,7 +99,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
             materialCosts,
             discoCosts,
             expenseCategories,
-            employees // Save Employees
+            employees // Ensure employees state is saved
         });
         setIsSaving(false);
         onClose();
@@ -144,10 +145,10 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
     const removeCategory = (cat: string) => { setExpenseCategories(expenseCategories.filter(c => c !== cat)); };
 
     // Employee Logic
-    const addEmployee = () => {
+    const addOrUpdateEmployee = () => {
         if (newEmpName.trim() && newEmpRate) {
             const newEmp: Employee = {
-                id: Date.now().toString(),
+                id: editingEmployeeId || Date.now().toString(),
                 name: newEmpName.trim(),
                 hourlyRate: parseFloat(newEmpRate) || 0,
                 speedMini: parseInt(newEmpMini) || 40,
@@ -155,11 +156,34 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                 color: newEmpColor,
                 isActive: true
             };
-            setEmployees([...employees, newEmp]);
-            setNewEmpName(''); setNewEmpRate(''); setNewEmpMini(''); setNewEmpFull('');
+            
+            if (editingEmployeeId) {
+                setEmployees(employees.map(e => e.id === editingEmployeeId ? newEmp : e));
+            } else {
+                setEmployees([...employees, newEmp]);
+            }
+            
+            setNewEmpName(''); setNewEmpRate(''); setNewEmpMini(''); setNewEmpFull(''); setEditingEmployeeId(null);
         }
     };
-    const removeEmployee = (id: string) => { setEmployees(employees.filter(e => e.id !== id)); };
+    
+    const handleEditEmployee = (emp: Employee) => {
+        setNewEmpName(emp.name);
+        setNewEmpRate(String(emp.hourlyRate));
+        setNewEmpMini(String(emp.speedMini));
+        setNewEmpFull(String(emp.speedFull));
+        setNewEmpColor(emp.color);
+        setEditingEmployeeId(emp.id);
+    };
+    
+    const handleCancelEditEmployee = () => {
+        setNewEmpName(''); setNewEmpRate(''); setNewEmpMini(''); setNewEmpFull(''); setEditingEmployeeId(null);
+    };
+
+    const removeEmployee = (id: string) => { 
+        setEmployees(employees.filter(e => e.id !== id)); 
+        if (editingEmployeeId === id) handleCancelEditEmployee();
+    };
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fade-in">
@@ -197,7 +221,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                 <h3 className="font-bold text-brand-brown text-lg mb-4">Employee Roster</h3>
                                 <p className="text-sm text-gray-500 mb-4">Add employees to schedule them on the calendar and track labor costs.</p>
                                 
-                                <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-4 bg-gray-50 p-4 rounded border border-gray-200 items-end">
+                                <div className={`grid grid-cols-1 md:grid-cols-5 gap-3 mb-4 p-4 rounded border items-end transition-colors ${editingEmployeeId ? 'bg-amber-50 border-amber-200' : 'bg-gray-50 border-gray-200'}`}>
                                     <div className="md:col-span-2">
                                         <label className="block text-xs font-bold text-gray-700 mb-1">Name</label>
                                         <input type="text" value={newEmpName} onChange={e => setNewEmpName(e.target.value)} className="w-full rounded border-gray-300 text-sm p-1.5" placeholder="Employee Name"/>
@@ -214,14 +238,17 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                         <label className="block text-xs font-bold text-gray-700 mb-1">Full/Hr</label>
                                         <input type="number" value={newEmpFull} onChange={e => setNewEmpFull(e.target.value)} className="w-full rounded border-gray-300 text-sm p-1.5" placeholder="25"/>
                                     </div>
-                                    <div className="md:col-span-5">
-                                        <button onClick={addEmployee} className="w-full bg-brand-orange text-white font-bold py-2 rounded text-sm shadow-sm hover:bg-opacity-90 flex items-center justify-center gap-2"><PlusIcon className="w-4 h-4"/> Add Employee</button>
+                                    <div className="md:col-span-5 flex gap-2">
+                                        {editingEmployeeId && <button onClick={handleCancelEditEmployee} className="w-full bg-gray-300 text-gray-700 font-bold py-2 rounded text-sm hover:bg-gray-400">Cancel</button>}
+                                        <button onClick={addOrUpdateEmployee} className={`w-full text-white font-bold py-2 rounded text-sm shadow-sm hover:bg-opacity-90 flex items-center justify-center gap-2 ${editingEmployeeId ? 'bg-amber-500' : 'bg-brand-orange'}`}>
+                                            {editingEmployeeId ? <><CheckCircleIcon className="w-4 h-4"/> Update Employee</> : <><PlusIcon className="w-4 h-4"/> Add Employee</>}
+                                        </button>
                                     </div>
                                 </div>
 
                                 <div className="space-y-2">
                                     {employees.map(emp => (
-                                        <div key={emp.id} className="flex justify-between items-center p-3 bg-white border border-gray-200 rounded-lg shadow-sm">
+                                        <div key={emp.id} className={`flex justify-between items-center p-3 bg-white border rounded-lg shadow-sm ${editingEmployeeId === emp.id ? 'border-amber-500 ring-1 ring-amber-500' : 'border-gray-200'}`}>
                                             <div className="flex items-center gap-3">
                                                 <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-xs">
                                                     {emp.name.substring(0,2).toUpperCase()}
@@ -233,9 +260,14 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                                     </p>
                                                 </div>
                                             </div>
-                                            <button onClick={() => removeEmployee(emp.id)} className="text-red-400 hover:text-red-600 p-2 hover:bg-red-50 rounded-full transition-colors">
-                                                <TrashIcon className="w-4 h-4"/>
-                                            </button>
+                                            <div className="flex items-center gap-2">
+                                                <button onClick={() => handleEditEmployee(emp)} className="text-gray-400 hover:text-brand-brown p-2 hover:bg-gray-100 rounded-full transition-colors">
+                                                    <PencilIcon className="w-4 h-4"/>
+                                                </button>
+                                                <button onClick={() => removeEmployee(emp.id)} className="text-red-400 hover:text-red-600 p-2 hover:bg-red-50 rounded-full transition-colors">
+                                                    <TrashIcon className="w-4 h-4"/>
+                                                </button>
+                                            </div>
                                         </div>
                                     ))}
                                     {employees.length === 0 && (

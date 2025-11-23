@@ -148,7 +148,8 @@ export const subscribeToSettings = (
                 prepSettings: { ...DEFAULT_SETTINGS.prepSettings, ...(data.prepSettings || {}) },
                 scheduling: { ...DEFAULT_SETTINGS.scheduling, ...(data.scheduling || {}) },
                 expenseCategories: data.expenseCategories || DEFAULT_SETTINGS.expenseCategories,
-                employees: data.employees || []
+                // EXPLICITLY READ EMPLOYEES
+                employees: Array.isArray(data.employees) ? data.employees : []
             };
             onUpdate(mergedSettings);
         } else {
