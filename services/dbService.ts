@@ -1,4 +1,3 @@
-
 import { 
     collection, 
     doc, 
@@ -124,6 +123,7 @@ export const subscribeToSettings = (
     return onSnapshot(doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC), (docSnap) => {
         if (docSnap.exists()) {
             const data = docSnap.data();
+            
             const mergedSettings: AppSettings = {
                 ...DEFAULT_SETTINGS,
                 ...data,

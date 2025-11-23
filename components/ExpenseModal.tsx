@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Expense } from '../types';
 import { XMarkIcon, PlusIcon, TrashIcon, CalendarIcon, CurrencyDollarIcon, DocumentTextIcon } from './icons/Icons';
@@ -28,8 +27,10 @@ export default function ExpenseModal({ expenses, categories, onClose, onSave, on
     const [saveSuccess, setSaveSuccess] = useState(false);
     const [validationError, setValidationError] = useState<string | null>(null);
 
-    // Derived Total
-    const calculatedTotal = (parseFloat(pricePerUnit) || 0) * (parseFloat(quantity) || 0);
+    // Derived Total with Safety Checks
+    const priceNum = parseFloat(pricePerUnit);
+    const qtyNum = parseFloat(quantity);
+    const calculatedTotal = (isNaN(priceNum) ? 0 : priceNum) * (isNaN(qtyNum) ? 0 : qtyNum);
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -39,8 +40,16 @@ export default function ExpenseModal({ expenses, categories, onClose, onSave, on
         // STRICT VALIDATION
         if (!vendor.trim()) { setValidationError("Vendor Name is required."); return; }
         if (!item.trim()) { setValidationError("Item Name is required."); return; }
-        if (!pricePerUnit || parseFloat(pricePerUnit) <= 0) { setValidationError("Price must be greater than 0."); return; }
-        if (!quantity || parseFloat(quantity) <= 0) { setValidationError("Quantity must be greater than 0."); return; }
+        
+        // Check for valid numbers
+        if (!pricePerUnit || isNaN(parseFloat(pricePerUnit)) || parseFloat(pricePerUnit) < 0) { 
+            setValidationError("Price must be a valid number."); 
+            return; 
+        }
+        if (!quantity || isNaN(parseFloat(quantity)) || parseFloat(quantity) <= 0) { 
+            setValidationError("Quantity must be greater than 0."); 
+            return; 
+        }
 
         setIsSaving(true);
         try {
@@ -50,11 +59,11 @@ export default function ExpenseModal({ expenses, categories, onClose, onSave, on
                 category,
                 vendor,
                 item,
-                unitName,
+                unitName: unitName || '', // Ensure string
                 pricePerUnit: parseFloat(pricePerUnit),
                 quantity: parseFloat(quantity),
                 totalCost: calculatedTotal,
-                description
+                description: description || '' // Ensure string
             };
             
             await onSave(newExpense);
@@ -68,15 +77,15 @@ export default function ExpenseModal({ expenses, categories, onClose, onSave, on
             setQuantity('');
             setDescription('');
             
-            // Auto-switch to list view to show the user it saved
+            // Auto-switch to list view after short delay
             setTimeout(() => {
                  setSaveSuccess(false);
                  setActiveTab('list');
-            }, 1000);
+            }, 1500);
             
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to save expense", error);
-            setValidationError("Failed to save to database. Check internet connection.");
+            setValidationError(`Database Error: ${error.message || "Unknown error"}`);
         } finally {
             setIsSaving(false);
         }
@@ -117,8 +126,9 @@ export default function ExpenseModal({ expenses, categories, onClose, onSave, on
                     {activeTab === 'add' && (
                         <form onSubmit={handleSave} className="space-y-4">
                             {saveSuccess && (
-                                <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4 text-sm flex justify-between items-center">
+                                <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-2 rounded relative mb-4 text-sm flex justify-between items-center">
                                     <span className="font-bold">Item Saved Successfully!</span>
+                                    <button type="button" onClick={() => setActiveTab('list')} className="underline font-semibold hover:text-green-900">View History &rarr;</button>
                                 </div>
                             )}
                             
