@@ -7,7 +7,8 @@ import {
     query, 
     where, 
     getDocs,
-    writeBatch
+    writeBatch,
+    getDoc
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { Order, ApprovalStatus, PricingSettings, Flavor, Expense, Employee, Shift } from "../types";
@@ -192,11 +193,52 @@ export const deleteShiftFromDb = async (shiftId: string) => {
 };
 
 export const updateSettingsInDb = async (settings: Partial<AppSettings>) => {
-    // DEBUG LOG
-    if (settings.employees) {
-        console.log("updateSettingsInDb: Saving employees array", settings.employees);
-    }
     await setDoc(doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC), settings, { merge: true });
+};
+
+// Direct Helper to Add Employee (Bypasses complex merge issues)
+export const addEmployeeToDb = async (employee: Employee) => {
+    const ref = doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC);
+    const snap = await getDoc(ref);
+    let currentEmployees: Employee[] = [];
+    
+    if (snap.exists()) {
+        const data = snap.data();
+        if (Array.isArray(data.employees)) {
+            currentEmployees = data.employees;
+        }
+    }
+    
+    currentEmployees.push(employee);
+    await setDoc(ref, { employees: currentEmployees }, { merge: true });
+};
+
+// Direct Helper to Update Employee
+export const updateEmployeeInDb = async (employee: Employee) => {
+    const ref = doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC);
+    const snap = await getDoc(ref);
+    
+    if (snap.exists()) {
+        const data = snap.data();
+        let currentEmployees: Employee[] = Array.isArray(data.employees) ? data.employees : [];
+        
+        currentEmployees = currentEmployees.map(e => e.id === employee.id ? employee : e);
+        await setDoc(ref, { employees: currentEmployees }, { merge: true });
+    }
+};
+
+// Direct Helper to Delete Employee
+export const deleteEmployeeFromDb = async (employeeId: string) => {
+    const ref = doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC);
+    const snap = await getDoc(ref);
+    
+    if (snap.exists()) {
+        const data = snap.data();
+        let currentEmployees: Employee[] = Array.isArray(data.employees) ? data.employees : [];
+        
+        currentEmployees = currentEmployees.filter(e => e.id !== employeeId);
+        await setDoc(ref, { employees: currentEmployees }, { merge: true });
+    }
 };
 
 export const migrateLocalDataToFirestore = async (localOrders: Order[], localPending: Order[], localSettings: AppSettings) => {

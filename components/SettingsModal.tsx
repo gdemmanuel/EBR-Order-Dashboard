@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { AppSettings, updateSettingsInDb } from '../services/dbService';
+import { AppSettings, updateSettingsInDb, addEmployeeToDb, updateEmployeeInDb, deleteEmployeeFromDb } from '../services/dbService';
 import { PricingSettings, MenuPackage, Flavor, SalsaProduct, PricingTier, Employee } from '../types';
 import { XMarkIcon, PlusIcon, TrashIcon, CheckCircleIcon, CogIcon, PencilIcon, ScaleIcon, CurrencyDollarIcon, ClockIcon, SparklesIcon, CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon, ReceiptIcon, UsersIcon } from './icons/Icons';
 import { SUGGESTED_DESCRIPTIONS } from '../data/mockData';
@@ -12,45 +12,17 @@ interface SettingsModalProps {
 export default function SettingsModal({ settings, onClose }: SettingsModalProps) {
     const [activeTab, setActiveTab] = useState<'menu' | 'pricing' | 'prep' | 'costs' | 'scheduling' | 'expenses' | 'employees'>('menu');
     
-    // Local state for editing
     const [empanadaFlavors, setEmpanadaFlavors] = useState<Flavor[]>(settings.empanadaFlavors);
     const [pricing, setPricing] = useState<PricingSettings>(settings.pricing);
+    const [prepSettings, setPrepSettings] = useState<AppSettings['prepSettings']>(settings.prepSettings);
+    const [scheduling, setScheduling] = useState<AppSettings['scheduling']>(settings.scheduling);
+    const [laborWage, setLaborWage] = useState<number>(settings.laborWage);
+    const [materialCosts, setMaterialCosts] = useState<Record<string, number>>(settings.materialCosts);
+    const [discoCosts, setDiscoCosts] = useState<{mini: number, full: number}>(settings.discoCosts);
+    const [expenseCategories, setExpenseCategories] = useState<string[]>(settings.expenseCategories);
     
-    // Prep Settings State
-    const [prepSettings, setPrepSettings] = useState<AppSettings['prepSettings']>(settings.prepSettings || { 
-        lbsPer20: {}, 
-        fullSizeMultiplier: 2.0,
-        discosPer: { mini: 1, full: 1 },
-        discoPackSize: { mini: 10, full: 10 },
-        productionRates: { mini: 40, full: 25 }
-    });
-
-    // Scheduling Settings
-    const [scheduling, setScheduling] = useState<AppSettings['scheduling']>(settings.scheduling || {
-        enabled: true,
-        intervalMinutes: 15,
-        startTime: "09:00",
-        endTime: "17:00",
-        blockedDates: [],
-        closedDays: [],
-        dateOverrides: {}
-    });
-    
-    // Calendar View State
-    const [calendarViewDate, setCalendarViewDate] = useState(new Date());
-    const [selectedDate, setSelectedDate] = useState<string | null>(null);
-    
-    // Cost Settings State
-    const [laborWage, setLaborWage] = useState<number>(settings.laborWage || 15.00);
-    const [materialCosts, setMaterialCosts] = useState<Record<string, number>>(settings.materialCosts || {});
-    const [discoCosts, setDiscoCosts] = useState<{mini: number, full: number}>(settings.discoCosts || {mini: 0.1, full: 0.15});
-    
-    // Expense Categories
-    const [expenseCategories, setExpenseCategories] = useState<string[]>(settings.expenseCategories || []);
-    const [newCategory, setNewCategory] = useState('');
-
-    // Employees
-    const [employees, setEmployees] = useState<Employee[]>([...(settings.employees || [])]);
+    // Employees (Directly from props to ensure sync)
+    const employees = settings.employees || []; 
     const [newEmpName, setNewEmpName] = useState('');
     const [newEmpRate, setNewEmpRate] = useState('');
     const [newEmpMini, setNewEmpMini] = useState('');
@@ -60,113 +32,28 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
 
     const [newFlavorName, setNewFlavorName] = useState('');
     const [isSaving, setIsSaving] = useState(false);
-
-    // Package Form State
-    const [packageForm, setPackageForm] = useState<Partial<MenuPackage>>({
-        itemType: 'mini',
-        quantity: 12,
-        price: 20,
-        maxFlavors: 4,
-        increment: 1,
-        visible: true,
-        isSpecial: false,
-        name: ''
-    });
+    const [packageForm, setPackageForm] = useState<Partial<MenuPackage>>({ itemType: 'mini', quantity: 12, price: 20, maxFlavors: 4, increment: 1, visible: true, isSpecial: false, name: '' });
     const [editingPackageId, setEditingPackageId] = useState<string | null>(null);
-
-    // Salsa Form State
     const [newSalsaName, setNewSalsaName] = useState('');
     const [newSalsaPrice, setNewSalsaPrice] = useState('');
-
-    // Tier Form State
     const [newTier, setNewTier] = useState<{type: 'mini'|'full', minQty: string, price: string}>({ type: 'mini', minQty: '', price: '' });
+    const [newCategory, setNewCategory] = useState('');
 
+    // Main Save Handler (For non-employee settings)
     const handleSave = async () => {
         setIsSaving(true);
-        
-        const syncedFullFlavors: Flavor[] = empanadaFlavors.map(f => ({
-            ...f,
-            name: `Full ${f.name}`, 
-        }));
-
-        // STRICT COPY of employees to ensure React state proxies don't interfere with Firebase
-        // This is the critical fix for saving employees
-        const cleanEmployees = employees.map(e => ({ 
-            id: e.id,
-            name: e.name,
-            hourlyRate: e.hourlyRate,
-            speedMini: e.speedMini,
-            speedFull: e.speedFull,
-            color: e.color,
-            isActive: e.isActive
-        }));
-
+        const syncedFullFlavors: Flavor[] = empanadaFlavors.map(f => ({ ...f, name: `Full ${f.name}` }));
         const settingsToSave: Partial<AppSettings> = {
-            empanadaFlavors,
-            fullSizeEmpanadaFlavors: syncedFullFlavors,
-            pricing,
-            prepSettings,
-            scheduling,
-            laborWage,
-            materialCosts,
-            discoCosts,
-            expenseCategories,
-            employees: cleanEmployees // Explicitly pass the clean array
+            empanadaFlavors, fullSizeEmpanadaFlavors: syncedFullFlavors, pricing, prepSettings, scheduling, laborWage, materialCosts, discoCosts, expenseCategories
         };
+        try { await updateSettingsInDb(settingsToSave); } catch (e) { console.error(e); alert("Failed to save settings."); } finally { setIsSaving(false); onClose(); }
+    };
 
+    // --- Direct Employee Handlers ---
+    const handleAddOrUpdateEmployee = async () => {
+        if (!newEmpName.trim() || !newEmpRate) return;
+        setIsSaving(true);
         try {
-            await updateSettingsInDb(settingsToSave);
-        } catch (e) {
-            console.error("Error saving settings", e);
-            alert("Failed to save settings. Please check your connection.");
-        } finally {
-            setIsSaving(false);
-            onClose();
-        }
-    };
-
-    // ... (Existing Handlers) ...
-    const addFlavor = () => { if (newFlavorName.trim()) { setEmpanadaFlavors([...empanadaFlavors, { name: newFlavorName.trim(), visible: true, isSpecial: false }]); setNewFlavorName(''); } };
-    const autoFillDescriptions = () => { setEmpanadaFlavors(empanadaFlavors.map(f => (!f.description ? { ...f, description: SUGGESTED_DESCRIPTIONS[f.name] || undefined } : f))); alert('Descriptions populated! Save to apply.'); };
-    const toggleFlavorVisibility = (i: number) => { const u = [...empanadaFlavors]; u[i].visible = !u[i].visible; setEmpanadaFlavors(u); };
-    const toggleFlavorSpecial = (i: number) => { const u = [...empanadaFlavors]; u[i].isSpecial = !u[i].isSpecial; setEmpanadaFlavors(u); };
-    const updateFlavorDescription = (i: number, d: string) => { const u = [...empanadaFlavors]; u[i].description = d; setEmpanadaFlavors(u); };
-    const updateFlavorSurcharge = (i: number, v: string) => { const u = [...empanadaFlavors]; u[i].surcharge = parseFloat(v) || undefined; setEmpanadaFlavors(u); };
-    const removeFlavor = (i: number) => { setEmpanadaFlavors(empanadaFlavors.filter((_, idx) => idx !== i)); };
-
-    const handleAddOrUpdatePackage = () => {
-        if (!packageForm.name || !packageForm.price || !packageForm.quantity) return;
-        const pkg: MenuPackage = { id: editingPackageId || Date.now().toString(), name: packageForm.name, itemType: packageForm.itemType as 'mini'|'full', quantity: Number(packageForm.quantity), price: Number(packageForm.price), maxFlavors: Number(packageForm.maxFlavors)||Number(packageForm.quantity), increment: Number(packageForm.increment)||1, visible: packageForm.visible ?? true, isSpecial: packageForm.isSpecial ?? false };
-        let updated = pricing.packages || [];
-        updated = editingPackageId ? updated.map(p => p.id === editingPackageId ? pkg : p) : [...updated, pkg];
-        setPricing({...pricing, packages: updated});
-        setPackageForm({ itemType: 'mini', quantity: 12, price: 20, maxFlavors: 4, increment: 1, visible: true, isSpecial: false, name: '' });
-        setEditingPackageId(null);
-    };
-    const handleEditPackageClick = (pkg: MenuPackage) => { setPackageForm({ ...pkg, increment: pkg.increment || 10 }); setEditingPackageId(pkg.id); };
-    const removePackage = (id: string) => { setPricing({...pricing, packages: pricing.packages.filter(p => p.id !== id)}); if(editingPackageId === id) { setEditingPackageId(null); setPackageForm({ itemType: 'mini', quantity: 12, price: 20, maxFlavors: 4, increment: 1, visible: true, isSpecial: false, name: '' }); } };
-    const togglePackageVisibility = (id: string) => { setPricing({...pricing, packages: pricing.packages.map(p => p.id === id ? { ...p, visible: !p.visible } : p)}); };
-    const addSalsa = () => { if (!newSalsaName || !newSalsaPrice) return; setPricing({...pricing, salsas: [...(pricing.salsas||[]), {id: `salsa-${Date.now()}`, name: newSalsaName, price: parseFloat(newSalsaPrice)||0, visible: true}]}); setNewSalsaName(''); setNewSalsaPrice(''); };
-    const removeSalsa = (id: string) => { setPricing({...pricing, salsas: pricing.salsas.filter(s => s.id !== id)}); };
-    const updateSalsaPrice = (id: string, p: string) => { setPricing({...pricing, salsas: pricing.salsas.map(s => s.id === id ? {...s, price: parseFloat(p)||0} : s)}); };
-    const toggleSalsaVisibility = (id: string) => { setPricing({...pricing, salsas: pricing.salsas.map(s => s.id === id ? {...s, visible: !s.visible} : s)}); };
-    const updateLbsPer20 = (f: string, v: string) => { setPrepSettings({...prepSettings, lbsPer20: {...prepSettings.lbsPer20, [f]: parseFloat(v)||0}}); };
-    const updateMaterialCost = (f: string, v: string) => { setMaterialCosts({...materialCosts, [f]: parseFloat(v)||0}); };
-    const addTier = () => { const minQ = parseInt(newTier.minQty); const p = parseFloat(newTier.price); if (!minQ || isNaN(p)) return; const currentTiers = pricing[newTier.type].tiers || []; const updated = [...currentTiers.filter(t => t.minQuantity !== minQ), { minQuantity: minQ, price: p }]; updated.sort((a,b) => a.minQuantity - b.minQuantity); setPricing({ ...pricing, [newTier.type]: { ...pricing[newTier.type], tiers: updated } }); setNewTier({ ...newTier, minQty: '', price: '' }); };
-    const removeTier = (type: 'mini'|'full', minQty: number) => { setPricing({ ...pricing, [type]: { ...pricing[type], tiers: (pricing[type].tiers || []).filter(t => t.minQuantity !== minQty) } }); };
-    const toggleClosedDay = (dayIndex: number) => { const current = scheduling.closedDays || []; if (current.includes(dayIndex)) { setScheduling({ ...scheduling, closedDays: current.filter(d => d !== dayIndex) }); } else { setScheduling({ ...scheduling, closedDays: [...current, dayIndex].sort() }); } };
-    const handleDateClick = (dateStr: string) => { setSelectedDate(dateStr); };
-    const updateDateOverride = (dateStr: string, type: 'default' | 'closed' | 'custom', start?: string, end?: string) => { const newOverrides = { ...(scheduling.dateOverrides || {}) }; if (type === 'default') { delete newOverrides[dateStr]; } else if (type === 'closed') { newOverrides[dateStr] = { isClosed: true }; } else if (type === 'custom') { newOverrides[dateStr] = { 
-        isClosed: false, customHours: { start: start || scheduling.startTime, end: end || scheduling.endTime } }; } setScheduling({ ...scheduling, dateOverrides: newOverrides }); };
-    const calendarGrid = useMemo(() => { const year = calendarViewDate.getFullYear(); const month = calendarViewDate.getMonth(); const daysInMonth = new Date(year, month + 1, 0).getDate(); const firstDayOfWeek = new Date(year, month, 1).getDay(); const cells = []; for (let i = 0; i < firstDayOfWeek; i++) cells.push(null); for (let i = 1; i <= daysInMonth; i++) cells.push(new Date(year, month, i)); return cells; }, [calendarViewDate]);
-    const handlePrevMonth = () => setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() - 1, 1));
-    const handleNextMonth = () => setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() + 1, 1));
-    const addCategory = () => { if (newCategory.trim() && !expenseCategories.includes(newCategory.trim())) { setExpenseCategories([...expenseCategories, newCategory.trim()]); setNewCategory(''); } };
-    const removeCategory = (cat: string) => { setExpenseCategories(expenseCategories.filter(c => c !== cat)); };
-
-    // Employee Logic - Fixed to ensure state updates correctly
-    const addOrUpdateEmployee = () => {
-        if (newEmpName.trim() && newEmpRate) {
             const newEmp: Employee = {
                 id: editingEmployeeId || Date.now().toString(),
                 name: newEmpName.trim(),
@@ -176,17 +63,32 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                 color: newEmpColor,
                 isActive: true
             };
-            
+
             if (editingEmployeeId) {
-                setEmployees(prev => prev.map(e => e.id === editingEmployeeId ? newEmp : e));
+                await updateEmployeeInDb(newEmp);
             } else {
-                setEmployees(prev => [...prev, newEmp]);
+                await addEmployeeToDb(newEmp);
             }
             
+            // Clear form
             setNewEmpName(''); setNewEmpRate(''); setNewEmpMini(''); setNewEmpFull(''); setEditingEmployeeId(null);
+        } catch (e) {
+            console.error("Error saving employee", e);
+            alert("Failed to save employee.");
+        } finally {
+            setIsSaving(false);
         }
     };
-    
+
+    const handleDeleteEmployee = async (id: string) => {
+        if (window.confirm("Remove this employee?")) {
+            await deleteEmployeeFromDb(id);
+            if (editingEmployeeId === id) {
+                 setNewEmpName(''); setNewEmpRate(''); setNewEmpMini(''); setNewEmpFull(''); setEditingEmployeeId(null);
+            }
+        }
+    };
+
     const handleEditEmployee = (emp: Employee) => {
         setNewEmpName(emp.name);
         setNewEmpRate(String(emp.hourlyRate));
@@ -200,10 +102,34 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
         setNewEmpName(''); setNewEmpRate(''); setNewEmpMini(''); setNewEmpFull(''); setEditingEmployeeId(null);
     };
 
-    const removeEmployee = (id: string) => { 
-        setEmployees(prev => prev.filter(e => e.id !== id)); 
-        if (editingEmployeeId === id) handleCancelEditEmployee();
-    };
+    // ... (Other existing handlers unchanged) ...
+    const addFlavor = () => { if (newFlavorName.trim()) { setEmpanadaFlavors([...empanadaFlavors, { name: newFlavorName.trim(), visible: true, isSpecial: false }]); setNewFlavorName(''); } };
+    const autoFillDescriptions = () => { setEmpanadaFlavors(empanadaFlavors.map(f => (!f.description ? { ...f, description: SUGGESTED_DESCRIPTIONS[f.name] || undefined } : f))); alert('Descriptions populated! Save to apply.'); };
+    const toggleFlavorVisibility = (i: number) => { const u = [...empanadaFlavors]; u[i].visible = !u[i].visible; setEmpanadaFlavors(u); };
+    const toggleFlavorSpecial = (i: number) => { const u = [...empanadaFlavors]; u[i].isSpecial = !u[i].isSpecial; setEmpanadaFlavors(u); };
+    const updateFlavorDescription = (i: number, d: string) => { const u = [...empanadaFlavors]; u[i].description = d; setEmpanadaFlavors(u); };
+    const updateFlavorSurcharge = (i: number, v: string) => { const u = [...empanadaFlavors]; u[i].surcharge = parseFloat(v) || undefined; setEmpanadaFlavors(u); };
+    const removeFlavor = (i: number) => { setEmpanadaFlavors(empanadaFlavors.filter((_, idx) => idx !== i)); };
+    const handleAddOrUpdatePackage = () => { if (!packageForm.name || !packageForm.price || !packageForm.quantity) return; const pkg: MenuPackage = { id: editingPackageId || Date.now().toString(), name: packageForm.name, itemType: packageForm.itemType as 'mini'|'full', quantity: Number(packageForm.quantity), price: Number(packageForm.price), maxFlavors: Number(packageForm.maxFlavors)||Number(packageForm.quantity), increment: Number(packageForm.increment)||1, visible: packageForm.visible ?? true, isSpecial: packageForm.isSpecial ?? false }; let updated = pricing.packages || []; updated = editingPackageId ? updated.map(p => p.id === editingPackageId ? pkg : p) : [...updated, pkg]; setPricing({...pricing, packages: updated}); setPackageForm({ itemType: 'mini', quantity: 12, price: 20, maxFlavors: 4, increment: 1, visible: true, isSpecial: false, name: '' }); setEditingPackageId(null); };
+    const handleEditPackageClick = (pkg: MenuPackage) => { setPackageForm({ ...pkg, increment: pkg.increment || 10 }); setEditingPackageId(pkg.id); };
+    const removePackage = (id: string) => { setPricing({...pricing, packages: pricing.packages.filter(p => p.id !== id)}); if(editingPackageId === id) { setEditingPackageId(null); setPackageForm({ itemType: 'mini', quantity: 12, price: 20, maxFlavors: 4, increment: 1, visible: true, isSpecial: false, name: '' }); } };
+    const togglePackageVisibility = (id: string) => { setPricing({...pricing, packages: pricing.packages.map(p => p.id === id ? { ...p, visible: !p.visible } : p)}); };
+    const addSalsa = () => { if (!newSalsaName || !newSalsaPrice) return; setPricing({...pricing, salsas: [...(pricing.salsas||[]), {id: `salsa-${Date.now()}`, name: newSalsaName, price: parseFloat(newSalsaPrice)||0, visible: true}]}); setNewSalsaName(''); setNewSalsaPrice(''); };
+    const removeSalsa = (id: string) => { setPricing({...pricing, salsas: pricing.salsas.filter(s => s.id !== id)}); };
+    const updateSalsaPrice = (id: string, p: string) => { setPricing({...pricing, salsas: pricing.salsas.map(s => s.id === id ? {...s, price: parseFloat(p)||0} : s)}); };
+    const toggleSalsaVisibility = (id: string) => { setPricing({...pricing, salsas: pricing.salsas.map(s => s.id === id ? {...s, visible: !s.visible} : s)}); };
+    const updateLbsPer20 = (f: string, v: string) => { setPrepSettings({...prepSettings, lbsPer20: {...prepSettings.lbsPer20, [f]: parseFloat(v)||0}}); };
+    const updateMaterialCost = (f: string, v: string) => { setMaterialCosts({...materialCosts, [f]: parseFloat(v)||0}); };
+    const addTier = () => { const minQ = parseInt(newTier.minQty); const p = parseFloat(newTier.price); if (!minQ || isNaN(p)) return; const currentTiers = pricing[newTier.type].tiers || []; const updated = [...currentTiers.filter(t => t.minQuantity !== minQ), { minQuantity: minQ, price: p }]; updated.sort((a,b) => a.minQuantity - b.minQuantity); setPricing({ ...pricing, [newTier.type]: { ...pricing[newTier.type], tiers: updated } }); setNewTier({ ...newTier, minQty: '', price: '' }); };
+    const removeTier = (type: 'mini'|'full', minQty: number) => { setPricing({ ...pricing, [type]: { ...pricing[type], tiers: (pricing[type].tiers || []).filter(t => t.minQuantity !== minQty) } }); };
+    const toggleClosedDay = (dayIndex: number) => { const current = scheduling.closedDays || []; if (current.includes(dayIndex)) { setScheduling({ ...scheduling, closedDays: current.filter(d => d !== dayIndex) }); } else { setScheduling({ ...scheduling, closedDays: [...current, dayIndex].sort() }); } };
+    const handleDateClick = (dateStr: string) => { setSelectedDate(dateStr); };
+    const updateDateOverride = (dateStr: string, type: 'default' | 'closed' | 'custom', start?: string, end?: string) => { const newOverrides = { ...(scheduling.dateOverrides || {}) }; if (type === 'default') { delete newOverrides[dateStr]; } else if (type === 'closed') { newOverrides[dateStr] = { isClosed: true }; } else if (type === 'custom') { newOverrides[dateStr] = { isClosed: false, customHours: { start: start || scheduling.startTime, end: end || scheduling.endTime } }; } setScheduling({ ...scheduling, dateOverrides: newOverrides }); };
+    const calendarGrid = useMemo(() => { const year = calendarViewDate.getFullYear(); const month = calendarViewDate.getMonth(); const daysInMonth = new Date(year, month + 1, 0).getDate(); const firstDayOfWeek = new Date(year, month, 1).getDay(); const cells = []; for (let i = 0; i < firstDayOfWeek; i++) cells.push(null); for (let i = 1; i <= daysInMonth; i++) cells.push(new Date(year, month, i)); return cells; }, [calendarViewDate]);
+    const handlePrevMonth = () => setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() - 1, 1));
+    const handleNextMonth = () => setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() + 1, 1));
+    const addCategory = () => { if (newCategory.trim() && !expenseCategories.includes(newCategory.trim())) { setExpenseCategories([...expenseCategories, newCategory.trim()]); setNewCategory(''); } };
+    const removeCategory = (cat: string) => { setExpenseCategories(expenseCategories.filter(c => c !== cat)); };
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fade-in">
@@ -261,7 +187,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                     </div>
                                     <div className="md:col-span-5 flex gap-2">
                                         {editingEmployeeId && <button onClick={handleCancelEditEmployee} className="w-full bg-gray-300 text-gray-700 font-bold py-2 rounded text-sm hover:bg-gray-400">Cancel</button>}
-                                        <button onClick={addOrUpdateEmployee} className={`w-full text-white font-bold py-2 rounded text-sm shadow-sm hover:bg-opacity-90 flex items-center justify-center gap-2 ${editingEmployeeId ? 'bg-amber-500' : 'bg-brand-orange'}`}>
+                                        <button onClick={handleAddOrUpdateEmployee} className={`w-full text-white font-bold py-2 rounded text-sm shadow-sm hover:bg-opacity-90 flex items-center justify-center gap-2 ${editingEmployeeId ? 'bg-amber-500' : 'bg-brand-orange'}`}>
                                             {editingEmployeeId ? <><CheckCircleIcon className="w-4 h-4"/> Update Employee</> : <><PlusIcon className="w-4 h-4"/> Add Employee</>}
                                         </button>
                                     </div>
@@ -285,7 +211,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                                 <button onClick={() => handleEditEmployee(emp)} className="text-gray-400 hover:text-brand-brown p-2 hover:bg-gray-100 rounded-full transition-colors">
                                                     <PencilIcon className="w-4 h-4"/>
                                                 </button>
-                                                <button onClick={() => removeEmployee(emp.id)} className="text-red-400 hover:text-red-600 p-2 hover:bg-red-50 rounded-full transition-colors">
+                                                <button onClick={() => handleDeleteEmployee(emp.id)} className="text-red-400 hover:text-red-600 p-2 hover:bg-red-50 rounded-full transition-colors">
                                                     <TrashIcon className="w-4 h-4"/>
                                                 </button>
                                             </div>
