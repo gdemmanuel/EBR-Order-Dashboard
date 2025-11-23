@@ -5,17 +5,19 @@ import { AppSettings } from '../services/dbService';
 import { calculateSupplyCost } from '../utils/pricingUtils';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { parseOrderDateTime } from '../utils/dateUtils';
+import { TrashIcon } from './icons/Icons';
 
 interface ReportsViewProps {
     orders: Order[];
     expenses: Expense[];
     settings: AppSettings;
     dateRange: { start?: string; end?: string };
+    onDeleteExpense?: (id: string) => void;
 }
 
 const COLORS = ['#c8441c', '#eab308', '#3b82f6', '#a855f7', '#10b981', '#6366f1', '#ef4444', '#f97316'];
 
-export default function ReportsView({ orders, expenses, settings, dateRange }: ReportsViewProps) {
+export default function ReportsView({ orders, expenses, settings, dateRange, onDeleteExpense }: ReportsViewProps) {
     
     const filteredData = useMemo(() => {
         let filteredOrders = orders;
@@ -111,6 +113,12 @@ export default function ReportsView({ orders, expenses, settings, dateRange }: R
             });
     }, [filteredData]);
 
+    const handleDeleteClick = (id: string) => {
+        if (onDeleteExpense && window.confirm("Delete this expense entry?")) {
+            onDeleteExpense(id);
+        }
+    };
+
     return (
         <div className="space-y-8">
             {/* Top Stats Row */}
@@ -189,6 +197,58 @@ export default function ReportsView({ orders, expenses, settings, dateRange }: R
                             No expenses recorded for this period.
                         </div>
                     )}
+                </div>
+            </div>
+
+            {/* Recent Expenses Log */}
+            <div className="bg-white p-6 rounded-lg border border-brand-tan shadow-sm">
+                <h3 className="text-lg font-semibold text-brand-brown mb-4">Recent Expenses Log</h3>
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                            <tr>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Details</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cost</th>
+                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                            {filteredData.expenses.length === 0 ? (
+                                <tr>
+                                    <td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500">No expenses found.</td>
+                                </tr>
+                            ) : (
+                                filteredData.expenses
+                                    .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                                    .map((expense) => (
+                                    <tr key={expense.id}>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{expense.date}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                                {expense.category}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-gray-500">
+                                            <div className="font-medium text-brand-brown">{expense.vendor}</div>
+                                            <div className="text-xs">{expense.item} ({expense.quantity} {expense.unitName} @ ${expense.pricePerUnit})</div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-red-600">
+                                            -${(expense.totalCost || 0).toFixed(2)}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                            {onDeleteExpense && (
+                                                <button onClick={() => handleDeleteClick(expense.id)} className="text-gray-400 hover:text-red-600">
+                                                    <TrashIcon className="w-4 h-4" />
+                                                </button>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
