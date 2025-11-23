@@ -1,6 +1,7 @@
 
 import React, { useMemo, useState } from 'react';
-import { Order, Expense, AppSettings } from '../types';
+import { Order, Expense } from '../types';
+import { AppSettings } from '../services/dbService';
 import { calculateSupplyCost } from '../utils/pricingUtils';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { parseOrderDateTime } from '../utils/dateUtils';
