@@ -11,12 +11,13 @@ import {
     writeBatch
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
-import { Order, ApprovalStatus, PricingSettings, Flavor, Expense, AppSettings } from "../types";
+import { Order, ApprovalStatus, PricingSettings, Flavor, Expense, AppSettings, Shift } from "../types";
 import { initialEmpanadaFlavors, initialFullSizeEmpanadaFlavors } from "../data/mockData";
 
 // Collection References
 const ORDERS_COLLECTION = "orders";
 const EXPENSES_COLLECTION = "expenses";
+const SHIFTS_COLLECTION = "shifts";
 const SETTINGS_COLLECTION = "app_settings";
 const GENERAL_SETTINGS_DOC = "general";
 
@@ -56,6 +57,7 @@ const DEFAULT_SETTINGS: AppSettings = {
         dateOverrides: {}
     },
     laborWage: 15.00,
+    employees: [],
     materialCosts: {},
     discoCosts: { mini: 0.10, full: 0.15 },
     inventory: {},
@@ -91,6 +93,20 @@ export const subscribeToExpenses = (
     }, onError);
 };
 
+export const subscribeToShifts = (
+    onUpdate: (shifts: Shift[]) => void,
+    onError?: (error: Error) => void
+) => {
+    const q = query(collection(db, SHIFTS_COLLECTION));
+    return onSnapshot(q, (snapshot) => {
+        const shifts: Shift[] = [];
+        snapshot.forEach((doc) => {
+            shifts.push(doc.data() as Shift);
+        });
+        onUpdate(shifts);
+    }, onError);
+};
+
 export const subscribeToSettings = (
     onUpdate: (settings: AppSettings) => void,
     onError?: (error: Error) => void
@@ -105,7 +121,8 @@ export const subscribeToSettings = (
                 pricing: { ...DEFAULT_SETTINGS.pricing, ...(data.pricing || {}) },
                 prepSettings: { ...DEFAULT_SETTINGS.prepSettings, ...(data.prepSettings || {}) },
                 scheduling: { ...DEFAULT_SETTINGS.scheduling, ...(data.scheduling || {}) },
-                expenseCategories: data.expenseCategories || DEFAULT_SETTINGS.expenseCategories
+                expenseCategories: data.expenseCategories || DEFAULT_SETTINGS.expenseCategories,
+                employees: data.employees || []
             };
             onUpdate(mergedSettings);
         } else {
@@ -137,6 +154,15 @@ export const saveExpenseToDb = async (expense: Expense) => {
 
 export const deleteExpenseFromDb = async (expenseId: string) => {
     await deleteDoc(doc(db, EXPENSES_COLLECTION, expenseId));
+};
+
+export const saveShiftToDb = async (shift: Shift) => {
+    if (!shift.id) shift.id = Date.now().toString();
+    await setDoc(doc(db, SHIFTS_COLLECTION, shift.id), shift);
+};
+
+export const deleteShiftFromDb = async (shiftId: string) => {
+    await deleteDoc(doc(db, SHIFTS_COLLECTION, shiftId));
 };
 
 export const updateSettingsInDb = async (settings: Partial<AppSettings>) => {

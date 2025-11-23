@@ -61,11 +61,30 @@ export interface Expense {
     category: string;
     vendor: string;
     item: string;
-    unitName: string; // e.g. 'lbs', 'box', 'unit'
+    unitName: string;
     pricePerUnit: number;
     quantity: number;
     totalCost: number;
-    description?: string; // Optional notes
+    description?: string;
+}
+
+export interface Employee {
+    id: string;
+    name: string;
+    hourlyRate: number;
+    color: string; // For calendar visualization
+    isActive: boolean;
+}
+
+export interface Shift {
+    id: string;
+    employeeId: string;
+    employeeName: string; // Snapshot in case employee is deleted
+    date: string; // YYYY-MM-DD
+    startTime: string; // HH:MM
+    endTime: string; // HH:MM
+    totalHours: number;
+    laborCost: number;
 }
 
 export interface Flavor {
@@ -137,7 +156,8 @@ export interface AppSettings {
         closedDays: number[];
         dateOverrides: Record<string, { isClosed: boolean; customHours?: { start: string; end: string; }; }>; 
     };
-    laborWage: number; 
+    laborWage: number; // General wage (fallback)
+    employees: Employee[]; // List of specific employees
     materialCosts: Record<string, number>; 
     discoCosts: { mini: number; full: number; };
     inventory: Record<string, { mini: number; full: number }>;

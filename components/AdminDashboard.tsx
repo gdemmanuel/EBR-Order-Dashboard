@@ -46,7 +46,7 @@ export default function AdminDashboard({
     empanadaFlavors, 
     fullSizeEmpanadaFlavors, 
     importedSignatures, 
-    sheetUrl,
+    sheetUrl, 
     pricing, 
     prepSettings,
     settings 
@@ -130,7 +130,7 @@ export default function AdminDashboard({
         return { totalRevenue, ordersToFollowUp, totalEmpanadasSold };
     }, [activeOrders, dateFilter]);
 
-    const safeSettings: AppSettings = settings || { empanadaFlavors, fullSizeEmpanadaFlavors, sheetUrl, importedSignatures: Array.from(importedSignatures), pricing: pricing || { mini: { basePrice: 1.75 }, full: { basePrice: 3.00 }, packages: [], salsas: [] }, prepSettings: prepSettings || { lbsPer20: {}, fullSizeMultiplier: 2.0, discosPer: { mini: 1, full: 1 }, discoPackSize: { mini: 10, full: 10 }, productionRates: { mini: 40, full: 25 } }, scheduling: { enabled: true, intervalMinutes: 15, startTime: "09:00", endTime: "17:00", blockedDates: [], closedDays: [], dateOverrides: {} }, laborWage: 15.00, materialCosts: {}, discoCosts: { mini: 0.10, full: 0.15 }, inventory: {}, expenseCategories: ['Packaging', 'Marketing', 'Rent', 'Utilities', 'Equipment', 'Other'] };
+    const safeSettings: AppSettings = settings || { empanadaFlavors, fullSizeEmpanadaFlavors, sheetUrl, importedSignatures: Array.from(importedSignatures), pricing: pricing || { mini: { basePrice: 1.75 }, full: { basePrice: 3.00 }, packages: [], salsas: [] }, prepSettings: prepSettings || { lbsPer20: {}, fullSizeMultiplier: 2.0, discosPer: { mini: 1, full: 1 }, discoPackSize: { mini: 10, full: 10 }, productionRates: { mini: 40, full: 25 } }, scheduling: { enabled: true, intervalMinutes: 15, startTime: "09:00", endTime: "17:00", blockedDates: [], closedDays: [], dateOverrides: {} }, laborWage: 15.00, employees: [], materialCosts: {}, discoCosts: { mini: 0.10, full: 0.15 }, inventory: {}, expenseCategories: ['Packaging', 'Marketing', 'Rent', 'Utilities', 'Equipment', 'Other'] };
     const safePricing = safeSettings.pricing;
 
     const handleSaveOrder = async (orderData: Order | Omit<Order, 'id'>) => {
