@@ -13,25 +13,24 @@ interface ReportsViewProps {
     dateRange: { start?: string; end?: string };
 }
 
-const COLORS = ['#c8441c', '#eab308', '#3b82f6', '#a855f7', '#10b981', '#6366f1'];
+const COLORS = ['#c8441c', '#eab308', '#3b82f6', '#a855f7', '#10b981', '#6366f1', '#ef4444', '#f97316'];
 
 export default function ReportsView({ orders, expenses, settings, dateRange }: ReportsViewProps) {
     
-    // Filter Data based on Date Range
     const filteredData = useMemo(() => {
         let filteredOrders = orders;
         let filteredExpenses = expenses;
 
         if (dateRange.start) {
             const start = new Date(dateRange.start);
-            start.setHours(0,0,0,0); // Normalize time
+            start.setHours(0,0,0,0);
             filteredOrders = filteredOrders.filter(o => parseOrderDateTime(o) >= start);
             filteredExpenses = filteredExpenses.filter(e => new Date(e.date) >= start);
         }
         
         if (dateRange.end) {
             const end = new Date(dateRange.end);
-            end.setHours(23,59,59,999); // End of day
+            end.setHours(23,59,59,999);
             filteredOrders = filteredOrders.filter(o => parseOrderDateTime(o) <= end);
             filteredExpenses = filteredExpenses.filter(e => new Date(e.date) <= end);
         }
@@ -39,74 +38,65 @@ export default function ReportsView({ orders, expenses, settings, dateRange }: R
         return { orders: filteredOrders, expenses: filteredExpenses };
     }, [orders, expenses, dateRange]);
 
-    // Aggregate Financials
     const financials = useMemo(() => {
         const { orders, expenses } = filteredData;
 
         const revenue = orders.reduce((sum, o) => sum + o.amountCharged, 0);
         
-        // COGS Calculation
-        // Use saved historical cost if available, otherwise calculate using current prices
-        const cogsIngredients = orders.reduce((sum, o) => {
+        // Theoretical Usage (Based on Recipes) - Visual Reference Only
+        const estimatedMaterialUsage = orders.reduce((sum, o) => {
             return sum + (o.totalCost !== undefined ? o.totalCost : calculateSupplyCost(o.items, settings));
         }, 0);
 
-        // Fixed Expenses
-        const fixedExpensesTotal = expenses.reduce((sum, e) => sum + e.amount, 0);
+        // Actual Expenses (From Manual Entry)
+        // Calculates total money spent on bills/supplies in this period
+        const actualExpensesTotal = expenses.reduce((sum, e) => sum + (e.totalCost || 0), 0);
         
-        const totalExpenses = cogsIngredients + fixedExpensesTotal;
-        const netProfit = revenue - totalExpenses;
+        // Net Profit = Revenue - Actual Expenses
+        const netProfit = revenue - actualExpensesTotal;
         const margin = revenue > 0 ? (netProfit / revenue) * 100 : 0;
 
-        return { revenue, cogsIngredients, fixedExpensesTotal, totalExpenses, netProfit, margin };
+        return { revenue, estimatedMaterialUsage, actualExpensesTotal, netProfit, margin };
     }, [filteredData, settings]);
 
-    // Expense Breakdown for Pie Chart
     const expenseBreakdownData = useMemo(() => {
-        const data = [
-            { name: 'Ingredients (COGS)', value: financials.cogsIngredients },
-        ];
-        
-        // Group fixed expenses by category
         const categoryMap = new Map<string, number>();
+        
         filteredData.expenses.forEach(e => {
-            categoryMap.set(e.category, (categoryMap.get(e.category) || 0) + e.amount);
+            const cost = e.totalCost || 0;
+            categoryMap.set(e.category, (categoryMap.get(e.category) || 0) + cost);
         });
         
+        const data: {name: string, value: number}[] = [];
         categoryMap.forEach((val, key) => {
             data.push({ name: key, value: val });
         });
 
         return data.filter(d => d.value > 0);
-    }, [financials, filteredData.expenses]);
+    }, [filteredData.expenses]);
 
-    // Monthly P&L for Bar Chart (Last 6 months or current selection)
     const pnlChartData = useMemo(() => {
         const monthlyData = new Map<string, { revenue: number, expense: number }>();
         
-        // Process Orders
+        // Revenue
         filteredData.orders.forEach(o => {
             const d = parseOrderDateTime(o);
             if (isNaN(d.getTime())) return;
-            const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; // YYYY-MM
+            const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
             const current = monthlyData.get(key) || { revenue: 0, expense: 0 };
-            
-            const cost = o.totalCost !== undefined ? o.totalCost : calculateSupplyCost(o.items, settings);
-            
             current.revenue += o.amountCharged;
+            monthlyData.set(key, current);
+        });
+
+        // Actual Expenses
+        filteredData.expenses.forEach(e => {
+            const key = e.date.substring(0, 7);
+            const current = monthlyData.get(key) || { revenue: 0, expense: 0 };
+            const cost = e.totalCost || 0;
             current.expense += cost;
             monthlyData.set(key, current);
         });
 
-        // Process Expenses
-        filteredData.expenses.forEach(e => {
-            const key = e.date.substring(0, 7); // YYYY-MM
-            const current = monthlyData.get(key) || { revenue: 0, expense: 0 };
-            current.expense += e.amount;
-            monthlyData.set(key, current);
-        });
-
-        // Calculate Profit per month and format
         return Array.from(monthlyData.entries())
             .sort((a,b) => a[0].localeCompare(b[0]))
             .map(([key, val]) => {
@@ -119,7 +109,7 @@ export default function ReportsView({ orders, expenses, settings, dateRange }: R
                     Profit: val.revenue - val.expense
                 };
             });
-    }, [filteredData, settings]);
+    }, [filteredData]);
 
     return (
         <div className="space-y-8">
@@ -130,8 +120,8 @@ export default function ReportsView({ orders, expenses, settings, dateRange }: R
                     <p className="text-2xl font-bold text-green-600">${financials.revenue.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
                 </div>
                 <div className="bg-white p-4 rounded-lg border border-brand-tan shadow-sm">
-                    <p className="text-sm text-gray-500 font-medium">Total Expenses (COGS + Fixed)</p>
-                    <p className="text-2xl font-bold text-red-600">${financials.totalExpenses.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+                    <p className="text-sm text-gray-500 font-medium">Actual Expenses</p>
+                    <p className="text-2xl font-bold text-red-600">${financials.actualExpensesTotal.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
                 </div>
                 <div className="bg-white p-4 rounded-lg border border-brand-tan shadow-sm">
                     <p className="text-sm text-gray-500 font-medium">Net Profit</p>
@@ -141,6 +131,15 @@ export default function ReportsView({ orders, expenses, settings, dateRange }: R
                     <p className="text-sm text-gray-500 font-medium">Profit Margin</p>
                     <p className="text-2xl font-bold text-brand-orange">{financials.margin.toFixed(1)}%</p>
                 </div>
+            </div>
+            
+            {/* Theoretical vs Actual Callout */}
+             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div>
+                    <h4 className="font-bold text-blue-800 text-sm uppercase">Theoretical Material Cost</h4>
+                    <p className="text-xs text-blue-600">Based on recipes & orders (Reference only - not deducted from profit)</p>
+                </div>
+                <p className="text-2xl font-bold text-blue-900">${financials.estimatedMaterialUsage.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -162,8 +161,8 @@ export default function ReportsView({ orders, expenses, settings, dateRange }: R
 
                 {/* Expense Breakdown */}
                 <div className="bg-white p-6 rounded-lg border border-brand-tan shadow-sm">
-                    <h3 className="text-lg font-semibold text-brand-brown mb-4">Expense Breakdown</h3>
-                    <div className="flex flex-col md:flex-row items-center">
+                    <h3 className="text-lg font-semibold text-brand-brown mb-4">Actual Expense Breakdown</h3>
+                    {expenseBreakdownData.length > 0 ? (
                         <div className="w-full h-[300px]">
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
@@ -180,12 +179,16 @@ export default function ReportsView({ orders, expenses, settings, dateRange }: R
                                             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                         ))}
                                     </Pie>
-                                    <Tooltip />
+                                    <Tooltip formatter={(value: number) => `$${value.toFixed(2)}`} />
                                     <Legend layout="vertical" verticalAlign="middle" align="right" />
                                 </PieChart>
                             </ResponsiveContainer>
                         </div>
-                    </div>
+                    ) : (
+                        <div className="flex items-center justify-center h-[300px] text-gray-400 italic">
+                            No expenses recorded for this period.
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

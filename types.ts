@@ -57,10 +57,15 @@ export interface Order {
 
 export interface Expense {
     id: string;
-    date: string; // YYYY-MM-DD
+    date: string;
     category: string;
-    description: string;
-    amount: number;
+    vendor: string;
+    item: string;
+    unitName: string; // e.g. 'lbs', 'box', 'unit'
+    pricePerUnit: number;
+    quantity: number;
+    totalCost: number;
+    description?: string; // Optional notes
 }
 
 export interface Flavor {
