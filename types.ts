@@ -1,4 +1,3 @@
-
 export enum ContactMethod {
   GF = 'Google Forms',
   IG = 'Instagram',
@@ -72,18 +71,20 @@ export interface Employee {
     id: string;
     name: string;
     hourlyRate: number;
-    color: string; // For calendar visualization
+    speedMini: number; // Units per hour
+    speedFull: number; // Units per hour
+    color: string;
     isActive: boolean;
 }
 
 export interface Shift {
     id: string;
     employeeId: string;
-    employeeName: string; // Snapshot in case employee is deleted
+    employeeName: string;
     date: string; // YYYY-MM-DD
-    startTime: string; // HH:MM
-    endTime: string; // HH:MM
-    totalHours: number;
+    startTime: string;
+    endTime: string;
+    hours: number;
     laborCost: number;
 }
 
@@ -91,8 +92,8 @@ export interface Flavor {
     name: string;
     visible: boolean;
     description?: string;
-    surcharge?: number; // Additional cost per unit
-    isSpecial?: boolean; // Belongs in "Specials" section
+    surcharge?: number;
+    isSpecial?: boolean;
 }
 
 export interface MenuPackage {
@@ -101,10 +102,10 @@ export interface MenuPackage {
     itemType: 'mini' | 'full';
     quantity: number;
     price: number;
-    maxFlavors: number; // Limit how many distinct flavors customer can pick
-    increment?: number; // Step size for buttons (e.g. 1, 5, 10). Defaults to 1.
+    maxFlavors: number;
+    increment?: number;
     visible: boolean;
-    isSpecial?: boolean; // Belongs in "Specials/Platters" section
+    isSpecial?: boolean;
 }
 
 export interface SalsaProduct {
@@ -120,8 +121,8 @@ export interface PricingTier {
 }
 
 export interface ProductPricing {
-    basePrice: number; // Fallback for single items
-    tiers?: PricingTier[]; // Volume discounts (e.g. 40+ items = cheaper price)
+    basePrice: number;
+    tiers?: PricingTier[];
 }
 
 export interface PricingSettings {
@@ -129,37 +130,6 @@ export interface PricingSettings {
     full: ProductPricing;
     packages: MenuPackage[];
     salsas: SalsaProduct[];
-    // Deprecated but kept for type safety during migration if needed, though we will migrate away from them
     salsaSmall?: number; 
     salsaLarge?: number;
-}
-
-export interface AppSettings {
-    empanadaFlavors: Flavor[];
-    fullSizeEmpanadaFlavors: Flavor[];
-    sheetUrl: string;
-    importedSignatures: string[];
-    pricing: PricingSettings;
-    prepSettings: {
-        lbsPer20: Record<string, number>; 
-        fullSizeMultiplier: number; 
-        discosPer: { mini: number; full: number; };
-        discoPackSize: { mini: number; full: number; };
-        productionRates: { mini: number; full: number; };
-    };
-    scheduling: {
-        enabled: boolean;
-        intervalMinutes: number;
-        startTime: string;
-        endTime: string;
-        blockedDates: string[];
-        closedDays: number[];
-        dateOverrides: Record<string, { isClosed: boolean; customHours?: { start: string; end: string; }; }>; 
-    };
-    laborWage: number; // General wage (fallback)
-    employees: Employee[]; // List of specific employees
-    materialCosts: Record<string, number>; 
-    discoCosts: { mini: number; full: number; };
-    inventory: Record<string, { mini: number; full: number }>;
-    expenseCategories: string[];
 }

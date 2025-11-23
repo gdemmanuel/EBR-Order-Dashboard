@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 type IconProps = React.SVGProps<SVGSVGElement> & { title?: string };
@@ -175,7 +174,7 @@ export const ArrowUturnLeftIcon = ({ title, ...props }: IconProps) => (
 export const InstagramIcon = ({ title, ...props }: IconProps) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" {...props}>
     {title && <title>{title}</title>}
-    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.85s-.011 3.585-.069 4.85c-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07s-3.585-.012-4.85-.07c-3.25-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.85s.012-3.584.07-4.85c.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.85-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948s.014 3.667.072 4.947c.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072s3.667-.014 4.947-.072c4.358-.2 6.78-2.618 6.98-6.98.059-1.281.073-1.689.073-4.948s-.014-3.667-.072-4.947c-.2-4.358-2.618-6.78-6.98-6.98-1.281-.058-1.689-.072-4.948-.072zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.162 6.162 6.162 6.162-2.759 6.162-6.162-2.759 6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4s1.791-4 4-4 4 1.79 4 4-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.441 1.441 1.441 1.441-.645 1.441-1.44-1.441-1.44z" />
+    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.85s-.011 3.585-.069 4.85c-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07s-3.585-.012-4.85-.07c-3.25-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.85s.012-3.584.07-4.85c.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.85-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948s.014 3.667.072 4.947c.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072s3.667-.014 4.947-.072c4.358-.2 6.78-2.618 6.98-6.98.059-1.281.073-1.689.073-4.948s-.014-3.667-.072-4.947c-.2-4.358-2.618-6.78-6.98-6.98-1.281-.058-1.689-.072-4.948-.072zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.162 6.162 6.162 6.162-2.759 6.162-6.162-2.759 6.162-6.162-2.759 6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4s1.791-4 4-4 4 1.79 4 4-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.441 1.441 1.441 1.441-.645 1.441-1.44-1.441-1.44z" />
   </svg>
 );
 
@@ -285,4 +284,574 @@ export const CameraIcon = ({ title, ...props }: IconProps) => (
         <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
         <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z" />
     </svg>
-);
+);--- START OF FILE components/ReportsView.tsx ---
+
+
+import React, { useMemo, useState } from 'react';
+import { Order, Expense, AppSettings } from '../types';
+import { calculateSupplyCost } from '../utils/pricingUtils';
+import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { parseOrderDateTime } from '../utils/dateUtils';
+import { TrashIcon } from './icons/Icons';
+
+interface ReportsViewProps {
+    orders: Order[];
+    expenses: Expense[];
+    settings: AppSettings;
+    dateRange: { start?: string; end?: string };
+    onDeleteExpense?: (id: string) => void;
+}
+
+const COLORS = ['#c8441c', '#eab308', '#3b82f6', '#a855f7', '#10b981', '#6366f1', '#ef4444', '#f97316'];
+
+type SortKey = 'date' | 'category' | 'vendor' | 'item' | 'totalCost';
+
+export default function ReportsView({ orders, expenses, settings, dateRange, onDeleteExpense }: ReportsViewProps) {
+    const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' }>({ key: 'date', direction: 'desc' });
+
+    const filteredData = useMemo(() => {
+        let filteredOrders = orders;
+        let filteredExpenses = expenses;
+
+        if (dateRange.start) {
+            const start = new Date(dateRange.start);
+            start.setHours(0,0,0,0);
+            filteredOrders = filteredOrders.filter(o => parseOrderDateTime(o) >= start);
+            filteredExpenses = filteredExpenses.filter(e => new Date(e.date) >= start);
+        }
+        
+        if (dateRange.end) {
+            const end = new Date(dateRange.end);
+            end.setHours(23,59,59,999);
+            filteredOrders = filteredOrders.filter(o => parseOrderDateTime(o) <= end);
+            filteredExpenses = filteredExpenses.filter(e => new Date(e.date) <= end);
+        }
+
+        return { orders: filteredOrders, expenses: filteredExpenses };
+    }, [orders, expenses, dateRange]);
+
+    const financials = useMemo(() => {
+        const { orders, expenses } = filteredData;
+
+        const revenue = orders.reduce((sum, o) => sum + o.amountCharged, 0);
+        const estimatedMaterialUsage = orders.reduce((sum, o) => {
+            return sum + (o.totalCost !== undefined ? o.totalCost : calculateSupplyCost(o.items, settings));
+        }, 0);
+        const actualExpensesTotal = expenses.reduce((sum, e) => sum + (e.totalCost || 0), 0);
+        const netProfit = revenue - actualExpensesTotal;
+        const margin = revenue > 0 ? (netProfit / revenue) * 100 : 0;
+
+        return { revenue, estimatedMaterialUsage, actualExpensesTotal, netProfit, margin };
+    }, [filteredData, settings]);
+
+    const sortedExpenses = useMemo(() => {
+        const items = [...filteredData.expenses];
+        items.sort((a, b) => {
+            let aVal: any = a[sortConfig.key];
+            let bVal: any = b[sortConfig.key];
+            if (sortConfig.key === 'totalCost') {
+                aVal = a.totalCost || 0;
+                bVal = b.totalCost || 0;
+            }
+            if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+        return items;
+    }, [filteredData.expenses, sortConfig]);
+
+    const handleSort = (key: SortKey) => {
+        let direction: 'asc' | 'desc' = 'asc';
+        if (sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    };
+
+    const handleDeleteClick = (id: string) => {
+        if (onDeleteExpense && window.confirm("Delete this expense entry?")) {
+            onDeleteExpense(id);
+        }
+    };
+
+    const SortHeader = ({ label, skey }: { label: string, skey: SortKey }) => (
+        <th 
+            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 hover:text-brand-orange transition-colors select-none"
+            onClick={() => handleSort(skey)}
+        >
+            <div className="flex items-center gap-1">
+                {label}
+                {sortConfig.key === skey && (
+                    <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                )}
+            </div>
+        </th>
+    );
+
+    const expenseBreakdownData = useMemo(() => {
+        const categoryMap = new Map<string, number>();
+        filteredData.expenses.forEach(e => {
+            const cost = e.totalCost || 0;
+            categoryMap.set(e.category, (categoryMap.get(e.category) || 0) + cost);
+        });
+        const data: {name: string, value: number}[] = [];
+        categoryMap.forEach((val, key) => { data.push({ name: key, value: val }); });
+        return data.filter(d => d.value > 0);
+    }, [filteredData.expenses]);
+
+    const pnlChartData = useMemo(() => {
+        const monthlyData = new Map<string, { revenue: number, expense: number }>();
+        filteredData.orders.forEach(o => {
+            const d = parseOrderDateTime(o);
+            if (isNaN(d.getTime())) return;
+            const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+            const current = monthlyData.get(key) || { revenue: 0, expense: 0 };
+            current.revenue += o.amountCharged;
+            monthlyData.set(key, current);
+        });
+        filteredData.expenses.forEach(e => {
+            const key = e.date.substring(0, 7);
+            const current = monthlyData.get(key) || { revenue: 0, expense: 0 };
+            current.expense += (e.totalCost || 0);
+            monthlyData.set(key, current);
+        });
+        return Array.from(monthlyData.entries()).sort((a,b) => a[0].localeCompare(b[0])).map(([key, val]) => {
+            const [y, m] = key.split('-');
+            const label = new Date(parseInt(y), parseInt(m)-1).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+            return { name: label, Revenue: val.revenue, Expenses: val.expense, Profit: val.revenue - val.expense };
+        });
+    }, [filteredData]);
+
+    return (
+        <div className="space-y-8">
+             {/* Top Stats Row */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="bg-white p-4 rounded-lg border border-brand-tan shadow-sm">
+                    <p className="text-sm text-gray-500 font-medium">Total Revenue</p>
+                    <p className="text-2xl font-bold text-green-600">${financials.revenue.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+                </div>
+                <div className="bg-white p-4 rounded-lg border border-brand-tan shadow-sm">
+                    <p className="text-sm text-gray-500 font-medium">Actual Expenses</p>
+                    <p className="text-2xl font-bold text-red-600">${financials.actualExpensesTotal.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+                </div>
+                <div className="bg-white p-4 rounded-lg border border-brand-tan shadow-sm">
+                    <p className="text-sm text-gray-500 font-medium">Net Profit</p>
+                    <p className={`text-2xl font-bold ${financials.netProfit >= 0 ? 'text-brand-brown' : 'text-red-600'}`}>${financials.netProfit.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+                </div>
+                <div className="bg-white p-4 rounded-lg border border-brand-tan shadow-sm">
+                    <p className="text-sm text-gray-500 font-medium">Profit Margin</p>
+                    <p className="text-2xl font-bold text-brand-orange">{financials.margin.toFixed(1)}%</p>
+                </div>
+            </div>
+            
+             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+                <div>
+                    <h4 className="font-bold text-blue-800 text-sm uppercase">Theoretical Material Cost</h4>
+                    <p className="text-xs text-blue-600">Based on recipes & orders (Reference only - not deducted from profit)</p>
+                </div>
+                <p className="text-2xl font-bold text-blue-900">${financials.estimatedMaterialUsage.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="bg-white p-6 rounded-lg border border-brand-tan shadow-sm">
+                    <h3 className="text-lg font-semibold text-brand-brown mb-4">Profit & Loss Trend</h3>
+                    <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={pnlChartData}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                            <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                            <YAxis tick={{ fontSize: 12 }} />
+                            <Tooltip contentStyle={{ borderRadius: '8px' }} />
+                            <Legend />
+                            <Bar dataKey="Revenue" fill="#10b981" radius={[4, 4, 0, 0]} />
+                            <Bar dataKey="Expenses" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+
+                <div className="bg-white p-6 rounded-lg border border-brand-tan shadow-sm">
+                    <h3 className="text-lg font-semibold text-brand-brown mb-4">Actual Expense Breakdown</h3>
+                    {expenseBreakdownData.length > 0 ? (
+                        <div className="w-full h-[300px]">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie
+                                        data={expenseBreakdownData}
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={60}
+                                        outerRadius={80}
+                                        paddingAngle={5}
+                                        dataKey="value"
+                                    >
+                                        {expenseBreakdownData.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip formatter={(value: number) => `$${value.toFixed(2)}`} />
+                                    <Legend layout="vertical" verticalAlign="middle" align="right" />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </div>
+                    ) : (
+                        <div className="flex items-center justify-center h-[300px] text-gray-400 italic">
+                            No expenses recorded for this period.
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-lg border border-brand-tan shadow-sm">
+                <h3 className="text-lg font-semibold text-brand-brown mb-4">Recent Expenses Log</h3>
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                            <tr>
+                                <SortHeader label="Date" skey="date" />
+                                <SortHeader label="Vendor" skey="vendor" />
+                                <SortHeader label="Category" skey="category" />
+                                <SortHeader label="Details" skey="item" />
+                                <SortHeader label="Cost" skey="totalCost" />
+                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                            {sortedExpenses.length === 0 ? (
+                                <tr>
+                                    <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">No expenses found for this period.</td>
+                                </tr>
+                            ) : (
+                                sortedExpenses.map((expense) => (
+                                    <tr key={expense.id}>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{expense.date}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{expense.vendor}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                                {expense.category}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-gray-500">
+                                            <div className="font-medium text-brand-brown">{expense.item}</div>
+                                            <div className="text-xs">({expense.quantity} {expense.unitName} @ ${expense.pricePerUnit})</div>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-red-600">
+                                            -${(expense.totalCost || 0).toFixed(2)}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                            {onDeleteExpense && (
+                                                <button onClick={() => handleDeleteClick(expense.id)} className="text-gray-400 hover:text-red-600">
+                                                    <TrashIcon className="w-4 h-4" />
+                                                </button>
+                                            )}
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    );
+}--- START OF FILE components/ExpenseModal.tsx ---
+
+
+import React, { useState, useMemo } from 'react';
+import { Expense } from '../types';
+import { XMarkIcon, PlusIcon, TrashIcon, CalendarIcon, CurrencyDollarIcon, DocumentTextIcon, ListBulletIcon } from './icons/Icons';
+
+interface ExpenseModalProps {
+    expenses: Expense[];
+    categories: string[];
+    onClose: () => void;
+    onSave: (expense: Expense) => Promise<void>;
+    onDelete: (id: string) => Promise<void>;
+}
+
+type SortKey = 'date' | 'category' | 'vendor' | 'item' | 'totalCost';
+
+export default function ExpenseModal({ expenses, categories, onClose, onSave, onDelete }: ExpenseModalProps) {
+    const [activeTab, setActiveTab] = useState<'add' | 'list'>('add');
+    
+    // Form State
+    const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+    const [category, setCategory] = useState(categories[0] || 'Ingredients');
+    const [vendor, setVendor] = useState('');
+    const [item, setItem] = useState('');
+    const [unitName, setUnitName] = useState('');
+    const [pricePerUnit, setPricePerUnit] = useState('');
+    const [quantity, setQuantity] = useState('');
+    const [description, setDescription] = useState(''); 
+    
+    const [isSaving, setIsSaving] = useState(false);
+    const [saveSuccess, setSaveSuccess] = useState(false);
+    const [validationError, setValidationError] = useState<string | null>(null);
+
+    // Sorting State
+    const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' }>({ key: 'date', direction: 'desc' });
+
+    // Derived Total
+    const calculatedTotal = (parseFloat(pricePerUnit) || 0) * (parseFloat(quantity) || 0);
+
+    const handleSave = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setValidationError(null);
+        setSaveSuccess(false);
+
+        if (!vendor.trim()) { setValidationError("Vendor Name is required."); return; }
+        if (!item.trim()) { setValidationError("Item Name is required."); return; }
+        if (!pricePerUnit || parseFloat(pricePerUnit) <= 0) { setValidationError("Price is required."); return; }
+        if (!quantity || parseFloat(quantity) <= 0) { setValidationError("Quantity is required."); return; }
+
+        setIsSaving(true);
+        try {
+            const newExpense: Expense = {
+                id: Date.now().toString(),
+                date,
+                category,
+                vendor,
+                item,
+                unitName: unitName || '', 
+                pricePerUnit: parseFloat(pricePerUnit),
+                quantity: parseFloat(quantity),
+                totalCost: calculatedTotal,
+                description: description || '' 
+            };
+            
+            await onSave(newExpense);
+            setSaveSuccess(true);
+            
+            setItem('');
+            setPricePerUnit('');
+            setQuantity('');
+            setDescription('');
+            
+            setTimeout(() => {
+                 setSaveSuccess(false);
+                 setActiveTab('list');
+            }, 1000);
+            
+        } catch (error: any) {
+            console.error("Failed to save expense", error);
+            setValidationError(`Database Error: ${error.message || "Unknown error"}`);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleDelete = async (id: string) => {
+        if (window.confirm("Delete this expense record?")) {
+            await onDelete(id);
+        }
+    };
+
+    // Sorting Logic
+    const handleSort = (key: SortKey) => {
+        let direction: 'asc' | 'desc' = 'asc';
+        if (sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    };
+
+    const sortedExpenses = useMemo(() => {
+        let sortableItems = [...expenses];
+        sortableItems.sort((a, b) => {
+            let aVal: any = a[sortConfig.key];
+            let bVal: any = b[sortConfig.key];
+
+            // Handle numeric sorts
+            if (sortConfig.key === 'totalCost') {
+                aVal = a.totalCost || 0;
+                bVal = b.totalCost || 0;
+            }
+
+            if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+        return sortableItems;
+    }, [expenses, sortConfig]);
+
+    const SortHeader = ({ label, skey }: { label: string, skey: SortKey }) => (
+        <th 
+            className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 hover:text-brand-orange transition-colors select-none"
+            onClick={() => handleSort(skey)}
+        >
+            <div className="flex items-center gap-1">
+                {label}
+                {sortConfig.key === skey && (
+                    <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                )}
+            </div>
+        </th>
+    );
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fade-in">
+            <div className="bg-white rounded-lg shadow-2xl w-full max-w-4xl flex flex-col border border-brand-tan max-h-[90vh]">
+                <header className="p-6 border-b border-brand-tan flex justify-between items-center">
+                    <h2 className="text-2xl font-serif text-brand-brown">Expense Manager</h2>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+                        <XMarkIcon className="w-6 h-6" />
+                    </button>
+                </header>
+
+                <div className="flex border-b border-gray-200">
+                    <button 
+                        className={`flex-1 py-3 text-sm font-medium ${activeTab === 'add' ? 'text-brand-orange border-b-2 border-brand-orange' : 'text-gray-500 hover:bg-gray-50'}`}
+                        onClick={() => setActiveTab('add')}
+                    >
+                        <div className="flex items-center justify-center gap-2">
+                            <PlusIcon className="w-4 h-4" /> Add Entry
+                        </div>
+                    </button>
+                    <button 
+                        className={`flex-1 py-3 text-sm font-medium ${activeTab === 'list' ? 'text-brand-orange border-b-2 border-brand-orange' : 'text-gray-500 hover:bg-gray-50'}`}
+                        onClick={() => setActiveTab('list')}
+                    >
+                        <div className="flex items-center justify-center gap-2">
+                            <ListBulletIcon className="w-4 h-4" /> History ({expenses.length})
+                        </div>
+                    </button>
+                </div>
+
+                <div className="p-6 overflow-y-auto flex-grow bg-gray-50">
+                    {activeTab === 'add' && (
+                        <div className="max-w-lg mx-auto bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                            <form onSubmit={handleSave} className="space-y-4">
+                                {saveSuccess && (
+                                    <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-2 rounded relative mb-4 text-sm flex justify-between items-center">
+                                        <span className="font-bold">Item Saved Successfully!</span>
+                                        <button type="button" onClick={() => setActiveTab('list')} className="underline font-semibold hover:text-green-900">View List</button>
+                                    </div>
+                                )}
+                                
+                                {validationError && (
+                                    <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded relative mb-4 text-sm">
+                                        <strong>Error:</strong> {validationError}
+                                    </div>
+                                )}
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-700 mb-1">Date</label>
+                                        <div className="relative">
+                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><CalendarIcon className="w-4 h-4 text-gray-400"/></div>
+                                            <input type="date" required value={date} onChange={e => setDate(e.target.value)} className="pl-9 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-700 mb-1">Category</label>
+                                        <select value={category} onChange={e => setCategory(e.target.value)} className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm">
+                                            {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-700 mb-1">Vendor <span className="text-red-500">*</span></label>
+                                        <input type="text" required value={vendor} onChange={e => setVendor(e.target.value)} placeholder="e.g. Costco" className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-700 mb-1">Item Name <span className="text-red-500">*</span></label>
+                                        <input type="text" required value={item} onChange={e => setItem(e.target.value)} placeholder="e.g. Ground Beef" className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
+                                    </div>
+                                </div>
+
+                                <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-3">
+                                    <div className="grid grid-cols-3 gap-3">
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-700 mb-1">Price ($) <span className="text-red-500">*</span></label>
+                                            <input type="number" step="0.01" required value={pricePerUnit} onChange={e => setPricePerUnit(e.target.value)} placeholder="0.00" className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-700 mb-1">Unit</label>
+                                            <input type="text" value={unitName} onChange={e => setUnitName(e.target.value)} placeholder="lbs, box" className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-700 mb-1">Qty <span className="text-red-500">*</span></label>
+                                            <input type="number" step="0.01" required value={quantity} onChange={e => setQuantity(e.target.value)} placeholder="1" className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+                                        <span className="text-sm font-bold text-gray-600">Total Item Cost:</span>
+                                        <span className="text-xl font-bold text-brand-orange">${calculatedTotal.toFixed(2)}</span>
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-700 mb-1">Notes (Optional)</label>
+                                    <div className="relative">
+                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><DocumentTextIcon className="w-4 h-4 text-gray-400"/></div>
+                                        <input type="text" value={description} onChange={e => setDescription(e.target.value)} placeholder="Extra details..." className="pl-9 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
+                                    </div>
+                                </div>
+
+                                <button type="submit" disabled={isSaving} className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand-orange hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-orange disabled:opacity-50">
+                                    {isSaving ? 'Saving...' : <><PlusIcon className="w-4 h-4" /> Save Expense</>}
+                                </button>
+                            </form>
+                        </div>
+                    )}
+
+                    {activeTab === 'list' && (
+                        <div className="overflow-hidden bg-white border border-gray-200 rounded-lg shadow-sm">
+                            {expenses.length === 0 ? (
+                                <p className="text-center text-gray-500 text-sm py-8">No expenses recorded yet.</p>
+                            ) : (
+                                <div className="overflow-x-auto">
+                                    <table className="min-w-full divide-y divide-gray-200">
+                                        <thead className="bg-gray-50">
+                                            <tr>
+                                                <SortHeader label="Date" skey="date" />
+                                                <SortHeader label="Vendor" skey="vendor" />
+                                                <SortHeader label="Category" skey="category" />
+                                                <SortHeader label="Item / Details" skey="item" />
+                                                <SortHeader label="Cost" skey="totalCost" />
+                                                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="bg-white divide-y divide-gray-200 text-sm">
+                                            {sortedExpenses.map((expense) => (
+                                                <tr key={expense.id} className="hover:bg-gray-50 transition-colors">
+                                                    <td className="px-4 py-3 whitespace-nowrap text-gray-900 font-medium">
+                                                        {expense.date}
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-gray-700">
+                                                        {expense.vendor}
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap">
+                                                        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
+                                                            {expense.category}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-gray-600">
+                                                        <div className="font-medium">{expense.item}</div>
+                                                        <div className="text-xs text-gray-400">
+                                                            {expense.quantity} {expense.unitName} @ ${expense.pricePerUnit}
+                                                        </div>
+                                                        {expense.description && <div className="text-xs text-gray-400 italic">{expense.description}</div>}
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap font-bold text-red-600">
+                                                        ${(expense.totalCost || 0).toFixed(2)}
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-right">
+                                                        <button onClick={() => handleDelete(expense.id)} className="text-gray-400 hover:text-red-500 transition-colors">
+                                                            <TrashIcon className="w-4 h-4" />
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
