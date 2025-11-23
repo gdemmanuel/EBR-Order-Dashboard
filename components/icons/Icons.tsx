@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 type IconProps = React.SVGProps<SVGSVGElement> & { title?: string };
@@ -21,6 +20,13 @@ export const UserIcon = ({ title, ...props }: IconProps) => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
     {title && <title>{title}</title>}
     <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+  </svg>
+);
+
+export const UsersIcon = ({ title, ...props }: IconProps) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+    {title && <title>{title}</title>}
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
   </svg>
 );
 
@@ -49,7 +55,7 @@ export const CurrencyDollarIcon = ({ title, ...props }: IconProps) => (
 export const SparklesIcon = ({ title, ...props }: IconProps) => (
     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
         {title && <title>{title}</title>}
-        <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.898 20.562L16.25 21.75l-.648-1.188a2.25 2.25 0 01-1.4-1.4l-1.188-.648 1.188-.648a2.25 2.25 0 011.4-1.4l.648-1.188.648 1.188a2.25 2.25 0 011.4 1.4l1.188.648-1.188.648a2.25 2.25 0 01-1.4 1.4z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.898 20.562L16.25 21.75l-.648-1.188a2.25 2.25 0 01-1.4-1.4l-1.188-.648 1.188-.648a2.25 2.25 0 011.4-1.4l.648-1.188.648 1.188a2.25 2.25 0 01-1.4 1.4z" />
     </svg>
 );
 
@@ -278,4 +284,368 @@ export const CameraIcon = ({ title, ...props }: IconProps) => (
         <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
         <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z" />
     </svg>
-);
+);--- START OF FILE components/ShiftModal.tsx ---
+
+
+import React, { useState } from 'react';
+import { Shift, Employee } from '../types';
+import { XMarkIcon, PlusIcon, ClockIcon, CurrencyDollarIcon, TrashIcon } from './icons/Icons';
+
+interface ShiftModalProps {
+    employees: Employee[];
+    shifts: Shift[];
+    date: string; // YYYY-MM-DD
+    onClose: () => void;
+    onSave: (shift: Shift) => Promise<void>;
+    onDelete: (shiftId: string) => Promise<void>;
+}
+
+export default function ShiftModal({ employees, shifts, date, onClose, onSave, onDelete }: ShiftModalProps) {
+    const [selectedEmp, setSelectedEmp] = useState(employees[0]?.id || '');
+    const [start, setStart] = useState('09:00');
+    const [end, setEnd] = useState('17:00');
+    const [isSaving, setIsSaving] = useState(false);
+
+    // Derived logic for preview
+    const emp = employees.find(e => e.id === selectedEmp);
+    
+    const calculateCost = () => {
+        if (!emp) return 0;
+        const [sH, sM] = start.split(':').map(Number);
+        const [eH, eM] = end.split(':').map(Number);
+        let hours = (eH + eM/60) - (sH + sM/60);
+        if (hours < 0) hours += 24; // Overnight shift
+        return hours * emp.hourlyRate;
+    };
+
+    const handleSave = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!emp) return;
+        setIsSaving(true);
+
+        const [sH, sM] = start.split(':').map(Number);
+        const [eH, eM] = end.split(':').map(Number);
+        let hours = (eH + eM/60) - (sH + sM/60);
+        if (hours < 0) hours += 24;
+
+        const newShift: Shift = {
+            id: Date.now().toString(),
+            employeeId: emp.id,
+            employeeName: emp.name,
+            date,
+            startTime: start,
+            endTime: end,
+            hours: parseFloat(hours.toFixed(2)),
+            laborCost: parseFloat((hours * emp.hourlyRate).toFixed(2))
+        };
+
+        await onSave(newShift);
+        setIsSaving(false);
+    };
+
+    // Filter shifts for this specific day
+    const dailyShifts = shifts.filter(s => s.date === date);
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70] p-4 animate-fade-in">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-md border border-brand-tan">
+                <header className="p-4 border-b border-brand-tan flex justify-between items-center bg-brand-tan/10">
+                    <div>
+                        <h3 className="text-lg font-bold text-brand-brown">Schedule Shifts</h3>
+                        <p className="text-xs text-gray-500">{new Date(date).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric'})}</p>
+                    </div>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><XMarkIcon className="w-6 h-6" /></button>
+                </header>
+
+                <div className="p-4 space-y-6">
+                    {/* List Existing */}
+                    <div className="space-y-2">
+                        <h4 className="text-xs font-bold text-gray-500 uppercase">Scheduled Today</h4>
+                        {dailyShifts.length === 0 ? (
+                            <p className="text-sm text-gray-400 italic">No shifts scheduled.</p>
+                        ) : (
+                            dailyShifts.map(s => (
+                                <div key={s.id} className="flex justify-between items-center p-2 bg-gray-50 rounded border border-gray-200">
+                                    <div>
+                                        <p className="font-bold text-sm text-brand-brown">{s.employeeName}</p>
+                                        <p className="text-xs text-gray-500">{s.startTime} - {s.endTime} ({s.hours}h)</p>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-xs font-medium text-green-700">${s.laborCost.toFixed(2)}</span>
+                                        <button onClick={() => onDelete(s.id)} className="text-gray-400 hover:text-red-500"><TrashIcon className="w-4 h-4" /></button>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+
+                    {/* Add New Form */}
+                    {employees.length > 0 ? (
+                        <form onSubmit={handleSave} className="border-t border-gray-200 pt-4">
+                            <h4 className="text-xs font-bold text-brand-orange uppercase mb-3">Add Shift</h4>
+                            <div className="space-y-3">
+                                <div>
+                                    <label className="block text-xs font-medium text-gray-700">Employee</label>
+                                    <select value={selectedEmp} onChange={e => setSelectedEmp(e.target.value)} className="w-full text-sm rounded border-gray-300 p-2">
+                                        {employees.map(e => <option key={e.id} value={e.id}>{e.name} (${e.hourlyRate}/hr)</option>)}
+                                    </select>
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700">Start</label>
+                                        <input type="time" value={start} onChange={e => setStart(e.target.value)} className="w-full text-sm rounded border-gray-300 p-2"/>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700">End</label>
+                                        <input type="time" value={end} onChange={e => setEnd(e.target.value)} className="w-full text-sm rounded border-gray-300 p-2"/>
+                                    </div>
+                                </div>
+                                <div className="bg-green-50 p-2 rounded text-center text-xs text-green-800 font-medium">
+                                    Est. Cost: ${calculateCost().toFixed(2)}
+                                </div>
+                                <button type="submit" disabled={isSaving} className="w-full bg-brand-brown text-white py-2 rounded-lg text-sm font-bold hover:bg-opacity-90">
+                                    {isSaving ? 'Saving...' : 'Add Shift'}
+                                </button>
+                            </div>
+                        </form>
+                    ) : (
+                        <p className="text-sm text-red-500 text-center border-t pt-4">
+                            No employees found. Add them in Settings first.
+                        </p>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}--- START OF FILE components/SettingsModal.tsx ---
+
+
+import React, { useState, useMemo } from 'react';
+import { AppSettings, updateSettingsInDb } from '../services/dbService';
+import { PricingSettings, MenuPackage, Flavor, SalsaProduct, PricingTier, Employee } from '../types';
+import { XMarkIcon, PlusIcon, TrashIcon, CheckCircleIcon, CogIcon, PencilIcon, ScaleIcon, CurrencyDollarIcon, ClockIcon, SparklesIcon, CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon, ReceiptIcon, UsersIcon } from './icons/Icons';
+import { SUGGESTED_DESCRIPTIONS } from '../data/mockData';
+
+interface SettingsModalProps {
+    settings: AppSettings;
+    onClose: () => void;
+}
+
+export default function SettingsModal({ settings, onClose }: SettingsModalProps) {
+    const [activeTab, setActiveTab] = useState<'menu' | 'pricing' | 'prep' | 'costs' | 'scheduling' | 'expenses' | 'employees'>('menu');
+    
+    // Local state for editing
+    const [empanadaFlavors, setEmpanadaFlavors] = useState<Flavor[]>(settings.empanadaFlavors);
+    const [pricing, setPricing] = useState<PricingSettings>(settings.pricing);
+    
+    // Prep Settings State
+    const [prepSettings, setPrepSettings] = useState<AppSettings['prepSettings']>(settings.prepSettings || { 
+        lbsPer20: {}, 
+        fullSizeMultiplier: 2.0,
+        discosPer: { mini: 1, full: 1 },
+        discoPackSize: { mini: 10, full: 10 },
+        productionRates: { mini: 40, full: 25 }
+    });
+
+    // Scheduling Settings
+    const [scheduling, setScheduling] = useState<AppSettings['scheduling']>(settings.scheduling || {
+        enabled: true,
+        intervalMinutes: 15,
+        startTime: "09:00",
+        endTime: "17:00",
+        blockedDates: [],
+        closedDays: [],
+        dateOverrides: {}
+    });
+    
+    // Calendar View State
+    const [calendarViewDate, setCalendarViewDate] = useState(new Date());
+    const [selectedDate, setSelectedDate] = useState<string | null>(null);
+    
+    // Cost Settings State
+    const [laborWage, setLaborWage] = useState<number>(settings.laborWage || 15.00);
+    const [materialCosts, setMaterialCosts] = useState<Record<string, number>>(settings.materialCosts || {});
+    const [discoCosts, setDiscoCosts] = useState<{mini: number, full: number}>(settings.discoCosts || {mini: 0.1, full: 0.15});
+    
+    // Expense Categories
+    const [expenseCategories, setExpenseCategories] = useState<string[]>(settings.expenseCategories || []);
+    const [newCategory, setNewCategory] = useState('');
+
+    // Employees
+    const [employees, setEmployees] = useState<Employee[]>(settings.employees || []);
+    const [newEmpName, setNewEmpName] = useState('');
+    const [newEmpRate, setNewEmpRate] = useState('');
+    const [newEmpMini, setNewEmpMini] = useState('');
+    const [newEmpFull, setNewEmpFull] = useState('');
+    const [newEmpColor, setNewEmpColor] = useState('#3b82f6');
+
+    const [newFlavorName, setNewFlavorName] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
+
+    // Package Form State
+    const [packageForm, setPackageForm] = useState<Partial<MenuPackage>>({
+        itemType: 'mini',
+        quantity: 12,
+        price: 20,
+        maxFlavors: 4,
+        increment: 1,
+        visible: true,
+        isSpecial: false,
+        name: ''
+    });
+    const [editingPackageId, setEditingPackageId] = useState<string | null>(null);
+
+    // Salsa Form State
+    const [newSalsaName, setNewSalsaName] = useState('');
+    const [newSalsaPrice, setNewSalsaPrice] = useState('');
+
+    // Tier Form State
+    const [newTier, setNewTier] = useState<{type: 'mini'|'full', minQty: string, price: string}>({ type: 'mini', minQty: '', price: '' });
+
+    const handleSave = async () => {
+        setIsSaving(true);
+        
+        const syncedFullFlavors: Flavor[] = empanadaFlavors.map(f => ({
+            ...f,
+            name: `Full ${f.name}`, 
+        }));
+
+        await updateSettingsInDb({
+            empanadaFlavors,
+            fullSizeEmpanadaFlavors: syncedFullFlavors,
+            pricing,
+            prepSettings,
+            scheduling,
+            laborWage,
+            materialCosts,
+            discoCosts,
+            expenseCategories,
+            employees // Save Employees
+        });
+        setIsSaving(false);
+        onClose();
+    };
+
+    // ... (Existing Handlers for Menu, Pricing, etc.) ...
+    const addFlavor = () => { if (newFlavorName.trim()) { setEmpanadaFlavors([...empanadaFlavors, { name: newFlavorName.trim(), visible: true, isSpecial: false }]); setNewFlavorName(''); } };
+    const autoFillDescriptions = () => { setEmpanadaFlavors(empanadaFlavors.map(f => (!f.description ? { ...f, description: SUGGESTED_DESCRIPTIONS[f.name] || undefined } : f))); alert('Descriptions populated! Save to apply.'); };
+    const toggleFlavorVisibility = (i: number) => { const u = [...empanadaFlavors]; u[i].visible = !u[i].visible; setEmpanadaFlavors(u); };
+    const toggleFlavorSpecial = (i: number) => { const u = [...empanadaFlavors]; u[i].isSpecial = !u[i].isSpecial; setEmpanadaFlavors(u); };
+    const updateFlavorDescription = (i: number, d: string) => { const u = [...empanadaFlavors]; u[i].description = d; setEmpanadaFlavors(u); };
+    const updateFlavorSurcharge = (i: number, v: string) => { const u = [...empanadaFlavors]; u[i].surcharge = parseFloat(v) || undefined; setEmpanadaFlavors(u); };
+    const removeFlavor = (i: number) => { setEmpanadaFlavors(empanadaFlavors.filter((_, idx) => idx !== i)); };
+
+    const handleAddOrUpdatePackage = () => { if (!packageForm.name || !packageForm.price || !packageForm.quantity) return; const pkg: MenuPackage = { id: editingPackageId || Date.now().toString(), name: packageForm.name, itemType: packageForm.itemType as 'mini'|'full', quantity: Number(packageForm.quantity), price: Number(packageForm.price), maxFlavors: Number(packageForm.maxFlavors)||Number(packageForm.quantity), increment: Number(packageForm.increment)||1, visible: packageForm.visible ?? true, isSpecial: packageForm.isSpecial ?? false }; let updated = pricing.packages || []; updated = editingPackageId ? updated.map(p => p.id === editingPackageId ? pkg : p) : [...updated, pkg]; setPricing({...pricing, packages: updated}); setPackageForm({ itemType: 'mini', quantity: 12, price: 20, maxFlavors: 4, increment: 1, visible: true, isSpecial: false, name: '' }); setEditingPackageId(null); };
+    const handleEditPackageClick = (pkg: MenuPackage) => { setPackageForm({ ...pkg, increment: pkg.increment || 10 }); setEditingPackageId(pkg.id); };
+    const removePackage = (id: string) => { setPricing({...pricing, packages: pricing.packages.filter(p => p.id !== id)}); if(editingPackageId === id) { setEditingPackageId(null); setPackageForm({ itemType: 'mini', quantity: 12, price: 20, maxFlavors: 4, increment: 1, visible: true, isSpecial: false, name: '' }); } };
+    const togglePackageVisibility = (id: string) => { setPricing({...pricing, packages: pricing.packages.map(p => p.id === id ? { ...p, visible: !p.visible } : p)}); };
+    
+    const addSalsa = () => { if (!newSalsaName || !newSalsaPrice) return; setPricing({...pricing, salsas: [...(pricing.salsas||[]), {id: `salsa-${Date.now()}`, name: newSalsaName, price: parseFloat(newSalsaPrice)||0, visible: true}]}); setNewSalsaName(''); setNewSalsaPrice(''); };
+    const removeSalsa = (id: string) => { setPricing({...pricing, salsas: pricing.salsas.filter(s => s.id !== id)}); };
+    const updateSalsaPrice = (id: string, p: string) => { setPricing({...pricing, salsas: pricing.salsas.map(s => s.id === id ? {...s, price: parseFloat(p)||0} : s)}); };
+    const toggleSalsaVisibility = (id: string) => { setPricing({...pricing, salsas: pricing.salsas.map(s => s.id === id ? {...s, visible: !s.visible} : s)}); };
+
+    const updateLbsPer20 = (f: string, v: string) => { setPrepSettings({...prepSettings, lbsPer20: {...prepSettings.lbsPer20, [f]: parseFloat(v)||0}}); };
+    const updateMaterialCost = (f: string, v: string) => { setMaterialCosts({...materialCosts, [f]: parseFloat(v)||0}); };
+
+    const addTier = () => { const minQ = parseInt(newTier.minQty); const p = parseFloat(newTier.price); if (!minQ || isNaN(p)) return; const currentTiers = pricing[newTier.type].tiers || []; const updated = [...currentTiers.filter(t => t.minQuantity !== minQ), { minQuantity: minQ, price: p }]; updated.sort((a,b) => a.minQuantity - b.minQuantity); setPricing({ ...pricing, [newTier.type]: { ...pricing[newTier.type], tiers: updated } }); setNewTier({ ...newTier, minQty: '', price: '' }); };
+    const removeTier = (type: 'mini'|'full', minQty: number) => { setPricing({ ...pricing, [type]: { ...pricing[type], tiers: (pricing[type].tiers || []).filter(t => t.minQuantity !== minQty) } }); };
+
+    const toggleClosedDay = (dayIndex: number) => { const current = scheduling.closedDays || []; if (current.includes(dayIndex)) { setScheduling({ ...scheduling, closedDays: current.filter(d => d !== dayIndex) }); } else { setScheduling({ ...scheduling, closedDays: [...current, dayIndex].sort() }); } };
+    const handleDateClick = (dateStr: string) => { setSelectedDate(dateStr); };
+    const updateDateOverride = (dateStr: string, type: 'default' | 'closed' | 'custom', start?: string, end?: string) => { const newOverrides = { ...(scheduling.dateOverrides || {}) }; if (type === 'default') { delete newOverrides[dateStr]; } else if (type === 'closed') { newOverrides[dateStr] = { isClosed: true }; } else if (type === 'custom') { newOverrides[dateStr] = { isClosed: false, customHours: { start: start || scheduling.startTime, end: end || scheduling.endTime } }; } setScheduling({ ...scheduling, dateOverrides: newOverrides }); };
+    const calendarGrid = useMemo(() => { const year = calendarViewDate.getFullYear(); const month = calendarViewDate.getMonth(); const daysInMonth = new Date(year, month + 1, 0).getDate(); const firstDayOfWeek = new Date(year, month, 1).getDay(); const cells = []; for (let i = 0; i < firstDayOfWeek; i++) cells.push(null); for (let i = 1; i <= daysInMonth; i++) cells.push(new Date(year, month, i)); return cells; }, [calendarViewDate]);
+    const handlePrevMonth = () => setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() - 1, 1));
+    const handleNextMonth = () => setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() + 1, 1));
+
+    // Expense Category Logic
+    const addCategory = () => { if (newCategory.trim() && !expenseCategories.includes(newCategory.trim())) { setExpenseCategories([...expenseCategories, newCategory.trim()]); setNewCategory(''); } };
+    const removeCategory = (cat: string) => { setExpenseCategories(expenseCategories.filter(c => c !== cat)); };
+
+    // Employee Logic
+    const addEmployee = () => {
+        if (newEmpName.trim() && newEmpRate) {
+            const newEmp: Employee = {
+                id: Date.now().toString(),
+                name: newEmpName.trim(),
+                hourlyRate: parseFloat(newEmpRate) || 0,
+                speedMini: parseInt(newEmpMini) || 40,
+                speedFull: parseInt(newEmpFull) || 25,
+                color: newEmpColor,
+                isActive: true
+            };
+            setEmployees([...employees, newEmp]);
+            setNewEmpName(''); setNewEmpRate(''); setNewEmpMini(''); setNewEmpFull('');
+        }
+    };
+    const removeEmployee = (id: string) => { setEmployees(employees.filter(e => e.id !== id)); };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fade-in">
+            <div className="bg-white rounded-lg shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col border border-brand-tan">
+                <header className="p-6 border-b border-brand-tan flex justify-between items-center">
+                    <h2 className="text-3xl font-serif text-brand-brown">Store Settings</h2>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+                        <XMarkIcon className="w-6 h-6" />
+                    </button>
+                </header>
+
+                <div className="flex flex-wrap border-b border-gray-200">
+                    {['menu', 'pricing', 'scheduling', 'prep', 'costs', 'expenses', 'employees'].map((tab) => (
+                         <button
+                            key={tab}
+                            className={`flex-1 px-4 py-3 font-medium text-sm whitespace-nowrap transition-colors capitalize ${activeTab === tab ? 'border-b-2 border-brand-orange text-brand-orange bg-brand-orange/5' : 'text-gray-500 hover:text-brand-brown hover:bg-gray-50'}`}
+                            onClick={() => setActiveTab(tab as any)}
+                        >
+                            {tab === 'expenses' ? 'Exp. Categories' : tab === 'costs' ? 'Inventory & Costs' : tab === 'prep' ? 'Prep' : tab === 'menu' ? 'Menu' : tab === 'pricing' ? 'Pricing' : tab === 'scheduling' ? 'Scheduling' : 'Employees'}
+                        </button>
+                    ))}
+                </div>
+
+                <div className="overflow-y-auto p-6 flex-grow">
+                    {activeTab === 'menu' && (<div className="bg-gray-50 p-4 rounded-lg border border-gray-200"><div className="flex justify-between items-center mb-4"><div><h3 className="font-bold text-brand-brown">Empanada Flavors</h3></div><button onClick={autoFillDescriptions} className="text-xs flex items-center gap-1 bg-blue-100 text-blue-800 px-2 py-1 rounded hover:bg-blue-200"><SparklesIcon className="w-3 h-3"/> Auto-fill</button></div><div className="flex gap-2 mb-4"><input type="text" value={newFlavorName} onChange={e => setNewFlavorName(e.target.value)} placeholder="New flavor name" className="flex-grow rounded border-gray-300 text-sm"/><button onClick={addFlavor} className="bg-brand-orange text-white px-3 rounded"><PlusIcon className="w-5 h-5"/></button></div><div className="space-y-2 max-h-96 overflow-y-auto">{empanadaFlavors.map((f, i) => <div key={i} className="bg-white p-2 rounded shadow-sm text-sm flex items-center justify-between"><span>{f.name}</span><button onClick={() => removeFlavor(i)} className="text-red-500"><TrashIcon className="w-4 h-4"/></button></div>)}</div></div>)}
+                    {activeTab === 'pricing' && (<div className="space-y-8"><div><h3 className="font-bold text-brand-brown mb-4">Packages</h3><div className="space-y-3">{pricing.packages?.map(p => <div key={p.id} className="bg-white p-3 rounded border shadow-sm flex justify-between"><span>{p.name}</span><button onClick={() => removePackage(p.id)} className="text-red-500"><TrashIcon className="w-4 h-4"/></button></div>)}</div></div></div>)}
+                    {activeTab === 'scheduling' && (<div className="space-y-8"><h3 className="font-bold text-brand-brown">Scheduling</h3><div className="grid grid-cols-2 gap-4"><div><label className="block text-xs">Open</label><input type="time" value={scheduling.startTime} onChange={e => setScheduling({...scheduling, startTime: e.target.value})} className="border rounded p-1 w-full"/></div><div><label className="block text-xs">Close</label><input type="time" value={scheduling.endTime} onChange={e => setScheduling({...scheduling, endTime: e.target.value})} className="border rounded p-1 w-full"/></div></div></div>)}
+                    {activeTab === 'prep' && (<div className="space-y-8"><h3 className="font-bold text-brand-brown">Prep Settings</h3><div className="grid grid-cols-2 gap-4"><div><label className="block text-xs">Minis/Hr</label><input type="number" value={prepSettings?.productionRates?.mini} onChange={e => setPrepSettings({...prepSettings, productionRates: {...prepSettings.productionRates, mini: parseFloat(e.target.value)}})} className="border rounded p-1 w-full"/></div></div></div>)}
+                    {activeTab === 'costs' && (<div className="space-y-8"><h3 className="font-bold text-brand-brown">Costs</h3><div className="grid grid-cols-2 gap-4"><div><label className="block text-xs">Labor Wage</label><input type="number" value={laborWage} onChange={e => setLaborWage(parseFloat(e.target.value))} className="border rounded p-1 w-full"/></div></div></div>)}
+                    {activeTab === 'expenses' && (<div className="space-y-8"><h3 className="font-bold text-brand-brown">Categories</h3><div className="flex gap-2 mb-4"><input type="text" value={newCategory} onChange={e => setNewCategory(e.target.value)} className="border rounded p-1 flex-grow"/><button onClick={addCategory} className="bg-brand-orange text-white px-3 rounded"><PlusIcon className="w-4 h-4"/></button></div><div className="space-y-2">{expenseCategories.map(c => <div key={c} className="flex justify-between p-2 bg-gray-50 rounded"><span>{c}</span><button onClick={() => removeCategory(c)} className="text-red-500"><TrashIcon className="w-4 h-4"/></button></div>)}</div></div>)}
+                    
+                    {activeTab === 'employees' && (
+                        <div className="space-y-6">
+                            <div className="bg-white p-5 rounded-lg border border-brand-tan shadow-sm">
+                                <h3 className="font-bold text-brand-brown text-lg mb-4">Employee Roster</h3>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4 bg-gray-50 p-4 rounded border border-gray-200">
+                                    <div><label className="text-xs font-bold text-gray-700">Name</label><input type="text" value={newEmpName} onChange={e => setNewEmpName(e.target.value)} className="w-full rounded border-gray-300 text-sm p-1"/></div>
+                                    <div><label className="text-xs font-bold text-gray-700">Wage ($/hr)</label><input type="number" value={newEmpRate} onChange={e => setNewEmpRate(e.target.value)} className="w-full rounded border-gray-300 text-sm p-1"/></div>
+                                    <div><label className="text-xs font-bold text-gray-700">Mini/Hr</label><input type="number" value={newEmpMini} onChange={e => setNewEmpMini(e.target.value)} placeholder="40" className="w-full rounded border-gray-300 text-sm p-1"/></div>
+                                    <div><label className="text-xs font-bold text-gray-700">Full/Hr</label><input type="number" value={newEmpFull} onChange={e => setNewEmpFull(e.target.value)} placeholder="25" className="w-full rounded border-gray-300 text-sm p-1"/></div>
+                                    <div className="col-span-2"><button onClick={addEmployee} className="w-full bg-brand-orange text-white font-bold py-2 rounded text-sm">Add Employee</button></div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    {employees.map(emp => (
+                                        <div key={emp.id} className="flex justify-between items-center p-3 bg-white border border-gray-200 rounded-lg shadow-sm">
+                                            <div>
+                                                <p className="font-bold text-brand-brown">{emp.name}</p>
+                                                <p className="text-xs text-gray-500">${emp.hourlyRate}/hr • {emp.speedMini} mini/hr • {emp.speedFull} full/hr</p>
+                                            </div>
+                                            <button onClick={() => removeEmployee(emp.id)} className="text-red-400 hover:text-red-600"><TrashIcon className="w-4 h-4"/></button>
+                                        </div>
+                                    ))}
+                                    {employees.length === 0 && <p className="text-center text-gray-400 text-sm italic">No employees added.</p>}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <footer className="p-6 flex justify-end gap-3 border-t border-brand-tan bg-gray-50 rounded-b-lg">
+                    <button onClick={onClose} disabled={isSaving} className="bg-gray-200 text-gray-800 font-semibold px-6 py-2 rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50">Cancel</button>
+                    <button onClick={handleSave} disabled={isSaving} className="flex items-center gap-2 bg-brand-orange text-white font-semibold px-6 py-2 rounded-lg shadow-md hover:bg-opacity-90 transition-all disabled:bg-brand-orange/50">
+                        {isSaving ? 'Saving...' : <>Save All Changes <CheckCircleIcon className="w-5 h-5" /></>}
+                    </button>
+                </footer>
+            </div>
+        </div>
+    );
+}

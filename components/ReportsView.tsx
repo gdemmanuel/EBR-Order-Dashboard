@@ -1,7 +1,5 @@
-
 import React, { useMemo, useState } from 'react';
-import { Order, Expense } from '../types';
-import { AppSettings } from '../services/dbService';
+import { Order, Expense, AppSettings, Shift } from '../types';
 import { calculateSupplyCost } from '../utils/pricingUtils';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { parseOrderDateTime } from '../utils/dateUtils';
@@ -10,6 +8,7 @@ import { TrashIcon } from './icons/Icons';
 interface ReportsViewProps {
     orders: Order[];
     expenses: Expense[];
+    shifts?: Shift[]; // New Prop
     settings: AppSettings;
     dateRange: { start?: string; end?: string };
     onDeleteExpense?: (id: string) => void;
@@ -19,18 +18,20 @@ const COLORS = ['#c8441c', '#eab308', '#3b82f6', '#a855f7', '#10b981', '#6366f1'
 
 type SortKey = 'date' | 'category' | 'vendor' | 'item' | 'totalCost';
 
-export default function ReportsView({ orders, expenses, settings, dateRange, onDeleteExpense }: ReportsViewProps) {
+export default function ReportsView({ orders, expenses, shifts = [], settings, dateRange, onDeleteExpense }: ReportsViewProps) {
     const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' }>({ key: 'date', direction: 'desc' });
 
     const filteredData = useMemo(() => {
         let filteredOrders = orders;
         let filteredExpenses = expenses;
+        let filteredShifts = shifts;
 
         if (dateRange.start) {
             const start = new Date(dateRange.start);
             start.setHours(0,0,0,0);
             filteredOrders = filteredOrders.filter(o => parseOrderDateTime(o) >= start);
             filteredExpenses = filteredExpenses.filter(e => new Date(e.date) >= start);
+            filteredShifts = filteredShifts.filter(s => new Date(s.date) >= start);
         }
         
         if (dateRange.end) {
@@ -38,26 +39,95 @@ export default function ReportsView({ orders, expenses, settings, dateRange, onD
             end.setHours(23,59,59,999);
             filteredOrders = filteredOrders.filter(o => parseOrderDateTime(o) <= end);
             filteredExpenses = filteredExpenses.filter(e => new Date(e.date) <= end);
+            filteredShifts = filteredShifts.filter(s => new Date(s.date) <= end);
         }
 
-        return { orders: filteredOrders, expenses: filteredExpenses };
-    }, [orders, expenses, dateRange]);
+        return { orders: filteredOrders, expenses: filteredExpenses, shifts: filteredShifts };
+    }, [orders, expenses, shifts, dateRange]);
 
     const financials = useMemo(() => {
-        const { orders, expenses } = filteredData;
+        const { orders, expenses, shifts } = filteredData;
 
         const revenue = orders.reduce((sum, o) => sum + o.amountCharged, 0);
+        
         const estimatedMaterialUsage = orders.reduce((sum, o) => {
             return sum + (o.totalCost !== undefined ? o.totalCost : calculateSupplyCost(o.items, settings));
         }, 0);
-        const actualExpensesTotal = expenses.reduce((sum, e) => sum + (e.totalCost || 0), 0);
-        const netProfit = revenue - actualExpensesTotal;
+
+        // Manual Expenses
+        const manualExpenses = expenses.reduce((sum, e) => sum + (e.totalCost || 0), 0);
+        
+        // Labor Expenses (from Shifts)
+        const laborExpenses = shifts.reduce((sum, s) => sum + s.laborCost, 0);
+        
+        const totalActualExpenses = manualExpenses + laborExpenses;
+        
+        const netProfit = revenue - totalActualExpenses;
         const margin = revenue > 0 ? (netProfit / revenue) * 100 : 0;
 
-        return { revenue, estimatedMaterialUsage, actualExpensesTotal, netProfit, margin };
+        return { revenue, estimatedMaterialUsage, manualExpenses, laborExpenses, totalActualExpenses, netProfit, margin };
     }, [filteredData, settings]);
 
-    const sortedExpenses = useMemo(() => {
+    // ... (Rest of component logic for tables/charts remains similar but updated for data)
+    
+    const expenseBreakdownData = useMemo(() => {
+        const categoryMap = new Map<string, number>();
+        
+        filteredData.expenses.forEach(e => {
+            const cost = e.totalCost || 0;
+            categoryMap.set(e.category, (categoryMap.get(e.category) || 0) + cost);
+        });
+        
+        // Add Labor
+        if (financials.laborExpenses > 0) {
+             categoryMap.set('Labor (Shifts)', financials.laborExpenses);
+        }
+        
+        const data: {name: string, value: number}[] = [];
+        categoryMap.forEach((val, key) => { data.push({ name: key, value: val }); });
+        return data.filter(d => d.value > 0);
+    }, [filteredData.expenses, financials.laborExpenses]);
+
+    const pnlChartData = useMemo(() => {
+        const monthlyData = new Map<string, { revenue: number, expense: number }>();
+        
+        // Revenue
+        filteredData.orders.forEach(o => {
+            const d = parseOrderDateTime(o);
+            if (isNaN(d.getTime())) return;
+            const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+            const current = monthlyData.get(key) || { revenue: 0, expense: 0 };
+            current.revenue += o.amountCharged;
+            monthlyData.set(key, current);
+        });
+
+        // Expenses
+        filteredData.expenses.forEach(e => {
+            const key = e.date.substring(0, 7);
+            const current = monthlyData.get(key) || { revenue: 0, expense: 0 };
+            current.expense += (e.totalCost || 0);
+            monthlyData.set(key, current);
+        });
+        
+        // Shifts
+        filteredData.shifts.forEach(s => {
+            const key = s.date.substring(0, 7);
+            const current = monthlyData.get(key) || { revenue: 0, expense: 0 };
+            current.expense += s.laborCost;
+            monthlyData.set(key, current);
+        });
+
+        return Array.from(monthlyData.entries())
+            .sort((a,b) => a[0].localeCompare(b[0]))
+            .map(([key, val]) => {
+                const [y, m] = key.split('-');
+                const label = new Date(parseInt(y), parseInt(m)-1).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+                return { name: label, Revenue: val.revenue, Expenses: val.expense, Profit: val.revenue - val.expense };
+            });
+    }, [filteredData]);
+    
+    // ... (Sort logic and tables) ...
+     const sortedExpenses = useMemo(() => {
         const items = [...filteredData.expenses];
         items.sort((a, b) => {
             let aVal: any = a[sortConfig.key];
@@ -81,71 +151,22 @@ export default function ReportsView({ orders, expenses, settings, dateRange, onD
         setSortConfig({ key, direction });
     };
 
-    const handleDeleteClick = (id: string) => {
-        if (onDeleteExpense && window.confirm("Delete this expense entry?")) {
-            onDeleteExpense(id);
-        }
-    };
-
     const SortHeader = ({ label, skey }: { label: string, skey: SortKey }) => (
-        <th 
-            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 hover:text-brand-orange transition-colors select-none"
-            onClick={() => handleSort(skey)}
-        >
-            <div className="flex items-center gap-1">
-                {label}
-                {sortConfig.key === skey && (
-                    <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
-                )}
-            </div>
+        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 hover:text-brand-orange transition-colors select-none" onClick={() => handleSort(skey)}>
+            <div className="flex items-center gap-1">{label} {sortConfig.key === skey && (<span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>)}</div>
         </th>
     );
 
-    const expenseBreakdownData = useMemo(() => {
-        const categoryMap = new Map<string, number>();
-        filteredData.expenses.forEach(e => {
-            const cost = e.totalCost || 0;
-            categoryMap.set(e.category, (categoryMap.get(e.category) || 0) + cost);
-        });
-        const data: {name: string, value: number}[] = [];
-        categoryMap.forEach((val, key) => { data.push({ name: key, value: val }); });
-        return data.filter(d => d.value > 0);
-    }, [filteredData.expenses]);
-
-    const pnlChartData = useMemo(() => {
-        const monthlyData = new Map<string, { revenue: number, expense: number }>();
-        filteredData.orders.forEach(o => {
-            const d = parseOrderDateTime(o);
-            if (isNaN(d.getTime())) return;
-            const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-            const current = monthlyData.get(key) || { revenue: 0, expense: 0 };
-            current.revenue += o.amountCharged;
-            monthlyData.set(key, current);
-        });
-        filteredData.expenses.forEach(e => {
-            const key = e.date.substring(0, 7);
-            const current = monthlyData.get(key) || { revenue: 0, expense: 0 };
-            current.expense += (e.totalCost || 0);
-            monthlyData.set(key, current);
-        });
-        return Array.from(monthlyData.entries()).sort((a,b) => a[0].localeCompare(b[0])).map(([key, val]) => {
-            const [y, m] = key.split('-');
-            const label = new Date(parseInt(y), parseInt(m)-1).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-            return { name: label, Revenue: val.revenue, Expenses: val.expense, Profit: val.revenue - val.expense };
-        });
-    }, [filteredData]);
-
     return (
         <div className="space-y-8">
-             {/* Top Stats Row */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="bg-white p-4 rounded-lg border border-brand-tan shadow-sm">
                     <p className="text-sm text-gray-500 font-medium">Total Revenue</p>
                     <p className="text-2xl font-bold text-green-600">${financials.revenue.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
                 </div>
                 <div className="bg-white p-4 rounded-lg border border-brand-tan shadow-sm">
-                    <p className="text-sm text-gray-500 font-medium">Actual Expenses</p>
-                    <p className="text-2xl font-bold text-red-600">${financials.actualExpensesTotal.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+                    <p className="text-sm text-gray-500 font-medium">Total Expenses (Log + Labor)</p>
+                    <p className="text-2xl font-bold text-red-600">${financials.totalActualExpenses.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
                 </div>
                 <div className="bg-white p-4 rounded-lg border border-brand-tan shadow-sm">
                     <p className="text-sm text-gray-500 font-medium">Net Profit</p>
@@ -158,10 +179,7 @@ export default function ReportsView({ orders, expenses, settings, dateRange, onD
             </div>
             
              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-                <div>
-                    <h4 className="font-bold text-blue-800 text-sm uppercase">Theoretical Material Cost</h4>
-                    <p className="text-xs text-blue-600">Based on recipes & orders (Reference only - not deducted from profit)</p>
-                </div>
+                <div><h4 className="font-bold text-blue-800 text-sm uppercase">Theoretical Material Cost</h4><p className="text-xs text-blue-600">Based on recipes & orders (Reference only)</p></div>
                 <p className="text-2xl font-bold text-blue-900">${financials.estimatedMaterialUsage.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
             </div>
 
@@ -180,36 +198,21 @@ export default function ReportsView({ orders, expenses, settings, dateRange, onD
                         </BarChart>
                     </ResponsiveContainer>
                 </div>
-
                 <div className="bg-white p-6 rounded-lg border border-brand-tan shadow-sm">
-                    <h3 className="text-lg font-semibold text-brand-brown mb-4">Actual Expense Breakdown</h3>
+                    <h3 className="text-lg font-semibold text-brand-brown mb-4">Expense Breakdown</h3>
                     {expenseBreakdownData.length > 0 ? (
                         <div className="w-full h-[300px]">
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
-                                    <Pie
-                                        data={expenseBreakdownData}
-                                        cx="50%"
-                                        cy="50%"
-                                        innerRadius={60}
-                                        outerRadius={80}
-                                        paddingAngle={5}
-                                        dataKey="value"
-                                    >
-                                        {expenseBreakdownData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                        ))}
+                                    <Pie data={expenseBreakdownData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                                        {expenseBreakdownData.map((entry, index) => (<Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />))}
                                     </Pie>
                                     <Tooltip formatter={(value: number) => `$${value.toFixed(2)}`} />
                                     <Legend layout="vertical" verticalAlign="middle" align="right" />
                                 </PieChart>
                             </ResponsiveContainer>
                         </div>
-                    ) : (
-                        <div className="flex items-center justify-center h-[300px] text-gray-400 italic">
-                            No expenses recorded for this period.
-                        </div>
-                    )}
+                    ) : ( <div className="flex items-center justify-center h-[300px] text-gray-400 italic">No expenses recorded for this period.</div> )}
                 </div>
             </div>
 
@@ -228,33 +231,16 @@ export default function ReportsView({ orders, expenses, settings, dateRange, onD
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                            {sortedExpenses.length === 0 ? (
-                                <tr>
-                                    <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">No expenses found for this period.</td>
-                                </tr>
-                            ) : (
+                            {sortedExpenses.length === 0 ? (<tr><td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">No expenses found for this period.</td></tr>) : (
                                 sortedExpenses.map((expense) => (
                                     <tr key={expense.id}>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{expense.date}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{expense.vendor}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                                {expense.category}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-sm text-gray-500">
-                                            <div className="font-medium text-brand-brown">{expense.item}</div>
-                                            <div className="text-xs">({expense.quantity} {expense.unitName} @ ${expense.pricePerUnit})</div>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-red-600">
-                                            -${(expense.totalCost || 0).toFixed(2)}
-                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{expense.category}</span></td>
+                                        <td className="px-6 py-4 text-sm text-gray-500"><div className="font-medium text-brand-brown">{expense.item}</div><div className="text-xs">({expense.quantity} {expense.unitName} @ ${expense.pricePerUnit})</div></td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-red-600">-${(expense.totalCost || 0).toFixed(2)}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                            {onDeleteExpense && (
-                                                <button onClick={() => handleDeleteClick(expense.id)} className="text-gray-400 hover:text-red-600">
-                                                    <TrashIcon className="w-4 h-4" />
-                                                </button>
-                                            )}
+                                            {onDeleteExpense && (<button onClick={() => onDeleteExpense(expense.id) && window.confirm('Delete?')} className="text-gray-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button>)}
                                         </td>
                                     </tr>
                                 ))

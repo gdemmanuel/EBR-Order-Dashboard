@@ -42,7 +42,7 @@ export interface Order {
   totalFullSize: number;
   totalMini: number;
   amountCharged: number;
-  totalCost?: number; // Calculated supply cost at the time of order
+  totalCost?: number;
   deliveryRequired: boolean;
   deliveryFee: number;
   amountCollected: number | null;
