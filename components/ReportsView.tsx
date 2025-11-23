@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Order, Expense, AppSettings, Shift } from '../types';
+import { Order, Expense, Shift } from '../types';
+import { AppSettings } from '../services/dbService';
 import { calculateSupplyCost } from '../utils/pricingUtils';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { parseOrderDateTime } from '../utils/dateUtils';
@@ -240,7 +241,18 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
                                         <td className="px-6 py-4 text-sm text-gray-500"><div className="font-medium text-brand-brown">{expense.item}</div><div className="text-xs">({expense.quantity} {expense.unitName} @ ${expense.pricePerUnit})</div></td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-red-600">-${(expense.totalCost || 0).toFixed(2)}</td>
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                            {onDeleteExpense && (<button onClick={() => onDeleteExpense(expense.id) && window.confirm('Delete?')} className="text-gray-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button>)}
+                                            {onDeleteExpense && (
+                                                <button 
+                                                    onClick={() => {
+                                                        if (window.confirm('Are you sure you want to delete this expense?')) {
+                                                            onDeleteExpense(expense.id);
+                                                        }
+                                                    }} 
+                                                    className="text-gray-400 hover:text-red-600"
+                                                >
+                                                    <TrashIcon className="w-4 h-4" />
+                                                </button>
+                                            )}
                                         </td>
                                     </tr>
                                 ))
