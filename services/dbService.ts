@@ -27,42 +27,26 @@ export interface AppSettings {
     importedSignatures: string[];
     pricing: PricingSettings;
     prepSettings: {
-        lbsPer20: Record<string, number>; // Key: Flavor Name, Value: Lbs required for 20 mini empanadas
-        fullSizeMultiplier: number; // How much bigger is a full size? Default 2.0
-        discosPer: {
-            mini: number;
-            full: number;
-        };
-        discoPackSize: {
-            mini: number;
-            full: number;
-        };
-        productionRates: {
-            mini: number; // Units per hour
-            full: number; // Units per hour
-        };
+        lbsPer20: Record<string, number>; 
+        fullSizeMultiplier: number; 
+        discosPer: { mini: number; full: number; };
+        discoPackSize: { mini: number; full: number; };
+        productionRates: { mini: number; full: number; };
     };
     scheduling: {
         enabled: boolean;
-        intervalMinutes: number; // e.g. 15
-        startTime: string; // "09:00"
-        endTime: string; // "17:00"
-        blockedDates: string[]; // ISO date strings "YYYY-MM-DD" (Legacy simple block)
-        closedDays: number[]; // 0-6 (Sunday-Saturday) for recurring closed days
-        // New: Specific overrides for specific dates
-        dateOverrides: Record<string, {
-            isClosed: boolean;
-            customHours?: { start: string; end: string; };
-        }>; 
+        intervalMinutes: number;
+        startTime: string;
+        endTime: string;
+        blockedDates: string[];
+        closedDays: number[];
+        dateOverrides: Record<string, { isClosed: boolean; customHours?: { start: string; end: string; }; }>; 
     };
-    laborWage: number; // Hourly wage in dollars
-    materialCosts: Record<string, number>; // Key: Flavor Name, Value: Cost per lb
-    discoCosts: {
-        mini: number;
-        full: number;
-    };
-    inventory: Record<string, { mini: number; full: number }>; // Key: Flavor Name, Value: counts
-    expenseCategories: string[]; // Categories for Expenses
+    laborWage: number; 
+    materialCosts: Record<string, number>; 
+    discoCosts: { mini: number; full: number; };
+    inventory: Record<string, { mini: number; full: number }>;
+    expenseCategories: string[];
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -101,7 +85,7 @@ const DEFAULT_SETTINGS: AppSettings = {
     materialCosts: {},
     discoCosts: { mini: 0.10, full: 0.15 },
     inventory: {},
-    expenseCategories: ['Packaging', 'Marketing', 'Rent', 'Utilities', 'Equipment', 'Other']
+    expenseCategories: ['Packaging', 'Marketing', 'Rent', 'Utilities', 'Equipment', 'Ingredients', 'Other']
 };
 
 // --- Real-time Subscriptions ---
@@ -112,17 +96,11 @@ export const subscribeToOrders = (
     onError?: (error: Error) => void
 ) => {
     const q = query(collection(db, ORDERS_COLLECTION));
-    
     return onSnapshot(q, (snapshot) => {
         const orders: Order[] = [];
-        snapshot.forEach((doc) => {
-            orders.push(doc.data() as Order);
-        });
+        snapshot.forEach((doc) => orders.push(doc.data() as Order));
         onUpdate(orders);
-    }, (error) => {
-        console.error("Error fetching orders:", error);
-        if (onError) onError(error);
-    });
+    }, onError);
 };
 
 export const subscribeToExpenses = (
@@ -130,17 +108,13 @@ export const subscribeToExpenses = (
     onError?: (error: Error) => void
 ) => {
     const q = query(collection(db, EXPENSES_COLLECTION));
-    
     return onSnapshot(q, (snapshot) => {
         const expenses: Expense[] = [];
         snapshot.forEach((doc) => {
             expenses.push(doc.data() as Expense);
         });
         onUpdate(expenses);
-    }, (error) => {
-        console.error("Error fetching expenses:", error);
-        if (onError) onError(error);
-    });
+    }, onError);
 };
 
 export const subscribeToSettings = (
@@ -150,197 +124,56 @@ export const subscribeToSettings = (
     return onSnapshot(doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC), (docSnap) => {
         if (docSnap.exists()) {
             const data = docSnap.data();
-            
-            // Migration Logic: Handle legacy string arrays for flavors
-            let safeMiniFlavors: Flavor[] = DEFAULT_SETTINGS.empanadaFlavors;
-            if (data.empanadaFlavors && Array.isArray(data.empanadaFlavors)) {
-                if (data.empanadaFlavors.length > 0 && typeof data.empanadaFlavors[0] === 'string') {
-                    safeMiniFlavors = (data.empanadaFlavors as unknown as string[]).map(f => ({ name: f, visible: true }));
-                } else {
-                    safeMiniFlavors = data.empanadaFlavors as Flavor[];
-                }
-            }
-
-            let safeFullFlavors: Flavor[] = DEFAULT_SETTINGS.fullSizeEmpanadaFlavors;
-            if (data.fullSizeEmpanadaFlavors && Array.isArray(data.fullSizeEmpanadaFlavors)) {
-                if (data.fullSizeEmpanadaFlavors.length > 0 && typeof data.fullSizeEmpanadaFlavors[0] === 'string') {
-                    safeFullFlavors = (data.fullSizeEmpanadaFlavors as unknown as string[]).map(f => ({ name: f, visible: true }));
-                } else {
-                    safeFullFlavors = data.fullSizeEmpanadaFlavors as Flavor[];
-                }
-            }
-            
-            // Migration Logic: Handle legacy Salsa settings
-            let safePricing = { ...DEFAULT_SETTINGS.pricing, ...(data.pricing || {}) };
-            if ((!safePricing.salsas || safePricing.salsas.length === 0) && (safePricing.salsaSmall || safePricing.salsaLarge)) {
-                safePricing.salsas = [
-                    { id: 'legacy-sm-v', name: 'Salsa Verde (Small)', price: safePricing.salsaSmall || 2.00, visible: true },
-                    { id: 'legacy-sm-r', name: 'Salsa Rosada (Small)', price: safePricing.salsaSmall || 2.00, visible: true },
-                    { id: 'legacy-lg-v', name: 'Salsa Verde (Large)', price: safePricing.salsaLarge || 4.00, visible: true },
-                    { id: 'legacy-lg-r', name: 'Salsa Rosada (Large)', price: safePricing.salsaLarge || 4.00, visible: true },
-                ];
-            }
-            // Initialize tiers if missing
-            if (!safePricing.mini.tiers) safePricing.mini.tiers = [];
-            if (!safePricing.full.tiers) safePricing.full.tiers = [];
-
             const mergedSettings: AppSettings = {
                 ...DEFAULT_SETTINGS,
                 ...data,
-                empanadaFlavors: safeMiniFlavors,
-                fullSizeEmpanadaFlavors: safeFullFlavors,
-                pricing: safePricing,
-                prepSettings: {
-                    ...DEFAULT_SETTINGS.prepSettings,
-                    ...(data.prepSettings || {}),
-                    discosPer: {
-                        ...DEFAULT_SETTINGS.prepSettings.discosPer,
-                        ...(data.prepSettings?.discosPer || {})
-                    },
-                    discoPackSize: {
-                        ...DEFAULT_SETTINGS.prepSettings.discoPackSize,
-                        ...(data.prepSettings?.discoPackSize || {})
-                    },
-                    productionRates: {
-                        ...DEFAULT_SETTINGS.prepSettings.productionRates,
-                        ...(data.prepSettings?.productionRates || {})
-                    }
-                },
-                scheduling: {
-                    ...DEFAULT_SETTINGS.scheduling,
-                    ...(data.scheduling || {}),
-                    closedDays: data.scheduling?.closedDays || [],
-                    dateOverrides: data.scheduling?.dateOverrides || {}
-                },
-                laborWage: data.laborWage ?? DEFAULT_SETTINGS.laborWage,
-                materialCosts: data.materialCosts || DEFAULT_SETTINGS.materialCosts,
-                discoCosts: data.discoCosts || DEFAULT_SETTINGS.discoCosts,
-                inventory: data.inventory || DEFAULT_SETTINGS.inventory,
+                pricing: { ...DEFAULT_SETTINGS.pricing, ...(data.pricing || {}) },
+                prepSettings: { ...DEFAULT_SETTINGS.prepSettings, ...(data.prepSettings || {}) },
+                scheduling: { ...DEFAULT_SETTINGS.scheduling, ...(data.scheduling || {}) },
                 expenseCategories: data.expenseCategories || DEFAULT_SETTINGS.expenseCategories
             };
-            
             onUpdate(mergedSettings);
         } else {
-            // Initialize defaults if doc doesn't exist
-            console.log("Settings doc not found, initializing defaults...");
             onUpdate(DEFAULT_SETTINGS);
         }
-    }, (error) => {
-        console.error("Error fetching settings:", error);
-        if (onError) onError(error);
-    });
+    }, onError);
 };
 
 // --- CRUD Operations ---
 
 export const saveOrderToDb = async (order: Order) => {
-    try {
-        await setDoc(doc(db, ORDERS_COLLECTION, order.id), order);
-    } catch (error) {
-        console.error("Error saving order:", error);
-        throw error;
-    }
+    await setDoc(doc(db, ORDERS_COLLECTION, order.id), order);
 };
 
 export const saveOrdersBatch = async (orders: Order[]) => {
     const batch = writeBatch(db);
-    orders.forEach(order => {
-        const ref = doc(db, ORDERS_COLLECTION, order.id);
-        batch.set(ref, order);
-    });
+    orders.forEach(order => { const ref = doc(db, ORDERS_COLLECTION, order.id); batch.set(ref, order); });
     await batch.commit();
 };
 
 export const deleteOrderFromDb = async (orderId: string) => {
-    try {
-        await deleteDoc(doc(db, ORDERS_COLLECTION, orderId));
-    } catch (error) {
-        console.error("Error deleting order:", error);
-        throw error;
-    }
+    await deleteDoc(doc(db, ORDERS_COLLECTION, orderId));
 };
 
 export const saveExpenseToDb = async (expense: Expense) => {
-    try {
-        await setDoc(doc(db, EXPENSES_COLLECTION, expense.id), expense);
-    } catch (error) {
-        console.error("Error saving expense:", error);
-        throw error;
-    }
+    if (!expense.id) expense.id = Date.now().toString();
+    await setDoc(doc(db, EXPENSES_COLLECTION, expense.id), expense);
 };
 
 export const deleteExpenseFromDb = async (expenseId: string) => {
-    try {
-        await deleteDoc(doc(db, EXPENSES_COLLECTION, expenseId));
-    } catch (error) {
-        console.error("Error deleting expense:", error);
-        throw error;
-    }
+    await deleteDoc(doc(db, EXPENSES_COLLECTION, expenseId));
 };
 
 export const updateSettingsInDb = async (settings: Partial<AppSettings>) => {
-    try {
-        await setDoc(doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC), settings, { merge: true });
-    } catch (error) {
-        console.error("Error updating settings:", error);
-        throw error;
-    }
+    await setDoc(doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC), settings, { merge: true });
 };
 
-// --- Migration Helper ---
-
-export const migrateLocalDataToFirestore = async (
-    localOrders: Order[],
-    localPending: Order[],
-    localSettings: AppSettings
-) => {
-    // 1. Check if DB is empty to avoid overwriting cloud data
+export const migrateLocalDataToFirestore = async (localOrders: Order[], localPending: Order[], localSettings: AppSettings) => {
     const snapshot = await getDocs(collection(db, ORDERS_COLLECTION));
-    if (!snapshot.empty) {
-        console.log("Database not empty, skipping migration.");
-        return;
-    }
-
-    if (localOrders.length === 0 && localPending.length === 0) {
-        console.log("No local data to migrate.");
-        return;
-    }
-
-    console.log("Migrating local data to Firebase...");
-    const batch = writeBatch(db);
-
-    // 2. Add Orders
-    [...localOrders, ...localPending].forEach(order => {
-        const ref = doc(db, ORDERS_COLLECTION, order.id);
-        batch.set(ref, order);
-    });
-
-    // 3. Add Settings
-    const settingsRef = doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC);
-    // Ensure we migrate pricing or default if not present locally
-    const settingsToSave = {
-        ...DEFAULT_SETTINGS,
-        ...localSettings,
-        pricing: localSettings.pricing || DEFAULT_SETTINGS.pricing,
-        prepSettings: {
-            ...DEFAULT_SETTINGS.prepSettings,
-            ...(localSettings.prepSettings || {})
-        },
-        scheduling: {
-            ...DEFAULT_SETTINGS.scheduling,
-            ...(localSettings.scheduling || {}),
-             closedDays: localSettings.scheduling?.closedDays || [],
-             dateOverrides: localSettings.scheduling?.dateOverrides || {}
-        },
-        laborWage: localSettings.laborWage ?? DEFAULT_SETTINGS.laborWage,
-        materialCosts: localSettings.materialCosts || DEFAULT_SETTINGS.materialCosts,
-        discoCosts: localSettings.discoCosts || DEFAULT_SETTINGS.discoCosts,
-        inventory: localSettings.inventory || DEFAULT_SETTINGS.inventory,
-        expenseCategories: localSettings.expenseCategories || DEFAULT_SETTINGS.expenseCategories
-    };
+    if (!snapshot.empty) return;
     
-    batch.set(settingsRef, settingsToSave);
-
+    const batch = writeBatch(db);
+    [...localOrders, ...localPending].forEach(order => batch.set(doc(db, ORDERS_COLLECTION, order.id), order));
+    batch.set(doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC), localSettings);
     await batch.commit();
-    console.log("Migration complete.");
 };

@@ -51,7 +51,6 @@ export default function ReportsView({ orders, expenses, settings, dateRange, onD
         }, 0);
 
         // Actual Expenses (From Manual Entry)
-        // Calculates total money spent on bills/supplies in this period
         const actualExpensesTotal = expenses.reduce((sum, e) => sum + (e.totalCost || 0), 0);
         
         // Net Profit = Revenue - Actual Expenses

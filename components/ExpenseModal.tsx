@@ -26,13 +26,21 @@ export default function ExpenseModal({ expenses, categories, onClose, onSave, on
     
     const [isSaving, setIsSaving] = useState(false);
     const [saveSuccess, setSaveSuccess] = useState(false);
+    const [validationError, setValidationError] = useState<string | null>(null);
 
     // Derived Total
     const calculatedTotal = (parseFloat(pricePerUnit) || 0) * (parseFloat(quantity) || 0);
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!category || !date || !vendor || !item) return;
+        setValidationError(null);
+        setSaveSuccess(false);
+
+        // STRICT VALIDATION
+        if (!vendor.trim()) { setValidationError("Vendor Name is required."); return; }
+        if (!item.trim()) { setValidationError("Item Name is required."); return; }
+        if (!pricePerUnit || parseFloat(pricePerUnit) <= 0) { setValidationError("Price must be greater than 0."); return; }
+        if (!quantity || parseFloat(quantity) <= 0) { setValidationError("Quantity must be greater than 0."); return; }
 
         setIsSaving(true);
         try {
@@ -43,16 +51,16 @@ export default function ExpenseModal({ expenses, categories, onClose, onSave, on
                 vendor,
                 item,
                 unitName,
-                pricePerUnit: parseFloat(pricePerUnit) || 0,
-                quantity: parseFloat(quantity) || 0,
+                pricePerUnit: parseFloat(pricePerUnit),
+                quantity: parseFloat(quantity),
                 totalCost: calculatedTotal,
                 description
             };
+            
             await onSave(newExpense);
             
             // Success Feedback
             setSaveSuccess(true);
-            setTimeout(() => setSaveSuccess(false), 3000);
             
             // Reset form specific fields (keep date/category/vendor for speed of multiple entries)
             setItem('');
@@ -60,8 +68,15 @@ export default function ExpenseModal({ expenses, categories, onClose, onSave, on
             setQuantity('');
             setDescription('');
             
+            // Auto-switch to list view to show the user it saved
+            setTimeout(() => {
+                 setSaveSuccess(false);
+                 setActiveTab('list');
+            }, 1000);
+            
         } catch (error) {
             console.error("Failed to save expense", error);
+            setValidationError("Failed to save to database. Check internet connection.");
         } finally {
             setIsSaving(false);
         }
@@ -94,7 +109,7 @@ export default function ExpenseModal({ expenses, categories, onClose, onSave, on
                         className={`flex-1 py-3 text-sm font-medium ${activeTab === 'list' ? 'text-brand-orange border-b-2 border-brand-orange' : 'text-gray-500 hover:bg-gray-50'}`}
                         onClick={() => setActiveTab('list')}
                     >
-                        History
+                        History ({expenses.length})
                     </button>
                 </div>
 
@@ -102,9 +117,14 @@ export default function ExpenseModal({ expenses, categories, onClose, onSave, on
                     {activeTab === 'add' && (
                         <form onSubmit={handleSave} className="space-y-4">
                             {saveSuccess && (
-                                <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-2 rounded relative mb-4 text-sm flex justify-between items-center">
-                                    <span>Item Saved!</span>
-                                    <button type="button" onClick={() => setActiveTab('list')} className="underline font-bold">View List</button>
+                                <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4 text-sm flex justify-between items-center">
+                                    <span className="font-bold">Item Saved Successfully!</span>
+                                </div>
+                            )}
+                            
+                            {validationError && (
+                                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded relative mb-4 text-sm">
+                                    <strong>Error:</strong> {validationError}
                                 </div>
                             )}
 
@@ -126,11 +146,11 @@ export default function ExpenseModal({ expenses, categories, onClose, onSave, on
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-700 mb-1">Vendor</label>
+                                    <label className="block text-xs font-bold text-gray-700 mb-1">Vendor <span className="text-red-500">*</span></label>
                                     <input type="text" required value={vendor} onChange={e => setVendor(e.target.value)} placeholder="e.g. Costco" className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-700 mb-1">Item Name</label>
+                                    <label className="block text-xs font-bold text-gray-700 mb-1">Item Name <span className="text-red-500">*</span></label>
                                     <input type="text" required value={item} onChange={e => setItem(e.target.value)} placeholder="e.g. Ground Beef" className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
                                 </div>
                             </div>
@@ -138,7 +158,7 @@ export default function ExpenseModal({ expenses, categories, onClose, onSave, on
                             <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-3">
                                 <div className="grid grid-cols-3 gap-3">
                                     <div>
-                                        <label className="block text-xs font-bold text-gray-700 mb-1">Price ($)</label>
+                                        <label className="block text-xs font-bold text-gray-700 mb-1">Price ($) <span className="text-red-500">*</span></label>
                                         <input type="number" step="0.01" required value={pricePerUnit} onChange={e => setPricePerUnit(e.target.value)} placeholder="0.00" className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
                                     </div>
                                     <div>
@@ -146,7 +166,7 @@ export default function ExpenseModal({ expenses, categories, onClose, onSave, on
                                         <input type="text" value={unitName} onChange={e => setUnitName(e.target.value)} placeholder="lbs, box" className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-bold text-gray-700 mb-1">Qty</label>
+                                        <label className="block text-xs font-bold text-gray-700 mb-1">Qty <span className="text-red-500">*</span></label>
                                         <input type="number" step="0.01" required value={quantity} onChange={e => setQuantity(e.target.value)} placeholder="1" className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
                                     </div>
                                 </div>
@@ -166,7 +186,7 @@ export default function ExpenseModal({ expenses, categories, onClose, onSave, on
                             </div>
 
                             <button type="submit" disabled={isSaving} className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand-orange hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-orange disabled:opacity-50">
-                                {isSaving ? 'Saving...' : <><PlusIcon className="w-4 h-4" /> Add Expense Entry</>}
+                                {isSaving ? 'Saving...' : <><PlusIcon className="w-4 h-4" /> Save Expense</>}
                             </button>
                         </form>
                     )}

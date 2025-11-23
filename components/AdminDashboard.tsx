@@ -230,6 +230,7 @@ export default function AdminDashboard({
                         expenses={expenses} 
                         settings={safeSettings} 
                         dateRange={dateFilter} 
+                        onDeleteExpense={deleteExpenseFromDb}
                     />
                 )}
             </main>
