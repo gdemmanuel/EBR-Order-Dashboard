@@ -1,3 +1,4 @@
+
 import { 
     collection, 
     doc, 
@@ -149,6 +150,7 @@ export const subscribeToSettings = (
                 prepSettings: { ...DEFAULT_SETTINGS.prepSettings, ...(data.prepSettings || {}) },
                 scheduling: { ...DEFAULT_SETTINGS.scheduling, ...(data.scheduling || {}) },
                 expenseCategories: data.expenseCategories || DEFAULT_SETTINGS.expenseCategories,
+                // EXPLICITLY READ EMPLOYEES FROM DB
                 employees: Array.isArray(data.employees) ? data.employees : []
             };
             onUpdate(mergedSettings);
@@ -193,6 +195,7 @@ export const deleteShiftFromDb = async (shiftId: string) => {
 };
 
 export const updateSettingsInDb = async (settings: Partial<AppSettings>) => {
+    // FORCE merge to be true, but ensure employees is overwritten if present
     await setDoc(doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC), settings, { merge: true });
 };
 

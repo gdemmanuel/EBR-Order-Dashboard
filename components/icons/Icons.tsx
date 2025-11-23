@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 type IconProps = React.SVGProps<SVGSVGElement> & { title?: string };
@@ -174,7 +175,7 @@ export const ArrowUturnLeftIcon = ({ title, ...props }: IconProps) => (
 export const InstagramIcon = ({ title, ...props }: IconProps) => (
   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" {...props}>
     {title && <title>{title}</title>}
-    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.85s-.011 3.585-.069 4.85c-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07s-3.585-.012-4.85-.07c-3.25-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.85s.012-3.584.07-4.85c.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.85-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948s.014 3.667.072 4.947c.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072s3.667-.014 4.947-.072c4.358-.2 6.78-2.618 6.98-6.98.059-1.281.073-1.689.073-4.948s-.014-3.667-.072-4.947c-.2-4.358-2.618-6.78-6.98-6.98-1.281-.058-1.689-.072-4.948-.072zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.162 6.162 6.162 6.162-2.759 6.162-6.162-2.759 6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4s1.791-4 4-4 4 1.79 4 4-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.441 1.441 1.441 1.441-.645 1.441-1.44-1.441-1.44z" />
+    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.85s-.011 3.585-.069 4.85c-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07s-3.585-.012-4.85-.07c-3.25-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.85s.012-3.584.07-4.85c.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.85-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948s.014 3.667.072 4.947c.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072s3.667-.014 4.947-.072c4.358-.2 6.78-2.618 6.98-6.98.059-1.281.073-1.689.073-4.948s-.014-3.667-.072-4.947c-.2-4.358-2.618-6.78-6.98-6.98-1.281-.058-1.689-.072-4.948-.072zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.162 6.162 6.162 6.162-2.759 6.162-6.162-2.759 6.162-6.162-2.759 6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4s1.791-4 4-4 4 1.79 4 4-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.441 1.441 1.441 1.441-.645 1.441-1.44-1.441-1.44z" />
   </svg>
 );
 
@@ -277,405 +278,7 @@ export const CameraIcon = ({ title, ...props }: IconProps) => (
         <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
         <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z" />
     </svg>
-);
-
-export const ListBulletIcon = ({ title, ...props }: IconProps) => (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
-        {title && <title>{title}</title>}
-        <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
-    </svg>
-);--- START OF FILE types.ts ---
-
-export enum ContactMethod {
-  GF = 'Google Forms',
-  IG = 'Instagram',
-  FB = 'Facebook',
-  PHONE = 'Text/Call',
-  UNKNOWN = 'Unknown',
-}
-
-export enum FollowUpStatus {
-  NEEDED = 'Follow-up Needed',
-  PENDING = 'Pending',
-  CONFIRMED = 'Confirmed',
-  COMPLETED = 'Completed',
-}
-
-export enum PaymentStatus {
-  PENDING = 'Pending',
-  PAID = 'Paid',
-  OVERDUE = 'Overdue',
-}
-
-export enum ApprovalStatus {
-  PENDING = 'Pending Approval',
-  APPROVED = 'Approved',
-  DENIED = 'Denied',
-  CANCELLED = 'Cancelled',
-}
-
-export interface OrderItem {
-  name: string;
-  quantity: number;
-}
-
-export interface Order {
-  id: string;
-  pickupDate: string;
-  pickupTime: string;
-  customerName: string;
-  contactMethod: string;
-  phoneNumber: string | null;
-  items: OrderItem[];
-  totalFullSize: number;
-  totalMini: number;
-  amountCharged: number;
-  totalCost?: number;
-  deliveryRequired: boolean;
-  deliveryFee: number;
-  amountCollected: number | null;
-  paymentMethod: string | null;
-  deliveryAddress: string | null;
-  followUpStatus: FollowUpStatus;
-  paymentStatus: PaymentStatus;
-  specialInstructions: string | null;
-  approvalStatus: ApprovalStatus;
-}
-
-export interface Expense {
-    id: string;
-    date: string;
-    category: string;
-    vendor: string;
-    item: string;
-    unitName: string;
-    pricePerUnit: number;
-    quantity: number;
-    totalCost: number;
-    description?: string;
-}
-
-export interface Employee {
-    id: string;
-    name: string;
-    hourlyRate: number;
-    speedMini: number; // Units per hour
-    speedFull: number; // Units per hour
-    color: string;
-    isActive: boolean;
-}
-
-export interface Shift {
-    id: string;
-    employeeId: string;
-    employeeName: string;
-    date: string; // YYYY-MM-DD
-    startTime: string;
-    endTime: string;
-    hours: number;
-    laborCost: number;
-}
-
-export interface Flavor {
-    name: string;
-    visible: boolean;
-    description?: string;
-    surcharge?: number;
-    isSpecial?: boolean;
-}
-
-export interface MenuPackage {
-    id: string;
-    name: string;
-    itemType: 'mini' | 'full';
-    quantity: number;
-    price: number;
-    maxFlavors: number;
-    increment?: number;
-    visible: boolean;
-    isSpecial?: boolean;
-}
-
-export interface SalsaProduct {
-    id: string;
-    name: string;
-    price: number;
-    visible: boolean;
-}
-
-export interface PricingTier {
-    minQuantity: number;
-    price: number;
-}
-
-export interface ProductPricing {
-    basePrice: number;
-    tiers?: PricingTier[];
-}
-
-export interface PricingSettings {
-    mini: ProductPricing;
-    full: ProductPricing;
-    packages: MenuPackage[];
-    salsas: SalsaProduct[];
-    salsaSmall?: number; 
-    salsaLarge?: number;
-}--- START OF FILE services/dbService.ts ---
-
-import { 
-    collection, 
-    doc, 
-    setDoc, 
-    deleteDoc, 
-    onSnapshot, 
-    query, 
-    where, 
-    getDocs,
-    writeBatch,
-    getDoc
-} from "firebase/firestore";
-import { db } from "../firebaseConfig";
-import { Order, ApprovalStatus, PricingSettings, Flavor, Expense, Employee, Shift } from "../types";
-import { initialEmpanadaFlavors, initialFullSizeEmpanadaFlavors } from "../data/mockData";
-
-// Collection References
-const ORDERS_COLLECTION = "orders";
-const EXPENSES_COLLECTION = "expenses";
-const SHIFTS_COLLECTION = "shifts";
-const SETTINGS_COLLECTION = "app_settings";
-const GENERAL_SETTINGS_DOC = "general";
-
-export interface AppSettings {
-    empanadaFlavors: Flavor[];
-    fullSizeEmpanadaFlavors: Flavor[];
-    sheetUrl: string;
-    importedSignatures: string[];
-    pricing: PricingSettings;
-    prepSettings: {
-        lbsPer20: Record<string, number>; 
-        fullSizeMultiplier: number; 
-        discosPer: { mini: number; full: number; };
-        discoPackSize: { mini: number; full: number; };
-        productionRates: { mini: number; full: number; };
-    };
-    scheduling: {
-        enabled: boolean;
-        intervalMinutes: number;
-        startTime: string;
-        endTime: string;
-        blockedDates: string[];
-        closedDays: number[];
-        dateOverrides: Record<string, { isClosed: boolean; customHours?: { start: string; end: string; }; }>; 
-    };
-    laborWage: number; 
-    employees: Employee[];
-    materialCosts: Record<string, number>; 
-    discoCosts: { mini: number; full: number; };
-    inventory: Record<string, { mini: number; full: number }>;
-    expenseCategories: string[];
-}
-
-const DEFAULT_SETTINGS: AppSettings = {
-    empanadaFlavors: initialEmpanadaFlavors.map(f => ({ name: f, visible: true })),
-    fullSizeEmpanadaFlavors: initialFullSizeEmpanadaFlavors.map(f => ({ name: f, visible: true })),
-    sheetUrl: '',
-    importedSignatures: [],
-    pricing: {
-        mini: { basePrice: 1.75, tiers: [] },
-        full: { basePrice: 3.00, tiers: [] },
-        packages: [],
-        salsas: [
-            { id: 'salsa-verde-sm', name: 'Salsa Verde (4oz)', price: 2.00, visible: true },
-            { id: 'salsa-rosada-sm', name: 'Salsa Rosada (4oz)', price: 2.00, visible: true },
-            { id: 'salsa-verde-lg', name: 'Salsa Verde (8oz)', price: 4.00, visible: true },
-            { id: 'salsa-rosada-lg', name: 'Salsa Rosada (8oz)', price: 4.00, visible: true },
-        ]
-    },
-    prepSettings: {
-        lbsPer20: {},
-        fullSizeMultiplier: 2.0,
-        discosPer: { mini: 1, full: 1 },
-        discoPackSize: { mini: 10, full: 10 },
-        productionRates: { mini: 40, full: 25 }
-    },
-    scheduling: {
-        enabled: true,
-        intervalMinutes: 15,
-        startTime: "09:00",
-        endTime: "17:00",
-        blockedDates: [],
-        closedDays: [],
-        dateOverrides: {}
-    },
-    laborWage: 15.00,
-    employees: [],
-    materialCosts: {},
-    discoCosts: { mini: 0.10, full: 0.15 },
-    inventory: {},
-    expenseCategories: ['Packaging', 'Marketing', 'Rent', 'Utilities', 'Equipment', 'Ingredients', 'Other']
-};
-
-// --- Real-time Subscriptions ---
-
-export const subscribeToOrders = (
-    onUpdate: (orders: Order[]) => void,
-    status: ApprovalStatus = ApprovalStatus.APPROVED,
-    onError?: (error: Error) => void
-) => {
-    const q = query(collection(db, ORDERS_COLLECTION));
-    return onSnapshot(q, (snapshot) => {
-        const orders: Order[] = [];
-        snapshot.forEach((doc) => orders.push(doc.data() as Order));
-        onUpdate(orders);
-    }, onError);
-};
-
-export const subscribeToExpenses = (
-    onUpdate: (expenses: Expense[]) => void,
-    onError?: (error: Error) => void
-) => {
-    const q = query(collection(db, EXPENSES_COLLECTION));
-    return onSnapshot(q, (snapshot) => {
-        const expenses: Expense[] = [];
-        snapshot.forEach((doc) => {
-            expenses.push(doc.data() as Expense);
-        });
-        onUpdate(expenses);
-    }, onError);
-};
-
-export const subscribeToShifts = (
-    onUpdate: (shifts: Shift[]) => void,
-    onError?: (error: Error) => void
-) => {
-    const q = query(collection(db, SHIFTS_COLLECTION));
-    return onSnapshot(q, (snapshot) => {
-        const shifts: Shift[] = [];
-        snapshot.forEach((doc) => {
-            shifts.push(doc.data() as Shift);
-        });
-        onUpdate(shifts);
-    }, onError);
-};
-
-export const subscribeToSettings = (
-    onUpdate: (settings: AppSettings) => void,
-    onError?: (error: Error) => void
-) => {
-    return onSnapshot(doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC), (docSnap) => {
-        if (docSnap.exists()) {
-            const data = docSnap.data();
-            
-            const mergedSettings: AppSettings = {
-                ...DEFAULT_SETTINGS,
-                ...data,
-                pricing: { ...DEFAULT_SETTINGS.pricing, ...(data.pricing || {}) },
-                prepSettings: { ...DEFAULT_SETTINGS.prepSettings, ...(data.prepSettings || {}) },
-                scheduling: { ...DEFAULT_SETTINGS.scheduling, ...(data.scheduling || {}) },
-                expenseCategories: data.expenseCategories || DEFAULT_SETTINGS.expenseCategories,
-                // EXPLICITLY READ EMPLOYEES FROM DB
-                employees: data.employees || []
-            };
-            onUpdate(mergedSettings);
-        } else {
-            onUpdate(DEFAULT_SETTINGS);
-        }
-    }, onError);
-};
-
-// --- CRUD Operations ---
-
-export const saveOrderToDb = async (order: Order) => {
-    await setDoc(doc(db, ORDERS_COLLECTION, order.id), order);
-};
-
-export const saveOrdersBatch = async (orders: Order[]) => {
-    const batch = writeBatch(db);
-    orders.forEach(order => { const ref = doc(db, ORDERS_COLLECTION, order.id); batch.set(ref, order); });
-    await batch.commit();
-};
-
-export const deleteOrderFromDb = async (orderId: string) => {
-    await deleteDoc(doc(db, ORDERS_COLLECTION, orderId));
-};
-
-export const saveExpenseToDb = async (expense: Expense) => {
-    if (!expense.id) expense.id = Date.now().toString();
-    await setDoc(doc(db, EXPENSES_COLLECTION, expense.id), expense);
-};
-
-export const deleteExpenseFromDb = async (expenseId: string) => {
-    await deleteDoc(doc(db, EXPENSES_COLLECTION, expenseId));
-};
-
-export const saveShiftToDb = async (shift: Shift) => {
-    if (!shift.id) shift.id = Date.now().toString();
-    await setDoc(doc(db, SHIFTS_COLLECTION, shift.id), shift);
-};
-
-export const deleteShiftFromDb = async (shiftId: string) => {
-    await deleteDoc(doc(db, SHIFTS_COLLECTION, shiftId));
-};
-
-export const updateSettingsInDb = async (settings: Partial<AppSettings>) => {
-    // FORCE merge to be true, but ensure employees is overwritten if present
-    await setDoc(doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC), settings, { merge: true });
-};
-
-// Direct Helper to Add Employee (Bypasses complex merge issues)
-export const addEmployeeToDb = async (employee: Employee) => {
-    const ref = doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC);
-    const snap = await getDoc(ref);
-    let currentEmployees: Employee[] = [];
-    
-    if (snap.exists()) {
-        const data = snap.data();
-        if (Array.isArray(data.employees)) {
-            currentEmployees = data.employees;
-        }
-    }
-    
-    currentEmployees.push(employee);
-    await setDoc(ref, { employees: currentEmployees }, { merge: true });
-};
-
-// Direct Helper to Update Employee
-export const updateEmployeeInDb = async (employee: Employee) => {
-    const ref = doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC);
-    const snap = await getDoc(ref);
-    
-    if (snap.exists()) {
-        const data = snap.data();
-        let currentEmployees: Employee[] = Array.isArray(data.employees) ? data.employees : [];
-        
-        currentEmployees = currentEmployees.map(e => e.id === employee.id ? employee : e);
-        await setDoc(ref, { employees: currentEmployees }, { merge: true });
-    }
-};
-
-// Direct Helper to Delete Employee
-export const deleteEmployeeFromDb = async (employeeId: string) => {
-    const ref = doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC);
-    const snap = await getDoc(ref);
-    
-    if (snap.exists()) {
-        const data = snap.data();
-        let currentEmployees: Employee[] = Array.isArray(data.employees) ? data.employees : [];
-        
-        currentEmployees = currentEmployees.filter(e => e.id !== employeeId);
-        await setDoc(ref, { employees: currentEmployees }, { merge: true });
-    }
-};
-
-export const migrateLocalDataToFirestore = async (localOrders: Order[], localPending: Order[], localSettings: AppSettings) => {
-    const snapshot = await getDocs(collection(db, ORDERS_COLLECTION));
-    if (!snapshot.empty) return;
-    
-    const batch = writeBatch(db);
-    [...localOrders, ...localPending].forEach(order => batch.set(doc(db, ORDERS_COLLECTION, order.id), order));
-    batch.set(doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC), localSettings);
-    await batch.commit();
-};--- START OF FILE components/SettingsModal.tsx ---
+);--- START OF FILE components/SettingsModal.tsx ---
 
 import React, { useState, useMemo } from 'react';
 import { AppSettings, updateSettingsInDb, addEmployeeToDb, updateEmployeeInDb, deleteEmployeeFromDb } from '../services/dbService';
@@ -700,7 +303,6 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
     const [discoCosts, setDiscoCosts] = useState<{mini: number, full: number}>(settings.discoCosts);
     const [expenseCategories, setExpenseCategories] = useState<string[]>(settings.expenseCategories);
     
-    // Employees (Directly from props to ensure sync)
     const employees = settings.employees || []; 
     const [newEmpName, setNewEmpName] = useState('');
     const [newEmpRate, setNewEmpRate] = useState('');
@@ -718,7 +320,6 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
     const [newTier, setNewTier] = useState<{type: 'mini'|'full', minQty: string, price: string}>({ type: 'mini', minQty: '', price: '' });
     const [newCategory, setNewCategory] = useState('');
 
-    // Main Save Handler (For non-employee settings)
     const handleSave = async () => {
         setIsSaving(true);
         const syncedFullFlavors: Flavor[] = empanadaFlavors.map(f => ({ ...f, name: `Full ${f.name}` }));
@@ -728,7 +329,6 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
         try { await updateSettingsInDb(settingsToSave); } catch (e) { console.error(e); alert("Failed to save settings."); } finally { setIsSaving(false); onClose(); }
     };
 
-    // --- Direct Employee Handlers ---
     const handleAddOrUpdateEmployee = async () => {
         if (!newEmpName.trim() || !newEmpRate) return;
         setIsSaving(true);
@@ -749,7 +349,6 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                 await addEmployeeToDb(newEmp);
             }
             
-            // Clear form
             setNewEmpName(''); setNewEmpRate(''); setNewEmpMini(''); setNewEmpFull(''); setEditingEmployeeId(null);
         } catch (e) {
             console.error("Error saving employee", e);
@@ -781,7 +380,6 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
         setNewEmpName(''); setNewEmpRate(''); setNewEmpMini(''); setNewEmpFull(''); setEditingEmployeeId(null);
     };
 
-    // ... (Other existing handlers unchanged) ...
     const addFlavor = () => { if (newFlavorName.trim()) { setEmpanadaFlavors([...empanadaFlavors, { name: newFlavorName.trim(), visible: true, isSpecial: false }]); setNewFlavorName(''); } };
     const autoFillDescriptions = () => { setEmpanadaFlavors(empanadaFlavors.map(f => (!f.description ? { ...f, description: SUGGESTED_DESCRIPTIONS[f.name] || undefined } : f))); alert('Descriptions populated! Save to apply.'); };
     const toggleFlavorVisibility = (i: number) => { const u = [...empanadaFlavors]; u[i].visible = !u[i].visible; setEmpanadaFlavors(u); };
@@ -810,47 +408,6 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
     const addCategory = () => { if (newCategory.trim() && !expenseCategories.includes(newCategory.trim())) { setExpenseCategories([...expenseCategories, newCategory.trim()]); setNewCategory(''); } };
     const removeCategory = (cat: string) => { setExpenseCategories(expenseCategories.filter(c => c !== cat)); };
 
-    // Employee Logic
-    const addOrUpdateEmployee = () => {
-        if (newEmpName.trim() && newEmpRate) {
-            const newEmp: Employee = {
-                id: editingEmployeeId || Date.now().toString(),
-                name: newEmpName.trim(),
-                hourlyRate: parseFloat(newEmpRate) || 0,
-                speedMini: parseInt(newEmpMini) || 40,
-                speedFull: parseInt(newEmpFull) || 25,
-                color: newEmpColor,
-                isActive: true
-            };
-            
-            if (editingEmployeeId) {
-                setEmployees(prev => prev.map(e => e.id === editingEmployeeId ? newEmp : e));
-            } else {
-                setEmployees(prev => [...prev, newEmp]);
-            }
-            
-            setNewEmpName(''); setNewEmpRate(''); setNewEmpMini(''); setNewEmpFull(''); setEditingEmployeeId(null);
-        }
-    };
-    
-    const handleEditEmployee = (emp: Employee) => {
-        setNewEmpName(emp.name);
-        setNewEmpRate(String(emp.hourlyRate));
-        setNewEmpMini(String(emp.speedMini));
-        setNewEmpFull(String(emp.speedFull));
-        setNewEmpColor(emp.color);
-        setEditingEmployeeId(emp.id);
-    };
-    
-    const handleCancelEditEmployee = () => {
-        setNewEmpName(''); setNewEmpRate(''); setNewEmpMini(''); setNewEmpFull(''); setEditingEmployeeId(null);
-    };
-
-    const removeEmployee = (id: string) => { 
-        setEmployees(prev => prev.filter(e => e.id !== id)); 
-        if (editingEmployeeId === id) handleCancelEditEmployee();
-    };
-
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fade-in">
             <div className="bg-white rounded-lg shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col border border-brand-tan">
@@ -874,7 +431,6 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                 </div>
 
                 <div className="overflow-y-auto p-6 flex-grow">
-                    {/* ... (Content for Menu, Pricing, etc.) ... */}
                     {activeTab === 'menu' && (<div className="bg-gray-50 p-4 rounded-lg border border-gray-200"><div className="flex justify-between items-center mb-4"><div><h3 className="font-bold text-brand-brown">Empanada Flavors</h3></div><button onClick={autoFillDescriptions} className="text-xs flex items-center gap-1 bg-blue-100 text-blue-800 px-2 py-1 rounded hover:bg-blue-200"><SparklesIcon className="w-3 h-3"/> Auto-fill</button></div><div className="flex gap-2 mb-4"><input type="text" value={newFlavorName} onChange={e => setNewFlavorName(e.target.value)} placeholder="New flavor name" className="flex-grow rounded border-gray-300 text-sm"/><button onClick={addFlavor} className="bg-brand-orange text-white px-3 rounded"><PlusIcon className="w-5 h-5"/></button></div><div className="space-y-2 max-h-96 overflow-y-auto">{empanadaFlavors.map((f, i) => <div key={i} className="bg-white p-2 rounded shadow-sm text-sm flex items-center justify-between"><span>{f.name}</span><button onClick={() => removeFlavor(i)} className="text-red-500"><TrashIcon className="w-4 h-4"/></button></div>)}</div></div>)}
                     {activeTab === 'pricing' && (<div className="space-y-8"><div><h3 className="font-bold text-brand-brown mb-4">Packages</h3><div className="space-y-3">{pricing.packages?.map(p => <div key={p.id} className="bg-white p-3 rounded border shadow-sm flex justify-between"><span>{p.name}</span><button onClick={() => removePackage(p.id)} className="text-red-500"><TrashIcon className="w-4 h-4"/></button></div>)}</div></div></div>)}
                     {activeTab === 'scheduling' && (<div className="space-y-8"><h3 className="font-bold text-brand-brown">Scheduling</h3><div className="grid grid-cols-2 gap-4"><div><label className="block text-xs">Open</label><input type="time" value={scheduling.startTime} onChange={e => setScheduling({...scheduling, startTime: e.target.value})} className="border rounded p-1 w-full"/></div><div><label className="block text-xs">Close</label><input type="time" value={scheduling.endTime} onChange={e => setScheduling({...scheduling, endTime: e.target.value})} className="border rounded p-1 w-full"/></div></div></div>)}
@@ -958,7 +514,6 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
         </div>
     );
 }--- START OF FILE components/ShiftModal.tsx ---
-
 
 import React, { useState } from 'react';
 import { Shift, Employee } from '../types';
@@ -1438,6 +993,308 @@ export default function CalendarView({ orders, shifts = [], onSelectOrder, onPri
             )}
         </>
     );
+}--- START OF FILE components/ExpenseModal.tsx ---
+
+
+import React, { useState, useMemo } from 'react';
+import { Expense } from '../types';
+import { XMarkIcon, PlusIcon, TrashIcon, CalendarIcon, CurrencyDollarIcon, DocumentTextIcon, ListBulletIcon } from './icons/Icons';
+
+interface ExpenseModalProps {
+    expenses: Expense[];
+    categories: string[];
+    onClose: () => void;
+    onSave: (expense: Expense) => Promise<void>;
+    onDelete: (id: string) => Promise<void>;
+}
+
+type SortKey = 'date' | 'category' | 'vendor' | 'item' | 'totalCost';
+
+export default function ExpenseModal({ expenses, categories, onClose, onSave, onDelete }: ExpenseModalProps) {
+    const [activeTab, setActiveTab] = useState<'add' | 'list'>('add');
+    
+    // Form State
+    const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+    const [category, setCategory] = useState(categories[0] || 'Ingredients');
+    const [vendor, setVendor] = useState('');
+    const [item, setItem] = useState('');
+    const [unitName, setUnitName] = useState('');
+    const [pricePerUnit, setPricePerUnit] = useState('');
+    const [quantity, setQuantity] = useState('');
+    const [description, setDescription] = useState(''); 
+    
+    const [isSaving, setIsSaving] = useState(false);
+    const [saveSuccess, setSaveSuccess] = useState(false);
+    const [validationError, setValidationError] = useState<string | null>(null);
+
+    // Sorting State
+    const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' }>({ key: 'date', direction: 'desc' });
+
+    // Derived Total
+    const calculatedTotal = (parseFloat(pricePerUnit) || 0) * (parseFloat(quantity) || 0);
+
+    const handleSave = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setValidationError(null);
+        setSaveSuccess(false);
+
+        if (!vendor.trim()) { setValidationError("Vendor Name is required."); return; }
+        if (!item.trim()) { setValidationError("Item Name is required."); return; }
+        if (!pricePerUnit || parseFloat(pricePerUnit) <= 0) { setValidationError("Price is required."); return; }
+        if (!quantity || parseFloat(quantity) <= 0) { setValidationError("Quantity is required."); return; }
+
+        setIsSaving(true);
+        try {
+            const newExpense: Expense = {
+                id: Date.now().toString(),
+                date,
+                category,
+                vendor,
+                item,
+                unitName: unitName || '', 
+                pricePerUnit: parseFloat(pricePerUnit),
+                quantity: parseFloat(quantity),
+                totalCost: calculatedTotal,
+                description: description || '' 
+            };
+            
+            await onSave(newExpense);
+            setSaveSuccess(true);
+            
+            setItem('');
+            setPricePerUnit('');
+            setQuantity('');
+            setDescription('');
+            
+            setTimeout(() => {
+                 setSaveSuccess(false);
+                 setActiveTab('list');
+            }, 1000);
+            
+        } catch (error: any) {
+            console.error("Failed to save expense", error);
+            setValidationError(`Database Error: ${error.message || "Unknown error"}`);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleDelete = async (id: string) => {
+        if (window.confirm("Delete this expense record?")) {
+            await onDelete(id);
+        }
+    };
+
+    // Sorting Logic
+    const handleSort = (key: SortKey) => {
+        let direction: 'asc' | 'desc' = 'asc';
+        if (sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    };
+
+    const sortedExpenses = useMemo(() => {
+        let sortableItems = [...expenses];
+        sortableItems.sort((a, b) => {
+            let aVal: any = a[sortConfig.key];
+            let bVal: any = b[sortConfig.key];
+
+            // Handle numeric sorts
+            if (sortConfig.key === 'totalCost') {
+                aVal = a.totalCost || 0;
+                bVal = b.totalCost || 0;
+            }
+
+            if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+        return sortableItems;
+    }, [expenses, sortConfig]);
+
+    const SortHeader = ({ label, skey }: { label: string, skey: SortKey }) => (
+        <th 
+            className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 hover:text-brand-orange transition-colors select-none"
+            onClick={() => handleSort(skey)}
+        >
+            <div className="flex items-center gap-1">
+                {label}
+                {sortConfig.key === skey && (
+                    <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                )}
+            </div>
+        </th>
+    );
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fade-in">
+            <div className="bg-white rounded-lg shadow-2xl w-full max-w-4xl flex flex-col border border-brand-tan max-h-[90vh]">
+                <header className="p-6 border-b border-brand-tan flex justify-between items-center">
+                    <h2 className="text-2xl font-serif text-brand-brown">Expense Manager</h2>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+                        <XMarkIcon className="w-6 h-6" />
+                    </button>
+                </header>
+
+                <div className="flex border-b border-gray-200">
+                    <button 
+                        className={`flex-1 py-3 text-sm font-medium ${activeTab === 'add' ? 'text-brand-orange border-b-2 border-brand-orange' : 'text-gray-500 hover:bg-gray-50'}`}
+                        onClick={() => setActiveTab('add')}
+                    >
+                        <div className="flex items-center justify-center gap-2">
+                            <PlusIcon className="w-4 h-4" /> Add Entry
+                        </div>
+                    </button>
+                    <button 
+                        className={`flex-1 py-3 text-sm font-medium ${activeTab === 'list' ? 'text-brand-orange border-b-2 border-brand-orange' : 'text-gray-500 hover:bg-gray-50'}`}
+                        onClick={() => setActiveTab('list')}
+                    >
+                        <div className="flex items-center justify-center gap-2">
+                            <ListBulletIcon className="w-4 h-4" /> History ({expenses.length})
+                        </div>
+                    </button>
+                </div>
+
+                <div className="p-6 overflow-y-auto flex-grow bg-gray-50">
+                    {activeTab === 'add' && (
+                        <div className="max-w-lg mx-auto bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                            <form onSubmit={handleSave} className="space-y-4">
+                                {saveSuccess && (
+                                    <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-2 rounded relative mb-4 text-sm flex justify-between items-center">
+                                        <span className="font-bold">Item Saved Successfully!</span>
+                                        <button type="button" onClick={() => setActiveTab('list')} className="underline font-semibold hover:text-green-900">View List</button>
+                                    </div>
+                                )}
+                                
+                                {validationError && (
+                                    <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded relative mb-4 text-sm">
+                                        <strong>Error:</strong> {validationError}
+                                    </div>
+                                )}
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-700 mb-1">Date</label>
+                                        <div className="relative">
+                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><CalendarIcon className="w-4 h-4 text-gray-400"/></div>
+                                            <input type="date" required value={date} onChange={e => setDate(e.target.value)} className="pl-9 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-700 mb-1">Category</label>
+                                        <select value={category} onChange={e => setCategory(e.target.value)} className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm">
+                                            {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-700 mb-1">Vendor <span className="text-red-500">*</span></label>
+                                        <input type="text" required value={vendor} onChange={e => setVendor(e.target.value)} placeholder="e.g. Costco" className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-700 mb-1">Item Name <span className="text-red-500">*</span></label>
+                                        <input type="text" required value={item} onChange={e => setItem(e.target.value)} placeholder="e.g. Ground Beef" className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
+                                    </div>
+                                </div>
+
+                                <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-3">
+                                    <div className="grid grid-cols-3 gap-3">
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-700 mb-1">Price ($) <span className="text-red-500">*</span></label>
+                                            <input type="number" step="0.01" required value={pricePerUnit} onChange={e => setPricePerUnit(e.target.value)} placeholder="0.00" className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-700 mb-1">Unit</label>
+                                            <input type="text" value={unitName} onChange={e => setUnitName(e.target.value)} placeholder="lbs, box" className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-700 mb-1">Qty <span className="text-red-500">*</span></label>
+                                            <input type="number" step="0.01" required value={quantity} onChange={e => setQuantity(e.target.value)} placeholder="1" className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+                                        <span className="text-sm font-bold text-gray-600">Total Item Cost:</span>
+                                        <span className="text-xl font-bold text-brand-orange">${calculatedTotal.toFixed(2)}</span>
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-700 mb-1">Notes (Optional)</label>
+                                    <div className="relative">
+                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><DocumentTextIcon className="w-4 h-4 text-gray-400"/></div>
+                                        <input type="text" value={description} onChange={e => setDescription(e.target.value)} placeholder="Extra details..." className="pl-9 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
+                                    </div>
+                                </div>
+
+                                <button type="submit" disabled={isSaving} className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand-orange hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-orange disabled:opacity-50">
+                                    {isSaving ? 'Saving...' : <><PlusIcon className="w-4 h-4" /> Save Expense</>}
+                                </button>
+                            </form>
+                        </div>
+                    )}
+
+                    {activeTab === 'list' && (
+                        <div className="overflow-hidden bg-white border border-gray-200 rounded-lg shadow-sm">
+                            {expenses.length === 0 ? (
+                                <p className="text-center text-gray-500 text-sm py-8">No expenses recorded yet.</p>
+                            ) : (
+                                <div className="overflow-x-auto">
+                                    <table className="min-w-full divide-y divide-gray-200">
+                                        <thead className="bg-gray-50">
+                                            <tr>
+                                                <SortHeader label="Date" skey="date" />
+                                                <SortHeader label="Vendor" skey="vendor" />
+                                                <SortHeader label="Category" skey="category" />
+                                                <SortHeader label="Item / Details" skey="item" />
+                                                <SortHeader label="Cost" skey="totalCost" />
+                                                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="bg-white divide-y divide-gray-200 text-sm">
+                                            {sortedExpenses.map((expense) => (
+                                                <tr key={expense.id} className="hover:bg-gray-50 transition-colors">
+                                                    <td className="px-4 py-3 whitespace-nowrap text-gray-900 font-medium">
+                                                        {expense.date}
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-gray-700">
+                                                        {expense.vendor}
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap">
+                                                        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
+                                                            {expense.category}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-gray-600">
+                                                        <div className="font-medium">{expense.item}</div>
+                                                        <div className="text-xs text-gray-400">
+                                                            {expense.quantity} {expense.unitName} @ ${expense.pricePerUnit}
+                                                        </div>
+                                                        {expense.description && <div className="text-xs text-gray-400 italic">{expense.description}</div>}
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap font-bold text-red-600">
+                                                        ${(expense.totalCost || 0).toFixed(2)}
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-right">
+                                                        <button onClick={() => handleDelete(expense.id)} className="text-gray-400 hover:text-red-500 transition-colors">
+                                                            <TrashIcon className="w-4 h-4" />
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
 }--- START OF FILE components/ReportsView.tsx ---
 
 import React, { useMemo, useState } from 'react';
@@ -1703,6 +1560,264 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
                     </table>
                 </div>
             </div>
+        </div>
+    );
+}--- START OF FILE components/AdminDashboard.tsx ---
+
+import React, { useState, useMemo, useEffect } from 'react';
+import { Order, ApprovalStatus, FollowUpStatus, PricingSettings, Flavor, Expense, Shift } from '../types';
+import { parseOrderDateTime } from '../utils/dateUtils';
+import { saveOrderToDb, deleteOrderFromDb, updateSettingsInDb, saveOrdersBatch, AppSettings, subscribeToExpenses, saveExpenseToDb, deleteExpenseFromDb, subscribeToShifts } from '../services/dbService';
+import { calculateOrderTotal, calculateSupplyCost } from '../utils/pricingUtils';
+
+import Header from './Header';
+import DashboardMetrics from './DashboardMetrics';
+import OrderList from './OrderList';
+import CalendarView from './CalendarView';
+import OrderFormModal from './OrderFormModal';
+import OrderDetailModal from './OrderDetailModal';
+import ImportOrderModal from './ImportOrderModal';
+import PrintPreviewPage from './PrintPreviewPage';
+import PendingOrders from './PendingOrders';
+import DateRangeFilter from './DateRangeFilter';
+import SettingsModal from './SettingsModal';
+import ConfirmationModal from './ConfirmationModal';
+import PrepListModal from './PrepListModal';
+import ExpenseModal from './ExpenseModal';
+import ReportsView from './ReportsView';
+import { PlusCircleIcon, ListBulletIcon, CalendarDaysIcon, ArrowTopRightOnSquareIcon, CogIcon, ScaleIcon, ReceiptIcon, ChartBarIcon } from './icons/Icons';
+import { User } from 'firebase/auth';
+
+interface AdminDashboardProps {
+    user: User;
+    orders: Order[];
+    empanadaFlavors: Flavor[];
+    fullSizeEmpanadaFlavors: Flavor[];
+    importedSignatures: Set<string>;
+    sheetUrl: string;
+    pricing: PricingSettings;
+    prepSettings?: AppSettings['prepSettings'];
+    settings?: AppSettings;
+}
+
+const getTodayStr = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+export default function AdminDashboard({ 
+    user, 
+    orders, 
+    empanadaFlavors, 
+    fullSizeEmpanadaFlavors, 
+    importedSignatures, 
+    sheetUrl,
+    pricing, 
+    prepSettings,
+    settings 
+}: AdminDashboardProps) {
+
+    const [view, setView] = useState<'dashboard' | 'list' | 'calendar' | 'reports'>('dashboard');
+    const [dateFilter, setDateFilter] = useState<{ start?: string; end?: string }>({ start: getTodayStr() });
+    const [searchTerm, setSearchTerm] = useState(''); 
+    const [statusFilter, setStatusFilter] = useState<FollowUpStatus | null>(null); 
+    const [viewingCancelled, setViewingCancelled] = useState(false); 
+    
+    const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState(false);
+    const [orderToEdit, setOrderToEdit] = useState<Order | undefined>(undefined);
+    const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+    
+    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+    const [printPreviewOrders, setPrintPreviewOrders] = useState<Order[] | null>(null);
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [isPrepListOpen, setIsPrepListOpen] = useState(false);
+    const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
+    const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; title: string; message: string; onConfirm: () => void; }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+
+    // Local Data State
+    const [expenses, setExpenses] = useState<Expense[]>([]);
+    const [shifts, setShifts] = useState<Shift[]>([]);
+
+    useEffect(() => {
+        const unsubExpenses = subscribeToExpenses(setExpenses);
+        const unsubShifts = subscribeToShifts(setShifts);
+        return () => { unsubExpenses(); unsubShifts(); };
+    }, []);
+
+    const activeOrders = useMemo(() => orders.filter(o => o.approvalStatus === ApprovalStatus.APPROVED), [orders]);
+    const pendingOrders = useMemo(() => orders.filter(o => o.approvalStatus === ApprovalStatus.PENDING), [orders]);
+    const cancelledOrders = useMemo(() => orders.filter(o => o.approvalStatus === ApprovalStatus.CANCELLED), [orders]);
+
+    const filteredOrders = useMemo(() => {
+        let result = viewingCancelled ? cancelledOrders : activeOrders;
+        if (searchTerm.trim()) {
+            const term = searchTerm.toLowerCase();
+            return result.filter(o => o.customerName.toLowerCase().includes(term) || (o.phoneNumber && o.phoneNumber.includes(term)));
+        }
+        if (dateFilter.start) {
+            const [y, m, d] = dateFilter.start.split('-').map(Number);
+            const start = new Date(y, m - 1, d);
+            result = result.filter(o => parseOrderDateTime(o) >= start);
+        }
+        if (dateFilter.end) {
+            const [y, m, d] = dateFilter.end.split('-').map(Number);
+            const end = new Date(y, m - 1, d);
+            end.setHours(23,59,59,999);
+            result = result.filter(o => parseOrderDateTime(o) <= end);
+        }
+        return result;
+    }, [activeOrders, cancelledOrders, viewingCancelled, dateFilter, searchTerm]);
+
+    const ordersForList = useMemo(() => {
+        if (!statusFilter) return filteredOrders;
+        return filteredOrders.filter(o => o.followUpStatus === statusFilter);
+    }, [filteredOrders, statusFilter]);
+
+    const currentListFilter = viewingCancelled ? 'CANCELLED' : (statusFilter || 'ALL');
+    const handleListFilterChange = (filter: string) => {
+        if (filter === 'CANCELLED') { setViewingCancelled(true); setStatusFilter(null); } else if (filter === 'ALL') { setViewingCancelled(false); setStatusFilter(null); } else { setViewingCancelled(false); setStatusFilter(filter as FollowUpStatus); }
+    };
+
+    const stats = useMemo(() => {
+        let result = activeOrders;
+        if (dateFilter.start) {
+            const [y, m, d] = dateFilter.start.split('-').map(Number);
+            const start = new Date(y, m - 1, d);
+            result = result.filter(o => parseOrderDateTime(o) >= start);
+        }
+        if (dateFilter.end) {
+            const [y, m, d] = dateFilter.end.split('-').map(Number);
+            const end = new Date(y, m - 1, d);
+            end.setHours(23,59,59,999);
+            result = result.filter(o => parseOrderDateTime(o) <= end);
+        }
+        const totalRevenue = result.reduce((sum, o) => sum + o.amountCharged, 0);
+        const ordersToFollowUp = result.filter(o => o.followUpStatus === FollowUpStatus.NEEDED).length;
+        const totalEmpanadasSold = result.reduce((sum, o) => sum + o.totalMini + o.totalFullSize, 0);
+        return { totalRevenue, ordersToFollowUp, totalEmpanadasSold };
+    }, [activeOrders, dateFilter]);
+
+    const safeSettings: AppSettings = settings || { empanadaFlavors, fullSizeEmpanadaFlavors, sheetUrl, importedSignatures: Array.from(importedSignatures), pricing: pricing || { mini: { basePrice: 1.75 }, full: { basePrice: 3.00 }, packages: [], salsas: [] }, prepSettings: prepSettings || { lbsPer20: {}, fullSizeMultiplier: 2.0, discosPer: { mini: 1, full: 1 }, discoPackSize: { mini: 10, full: 10 }, productionRates: { mini: 40, full: 25 } }, scheduling: { enabled: true, intervalMinutes: 15, startTime: "09:00", endTime: "17:00", blockedDates: [], closedDays: [], dateOverrides: {} }, laborWage: 15.00, materialCosts: {}, discoCosts: { mini: 0.10, full: 0.15 }, inventory: {}, expenseCategories: ['Packaging', 'Marketing', 'Rent', 'Utilities', 'Equipment', 'Other'], employees: [] };
+    const safePricing = safeSettings.pricing;
+
+    const handleSaveOrder = async (orderData: Order | Omit<Order, 'id'>) => {
+        let orderToSave: Order;
+        if ('id' in orderData) { orderToSave = { ...orderData as Order }; if (orderToSave.approvalStatus === ApprovalStatus.PENDING) { orderToSave.approvalStatus = ApprovalStatus.APPROVED; } } else { orderToSave = { ...orderData, id: Date.now().toString() }; }
+        await saveOrderToDb(orderToSave);
+        setIsNewOrderModalOpen(false);
+        setOrderToEdit(undefined);
+    };
+
+    const handleDeductInventory = async (order: Order) => {
+        const currentInventory = { ...safeSettings.inventory };
+        let changesMade = false;
+        order.items.forEach(item => {
+            const isSalsa = safePricing.salsas.some(s => item.name.includes(s.name));
+            if (isSalsa) return; 
+            let flavor = item.name;
+            let type: 'mini' | 'full' = 'mini';
+            if (item.name.startsWith('Full ')) { type = 'full'; flavor = item.name.replace('Full ', ''); }
+            if (!currentInventory[flavor]) { currentInventory[flavor] = { mini: 0, full: 0 }; }
+            currentInventory[flavor][type] -= item.quantity;
+            changesMade = true;
+        });
+        if (changesMade) { await updateSettingsInDb({ inventory: currentInventory }); await saveOrderToDb({ ...order, followUpStatus: FollowUpStatus.COMPLETED }); if (selectedOrder && selectedOrder.id === order.id) { setSelectedOrder({ ...order, followUpStatus: FollowUpStatus.COMPLETED }); } }
+    };
+
+    const confirmDeleteOrder = (orderId: string) => { setConfirmModal({ isOpen: true, title: "Delete Order", message: "Are you sure you want to delete this order? This action cannot be undone.", onConfirm: async () => { await deleteOrderFromDb(orderId); if (selectedOrder?.id === orderId) setSelectedOrder(null); if (orderToEdit?.id === orderId) { setOrderToEdit(undefined); setIsNewOrderModalOpen(false); } setConfirmModal(prev => ({ ...prev, isOpen: false })); } }); };
+    const handleAddNewFlavor = async (flavorName: string, type: 'mini' | 'full') => { if (type === 'mini') { if (!empanadaFlavors.some(f => f.name === flavorName)) { await updateSettingsInDb({ empanadaFlavors: [...empanadaFlavors, { name: flavorName, visible: true }] }); } } else { if (!fullSizeEmpanadaFlavors.some(f => f.name === flavorName)) { await updateSettingsInDb({ fullSizeEmpanadaFlavors: [...fullSizeEmpanadaFlavors, { name: flavorName, visible: true }] }); } } };
+    const handleUpdateFollowUp = async (orderId: string, status: FollowUpStatus) => { const order = orders.find(o => o.id === orderId); if (order) await saveOrderToDb({ ...order, followUpStatus: status }); };
+    const handleApproveOrder = async (orderId: string) => { const order = orders.find(o => o.id === orderId); if (order) await saveOrderToDb({ ...order, approvalStatus: ApprovalStatus.APPROVED }); };
+    const handleDenyOrder = async (orderId: string) => { const order = orders.find(o => o.id === orderId); if (order) await saveOrderToDb({ ...order, approvalStatus: ApprovalStatus.CANCELLED }); };
+    const handleOrdersImported = async (newOrders: Partial<Order>[], newSignatures: string[]) => { const ordersToSave: Order[] = newOrders.map((pOrder, index) => { const items = pOrder.items || []; const deliveryFee = 0; const calculatedTotal = calculateOrderTotal(items, deliveryFee, safePricing, empanadaFlavors, fullSizeEmpanadaFlavors); const calculatedCost = calculateSupplyCost(items, safeSettings); return { id: `${Date.now()}-${index}`, pickupDate: pOrder.pickupDate || '', pickupTime: pOrder.pickupTime || '', customerName: pOrder.customerName || 'Unknown', contactMethod: pOrder.contactMethod || 'Unknown', phoneNumber: pOrder.phoneNumber || null, items: items, totalFullSize: items.filter(i => i.name.includes('Full')).reduce((s, i) => s + i.quantity, 0), totalMini: items.filter(i => !i.name.includes('Full') && !i.name.includes('Salsa')).reduce((s, i) => s + i.quantity, 0), amountCharged: calculatedTotal, totalCost: calculatedCost, deliveryRequired: pOrder.deliveryRequired || false, deliveryFee: deliveryFee, amountCollected: 0, paymentMethod: null, deliveryAddress: pOrder.deliveryAddress || null, followUpStatus: FollowUpStatus.NEEDED, paymentStatus: pOrder.paymentStatus as any || 'Pending', specialInstructions: pOrder.specialInstructions || null, approvalStatus: ApprovalStatus.PENDING } as Order; }); await saveOrdersBatch(ordersToSave); const updatedSignatures = [...Array.from(importedSignatures), ...newSignatures]; await updateSettingsInDb({ importedSignatures: updatedSignatures }); setIsImportModalOpen(false); };
+    const handleUpdateSheetUrl = async (url: string) => { await updateSettingsInDb({ sheetUrl: url }); };
+
+    if (printPreviewOrders) { return <PrintPreviewPage orders={printPreviewOrders} onExit={() => setPrintPreviewOrders(null)} />; }
+
+    return (
+        <div className="min-h-screen bg-brand-cream">
+            <Header user={user} variant="admin" />
+            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+                    <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
+                        <div className="flex bg-white rounded-lg shadow-sm p-1 border border-brand-tan self-start">
+                            <button onClick={() => { setView('dashboard'); setStatusFilter(null); setViewingCancelled(false); }} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${view === 'dashboard' ? 'bg-brand-orange text-white' : 'text-brand-brown hover:bg-brand-tan/30'}`}>Dashboard</button>
+                            <button onClick={() => setView('list')} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${view === 'list' ? 'bg-brand-orange text-white' : 'text-brand-brown hover:bg-brand-tan/30'}`}><ListBulletIcon className="w-4 h-4" /> List</button>
+                            <button onClick={() => setView('calendar')} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${view === 'calendar' ? 'bg-brand-orange text-white' : 'text-brand-brown hover:bg-brand-tan/30'}`}><CalendarDaysIcon className="w-4 h-4" /> Calendar</button>
+                            <button onClick={() => setView('reports')} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${view === 'reports' ? 'bg-brand-orange text-white' : 'text-brand-brown hover:bg-brand-tan/30'}`}><ChartBarIcon className="w-4 h-4" /> Reports</button>
+                        </div>
+                    </div>
+                    <div className="flex gap-3 flex-wrap w-full md:w-auto justify-end">
+                        <button onClick={() => setIsExpenseModalOpen(true)} className="flex items-center gap-2 bg-white text-brand-brown border border-brand-tan font-semibold px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"><ReceiptIcon className="w-5 h-5" /> Expenses</button>
+                        <button onClick={() => setIsPrepListOpen(true)} className="flex items-center gap-2 bg-white text-brand-brown border border-brand-tan font-semibold px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"><ScaleIcon className="w-5 h-5" /> Prep List</button>
+                        <button onClick={() => setIsSettingsOpen(true)} className="flex items-center gap-2 bg-white text-brand-brown border border-brand-tan font-semibold px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"><CogIcon className="w-5 h-5" /> Settings</button>
+                        <button onClick={() => setIsImportModalOpen(true)} className="flex items-center gap-2 bg-white text-brand-brown border border-brand-tan font-semibold px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"><ArrowTopRightOnSquareIcon className="w-5 h-5" /> Import</button>
+                        <button onClick={() => { setOrderToEdit(undefined); setIsNewOrderModalOpen(true); }} className="flex items-center gap-2 bg-brand-brown text-white font-semibold px-4 py-2 rounded-lg hover:bg-opacity-90 transition-colors shadow-sm"><PlusCircleIcon className="w-5 h-5" /> New Order</button>
+                    </div>
+                </div>
+
+                <PendingOrders orders={pendingOrders} onApprove={handleApproveOrder} onDeny={handleDenyOrder} onSelectOrder={setSelectedOrder} />
+                {pendingOrders.length > 0 && <div className="mb-8" />}
+                {view !== 'calendar' && <DateRangeFilter initialStartDate={dateFilter.start} initialEndDate={dateFilter.end} onDateChange={setDateFilter} />}
+
+                {view === 'dashboard' && (
+                    <DashboardMetrics 
+                        stats={stats} 
+                        orders={activeOrders} 
+                        empanadaFlavors={empanadaFlavors.map(f => f.name)} 
+                        fullSizeEmpanadaFlavors={fullSizeEmpanadaFlavors.map(f => f.name)} 
+                        pendingCount={pendingOrders.length}
+                        cancelledCount={cancelledOrders.length}
+                        onFilterStatus={(status) => {
+                            if (status === 'CANCELLED') { setViewingCancelled(true); setStatusFilter(null); } else { setViewingCancelled(false); setStatusFilter(status); }
+                            setView('list');
+                        }}
+                    />
+                )}
+
+                {view === 'list' && (
+                    <OrderList 
+                        title={viewingCancelled ? 'Cancelled Orders' : 'Active Orders'}
+                        orders={ordersForList} 
+                        onSelectOrder={setSelectedOrder} 
+                        onPrintSelected={setPrintPreviewOrders} 
+                        onDelete={confirmDeleteOrder} 
+                        searchTerm={searchTerm}
+                        onSearchChange={setSearchTerm}
+                        currentFilter={currentListFilter}
+                        onFilterChange={handleListFilterChange}
+                    />
+                )}
+
+                {view === 'calendar' && <CalendarView orders={activeOrders} shifts={shifts} onSelectOrder={setSelectedOrder} onPrintSelected={setPrintPreviewOrders} onDelete={confirmDeleteOrder} settings={safeSettings} />}
+                
+                {view === 'reports' && (
+                    <ReportsView 
+                        orders={activeOrders} 
+                        expenses={expenses} 
+                        shifts={shifts}
+                        settings={safeSettings} 
+                        dateRange={dateFilter} 
+                        onDeleteExpense={deleteExpenseFromDb}
+                    />
+                )}
+            </main>
+
+            {isNewOrderModalOpen && <OrderFormModal order={orderToEdit} onClose={() => setIsNewOrderModalOpen(false)} onSave={handleSaveOrder} empanadaFlavors={empanadaFlavors} fullSizeEmpanadaFlavors={fullSizeEmpanadaFlavors} onAddNewFlavor={handleAddNewFlavor} onDelete={confirmDeleteOrder} pricing={safePricing} settings={safeSettings} existingOrders={orders} />}
+            {selectedOrder && <OrderDetailModal order={selectedOrder} onClose={() => setSelectedOrder(null)} onUpdateFollowUp={handleUpdateFollowUp} onEdit={(order) => { setSelectedOrder(null); setOrderToEdit(order); setIsNewOrderModalOpen(true); }} onApprove={selectedOrder.approvalStatus === ApprovalStatus.PENDING ? handleApproveOrder : undefined} onDeny={selectedOrder.approvalStatus === ApprovalStatus.PENDING ? handleDenyOrder : (orderId) => saveOrderToDb({ ...selectedOrder, approvalStatus: ApprovalStatus.CANCELLED })} onDelete={confirmDeleteOrder} onDeductInventory={handleDeductInventory} />}
+            {isImportModalOpen && <ImportOrderModal onClose={() => setIsImportModalOpen(false)} onOrdersImported={handleOrdersImported} onUpdateSheetUrl={handleUpdateSheetUrl} existingSignatures={importedSignatures} />}
+            {isSettingsOpen && <SettingsModal settings={safeSettings} onClose={() => setIsSettingsOpen(false)} />}
+            {isExpenseModalOpen && (
+                <ExpenseModal 
+                    expenses={expenses} 
+                    categories={safeSettings.expenseCategories} 
+                    onClose={() => setIsExpenseModalOpen(false)} 
+                    onSave={saveExpenseToDb} 
+                    onDelete={deleteExpenseFromDb} 
+                />
+            )}
+            {isPrepListOpen && <PrepListModal orders={activeOrders.filter(o => { const d = parseOrderDateTime(o); if (dateFilter.start) { const [y, m, d_start] = dateFilter.start.split('-').map(Number); if (d < new Date(y, m - 1, d_start)) return false; } if (dateFilter.end) { const [y, m, d_end] = dateFilter.end.split('-').map(Number); const end = new Date(y, m - 1, d_end); end.setHours(23,59,59,999); if (d > end) return false; } return true; })} settings={safeSettings} onClose={() => setIsPrepListOpen(false)} onUpdateSettings={updateSettingsInDb} />}
+            <ConfirmationModal isOpen={confirmModal.isOpen} title={confirmModal.title} message={confirmModal.message} onConfirm={confirmModal.onConfirm} onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))} isDangerous={true} confirmText="Delete" />
         </div>
     );
 }

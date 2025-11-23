@@ -42,7 +42,7 @@ export interface Order {
   totalFullSize: number;
   totalMini: number;
   amountCharged: number;
-  totalCost?: number;
+  totalCost?: number; // Calculated supply cost at the time of order
   deliveryRequired: boolean;
   deliveryFee: number;
   amountCollected: number | null;
@@ -60,11 +60,11 @@ export interface Expense {
     category: string;
     vendor: string;
     item: string;
-    unitName: string;
+    unitName: string; // e.g. 'lbs', 'box', 'unit'
     pricePerUnit: number;
     quantity: number;
     totalCost: number;
-    description?: string;
+    description?: string; // Optional notes
 }
 
 export interface Employee {
@@ -92,8 +92,8 @@ export interface Flavor {
     name: string;
     visible: boolean;
     description?: string;
-    surcharge?: number;
-    isSpecial?: boolean;
+    surcharge?: number; // Additional cost per unit
+    isSpecial?: boolean; // Belongs in "Specials" section
 }
 
 export interface MenuPackage {
@@ -102,10 +102,10 @@ export interface MenuPackage {
     itemType: 'mini' | 'full';
     quantity: number;
     price: number;
-    maxFlavors: number;
-    increment?: number;
+    maxFlavors: number; // Limit how many distinct flavors customer can pick
+    increment?: number; // Step size for buttons (e.g. 1, 5, 10). Defaults to 1.
     visible: boolean;
-    isSpecial?: boolean;
+    isSpecial?: boolean; // Belongs in "Specials/Platters" section
 }
 
 export interface SalsaProduct {
@@ -121,8 +121,8 @@ export interface PricingTier {
 }
 
 export interface ProductPricing {
-    basePrice: number;
-    tiers?: PricingTier[];
+    basePrice: number; // Fallback for single items
+    tiers?: PricingTier[]; // Volume discounts (e.g. 40+ items = cheaper price)
 }
 
 export interface PricingSettings {
@@ -130,6 +130,7 @@ export interface PricingSettings {
     full: ProductPricing;
     packages: MenuPackage[];
     salsas: SalsaProduct[];
+    // Deprecated but kept for type safety during migration if needed, though we will migrate away from them
     salsaSmall?: number; 
     salsaLarge?: number;
 }
