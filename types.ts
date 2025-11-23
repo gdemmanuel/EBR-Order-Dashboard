@@ -59,32 +59,8 @@ export interface Expense {
     id: string;
     date: string; // YYYY-MM-DD
     category: string;
-    vendor: string;
-    item: string;
-    unitName: string; // e.g. 'lbs', 'case', 'oz'
-    pricePerUnit: number;
-    quantity: number;
-    amount: number; // Total cost (price * qty)
-    description?: string; // Optional notes
-}
-
-export interface Employee {
-    id: string;
-    name: string;
-    hourlyRate: number;
-    color: string; // Hex code for calendar display
-    active: boolean;
-}
-
-export interface Shift {
-    id: string;
-    employeeId: string;
-    employeeName: string; // Denormalized for easier display
-    date: string; // YYYY-MM-DD
-    startTime: string; // HH:MM
-    endTime: string; // HH:MM
-    totalHours: number;
-    projectedCost: number; // hours * rate
+    description: string;
+    amount: number;
 }
 
 export interface Flavor {
