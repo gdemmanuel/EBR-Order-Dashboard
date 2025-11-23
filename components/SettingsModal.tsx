@@ -49,8 +49,8 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
     const [expenseCategories, setExpenseCategories] = useState<string[]>(settings.expenseCategories || []);
     const [newCategory, setNewCategory] = useState('');
 
-    // Employees
-    const [employees, setEmployees] = useState<Employee[]>(settings.employees || []);
+    // Employees - Initialize with a copy to avoid reference issues
+    const [employees, setEmployees] = useState<Employee[]>([...(settings.employees || [])]);
     const [newEmpName, setNewEmpName] = useState('');
     const [newEmpRate, setNewEmpRate] = useState('');
     const [newEmpMini, setNewEmpMini] = useState('');
@@ -89,7 +89,9 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
             name: `Full ${f.name}`, 
         }));
 
-        // Ensure clean objects for saving
+        // STRICT COPY of employees to ensure React state proxies don't interfere with Firebase
+        const cleanEmployees = employees.map(e => ({ ...e }));
+
         const settingsToSave: Partial<AppSettings> = {
             empanadaFlavors,
             fullSizeEmpanadaFlavors: syncedFullFlavors,
@@ -100,11 +102,10 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
             materialCosts,
             discoCosts,
             expenseCategories,
-            employees: [...employees] // Explicit copy of employees array
+            employees: cleanEmployees // Explicitly pass the clean array
         };
 
         try {
-            console.log("Saving settings:", settingsToSave);
             await updateSettingsInDb(settingsToSave);
         } catch (e) {
             console.error("Error saving settings", e);
@@ -154,7 +155,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
     const addCategory = () => { if (newCategory.trim() && !expenseCategories.includes(newCategory.trim())) { setExpenseCategories([...expenseCategories, newCategory.trim()]); setNewCategory(''); } };
     const removeCategory = (cat: string) => { setExpenseCategories(expenseCategories.filter(c => c !== cat)); };
 
-    // Employee Logic
+    // Employee Logic - Fixed to ensure state updates correctly
     const addOrUpdateEmployee = () => {
         if (newEmpName.trim() && newEmpRate) {
             const newEmp: Employee = {
@@ -168,9 +169,9 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
             };
             
             if (editingEmployeeId) {
-                setEmployees(employees.map(e => e.id === editingEmployeeId ? newEmp : e));
+                setEmployees(prev => prev.map(e => e.id === editingEmployeeId ? newEmp : e));
             } else {
-                setEmployees([...employees, newEmp]);
+                setEmployees(prev => [...prev, newEmp]);
             }
             
             setNewEmpName(''); setNewEmpRate(''); setNewEmpMini(''); setNewEmpFull(''); setEditingEmployeeId(null);
@@ -191,7 +192,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
     };
 
     const removeEmployee = (id: string) => { 
-        setEmployees(employees.filter(e => e.id !== id)); 
+        setEmployees(prev => prev.filter(e => e.id !== id)); 
         if (editingEmployeeId === id) handleCancelEditEmployee();
     };
 
