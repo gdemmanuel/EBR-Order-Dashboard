@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+
+import React, { useState, useMemo } from 'react';
 import { Expense } from '../types';
-import { XMarkIcon, PlusIcon, TrashIcon, CalendarIcon, CurrencyDollarIcon, DocumentTextIcon } from './icons/Icons';
+import { XMarkIcon, PlusIcon, TrashIcon, CalendarIcon, CurrencyDollarIcon, DocumentTextIcon, ListBulletIcon } from './icons/Icons';
 
 interface ExpenseModalProps {
     expenses: Expense[];
@@ -9,6 +10,8 @@ interface ExpenseModalProps {
     onSave: (expense: Expense) => Promise<void>;
     onDelete: (id: string) => Promise<void>;
 }
+
+type SortKey = 'date' | 'category' | 'vendor' | 'item' | 'totalCost';
 
 export default function ExpenseModal({ expenses, categories, onClose, onSave, onDelete }: ExpenseModalProps) {
     const [activeTab, setActiveTab] = useState<'add' | 'list'>('add');
@@ -21,35 +24,27 @@ export default function ExpenseModal({ expenses, categories, onClose, onSave, on
     const [unitName, setUnitName] = useState('');
     const [pricePerUnit, setPricePerUnit] = useState('');
     const [quantity, setQuantity] = useState('');
-    const [description, setDescription] = useState(''); // Optional notes
+    const [description, setDescription] = useState(''); 
     
     const [isSaving, setIsSaving] = useState(false);
     const [saveSuccess, setSaveSuccess] = useState(false);
     const [validationError, setValidationError] = useState<string | null>(null);
 
-    // Derived Total with Safety Checks
-    const priceNum = parseFloat(pricePerUnit);
-    const qtyNum = parseFloat(quantity);
-    const calculatedTotal = (isNaN(priceNum) ? 0 : priceNum) * (isNaN(qtyNum) ? 0 : qtyNum);
+    // Sorting State
+    const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' }>({ key: 'date', direction: 'desc' });
+
+    // Derived Total
+    const calculatedTotal = (parseFloat(pricePerUnit) || 0) * (parseFloat(quantity) || 0);
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
         setValidationError(null);
         setSaveSuccess(false);
 
-        // STRICT VALIDATION
         if (!vendor.trim()) { setValidationError("Vendor Name is required."); return; }
         if (!item.trim()) { setValidationError("Item Name is required."); return; }
-        
-        // Check for valid numbers
-        if (!pricePerUnit || isNaN(parseFloat(pricePerUnit)) || parseFloat(pricePerUnit) < 0) { 
-            setValidationError("Price must be a valid number."); 
-            return; 
-        }
-        if (!quantity || isNaN(parseFloat(quantity)) || parseFloat(quantity) <= 0) { 
-            setValidationError("Quantity must be greater than 0."); 
-            return; 
-        }
+        if (!pricePerUnit || parseFloat(pricePerUnit) <= 0) { setValidationError("Price is required."); return; }
+        if (!quantity || parseFloat(quantity) <= 0) { setValidationError("Quantity is required."); return; }
 
         setIsSaving(true);
         try {
@@ -59,29 +54,25 @@ export default function ExpenseModal({ expenses, categories, onClose, onSave, on
                 category,
                 vendor,
                 item,
-                unitName: unitName || '', // Ensure string
+                unitName: unitName || '', 
                 pricePerUnit: parseFloat(pricePerUnit),
                 quantity: parseFloat(quantity),
                 totalCost: calculatedTotal,
-                description: description || '' // Ensure string
+                description: description || '' 
             };
             
             await onSave(newExpense);
-            
-            // Success Feedback
             setSaveSuccess(true);
             
-            // Reset form specific fields (keep date/category/vendor for speed of multiple entries)
             setItem('');
             setPricePerUnit('');
             setQuantity('');
             setDescription('');
             
-            // Auto-switch to list view after short delay
             setTimeout(() => {
                  setSaveSuccess(false);
                  setActiveTab('list');
-            }, 1500);
+            }, 1000);
             
         } catch (error: any) {
             console.error("Failed to save expense", error);
@@ -97,9 +88,51 @@ export default function ExpenseModal({ expenses, categories, onClose, onSave, on
         }
     };
 
+    // Sorting Logic
+    const handleSort = (key: SortKey) => {
+        let direction: 'asc' | 'desc' = 'asc';
+        if (sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    };
+
+    const sortedExpenses = useMemo(() => {
+        let sortableItems = [...expenses];
+        sortableItems.sort((a, b) => {
+            let aVal: any = a[sortConfig.key];
+            let bVal: any = b[sortConfig.key];
+
+            // Handle numeric sorts
+            if (sortConfig.key === 'totalCost') {
+                aVal = a.totalCost || 0;
+                bVal = b.totalCost || 0;
+            }
+
+            if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+        return sortableItems;
+    }, [expenses, sortConfig]);
+
+    const SortHeader = ({ label, skey }: { label: string, skey: SortKey }) => (
+        <th 
+            className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 hover:text-brand-orange transition-colors select-none"
+            onClick={() => handleSort(skey)}
+        >
+            <div className="flex items-center gap-1">
+                {label}
+                {sortConfig.key === skey && (
+                    <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+                )}
+            </div>
+        </th>
+    );
+
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fade-in">
-            <div className="bg-white rounded-lg shadow-2xl w-full max-w-lg flex flex-col border border-brand-tan max-h-[90vh]">
+            <div className="bg-white rounded-lg shadow-2xl w-full max-w-4xl flex flex-col border border-brand-tan max-h-[90vh]">
                 <header className="p-6 border-b border-brand-tan flex justify-between items-center">
                     <h2 className="text-2xl font-serif text-brand-brown">Expense Manager</h2>
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
@@ -112,125 +145,152 @@ export default function ExpenseModal({ expenses, categories, onClose, onSave, on
                         className={`flex-1 py-3 text-sm font-medium ${activeTab === 'add' ? 'text-brand-orange border-b-2 border-brand-orange' : 'text-gray-500 hover:bg-gray-50'}`}
                         onClick={() => setActiveTab('add')}
                     >
-                        Add Entry
+                        <div className="flex items-center justify-center gap-2">
+                            <PlusIcon className="w-4 h-4" /> Add Entry
+                        </div>
                     </button>
                     <button 
                         className={`flex-1 py-3 text-sm font-medium ${activeTab === 'list' ? 'text-brand-orange border-b-2 border-brand-orange' : 'text-gray-500 hover:bg-gray-50'}`}
                         onClick={() => setActiveTab('list')}
                     >
-                        History ({expenses.length})
+                        <div className="flex items-center justify-center gap-2">
+                            <ListBulletIcon className="w-4 h-4" /> History ({expenses.length})
+                        </div>
                     </button>
                 </div>
 
-                <div className="p-6 overflow-y-auto flex-grow">
+                <div className="p-6 overflow-y-auto flex-grow bg-gray-50">
                     {activeTab === 'add' && (
-                        <form onSubmit={handleSave} className="space-y-4">
-                            {saveSuccess && (
-                                <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-2 rounded relative mb-4 text-sm flex justify-between items-center">
-                                    <span className="font-bold">Item Saved Successfully!</span>
-                                    <button type="button" onClick={() => setActiveTab('list')} className="underline font-semibold hover:text-green-900">View History &rarr;</button>
-                                </div>
-                            )}
-                            
-                            {validationError && (
-                                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded relative mb-4 text-sm">
-                                    <strong>Error:</strong> {validationError}
-                                </div>
-                            )}
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-700 mb-1">Date</label>
-                                    <div className="relative">
-                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><CalendarIcon className="w-4 h-4 text-gray-400"/></div>
-                                        <input type="date" required value={date} onChange={e => setDate(e.target.value)} className="pl-9 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
+                        <div className="max-w-lg mx-auto bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+                            <form onSubmit={handleSave} className="space-y-4">
+                                {saveSuccess && (
+                                    <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-2 rounded relative mb-4 text-sm flex justify-between items-center">
+                                        <span className="font-bold">Item Saved Successfully!</span>
+                                        <button type="button" onClick={() => setActiveTab('list')} className="underline font-semibold hover:text-green-900">View List</button>
                                     </div>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-700 mb-1">Category</label>
-                                    <select value={category} onChange={e => setCategory(e.target.value)} className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm">
-                                        {categories.map(c => <option key={c} value={c}>{c}</option>)}
-                                    </select>
-                                </div>
-                            </div>
+                                )}
+                                
+                                {validationError && (
+                                    <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded relative mb-4 text-sm">
+                                        <strong>Error:</strong> {validationError}
+                                    </div>
+                                )}
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-700 mb-1">Vendor <span className="text-red-500">*</span></label>
-                                    <input type="text" required value={vendor} onChange={e => setVendor(e.target.value)} placeholder="e.g. Costco" className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-700 mb-1">Item Name <span className="text-red-500">*</span></label>
-                                    <input type="text" required value={item} onChange={e => setItem(e.target.value)} placeholder="e.g. Ground Beef" className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
-                                </div>
-                            </div>
-
-                            <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-3">
-                                <div className="grid grid-cols-3 gap-3">
+                                <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-xs font-bold text-gray-700 mb-1">Price ($) <span className="text-red-500">*</span></label>
-                                        <input type="number" step="0.01" required value={pricePerUnit} onChange={e => setPricePerUnit(e.target.value)} placeholder="0.00" className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
+                                        <label className="block text-xs font-bold text-gray-700 mb-1">Date</label>
+                                        <div className="relative">
+                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><CalendarIcon className="w-4 h-4 text-gray-400"/></div>
+                                            <input type="date" required value={date} onChange={e => setDate(e.target.value)} className="pl-9 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
+                                        </div>
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-bold text-gray-700 mb-1">Unit</label>
-                                        <input type="text" value={unitName} onChange={e => setUnitName(e.target.value)} placeholder="lbs, box" className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
+                                        <label className="block text-xs font-bold text-gray-700 mb-1">Category</label>
+                                        <select value={category} onChange={e => setCategory(e.target.value)} className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm">
+                                            {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-700 mb-1">Vendor <span className="text-red-500">*</span></label>
+                                        <input type="text" required value={vendor} onChange={e => setVendor(e.target.value)} placeholder="e.g. Costco" className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-bold text-gray-700 mb-1">Qty <span className="text-red-500">*</span></label>
-                                        <input type="number" step="0.01" required value={quantity} onChange={e => setQuantity(e.target.value)} placeholder="1" className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
+                                        <label className="block text-xs font-bold text-gray-700 mb-1">Item Name <span className="text-red-500">*</span></label>
+                                        <input type="text" required value={item} onChange={e => setItem(e.target.value)} placeholder="e.g. Ground Beef" className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
+                                    </div>
+                                </div>
+
+                                <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-3">
+                                    <div className="grid grid-cols-3 gap-3">
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-700 mb-1">Price ($) <span className="text-red-500">*</span></label>
+                                            <input type="number" step="0.01" required value={pricePerUnit} onChange={e => setPricePerUnit(e.target.value)} placeholder="0.00" className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-700 mb-1">Unit</label>
+                                            <input type="text" value={unitName} onChange={e => setUnitName(e.target.value)} placeholder="lbs, box" className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-700 mb-1">Qty <span className="text-red-500">*</span></label>
+                                            <input type="number" step="0.01" required value={quantity} onChange={e => setQuantity(e.target.value)} placeholder="1" className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex justify-between items-center pt-2 border-t border-gray-200">
+                                        <span className="text-sm font-bold text-gray-600">Total Item Cost:</span>
+                                        <span className="text-xl font-bold text-brand-orange">${calculatedTotal.toFixed(2)}</span>
                                     </div>
                                 </div>
                                 
-                                <div className="flex justify-between items-center pt-2 border-t border-gray-200">
-                                    <span className="text-sm font-bold text-gray-600">Total Item Cost:</span>
-                                    <span className="text-xl font-bold text-brand-orange">${calculatedTotal.toFixed(2)}</span>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-700 mb-1">Notes (Optional)</label>
+                                    <div className="relative">
+                                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><DocumentTextIcon className="w-4 h-4 text-gray-400"/></div>
+                                        <input type="text" value={description} onChange={e => setDescription(e.target.value)} placeholder="Extra details..." className="pl-9 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
+                                    </div>
                                 </div>
-                            </div>
-                            
-                             <div>
-                                <label className="block text-xs font-bold text-gray-700 mb-1">Notes (Optional)</label>
-                                <div className="relative">
-                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><DocumentTextIcon className="w-4 h-4 text-gray-400"/></div>
-                                    <input type="text" value={description} onChange={e => setDescription(e.target.value)} placeholder="Extra details..." className="pl-9 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
-                                </div>
-                            </div>
 
-                            <button type="submit" disabled={isSaving} className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand-orange hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-orange disabled:opacity-50">
-                                {isSaving ? 'Saving...' : <><PlusIcon className="w-4 h-4" /> Save Expense</>}
-                            </button>
-                        </form>
+                                <button type="submit" disabled={isSaving} className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand-orange hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-orange disabled:opacity-50">
+                                    {isSaving ? 'Saving...' : <><PlusIcon className="w-4 h-4" /> Save Expense</>}
+                                </button>
+                            </form>
+                        </div>
                     )}
 
                     {activeTab === 'list' && (
-                        <div className="space-y-2">
+                        <div className="overflow-hidden bg-white border border-gray-200 rounded-lg shadow-sm">
                             {expenses.length === 0 ? (
-                                <p className="text-center text-gray-500 text-sm py-4">No expenses recorded yet.</p>
+                                <p className="text-center text-gray-500 text-sm py-8">No expenses recorded yet.</p>
                             ) : (
-                                expenses
-                                .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                                .map(expense => (
-                                    <div key={expense.id} className="p-3 bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow">
-                                        <div className="flex justify-between items-start">
-                                            <div>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-xs font-bold text-white bg-gray-500 px-1.5 py-0.5 rounded">{expense.category}</span>
-                                                    <span className="text-xs text-gray-400">{expense.date}</span>
-                                                </div>
-                                                <p className="font-bold text-brand-brown mt-1">{expense.vendor} - {expense.item}</p>
-                                                <p className="text-xs text-gray-600">
-                                                    {expense.quantity} {expense.unitName} @ ${expense.pricePerUnit}/{expense.unitName}
-                                                </p>
-                                                {expense.description && <p className="text-xs text-gray-400 italic">{expense.description}</p>}
-                                            </div>
-                                            <div className="text-right">
-                                                <p className="text-lg font-bold text-red-600">-${expense.totalCost.toFixed(2)}</p>
-                                                <button onClick={() => handleDelete(expense.id)} className="text-xs text-gray-400 hover:text-red-500 mt-1 flex items-center justify-end gap-1 ml-auto">
-                                                    <TrashIcon className="w-3 h-3" /> Remove
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))
+                                <div className="overflow-x-auto">
+                                    <table className="min-w-full divide-y divide-gray-200">
+                                        <thead className="bg-gray-50">
+                                            <tr>
+                                                <SortHeader label="Date" skey="date" />
+                                                <SortHeader label="Vendor" skey="vendor" />
+                                                <SortHeader label="Category" skey="category" />
+                                                <SortHeader label="Item / Details" skey="item" />
+                                                <SortHeader label="Cost" skey="totalCost" />
+                                                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="bg-white divide-y divide-gray-200 text-sm">
+                                            {sortedExpenses.map((expense) => (
+                                                <tr key={expense.id} className="hover:bg-gray-50 transition-colors">
+                                                    <td className="px-4 py-3 whitespace-nowrap text-gray-900 font-medium">
+                                                        {expense.date}
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-gray-700">
+                                                        {expense.vendor}
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap">
+                                                        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
+                                                            {expense.category}
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-4 py-3 text-gray-600">
+                                                        <div className="font-medium">{expense.item}</div>
+                                                        <div className="text-xs text-gray-400">
+                                                            {expense.quantity} {expense.unitName} @ ${expense.pricePerUnit}
+                                                        </div>
+                                                        {expense.description && <div className="text-xs text-gray-400 italic">{expense.description}</div>}
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap font-bold text-red-600">
+                                                        ${(expense.totalCost || 0).toFixed(2)}
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-right">
+                                                        <button onClick={() => handleDelete(expense.id)} className="text-gray-400 hover:text-red-500 transition-colors">
+                                                            <TrashIcon className="w-4 h-4" />
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
                             )}
                         </div>
                     )}

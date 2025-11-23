@@ -1,3 +1,4 @@
+
 import { 
     collection, 
     doc, 
@@ -10,7 +11,7 @@ import {
     writeBatch
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
-import { Order, ApprovalStatus, PricingSettings, Flavor, Expense } from "../types";
+import { Order, ApprovalStatus, PricingSettings, Flavor, Expense, AppSettings } from "../types";
 import { initialEmpanadaFlavors, initialFullSizeEmpanadaFlavors } from "../data/mockData";
 
 // Collection References
@@ -19,34 +20,8 @@ const EXPENSES_COLLECTION = "expenses";
 const SETTINGS_COLLECTION = "app_settings";
 const GENERAL_SETTINGS_DOC = "general";
 
-export interface AppSettings {
-    empanadaFlavors: Flavor[];
-    fullSizeEmpanadaFlavors: Flavor[];
-    sheetUrl: string;
-    importedSignatures: string[];
-    pricing: PricingSettings;
-    prepSettings: {
-        lbsPer20: Record<string, number>; 
-        fullSizeMultiplier: number; 
-        discosPer: { mini: number; full: number; };
-        discoPackSize: { mini: number; full: number; };
-        productionRates: { mini: number; full: number; };
-    };
-    scheduling: {
-        enabled: boolean;
-        intervalMinutes: number;
-        startTime: string;
-        endTime: string;
-        blockedDates: string[];
-        closedDays: number[];
-        dateOverrides: Record<string, { isClosed: boolean; customHours?: { start: string; end: string; }; }>; 
-    };
-    laborWage: number; 
-    materialCosts: Record<string, number>; 
-    discoCosts: { mini: number; full: number; };
-    inventory: Record<string, { mini: number; full: number }>;
-    expenseCategories: string[];
-}
+// Re-export AppSettings for compatibility with other components
+export type { AppSettings };
 
 const DEFAULT_SETTINGS: AppSettings = {
     empanadaFlavors: initialEmpanadaFlavors.map(f => ({ name: f, visible: true })),
