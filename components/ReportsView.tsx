@@ -158,6 +158,12 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
         </th>
     );
 
+    const handleDeleteClick = (id: string) => {
+        if (onDeleteExpense && window.confirm("Delete this expense entry?")) {
+            onDeleteExpense(id);
+        }
+    };
+
     return (
         <div className="space-y-8">
              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -243,11 +249,7 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
                                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                             {onDeleteExpense && (
                                                 <button 
-                                                    onClick={() => {
-                                                        if (window.confirm('Are you sure you want to delete this expense?')) {
-                                                            onDeleteExpense(expense.id);
-                                                        }
-                                                    }} 
+                                                    onClick={() => handleDeleteClick(expense.id)} 
                                                     className="text-gray-400 hover:text-red-600"
                                                 >
                                                     <TrashIcon className="w-4 h-4" />
