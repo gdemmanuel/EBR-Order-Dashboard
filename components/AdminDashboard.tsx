@@ -69,11 +69,18 @@ export default function AdminDashboard({
     const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
     const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; title: string; message: string; onConfirm: () => void; }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
 
-    // Local Expenses State
+    // Local Expenses State - CRITICAL FOR EXPENSES TO APPEAR
     const [expenses, setExpenses] = useState<Expense[]>([]);
 
+    // Subscribe to Expenses on Mount
     useEffect(() => {
-        const unsubscribe = subscribeToExpenses(setExpenses);
+        console.log("Subscribing to expenses...");
+        const unsubscribe = subscribeToExpenses((newExpenses) => {
+            console.log("Expenses updated:", newExpenses);
+            setExpenses(newExpenses);
+        }, (error) => {
+            console.error("Failed to subscribe to expenses:", error);
+        });
         return () => unsubscribe();
     }, []);
 
