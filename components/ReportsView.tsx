@@ -495,7 +495,10 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                                     <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                                     <YAxis tick={{ fontSize: 12 }} />
-                                    <Tooltip contentStyle={{ borderRadius: '8px' }} />
+                                    <Tooltip 
+                                        contentStyle={{ borderRadius: '8px' }}
+                                        formatter={(value: number) => `$${value.toFixed(2)}`}
+                                    />
                                     <Legend />
                                     <Bar dataKey="Revenue" fill="#10b981" radius={[4, 4, 0, 0]} onClick={handleRevenueClick} cursor="pointer" />
                                     <Bar dataKey="Expenses" fill="#ef4444" radius={[4, 4, 0, 0]} onClick={handleExpenseClick} cursor="pointer" />

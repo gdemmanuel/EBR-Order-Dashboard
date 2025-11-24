@@ -123,7 +123,7 @@ export default function DashboardMetrics({ stats, orders, empanadaFlavors, fullS
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
                 <StatCard 
                     title="Total Revenue" 
-                    value={`$${stats.totalRevenue.toLocaleString()}`} 
+                    value={`$${stats.totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} 
                     icon={<TrendingUpIcon className="w-6 h-6" />} 
                     colorClass="bg-green-600"
                 />
