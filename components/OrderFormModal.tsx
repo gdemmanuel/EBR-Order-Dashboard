@@ -139,6 +139,14 @@ const formatDateToYYYYMMDD = (dateStr: string | undefined): string => {
     return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 };
 
+const getLocalTodayDate = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
 export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors, fullSizeEmpanadaFlavors, onAddNewFlavor, onDelete, pricing, settings, existingOrders = [] }: OrderFormModalProps) {
     const [customerName, setCustomerName] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
@@ -182,6 +190,13 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
     // Filtered Flavor Lists
     const standardFlavors = empanadaFlavors;
     const specialFlavors = empanadaFlavors.filter(f => f.isSpecial);
+    
+    const salsaFlavors: Flavor[] = useMemo(() => 
+        (pricing.salsas || [])
+            .filter(s => s.visible)
+            .map(s => ({ name: s.name, visible: true, description: 'Dipping Sauce' })),
+        [pricing.salsas]
+    );
 
     // Extract unique customers from existing orders for auto-fill
     const uniqueCustomers = useMemo(() => {
@@ -688,7 +703,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                                 <input type="date" value={pickupDate} onChange={e => { setPickupDate(e.target.value); setPickupTime(''); }} required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown" />
                                 <button 
                                     type="button"
-                                    onClick={() => setPickupDate(new Date().toISOString().split('T')[0])}
+                                    onClick={() => { setPickupDate(getLocalTodayDate()); setPickupTime(''); }}
                                     className="mt-1 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-md text-xs font-semibold text-gray-600 border border-gray-300"
                                 >
                                     Today
@@ -905,7 +920,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                 {activePackageBuilder && (
                     <PackageBuilderModal 
                         pkg={activePackageBuilder}
-                        flavors={activePackageBuilder.isSpecial ? specialFlavors : standardFlavors}
+                        flavors={[...(activePackageBuilder.isSpecial ? specialFlavors : standardFlavors), ...salsaFlavors]}
                         onClose={() => setActivePackageBuilder(null)}
                         onConfirm={handlePackageConfirm}
                     />

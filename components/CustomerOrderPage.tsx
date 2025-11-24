@@ -290,6 +290,13 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
     const allVisibleFlavors = empanadaFlavors.filter(f => f.visible);
     const standardFlavors = allVisibleFlavors.filter(f => !f.isSpecial);
     const specialFlavors = allVisibleFlavors.filter(f => f.isSpecial);
+    
+    const salsaFlavors: Flavor[] = useMemo(() => 
+        (safePricing.salsas || [])
+            .filter(s => s.visible)
+            .map(s => ({ name: s.name, visible: true, description: 'Dipping Sauce' })),
+        [safePricing.salsas]
+    );
 
     const isDateBlocked = (dateStr: string) => {
         if (!scheduling?.enabled) return false;
@@ -625,7 +632,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                 {activePackageBuilder && (
                     <PackageBuilderModal 
                         pkg={activePackageBuilder} 
-                        flavors={allVisibleFlavors} 
+                        flavors={[...allVisibleFlavors, ...salsaFlavors]} 
                         onClose={() => setActivePackageBuilder(null)} 
                         onConfirm={handlePackageConfirm}
                     />
