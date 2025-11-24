@@ -182,7 +182,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
     
     // Customer Suggestions State
     const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
-    const [filteredCustomers, setFilteredCustomers] = useState<{name: string, phone: string | null, method: string}[]>([]);
+    const [filteredCustomers, setFilteredCustomers] = useState<{name: string, phone: string | null, method: string, address: string | null}[]>([]);
 
     // Package Builder State
     const [activePackageBuilder, setActivePackageBuilder] = useState<MenuPackage | null>(null);
@@ -200,13 +200,14 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
 
     // Extract unique customers from existing orders for auto-fill
     const uniqueCustomers = useMemo(() => {
-        const customers = new Map<string, {name: string, phone: string | null, method: string}>();
+        const customers = new Map<string, {name: string, phone: string | null, method: string, address: string | null}>();
         existingOrders.forEach(o => {
             if (o.customerName && !customers.has(o.customerName.toLowerCase())) {
                 customers.set(o.customerName.toLowerCase(), {
                     name: o.customerName,
                     phone: o.phoneNumber,
-                    method: o.contactMethod
+                    method: o.contactMethod,
+                    address: o.deliveryAddress
                 });
             }
         });
@@ -227,7 +228,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         }
     };
 
-    const selectCustomer = (customer: {name: string, phone: string | null, method: string}) => {
+    const selectCustomer = (customer: {name: string, phone: string | null, method: string, address: string | null}) => {
         setCustomerName(customer.name);
         if (customer.phone) setPhoneNumber(customer.phone);
         
@@ -237,6 +238,12 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         } else {
             setContactMethod('Other');
             setCustomContactMethod(customer.method);
+        }
+
+        // Auto-populate delivery address if available
+        if (customer.address) {
+            setDeliveryAddress(customer.address);
+            setDeliveryRequired(true);
         }
         
         setShowCustomerSuggestions(false);
@@ -678,7 +685,10 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                                             className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-brand-tan/30 flex justify-between items-center"
                                         >
                                             <span className="font-medium">{customer.name}</span>
-                                            <span className="text-xs text-gray-500">{customer.phone || 'No Phone'}</span>
+                                            <div className="text-right">
+                                                <span className="text-xs text-gray-500 block">{customer.phone || 'No Phone'}</span>
+                                                {customer.address && <span className="text-[10px] text-green-600 block truncate max-w-[120px]">📍 {customer.address}</span>}
+                                            </div>
                                         </button>
                                     ))}
                                 </div>
