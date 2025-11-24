@@ -61,6 +61,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
 
     const [newFlavorName, setNewFlavorName] = useState('');
     const [isSaving, setIsSaving] = useState(false);
+    const [saveError, setSaveError] = useState<string | null>(null);
 
     // Package Form State
     const [packageForm, setPackageForm] = useState<Partial<MenuPackage>>({
@@ -84,26 +85,101 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
 
     const handleSave = async () => {
         setIsSaving(true);
+        setSaveError(null);
         
-        const syncedFullFlavors: Flavor[] = empanadaFlavors.map(f => ({
-            ...f,
-            name: `Full ${f.name}`, 
-        }));
+        try {
+            // Sanitize Prep Settings to prevent NaN
+            const sanitizedPrepSettings = {
+                ...prepSettings,
+                fullSizeMultiplier: Number(prepSettings.fullSizeMultiplier) || 0,
+                discosPer: {
+                    mini: Number(prepSettings.discosPer?.mini) || 1,
+                    full: Number(prepSettings.discosPer?.full) || 1
+                },
+                discoPackSize: {
+                    mini: Number(prepSettings.discoPackSize?.mini) || 10,
+                    full: Number(prepSettings.discoPackSize?.full) || 10
+                },
+                productionRates: {
+                    mini: Number(prepSettings.productionRates?.mini) || 0,
+                    full: Number(prepSettings.productionRates?.full) || 0
+                },
+                lbsPer20: Object.entries(prepSettings.lbsPer20 || {}).reduce((acc, [k, v]) => {
+                    acc[k] = Number(v) || 0;
+                    return acc;
+                }, {} as Record<string, number>)
+            };
 
-        await updateSettingsInDb({
-            empanadaFlavors,
-            fullSizeEmpanadaFlavors: syncedFullFlavors,
-            pricing,
-            prepSettings,
-            scheduling,
-            laborWage,
-            materialCosts,
-            discoCosts,
-            expenseCategories,
-            employees // Save Employees
-        });
-        setIsSaving(false);
-        onClose();
+            // Sanitize Pricing
+            const sanitizedPricing = {
+                ...pricing,
+                mini: {
+                    ...pricing.mini,
+                    basePrice: Number(pricing.mini.basePrice) || 0,
+                    tiers: (pricing.mini.tiers || []).map(t => ({ ...t, minQuantity: Number(t.minQuantity) || 0, price: Number(t.price) || 0 }))
+                },
+                full: {
+                    ...pricing.full,
+                    basePrice: Number(pricing.full.basePrice) || 0,
+                    tiers: (pricing.full.tiers || []).map(t => ({ ...t, minQuantity: Number(t.minQuantity) || 0, price: Number(t.price) || 0 }))
+                },
+                salsas: (pricing.salsas || []).map(s => ({ ...s, price: Number(s.price) || 0 })),
+                packages: (pricing.packages || []).map(p => ({
+                    ...p,
+                    quantity: Number(p.quantity) || 0,
+                    price: Number(p.price) || 0,
+                    maxFlavors: Number(p.maxFlavors) || 0,
+                    increment: Number(p.increment) || 1
+                }))
+            };
+
+            // Sanitize Employees
+            const sanitizedEmployees = employees.map(e => ({
+                ...e,
+                hourlyWage: Number(e.hourlyWage) || 0,
+                productionRates: {
+                    mini: Number(e.productionRates?.mini) || 0,
+                    full: Number(e.productionRates?.full) || 0
+                }
+            }));
+
+            // Sanitize Costs
+            const sanitizedMaterialCosts = Object.entries(materialCosts).reduce((acc, [k, v]) => {
+                acc[k] = Number(v) || 0;
+                return acc;
+            }, {} as Record<string, number>);
+
+            const sanitizedDiscoCosts = {
+                mini: Number(discoCosts.mini) || 0,
+                full: Number(discoCosts.full) || 0
+            };
+
+            // Sync flavors
+            const syncedFullFlavors: Flavor[] = empanadaFlavors.map(f => ({
+                ...f,
+                name: `Full ${f.name}`, 
+            }));
+
+            await updateSettingsInDb({
+                empanadaFlavors,
+                fullSizeEmpanadaFlavors: syncedFullFlavors,
+                pricing: sanitizedPricing,
+                prepSettings: sanitizedPrepSettings,
+                scheduling,
+                laborWage: Number(laborWage) || 0,
+                materialCosts: sanitizedMaterialCosts,
+                discoCosts: sanitizedDiscoCosts,
+                expenseCategories,
+                employees: sanitizedEmployees
+            });
+            
+            onClose();
+        } catch (e: any) {
+            console.error("Save Settings Error:", e);
+            setSaveError("Failed to save settings. " + (e.message || "Please check your connection."));
+        } finally {
+            setIsSaving(false);
+        }
     };
 
     const addFlavor = () => { if (newFlavorName.trim()) { setEmpanadaFlavors([...empanadaFlavors, { name: newFlavorName.trim(), visible: true, isSpecial: false }]); setNewFlavorName(''); } };
@@ -738,12 +814,17 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                     </div>
                 </div>
 
-                <footer className="p-4 border-t border-brand-tan flex justify-end gap-3 bg-white flex-shrink-0">
-                    <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium transition-colors">Cancel</button>
-                    <button onClick={handleSave} disabled={isSaving} className="px-6 py-2 bg-brand-orange text-white font-bold rounded-lg hover:bg-opacity-90 transition-all shadow-md flex items-center gap-2">
-                        {isSaving ? <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div> : <CheckCircleIcon className="w-5 h-5" />}
-                        Save Settings
-                    </button>
+                <footer className="p-4 border-t border-brand-tan flex justify-between items-center bg-white flex-shrink-0">
+                    <div className="text-sm text-red-600 font-medium max-w-md truncate px-2">
+                        {saveError}
+                    </div>
+                    <div className="flex gap-3">
+                        <button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium transition-colors">Cancel</button>
+                        <button onClick={handleSave} disabled={isSaving} className="px-6 py-2 bg-brand-orange text-white font-bold rounded-lg hover:bg-opacity-90 transition-all shadow-md flex items-center gap-2">
+                            {isSaving ? <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div> : <CheckCircleIcon className="w-5 h-5" />}
+                            Save Settings
+                        </button>
+                    </div>
                 </footer>
             </div>
         </div>

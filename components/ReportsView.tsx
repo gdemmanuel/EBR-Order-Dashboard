@@ -4,7 +4,7 @@ import { Order, Expense, AppSettings, WorkShift } from '../types';
 import { calculateSupplyCost } from '../utils/pricingUtils';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { parseOrderDateTime } from '../utils/dateUtils';
-import { TrashIcon, CurrencyDollarIcon, ShoppingBagIcon, UsersIcon, PresentationChartBarIcon, ChartPieIcon, ClockIcon } from './icons/Icons';
+import { TrashIcon, CurrencyDollarIcon, ShoppingBagIcon, UsersIcon, PresentationChartBarIcon, ChartPieIcon, ClockIcon, XMarkIcon, ListBulletIcon } from './icons/Icons';
 
 interface ReportsViewProps {
     orders: Order[];
@@ -20,9 +20,114 @@ const COLORS = ['#c8441c', '#eab308', '#3b82f6', '#a855f7', '#10b981', '#6366f1'
 type SortKey = 'date' | 'category' | 'vendor' | 'item' | 'totalCost';
 type ReportTab = 'financials' | 'labor' | 'operations';
 
+// Drill Down Modal Component
+const DrillDownModal = ({ 
+    title, 
+    items, 
+    type, 
+    onClose 
+}: { 
+    title: string, 
+    items: any[], 
+    type: 'orders' | 'expenses' | 'shifts' | 'mixed', 
+    onClose: () => void 
+}) => {
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4 animate-fade-in">
+            <div className="bg-white rounded-lg shadow-2xl w-full max-w-4xl max-h-[80vh] flex flex-col border border-brand-tan">
+                <header className="p-4 border-b border-brand-tan flex justify-between items-center bg-gray-50 rounded-t-lg">
+                    <h3 className="text-xl font-serif text-brand-brown">{title}</h3>
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-200">
+                        <XMarkIcon className="w-6 h-6" />
+                    </button>
+                </header>
+                <div className="overflow-y-auto p-0 flex-grow">
+                    <table className="min-w-full divide-y divide-gray-200 text-sm">
+                        <thead className="bg-gray-50 sticky top-0 shadow-sm">
+                            <tr>
+                                <th className="px-4 py-3 text-left font-medium text-gray-500">Date</th>
+                                <th className="px-4 py-3 text-left font-medium text-gray-500">
+                                    {type === 'orders' ? 'Customer' : (type === 'shifts' ? 'Employee' : 'Name/Vendor')}
+                                </th>
+                                <th className="px-4 py-3 text-left font-medium text-gray-500">Details</th>
+                                <th className="px-4 py-3 text-right font-medium text-gray-500">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-100">
+                            {items.length === 0 ? (
+                                <tr><td colSpan={4} className="px-4 py-8 text-center text-gray-500">No records found.</td></tr>
+                            ) : (
+                                items.map((item, idx) => {
+                                    // Normalize Data for display
+                                    let date = '';
+                                    let name = '';
+                                    let details = '';
+                                    let amount = 0;
+                                    let amountColor = 'text-gray-900';
+
+                                    if (type === 'orders') {
+                                        date = item.pickupDate;
+                                        name = item.customerName;
+                                        details = `${item.totalMini + item.totalFullSize} items (${item.items.length} types)`;
+                                        amount = item.amountCharged;
+                                        amountColor = 'text-green-600';
+                                    } else if (type === 'shifts') {
+                                        date = item.date;
+                                        name = item.employeeName;
+                                        details = `${item.hours.toFixed(1)} hrs (${item.startTime}-${item.endTime})`;
+                                        amount = item.totalPay;
+                                        amountColor = 'text-red-600';
+                                    } else if (type === 'expenses' || type === 'mixed') {
+                                        // Check if it's a shift object disguised or real expense
+                                        if (item.employeeName) { // It's a shift
+                                            date = item.date;
+                                            name = item.employeeName;
+                                            details = `Labor: ${item.hours.toFixed(1)} hrs`;
+                                            amount = item.totalPay;
+                                        } else { // It's an expense
+                                            date = item.date;
+                                            name = item.vendor;
+                                            details = `${item.category}: ${item.item}`;
+                                            amount = item.totalCost;
+                                        }
+                                        amountColor = 'text-red-600';
+                                    }
+
+                                    return (
+                                        <tr key={idx} className="hover:bg-gray-50">
+                                            <td className="px-4 py-3 whitespace-nowrap text-gray-600">{date}</td>
+                                            <td className="px-4 py-3 font-medium text-gray-900">{name}</td>
+                                            <td className="px-4 py-3 text-gray-500 truncate max-w-xs" title={details}>{details}</td>
+                                            <td className={`px-4 py-3 text-right font-bold ${amountColor}`}>
+                                                {type === 'orders' ? '+' : '-'}${amount.toFixed(2)}
+                                            </td>
+                                        </tr>
+                                    );
+                                })
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+                <div className="p-4 border-t border-gray-200 bg-gray-50 text-right rounded-b-lg">
+                    <span className="text-xs text-gray-500 uppercase mr-2">Total:</span>
+                    <span className="text-lg font-bold text-gray-800">
+                        ${items.reduce((sum, i) => sum + (i.amountCharged || i.totalCost || i.totalPay || 0), 0).toFixed(2)}
+                    </span>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 export default function ReportsView({ orders, expenses, shifts = [], settings, dateRange, onDeleteExpense }: ReportsViewProps) {
     const [activeTab, setActiveTab] = useState<ReportTab>('financials');
     const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' }>({ key: 'date', direction: 'desc' });
+    const [drillDownData, setDrillDownData] = useState<{
+        isOpen: boolean;
+        title: string;
+        type: 'orders' | 'expenses' | 'shifts' | 'mixed';
+        items: any[];
+    } | null>(null);
 
     const filteredData = useMemo(() => {
         let filteredOrders = orders;
@@ -53,6 +158,108 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
 
         return { orders: filteredOrders, expenses: filteredExpenses, shifts: filteredShifts };
     }, [orders, expenses, shifts, dateRange]);
+
+    // --- Click Handlers for Drill Down ---
+
+    const handleRevenueClick = (data: any) => {
+        if (!data || !data.rawDate) return;
+        const [year, month] = data.rawDate.split('-').map(Number);
+        
+        const relevantOrders = filteredData.orders.filter(o => {
+            const d = parseOrderDateTime(o);
+            return d.getFullYear() === year && d.getMonth() === (month - 1);
+        });
+
+        setDrillDownData({
+            isOpen: true,
+            title: `Revenue Details - ${data.name}`,
+            type: 'orders',
+            items: relevantOrders
+        });
+    };
+
+    const handleExpenseClick = (data: any) => {
+        if (!data || !data.rawDate) return;
+        const [year, month] = data.rawDate.split('-').map(Number);
+        const key = data.rawDate; // YYYY-MM
+
+        const relevantExpenses = filteredData.expenses.filter(e => e.date.startsWith(key));
+        const relevantShifts = filteredData.shifts.filter(s => s.date.startsWith(key));
+
+        setDrillDownData({
+            isOpen: true,
+            title: `Expense Details - ${data.name}`,
+            type: 'mixed',
+            items: [...relevantExpenses, ...relevantShifts].sort((a, b) => a.date.localeCompare(b.date))
+        });
+    };
+
+    const handleCategoryClick = (data: any) => {
+        if (!data || !data.name) return;
+        const categoryName = data.name;
+
+        let items: any[] = [];
+        if (categoryName === 'Employee Labor') {
+            items = filteredData.shifts;
+        } else {
+            items = filteredData.expenses.filter(e => e.category === categoryName);
+        }
+
+        setDrillDownData({
+            isOpen: true,
+            title: `Category Details - ${categoryName}`,
+            type: categoryName === 'Employee Labor' ? 'shifts' : 'expenses',
+            items: items.sort((a, b) => a.date.localeCompare(b.date))
+        });
+    };
+
+    const handleLaborClick = (data: any) => {
+        if (!data || !data.name) return;
+        const employeeName = data.name;
+        const relevantShifts = filteredData.shifts.filter(s => s.employeeName === employeeName);
+
+        setDrillDownData({
+            isOpen: true,
+            title: `Shift Details - ${employeeName}`,
+            type: 'shifts',
+            items: relevantShifts.sort((a, b) => b.date.localeCompare(a.date))
+        });
+    };
+
+    const handleProductClick = (data: any) => {
+        if (!data || !data.name) return;
+        const productName = data.name;
+        const relevantOrders = filteredData.orders.filter(o => 
+            o.items.some(i => i.name.includes(productName))
+        );
+
+        setDrillDownData({
+            isOpen: true,
+            title: `Orders containing "${productName}"`,
+            type: 'orders',
+            items: relevantOrders
+        });
+    };
+
+    const handleDayClick = (data: any) => {
+        if (!data || !data.name) return;
+        const dayName = data.name; // "Mon", "Tue", etc.
+        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const dayIndex = days.indexOf(dayName);
+
+        const relevantOrders = filteredData.orders.filter(o => {
+            const d = parseOrderDateTime(o);
+            return !isNaN(d.getTime()) && d.getDay() === dayIndex;
+        });
+
+        setDrillDownData({
+            isOpen: true,
+            title: `Orders for ${dayName}s`,
+            type: 'orders',
+            items: relevantOrders
+        });
+    };
+
 
     // --- Financials Logic ---
     const financials = useMemo(() => {
@@ -209,29 +416,35 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
         return Array.from(monthlyData.entries()).sort((a,b) => a[0].localeCompare(b[0])).map(([key, val]) => {
             const [y, m] = key.split('-');
             const label = new Date(parseInt(y), parseInt(m)-1).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-            return { name: label, Revenue: val.revenue, Expenses: val.expense, Profit: val.revenue - val.expense };
+            return { 
+                name: label, 
+                Revenue: val.revenue, 
+                Expenses: val.expense, 
+                Profit: val.revenue - val.expense,
+                rawDate: key // Passed for click handler
+            };
         });
     }, [filteredData]);
 
     return (
         <div className="space-y-6">
             {/* Sub-Tabs Navigation */}
-            <div className="flex border-b border-brand-tan/50 mb-6">
+            <div className="flex border-b border-brand-tan/50 mb-6 overflow-x-auto">
                  <button
                     onClick={() => setActiveTab('financials')}
-                    className={`flex items-center gap-2 px-6 py-3 font-medium text-sm transition-colors border-b-2 ${activeTab === 'financials' ? 'border-brand-orange text-brand-orange' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                    className={`flex items-center gap-2 px-6 py-3 font-medium text-sm transition-colors border-b-2 whitespace-nowrap ${activeTab === 'financials' ? 'border-brand-orange text-brand-orange' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
                 >
                     <CurrencyDollarIcon className="w-4 h-4" /> Financials
                 </button>
                 <button
                     onClick={() => setActiveTab('labor')}
-                    className={`flex items-center gap-2 px-6 py-3 font-medium text-sm transition-colors border-b-2 ${activeTab === 'labor' ? 'border-brand-orange text-brand-orange' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                    className={`flex items-center gap-2 px-6 py-3 font-medium text-sm transition-colors border-b-2 whitespace-nowrap ${activeTab === 'labor' ? 'border-brand-orange text-brand-orange' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
                 >
                     <UsersIcon className="w-4 h-4" /> Labor & Staff
                 </button>
                 <button
                     onClick={() => setActiveTab('operations')}
-                    className={`flex items-center gap-2 px-6 py-3 font-medium text-sm transition-colors border-b-2 ${activeTab === 'operations' ? 'border-brand-orange text-brand-orange' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                    className={`flex items-center gap-2 px-6 py-3 font-medium text-sm transition-colors border-b-2 whitespace-nowrap ${activeTab === 'operations' ? 'border-brand-orange text-brand-orange' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
                 >
                     <PresentationChartBarIcon className="w-4 h-4" /> Operations & Menu
                 </button>
@@ -273,7 +486,10 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
                     {/* Charts */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         <div className="bg-white p-6 rounded-lg border border-brand-tan shadow-sm">
-                            <h3 className="text-lg font-semibold text-brand-brown mb-4">Profit & Loss Trend</h3>
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="text-lg font-semibold text-brand-brown">Profit & Loss Trend</h3>
+                                <span className="text-xs text-gray-400 italic">Click bars for details</span>
+                            </div>
                             <ResponsiveContainer width="100%" height={300}>
                                 <BarChart data={pnlChartData}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -281,19 +497,32 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
                                     <YAxis tick={{ fontSize: 12 }} />
                                     <Tooltip contentStyle={{ borderRadius: '8px' }} />
                                     <Legend />
-                                    <Bar dataKey="Revenue" fill="#10b981" radius={[4, 4, 0, 0]} />
-                                    <Bar dataKey="Expenses" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                                    <Bar dataKey="Revenue" fill="#10b981" radius={[4, 4, 0, 0]} onClick={handleRevenueClick} cursor="pointer" />
+                                    <Bar dataKey="Expenses" fill="#ef4444" radius={[4, 4, 0, 0]} onClick={handleExpenseClick} cursor="pointer" />
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>
 
                         <div className="bg-white p-6 rounded-lg border border-brand-tan shadow-sm">
-                            <h3 className="text-lg font-semibold text-brand-brown mb-4">Expense Breakdown</h3>
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="text-lg font-semibold text-brand-brown">Expense Breakdown</h3>
+                                <span className="text-xs text-gray-400 italic">Click slice for details</span>
+                            </div>
                             {expenseBreakdownData.length > 0 ? (
                                 <div className="w-full h-[300px]">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <PieChart>
-                                            <Pie data={expenseBreakdownData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                                            <Pie 
+                                                data={expenseBreakdownData} 
+                                                cx="50%" 
+                                                cy="50%" 
+                                                innerRadius={60} 
+                                                outerRadius={80} 
+                                                paddingAngle={5} 
+                                                dataKey="value"
+                                                onClick={handleCategoryClick}
+                                                cursor="pointer"
+                                            >
                                                 {expenseBreakdownData.map((entry, index) => (
                                                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                                 ))}
@@ -365,14 +594,17 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
                     </div>
 
                     <div className="bg-white p-6 rounded-lg border border-brand-tan shadow-sm">
-                        <h3 className="text-lg font-semibold text-brand-brown mb-4">Hours by Employee</h3>
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-lg font-semibold text-brand-brown">Hours by Employee</h3>
+                            <span className="text-xs text-gray-400 italic">Click bar for shift details</span>
+                        </div>
                         <ResponsiveContainer width="100%" height={300}>
                             <BarChart data={laborStats} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
                                 <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
                                 <XAxis type="number" />
                                 <YAxis dataKey="name" type="category" width={100} tick={{fontSize: 12}} />
                                 <Tooltip formatter={(value: number) => `${value.toFixed(1)} hrs`} cursor={{fill: 'transparent'}} />
-                                <Bar dataKey="hours" fill="#3b82f6" radius={[0, 4, 4, 0]} name="Hours Worked" barSize={30} />
+                                <Bar dataKey="hours" fill="#3b82f6" radius={[0, 4, 4, 0]} name="Hours Worked" barSize={30} onClick={handleLaborClick} cursor="pointer" />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
@@ -417,9 +649,12 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         {/* Top Products */}
                         <div className="bg-white p-6 rounded-lg border border-brand-tan shadow-sm">
-                            <div className="flex items-center gap-2 mb-4">
-                                <ChartPieIcon className="w-5 h-5 text-brand-orange" />
-                                <h3 className="text-lg font-semibold text-brand-brown">Top Selling Items</h3>
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-2">
+                                    <ChartPieIcon className="w-5 h-5 text-brand-orange" />
+                                    <h3 className="text-lg font-semibold text-brand-brown">Top Selling Items</h3>
+                                </div>
+                                <span className="text-xs text-gray-400 italic">Click for orders</span>
                             </div>
                             <ResponsiveContainer width="100%" height={350}>
                                 <BarChart data={productStats} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
@@ -427,16 +662,19 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
                                     <XAxis type="number" />
                                     <YAxis dataKey="name" type="category" width={100} tick={{fontSize: 11}} interval={0} />
                                     <Tooltip cursor={{fill: 'transparent'}} />
-                                    <Bar dataKey="count" fill="#ea580c" radius={[0, 4, 4, 0]} name="Quantity Sold" barSize={20} />
+                                    <Bar dataKey="count" fill="#ea580c" radius={[0, 4, 4, 0]} name="Quantity Sold" barSize={20} onClick={handleProductClick} cursor="pointer" />
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>
 
                         {/* Busiest Days */}
                         <div className="bg-white p-6 rounded-lg border border-brand-tan shadow-sm">
-                            <div className="flex items-center gap-2 mb-4">
-                                <ShoppingBagIcon className="w-5 h-5 text-blue-600" />
-                                <h3 className="text-lg font-semibold text-brand-brown">Orders by Day of Week</h3>
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-2">
+                                    <ShoppingBagIcon className="w-5 h-5 text-blue-600" />
+                                    <h3 className="text-lg font-semibold text-brand-brown">Orders by Day of Week</h3>
+                                </div>
+                                <span className="text-xs text-gray-400 italic">Click for orders</span>
                             </div>
                             <ResponsiveContainer width="100%" height={350}>
                                 <BarChart data={dayStats}>
@@ -444,12 +682,21 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
                                     <XAxis dataKey="name" tick={{ fontSize: 12 }} />
                                     <YAxis />
                                     <Tooltip cursor={{fill: 'transparent'}} />
-                                    <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Orders" />
+                                    <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Orders" onClick={handleDayClick} cursor="pointer" />
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>
                     </div>
                 </div>
+            )}
+
+            {drillDownData && drillDownData.isOpen && (
+                <DrillDownModal 
+                    title={drillDownData.title} 
+                    items={drillDownData.items} 
+                    type={drillDownData.type} 
+                    onClose={() => setDrillDownData(null)} 
+                />
             )}
         </div>
     );
