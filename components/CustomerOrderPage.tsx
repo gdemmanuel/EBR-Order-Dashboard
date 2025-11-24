@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { saveOrderToDb, AppSettings } from '../services/dbService';
 import { Order, OrderItem, PaymentStatus, FollowUpStatus, ApprovalStatus, PricingSettings, Flavor, MenuPackage, SalsaProduct } from '../types';
 import { SalsaSize } from '../config';
-import { TrashIcon, CheckCircleIcon, StarIcon, ChevronRightIcon, ClockIcon } from './icons/Icons';
+import { TrashIcon, CheckCircleIcon, StarIcon, ChevronRightIcon, ClockIcon, ChevronDownIcon } from './icons/Icons';
 import Header from './Header';
 import PackageBuilderModal from './PackageBuilderModal';
 import { generateTimeSlots, normalizeDateStr } from '../utils/dateUtils';
@@ -57,6 +58,18 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
 
     // Modal State for Package Builder
     const [activePackageBuilder, setActivePackageBuilder] = useState<MenuPackage | null>(null);
+
+    // UI State for Sections
+    const [isSpecialtyOpen, setIsSpecialtyOpen] = useState(false);
+    const [sectionsState, setSectionsState] = useState({
+        mini: true,
+        full: true,
+        platters: true
+    });
+
+    const toggleSection = (key: 'mini' | 'full' | 'platters') => {
+        setSectionsState(prev => ({ ...prev, [key]: !prev[key] }));
+    };
 
     // Safe pricing fallback
     const safePricing = pricing || {
@@ -315,82 +328,132 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                         </div>
                         
                         {specialFlavors.length > 0 && (
-                            <div className="mt-8 bg-white p-8 rounded-xl shadow-sm border-t-4 border-purple-200">
-                                <h4 className="text-2xl font-serif text-purple-900 mb-6 text-center flex items-center justify-center gap-3">
-                                    <StarIcon className="w-6 h-6 text-purple-400" /> Specialty & Seasonal
-                                </h4>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                                    {specialFlavors.map(f => (
-                                        <div key={f.name} className="text-center">
-                                            <p className="font-serif text-lg text-brand-brown">{f.name}</p>
-                                            {f.description && <p className="text-sm text-gray-500 mt-1 font-light italic">{f.description}</p>}
+                            <div className="mt-8 rounded-xl shadow-sm border border-purple-100 bg-white overflow-hidden transition-all">
+                                <button 
+                                    type="button"
+                                    onClick={() => setIsSpecialtyOpen(!isSpecialtyOpen)}
+                                    className="w-full p-6 flex items-center justify-between bg-purple-50 hover:bg-purple-100 transition-colors text-left group"
+                                >
+                                    <h4 className="text-xl font-serif text-purple-900 flex items-center gap-3">
+                                        <StarIcon className="w-6 h-6 text-purple-400" /> Specialty & Seasonal Flavors
+                                    </h4>
+                                    <div className={`transform transition-transform duration-300 ${isSpecialtyOpen ? 'rotate-180' : ''}`}>
+                                        <ChevronDownIcon className="w-6 h-6 text-purple-400" />
+                                    </div>
+                                </button>
+                                
+                                {isSpecialtyOpen && (
+                                    <div className="p-8 border-t border-purple-100 animate-fade-in bg-white">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                                            {specialFlavors.map(f => (
+                                                <div key={f.name} className="text-center">
+                                                    <p className="font-serif text-lg text-brand-brown">{f.name}</p>
+                                                    {f.description && <p className="text-sm text-gray-500 mt-1 font-light italic">{f.description}</p>}
+                                                </div>
+                                            ))}
                                         </div>
-                                    ))}
-                                </div>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </section>
 
                     {/* PACKAGES SECTION */}
-                    <div className="space-y-12">
+                    <div className="space-y-8">
                         {/* Mini Packages */}
-                        <section>
-                            <div className="flex items-center gap-4 mb-8">
-                                <h3 className="text-3xl font-serif text-brand-brown">Mini Empanadas</h3>
-                                <div className="flex-grow h-px bg-brand-tan"></div>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {miniPackages.map(pkg => (
-                                    <div key={pkg.id} className="bg-white p-8 rounded-xl shadow-sm hover:shadow-md transition-all border border-transparent hover:border-brand-tan flex flex-col items-center text-center">
-                                        <h4 className="font-serif text-2xl text-brand-brown mb-2">{pkg.name}</h4>
-                                        <div className="text-brand-orange font-bold text-xl mb-4">${pkg.price.toFixed(2)}</div>
-                                        <p className="text-gray-600 mb-1">{pkg.quantity} Mini Empanadas</p>
-                                        <p className="text-xs text-gray-400 mb-6 uppercase tracking-wide">Up to {pkg.maxFlavors} flavors</p>
-                                        <button type="button" onClick={() => openPackageBuilder(pkg)} className="mt-auto bg-brand-brown text-white px-8 py-2.5 rounded hover:bg-brand-brown/90 transition-colors text-sm uppercase tracking-wider">Select</button>
-                                    </div>
-                                ))}
-                                {miniPackages.length === 0 && <p className="col-span-3 text-center text-gray-400 italic py-8">Sold out or unavailable.</p>}
-                            </div>
+                        <section className="scroll-mt-20" id="section-mini">
+                            <button 
+                                type="button" 
+                                onClick={() => toggleSection('mini')} 
+                                className="w-full flex items-center justify-between gap-4 mb-4 group cursor-pointer"
+                            >
+                                <div className="flex items-center gap-4 flex-grow">
+                                    <h3 className="text-2xl md:text-3xl font-serif text-brand-brown group-hover:text-brand-orange transition-colors">Mini Empanadas</h3>
+                                    <div className="flex-grow h-px bg-brand-tan group-hover:bg-brand-orange/30 transition-colors"></div>
+                                </div>
+                                <div className={`transform transition-transform duration-200 ${sectionsState.mini ? 'rotate-180' : ''}`}>
+                                    <ChevronDownIcon className="w-6 h-6 text-brand-brown/50 group-hover:text-brand-orange" />
+                                </div>
+                            </button>
+                            
+                            {sectionsState.mini && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-fade-in">
+                                    {miniPackages.map(pkg => (
+                                        <div key={pkg.id} className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-all border border-transparent hover:border-brand-tan flex flex-col items-center text-center">
+                                            <h4 className="font-serif text-xl text-brand-brown mb-1">{pkg.name}</h4>
+                                            <div className="text-brand-orange font-bold text-lg mb-3">${pkg.price.toFixed(2)}</div>
+                                            <p className="text-sm text-gray-600 mb-1">{pkg.quantity} Mini Empanadas</p>
+                                            <p className="text-xs text-gray-400 mb-4 uppercase tracking-wide">Up to {pkg.maxFlavors} flavors</p>
+                                            <button type="button" onClick={() => openPackageBuilder(pkg)} className="mt-auto bg-brand-brown text-white px-6 py-2 rounded hover:bg-brand-brown/90 transition-colors text-xs uppercase tracking-wider font-bold">Select</button>
+                                        </div>
+                                    ))}
+                                    {miniPackages.length === 0 && <p className="col-span-3 text-center text-gray-400 italic py-8">Sold out or unavailable.</p>}
+                                </div>
+                            )}
                         </section>
 
                         {/* Full Packages */}
-                        <section>
-                            <div className="flex items-center gap-4 mb-8">
-                                <h3 className="text-3xl font-serif text-brand-brown">Full-Size Empanadas</h3>
-                                <div className="flex-grow h-px bg-brand-tan"></div>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {fullPackages.map(pkg => (
-                                    <div key={pkg.id} className="bg-white p-8 rounded-xl shadow-sm hover:shadow-md transition-all border border-transparent hover:border-brand-tan flex flex-col items-center text-center">
-                                        <h4 className="font-serif text-2xl text-brand-brown mb-2">{pkg.name}</h4>
-                                        <div className="text-brand-orange font-bold text-xl mb-4">${pkg.price.toFixed(2)}</div>
-                                        <p className="text-gray-600 mb-1">{pkg.quantity} Full-Size Empanadas</p>
-                                        <p className="text-xs text-gray-400 mb-6 uppercase tracking-wide">Up to {pkg.maxFlavors} flavors</p>
-                                        <button type="button" onClick={() => openPackageBuilder(pkg)} className="mt-auto bg-brand-brown text-white px-8 py-2.5 rounded hover:bg-brand-brown/90 transition-colors text-sm uppercase tracking-wider">Select</button>
-                                    </div>
-                                ))}
-                                {fullPackages.length === 0 && <p className="col-span-3 text-center text-gray-400 italic py-8">Sold out or unavailable.</p>}
-                            </div>
+                        <section className="scroll-mt-20" id="section-full">
+                            <button 
+                                type="button" 
+                                onClick={() => toggleSection('full')} 
+                                className="w-full flex items-center justify-between gap-4 mb-4 group cursor-pointer"
+                            >
+                                <div className="flex items-center gap-4 flex-grow">
+                                    <h3 className="text-2xl md:text-3xl font-serif text-brand-brown group-hover:text-brand-orange transition-colors">Full-Size Empanadas</h3>
+                                    <div className="flex-grow h-px bg-brand-tan group-hover:bg-brand-orange/30 transition-colors"></div>
+                                </div>
+                                <div className={`transform transition-transform duration-200 ${sectionsState.full ? 'rotate-180' : ''}`}>
+                                    <ChevronDownIcon className="w-6 h-6 text-brand-brown/50 group-hover:text-brand-orange" />
+                                </div>
+                            </button>
+
+                            {sectionsState.full && (
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-fade-in">
+                                    {fullPackages.map(pkg => (
+                                        <div key={pkg.id} className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-all border border-transparent hover:border-brand-tan flex flex-col items-center text-center">
+                                            <h4 className="font-serif text-xl text-brand-brown mb-1">{pkg.name}</h4>
+                                            <div className="text-brand-orange font-bold text-lg mb-3">${pkg.price.toFixed(2)}</div>
+                                            <p className="text-sm text-gray-600 mb-1">{pkg.quantity} Full-Size Empanadas</p>
+                                            <p className="text-xs text-gray-400 mb-4 uppercase tracking-wide">Up to {pkg.maxFlavors} flavors</p>
+                                            <button type="button" onClick={() => openPackageBuilder(pkg)} className="mt-auto bg-brand-brown text-white px-6 py-2 rounded hover:bg-brand-brown/90 transition-colors text-xs uppercase tracking-wider font-bold">Select</button>
+                                        </div>
+                                    ))}
+                                    {fullPackages.length === 0 && <p className="col-span-3 text-center text-gray-400 italic py-8">Sold out or unavailable.</p>}
+                                </div>
+                            )}
                         </section>
 
                         {/* Specials */}
                         {specialPackages.length > 0 && (
-                            <section>
-                                <div className="flex items-center gap-4 mb-8">
-                                    <h3 className="text-3xl font-serif text-purple-900">Platters & Specials</h3>
-                                    <div className="flex-grow h-px bg-purple-100"></div>
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {specialPackages.map(pkg => (
-                                        <div key={pkg.id} className="bg-purple-50/50 p-8 rounded-xl shadow-sm hover:shadow-md transition-all border border-purple-100 flex flex-col items-center text-center">
-                                            <h4 className="font-serif text-2xl text-purple-900 mb-2">{pkg.name}</h4>
-                                            <div className="text-purple-700 font-bold text-xl mb-4">${pkg.price.toFixed(2)}</div>
-                                            <p className="text-gray-600 mb-1">{pkg.quantity} Items</p>
-                                            <p className="text-xs text-purple-400 mb-6 uppercase tracking-wide font-bold">Limited Time</p>
-                                            <button type="button" onClick={() => openPackageBuilder(pkg)} className="mt-auto bg-purple-900 text-white px-8 py-2.5 rounded hover:bg-purple-800 transition-colors text-sm uppercase tracking-wider">Select</button>
-                                        </div>
-                                    ))}
-                                </div>
+                            <section className="scroll-mt-20" id="section-platters">
+                                <button 
+                                    type="button" 
+                                    onClick={() => toggleSection('platters')} 
+                                    className="w-full flex items-center justify-between gap-4 mb-4 group cursor-pointer"
+                                >
+                                    <div className="flex items-center gap-4 flex-grow">
+                                        <h3 className="text-2xl md:text-3xl font-serif text-purple-900 group-hover:text-purple-700 transition-colors">Platters & Specials</h3>
+                                        <div className="flex-grow h-px bg-purple-100 group-hover:bg-purple-200 transition-colors"></div>
+                                    </div>
+                                    <div className={`transform transition-transform duration-200 ${sectionsState.platters ? 'rotate-180' : ''}`}>
+                                        <ChevronDownIcon className="w-6 h-6 text-purple-300 group-hover:text-purple-500" />
+                                    </div>
+                                </button>
+
+                                {sectionsState.platters && (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-fade-in">
+                                        {specialPackages.map(pkg => (
+                                            <div key={pkg.id} className="bg-purple-50/50 p-6 rounded-xl shadow-sm hover:shadow-md transition-all border border-purple-100 flex flex-col items-center text-center">
+                                                <h4 className="font-serif text-xl text-purple-900 mb-1">{pkg.name}</h4>
+                                                <div className="text-purple-700 font-bold text-lg mb-3">${pkg.price.toFixed(2)}</div>
+                                                <p className="text-sm text-gray-600 mb-1">{pkg.quantity} Items</p>
+                                                <p className="text-xs text-purple-400 mb-4 uppercase tracking-wide font-bold">Limited Time</p>
+                                                <button type="button" onClick={() => openPackageBuilder(pkg)} className="mt-auto bg-purple-900 text-white px-6 py-2 rounded hover:bg-purple-800 transition-colors text-xs uppercase tracking-wider font-bold">Select</button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </section>
                         )}
                     </div>
