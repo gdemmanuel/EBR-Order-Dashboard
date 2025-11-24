@@ -1,8 +1,8 @@
 
 import React, { useState, useMemo } from 'react';
 import { AppSettings, updateSettingsInDb } from '../services/dbService';
-import { PricingSettings, MenuPackage, Flavor, SalsaProduct, PricingTier } from '../types';
-import { XMarkIcon, PlusIcon, TrashIcon, CheckCircleIcon, CogIcon, PencilIcon, ScaleIcon, CurrencyDollarIcon, ClockIcon, SparklesIcon, CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon, ReceiptIcon } from './icons/Icons';
+import { PricingSettings, MenuPackage, Flavor, SalsaProduct, PricingTier, Employee } from '../types';
+import { XMarkIcon, PlusIcon, TrashIcon, CheckCircleIcon, CogIcon, PencilIcon, ScaleIcon, CurrencyDollarIcon, ClockIcon, SparklesIcon, CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon, ReceiptIcon, UsersIcon } from './icons/Icons';
 import { SUGGESTED_DESCRIPTIONS } from '../data/mockData';
 
 interface SettingsModalProps {
@@ -11,7 +11,7 @@ interface SettingsModalProps {
 }
 
 export default function SettingsModal({ settings, onClose }: SettingsModalProps) {
-    const [activeTab, setActiveTab] = useState<'menu' | 'pricing' | 'prep' | 'costs' | 'scheduling' | 'expenses'>('menu');
+    const [activeTab, setActiveTab] = useState<'menu' | 'pricing' | 'prep' | 'costs' | 'scheduling' | 'expenses' | 'employees'>('menu');
     
     // Local state for editing
     const [empanadaFlavors, setEmpanadaFlavors] = useState<Flavor[]>(settings.empanadaFlavors);
@@ -49,6 +49,15 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
     // NEW: Expense Categories
     const [expenseCategories, setExpenseCategories] = useState<string[]>(settings.expenseCategories || []);
     const [newCategory, setNewCategory] = useState('');
+
+    // NEW: Employees
+    const [employees, setEmployees] = useState<Employee[]>(settings.employees || []);
+    const [newEmployee, setNewEmployee] = useState<Partial<Employee>>({
+        name: '',
+        hourlyWage: 15,
+        productionRates: { mini: 40, full: 25 },
+        isActive: true
+    });
 
     const [newFlavorName, setNewFlavorName] = useState('');
     const [isSaving, setIsSaving] = useState(false);
@@ -90,7 +99,8 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
             laborWage,
             materialCosts,
             discoCosts,
-            expenseCategories // Save Categories
+            expenseCategories,
+            employees // Save Employees
         });
         setIsSaving(false);
         onClose();
@@ -211,6 +221,48 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
         setExpenseCategories(expenseCategories.filter(c => c !== cat));
     };
 
+    // Employee Logic
+    const addEmployee = () => {
+        if (!newEmployee.name || newEmployee.hourlyWage === undefined) return;
+        
+        const employee: Employee = {
+            id: Date.now().toString(),
+            name: newEmployee.name,
+            hourlyWage: newEmployee.hourlyWage,
+            productionRates: {
+                mini: newEmployee.productionRates?.mini || 40,
+                full: newEmployee.productionRates?.full || 25
+            },
+            isActive: newEmployee.isActive ?? true
+        };
+        
+        setEmployees([...employees, employee]);
+        setNewEmployee({
+            name: '',
+            hourlyWage: 15,
+            productionRates: { mini: 40, full: 25 },
+            isActive: true
+        });
+    };
+    
+    const removeEmployee = (id: string) => {
+        setEmployees(employees.filter(e => e.id !== id));
+    };
+    
+    const updateEmployee = (id: string, field: keyof Employee | 'productionRates.mini' | 'productionRates.full', value: any) => {
+        setEmployees(employees.map(e => {
+            if (e.id !== id) return e;
+            
+            if (field === 'productionRates.mini') {
+                return { ...e, productionRates: { ...e.productionRates, mini: parseFloat(value) || 0 } };
+            } else if (field === 'productionRates.full') {
+                return { ...e, productionRates: { ...e.productionRates, full: parseFloat(value) || 0 } };
+            } else {
+                return { ...e, [field]: value };
+            }
+        }));
+    };
+
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fade-in">
             <div className="bg-white rounded-lg shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col border border-brand-tan">
@@ -221,14 +273,14 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                     </button>
                 </header>
 
-                <div className="flex flex-wrap border-b border-gray-200">
-                    {['menu', 'pricing', 'scheduling', 'prep', 'costs', 'expenses'].map((tab) => (
+                <div className="flex flex-wrap border-b border-gray-200 overflow-x-auto">
+                    {['menu', 'pricing', 'scheduling', 'employees', 'prep', 'costs', 'expenses'].map((tab) => (
                          <button
                             key={tab}
                             className={`flex-1 px-4 py-3 font-medium text-sm whitespace-nowrap transition-colors capitalize ${activeTab === tab ? 'border-b-2 border-brand-orange text-brand-orange bg-brand-orange/5' : 'text-gray-500 hover:text-brand-brown hover:bg-gray-50'}`}
                             onClick={() => setActiveTab(tab as any)}
                         >
-                            {tab === 'expenses' ? 'Exp. Categories' : tab === 'scheduling' ? 'Scheduling' : tab === 'costs' ? 'Inventory & Costs' : tab === 'prep' ? 'Prep' : tab === 'menu' ? 'Menu' : 'Pricing'}
+                            {tab === 'expenses' ? 'Exp. Categories' : tab === 'scheduling' ? 'Scheduling' : tab === 'costs' ? 'Inventory & Costs' : tab === 'prep' ? 'Prep' : tab === 'menu' ? 'Menu' : tab === 'employees' ? 'Employees' : 'Pricing'}
                         </button>
                     ))}
                 </div>
@@ -268,17 +320,105 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                         </div>
                     )}
 
+                    {activeTab === 'employees' && (
+                        <div className="space-y-8">
+                             <div className="bg-white p-5 rounded-lg border border-brand-tan shadow-sm">
+                                <h3 className="font-bold text-brand-brown text-lg mb-4 border-b pb-2 flex items-center gap-2">
+                                    <UsersIcon className="w-5 h-5" /> Employee Management
+                                </h3>
+                                
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                    <div className="md:col-span-1">
+                                        <label className="block text-xs font-bold text-gray-700 mb-1">Employee Name</label>
+                                        <input type="text" value={newEmployee.name} onChange={e => setNewEmployee({ ...newEmployee, name: e.target.value })} className="w-full rounded-md border-gray-300 text-sm" placeholder="e.g. John Doe" />
+                                    </div>
+                                    <div className="md:col-span-1">
+                                        <label className="block text-xs font-bold text-gray-700 mb-1">Hourly Wage ($)</label>
+                                        <input type="number" step="0.5" value={newEmployee.hourlyWage} onChange={e => setNewEmployee({ ...newEmployee, hourlyWage: parseFloat(e.target.value) || 0 })} className="w-full rounded-md border-gray-300 text-sm" />
+                                    </div>
+                                    <div className="md:col-span-1">
+                                        <label className="block text-xs font-bold text-gray-700 mb-1">Mini/Hr Rate</label>
+                                        <input type="number" value={newEmployee.productionRates?.mini} onChange={e => setNewEmployee({ ...newEmployee, productionRates: { mini: parseInt(e.target.value) || 0, full: newEmployee.productionRates?.full || 0 } })} className="w-full rounded-md border-gray-300 text-sm" />
+                                    </div>
+                                     <div className="md:col-span-1">
+                                        <label className="block text-xs font-bold text-gray-700 mb-1">Full/Hr Rate</label>
+                                        <input type="number" value={newEmployee.productionRates?.full} onChange={e => setNewEmployee({ ...newEmployee, productionRates: { full: parseInt(e.target.value) || 0, mini: newEmployee.productionRates?.mini || 0 } })} className="w-full rounded-md border-gray-300 text-sm" />
+                                    </div>
+                                    <div className="md:col-span-4 flex justify-end">
+                                         <button onClick={addEmployee} disabled={!newEmployee.name} className="flex items-center gap-2 bg-brand-orange text-white px-4 py-2 rounded-md text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50">
+                                            <PlusIcon className="w-4 h-4" /> Add Employee
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div className="space-y-3">
+                                    {employees.length === 0 ? (
+                                        <p className="text-gray-500 text-sm text-center py-4">No employees added yet.</p>
+                                    ) : (
+                                        employees.map((emp) => (
+                                            <div key={emp.id} className="bg-white p-3 rounded border border-gray-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                                <div className="flex-grow">
+                                                    <div className="flex items-center gap-2">
+                                                         <span className="font-bold text-brand-brown">{emp.name}</span>
+                                                         {!emp.isActive && <span className="bg-red-100 text-red-600 text-[10px] px-1.5 rounded">Inactive</span>}
+                                                    </div>
+                                                </div>
+                                                
+                                                <div className="flex items-center gap-4 text-sm">
+                                                    <div>
+                                                        <label className="block text-[10px] text-gray-500">Wage ($/hr)</label>
+                                                        <input 
+                                                            type="number" 
+                                                            value={emp.hourlyWage} 
+                                                            onChange={(e) => updateEmployee(emp.id, 'hourlyWage', parseFloat(e.target.value) || 0)} 
+                                                            className="w-20 rounded border-gray-200 text-xs py-1"
+                                                        />
+                                                    </div>
+                                                     <div>
+                                                        <label className="block text-[10px] text-gray-500">Mini/Hr</label>
+                                                        <input 
+                                                            type="number" 
+                                                            value={emp.productionRates.mini} 
+                                                            onChange={(e) => updateEmployee(emp.id, 'productionRates.mini', e.target.value)} 
+                                                            className="w-16 rounded border-gray-200 text-xs py-1"
+                                                        />
+                                                    </div>
+                                                     <div>
+                                                        <label className="block text-[10px] text-gray-500">Full/Hr</label>
+                                                        <input 
+                                                            type="number" 
+                                                            value={emp.productionRates.full} 
+                                                            onChange={(e) => updateEmployee(emp.id, 'productionRates.full', e.target.value)} 
+                                                            className="w-16 rounded border-gray-200 text-xs py-1"
+                                                        />
+                                                    </div>
+                                                    <div className="flex flex-col items-center">
+                                                         <label className="block text-[10px] text-gray-500 mb-1">Active</label>
+                                                         <input type="checkbox" checked={emp.isActive} onChange={(e) => updateEmployee(emp.id, 'isActive', e.target.checked)} className="rounded text-brand-orange focus:ring-brand-orange h-4 w-4" />
+                                                    </div>
+                                                    <button onClick={() => removeEmployee(emp.id)} className="text-red-400 hover:text-red-600 ml-2">
+                                                        <TrashIcon className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     {activeTab === 'prep' && (
                         <div className="space-y-8">
                              {/* ... Prep Content (unchanged) ... */}
-                            <div className="bg-white p-5 rounded-lg border border-brand-tan shadow-sm"><h3 className="font-bold text-brand-brown text-lg mb-4 border-b pb-2">Prep Configuration</h3><div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6"><div><label className="block text-xs font-medium text-gray-700 mb-1">Full-Size Multiplier</label><input type="number" step="0.1" value={prepSettings.fullSizeMultiplier} onChange={(e) => setPrepSettings({...prepSettings, fullSizeMultiplier: parseFloat(e.target.value) || 0})} className="w-full rounded-md border-gray-300" /></div><div className="grid grid-cols-2 gap-2"><div><label className="block text-xs font-medium text-gray-700 mb-1">Discos/Mini</label><input type="number" step="0.01" value={prepSettings.discosPer?.mini ?? 1} onChange={(e) => setPrepSettings({...prepSettings, discosPer: { ...prepSettings.discosPer, mini: parseFloat(e.target.value) || 0 }})} className="w-full rounded-md border-gray-300" /></div><div><label className="block text-xs font-medium text-gray-700 mb-1">Discos/Full</label><input type="number" step="0.01" value={prepSettings.discosPer?.full ?? 1} onChange={(e) => setPrepSettings({...prepSettings, discosPer: { ...prepSettings.discosPer, full: parseFloat(e.target.value) || 0 }})} className="w-full rounded-md border-gray-300" /></div></div><div className="grid grid-cols-2 gap-2"><div><label className="block text-xs font-medium text-gray-700 mb-1">Pack Size (Mini)</label><input type="number" step="1" value={prepSettings.discoPackSize?.mini ?? 10} onChange={(e) => setPrepSettings({...prepSettings, discoPackSize: { ...prepSettings.discoPackSize, mini: parseInt(e.target.value) || 1 }})} className="w-full rounded-md border-gray-300" /></div><div><label className="block text-xs font-medium text-gray-700 mb-1">Pack Size (Full)</label><input type="number" step="1" value={prepSettings.discoPackSize?.full ?? 10} onChange={(e) => setPrepSettings({...prepSettings, discoPackSize: { ...prepSettings.discoPackSize, full: parseInt(e.target.value) || 1 }})} className="w-full rounded-md border-gray-300" /></div></div><div className="grid grid-cols-2 gap-2"><div><label className="block text-xs font-medium text-gray-700 mb-1">Mini/Hr</label><input type="number" step="1" value={prepSettings.productionRates?.mini ?? 40} onChange={(e) => setPrepSettings({...prepSettings, productionRates: { ...prepSettings.productionRates, mini: parseInt(e.target.value) || 0 }})} className="w-full rounded-md border-gray-300" /></div><div><label className="block text-xs font-medium text-gray-700 mb-1">Full/Hr</label><input type="number" step="1" value={prepSettings.productionRates?.full ?? 25} onChange={(e) => setPrepSettings({...prepSettings, productionRates: { ...prepSettings.productionRates, full: parseInt(e.target.value) || 0 }})} className="w-full rounded-md border-gray-300" /></div></div></div><h4 className="font-bold text-brand-brown text-md mb-3 mt-6 pt-4 border-t">Filling Requirements (Lbs per 20 Minis)</h4><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{empanadaFlavors.map((flavor) => (<div key={flavor.name} className="border rounded-md p-3 bg-gray-50"><label className="block text-xs font-bold text-gray-700 truncate">{flavor.name}</label><div className="flex items-center gap-2"><input type="number" step="0.01" placeholder="0.0" value={prepSettings.lbsPer20[flavor.name] || ''} onChange={(e) => updateLbsPer20(flavor.name, e.target.value)} className="block w-full rounded-md border-gray-300" /><span className="text-xs text-gray-500 whitespace-nowrap">lbs / 20</span></div></div>))}</div></div>
+                            <div className="bg-white p-5 rounded-lg border border-brand-tan shadow-sm"><h3 className="font-bold text-brand-brown text-lg mb-4 border-b pb-2">Prep Configuration</h3><div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6"><div><label className="block text-xs font-medium text-gray-700 mb-1">Full-Size Multiplier</label><input type="number" step="0.1" value={prepSettings.fullSizeMultiplier} onChange={(e) => setPrepSettings({...prepSettings, fullSizeMultiplier: parseFloat(e.target.value) || 0})} className="w-full rounded-md border-gray-300" /></div><div className="grid grid-cols-2 gap-2"><div><label className="block text-xs font-medium text-gray-700 mb-1">Discos/Mini</label><input type="number" step="0.01" value={prepSettings.discosPer?.mini ?? 1} onChange={(e) => setPrepSettings({...prepSettings, discosPer: { ...prepSettings.discosPer, mini: parseFloat(e.target.value) || 0 }})} className="w-full rounded-md border-gray-300" /></div><div><label className="block text-xs font-medium text-gray-700 mb-1">Discos/Full</label><input type="number" step="0.01" value={prepSettings.discosPer?.full ?? 1} onChange={(e) => setPrepSettings({...prepSettings, discosPer: { ...prepSettings.discosPer, full: parseFloat(e.target.value) || 0 }})} className="w-full rounded-md border-gray-300" /></div></div><div className="grid grid-cols-2 gap-2"><div><label className="block text-xs font-medium text-gray-700 mb-1">Pack Size (Mini)</label><input type="number" step="1" value={prepSettings.discoPackSize?.mini ?? 10} onChange={(e) => setPrepSettings({...prepSettings, discoPackSize: { ...prepSettings.discoPackSize, mini: parseInt(e.target.value) || 1 }})} className="w-full rounded-md border-gray-300" /></div><div><label className="block text-xs font-medium text-gray-700 mb-1">Pack Size (Full)</label><input type="number" step="1" value={prepSettings.discoPackSize?.full ?? 10} onChange={(e) => setPrepSettings({...prepSettings, discoPackSize: { ...prepSettings.discoPackSize, full: parseInt(e.target.value) || 1 }})} className="w-full rounded-md border-gray-300" /></div></div><div className="grid grid-cols-2 gap-2"><div><label className="block text-xs font-medium text-gray-700 mb-1">Global Mini/Hr</label><input type="number" step="1" value={prepSettings.productionRates?.mini ?? 40} onChange={(e) => setPrepSettings({...prepSettings, productionRates: { ...prepSettings.productionRates, mini: parseInt(e.target.value) || 0 }})} className="w-full rounded-md border-gray-300" /></div><div><label className="block text-xs font-medium text-gray-700 mb-1">Global Full/Hr</label><input type="number" step="1" value={prepSettings.productionRates?.full ?? 25} onChange={(e) => setPrepSettings({...prepSettings, productionRates: { ...prepSettings.productionRates, full: parseInt(e.target.value) || 0 }})} className="w-full rounded-md border-gray-300" /></div></div></div><h4 className="font-bold text-brand-brown text-md mb-3 mt-6 pt-4 border-t">Filling Requirements (Lbs per 20 Minis)</h4><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{empanadaFlavors.map((flavor) => (<div key={flavor.name} className="border rounded-md p-3 bg-gray-50"><label className="block text-xs font-bold text-gray-700 truncate">{flavor.name}</label><div className="flex items-center gap-2"><input type="number" step="0.01" placeholder="0.0" value={prepSettings.lbsPer20[flavor.name] || ''} onChange={(e) => updateLbsPer20(flavor.name, e.target.value)} className="block w-full rounded-md border-gray-300" /><span className="text-xs text-gray-500 whitespace-nowrap">lbs / 20</span></div></div>))}</div></div>
                         </div>
                     )}
 
                     {activeTab === 'costs' && (
                         <div className="space-y-8">
                              {/* ... Costs Content (unchanged) ... */}
-                            <div className="bg-white p-5 rounded-lg border border-brand-tan shadow-sm"><h3 className="font-bold text-brand-brown text-lg mb-4 border-b pb-2">Costs & Inventory</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6"><div className="bg-yellow-50 border border-yellow-200 p-3 rounded-lg"><div><label className="block text-xs text-yellow-800 mb-1">Hourly Wage ($/hr)</label><input type="number" step="0.50" value={laborWage} onChange={(e) => setLaborWage(parseFloat(e.target.value) || 0)} className="block w-24 rounded-md border-gray-300" /></div></div><div className="bg-green-50 border border-green-200 p-3 rounded-lg"><div className="flex gap-6"><div><label className="block text-xs text-green-800 mb-1">Mini Cost</label><input type="number" step="0.01" value={discoCosts.mini} onChange={(e) => setDiscoCosts({...discoCosts, mini: parseFloat(e.target.value) || 0})} className="block w-24 rounded-md border-gray-300" /></div><div><label className="block text-xs text-green-800 mb-1">Full Cost</label><input type="number" step="0.01" value={discoCosts.full} onChange={(e) => setDiscoCosts({...discoCosts, full: parseFloat(e.target.value) || 0})} className="block w-24 rounded-md border-gray-300" /></div></div></div></div><h4 className="font-bold text-gray-700 mb-2 text-sm">Material Costs (Filling per Lb)</h4><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{empanadaFlavors.map((flavor) => (<div key={flavor.name} className="border rounded-md p-3 bg-gray-50 flex justify-between items-center"><label className="text-xs font-bold text-gray-700 truncate w-1/2">{flavor.name}</label><input type="number" step="0.01" placeholder="0.00" value={materialCosts[flavor.name] || ''} onChange={(e) => updateMaterialCost(flavor.name, e.target.value)} className="block w-full rounded-md border-gray-300 pl-5 text-sm" /></div>))}</div></div>
+                            <div className="bg-white p-5 rounded-lg border border-brand-tan shadow-sm"><h3 className="font-bold text-brand-brown text-lg mb-4 border-b pb-2">Costs & Inventory</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6"><div className="bg-yellow-50 border border-yellow-200 p-3 rounded-lg"><div><label className="block text-xs text-yellow-800 mb-1">Global Hourly Wage ($/hr)</label><input type="number" step="0.50" value={laborWage} onChange={(e) => setLaborWage(parseFloat(e.target.value) || 0)} className="block w-24 rounded-md border-gray-300" /></div></div><div className="bg-green-50 border border-green-200 p-3 rounded-lg"><div className="flex gap-6"><div><label className="block text-xs text-green-800 mb-1">Mini Cost</label><input type="number" step="0.01" value={discoCosts.mini} onChange={(e) => setDiscoCosts({...discoCosts, mini: parseFloat(e.target.value) || 0})} className="block w-24 rounded-md border-gray-300" /></div><div><label className="block text-xs text-green-800 mb-1">Full Cost</label><input type="number" step="0.01" value={discoCosts.full} onChange={(e) => setDiscoCosts({...discoCosts, full: parseFloat(e.target.value) || 0})} className="block w-24 rounded-md border-gray-300" /></div></div></div></div><h4 className="font-bold text-gray-700 mb-2 text-sm">Material Costs (Filling per Lb)</h4><div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{empanadaFlavors.map((flavor) => (<div key={flavor.name} className="border rounded-md p-3 bg-gray-50 flex justify-between items-center"><label className="text-xs font-bold text-gray-700 truncate w-1/2">{flavor.name}</label><input type="number" step="0.01" placeholder="0.00" value={materialCosts[flavor.name] || ''} onChange={(e) => updateMaterialCost(flavor.name, e.target.value)} className="block w-full rounded-md border-gray-300 pl-5 text-sm" /></div>))}</div></div>
                         </div>
                     )}
                     

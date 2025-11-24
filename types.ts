@@ -115,6 +115,17 @@ export interface PricingSettings {
     salsaLarge?: number;
 }
 
+export interface Employee {
+    id: string;
+    name: string;
+    hourlyWage: number;
+    productionRates: {
+        mini: number; // Empanadas per hour
+        full: number; // Empanadas per hour
+    };
+    isActive: boolean;
+}
+
 export interface AppSettings {
     empanadaFlavors: Flavor[];
     fullSizeEmpanadaFlavors: Flavor[];
@@ -126,7 +137,7 @@ export interface AppSettings {
         fullSizeMultiplier: number; 
         discosPer: { mini: number; full: number; };
         discoPackSize: { mini: number; full: number; };
-        productionRates: { mini: number; full: number; };
+        productionRates: { mini: number; full: number; }; // Global defaults
     };
     scheduling: {
         enabled: boolean;
@@ -137,9 +148,10 @@ export interface AppSettings {
         closedDays: number[];
         dateOverrides: Record<string, { isClosed: boolean; customHours?: { start: string; end: string; }; }>; 
     };
-    laborWage: number; 
+    laborWage: number; // Global default
     materialCosts: Record<string, number>; 
     discoCosts: { mini: number; full: number; };
     inventory: Record<string, { mini: number; full: number }>;
     expenseCategories: string[];
+    employees: Employee[];
 }

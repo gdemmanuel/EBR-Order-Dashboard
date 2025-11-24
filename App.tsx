@@ -1,9 +1,8 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { User } from 'firebase/auth';
 
-import { Order, ApprovalStatus, PricingSettings, Flavor } from './types';
+import { Order, ApprovalStatus, PricingSettings, Flavor, Employee } from './types';
 import { subscribeToOrders, subscribeToSettings, AppSettings, migrateLocalDataToFirestore } from './services/dbService';
 import { subscribeToAuth } from './services/authService';
 import { initialEmpanadaFlavors, initialFullSizeEmpanadaFlavors } from './data/mockData';
@@ -48,6 +47,7 @@ export default function App() {
   const [discoCosts, setDiscoCosts] = useState<{mini: number, full: number}>({mini: 0.10, full: 0.15});
   const [inventory, setInventory] = useState<Record<string, { mini: number; full: number }>>({});
   const [expenseCategories, setExpenseCategories] = useState<string[]>(['Packaging', 'Marketing', 'Rent', 'Utilities', 'Equipment', 'Other']);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   
   const [dbError, setDbError] = useState<string | null>(null);
   const [isMigrating, setIsMigrating] = useState(false);
@@ -139,7 +139,8 @@ export default function App() {
                   materialCosts: {},
                   discoCosts: { mini: 0.10, full: 0.15 },
                   inventory: {},
-                  expenseCategories: ['Packaging', 'Marketing', 'Rent', 'Utilities', 'Equipment', 'Other']
+                  expenseCategories: ['Packaging', 'Marketing', 'Rent', 'Utilities', 'Equipment', 'Other'],
+                  employees: []
               };
 
               await migrateLocalDataToFirestore(localOrders, localPending, localSettings);
@@ -171,6 +172,7 @@ export default function App() {
         if (settings.discoCosts) setDiscoCosts(settings.discoCosts);
         if (settings.inventory) setInventory(settings.inventory);
         if (settings.expenseCategories) setExpenseCategories(settings.expenseCategories);
+        if (settings.employees) setEmployees(settings.employees);
 
     }, (error) => {
         console.warn("Could not load settings:", error.message);
@@ -221,7 +223,8 @@ export default function App() {
       materialCosts,
       discoCosts,
       inventory,
-      expenseCategories
+      expenseCategories,
+      employees
   };
 
   return (

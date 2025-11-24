@@ -59,7 +59,8 @@ const DEFAULT_SETTINGS: AppSettings = {
     materialCosts: {},
     discoCosts: { mini: 0.10, full: 0.15 },
     inventory: {},
-    expenseCategories: ['Packaging', 'Marketing', 'Rent', 'Utilities', 'Equipment', 'Ingredients', 'Other']
+    expenseCategories: ['Packaging', 'Marketing', 'Rent', 'Utilities', 'Equipment', 'Ingredients', 'Other'],
+    employees: []
 };
 
 // --- Real-time Subscriptions ---
@@ -105,7 +106,8 @@ export const subscribeToSettings = (
                 pricing: { ...DEFAULT_SETTINGS.pricing, ...(data.pricing || {}) },
                 prepSettings: { ...DEFAULT_SETTINGS.prepSettings, ...(data.prepSettings || {}) },
                 scheduling: { ...DEFAULT_SETTINGS.scheduling, ...(data.scheduling || {}) },
-                expenseCategories: data.expenseCategories || DEFAULT_SETTINGS.expenseCategories
+                expenseCategories: data.expenseCategories || DEFAULT_SETTINGS.expenseCategories,
+                employees: data.employees || DEFAULT_SETTINGS.employees
             };
             onUpdate(mergedSettings);
         } else {
