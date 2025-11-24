@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { logout } from '../services/authService';
 import { User } from 'firebase/auth';
@@ -10,21 +9,32 @@ interface HeaderProps {
 
 export default function Header({ user, variant = 'public' }: HeaderProps) {
   return (
-    <header className="bg-brand-cream border-b border-brand-tan shadow-sm relative z-10">
+    <header className="bg-brand-cream border-b border-brand-tan/50 shadow-sm relative z-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-20">
-          <div className="flex items-center gap-3">
-             {/* Logo placeholder or icon could go here */}
-            <div className="flex flex-col">
-                <h1 className="text-2xl sm:text-3xl font-serif text-brand-brown tracking-tight hover:text-brand-orange transition-colors cursor-default">
+        <div className={`flex items-center h-24 ${variant === 'public' ? 'justify-center' : 'justify-between'}`}>
+          
+          {/* Admin Left Side */}
+          {variant === 'admin' && (
+            <div className="flex items-center gap-3">
+                <div className="flex flex-col">
+                    <h1 className="text-2xl sm:text-3xl font-serif text-brand-brown tracking-tight hover:text-brand-orange transition-colors cursor-default">
+                        Empanadas by Rose
+                    </h1>
+                    <span className="text-xs text-brand-brown/50 font-medium uppercase tracking-wider">Admin Dashboard</span>
+                </div>
+            </div>
+          )}
+
+          {/* Public Center Logo */}
+          {variant === 'public' && (
+             <div className="flex flex-col items-center">
+                <h1 className="text-4xl md:text-5xl font-serif text-brand-brown tracking-tighter cursor-default">
                     Empanadas by Rose
                 </h1>
-                {variant === 'admin' && (
-                    <span className="text-xs text-brand-brown/50 font-medium uppercase tracking-wider">Admin Dashboard</span>
-                )}
-            </div>
-          </div>
+             </div>
+          )}
           
+          {/* Admin Right Side */}
           {variant === 'admin' && user && (
               <button 
                 onClick={logout}
@@ -34,11 +44,7 @@ export default function Header({ user, variant = 'public' }: HeaderProps) {
               </button>
           )}
           
-          {variant === 'public' && (
-             <a href="tel:+" className="text-sm font-medium text-brand-orange hover:text-brand-brown transition-colors">
-                 Contact Us
-             </a>
-          )}
+          {/* Public Right Side (Hidden/Subtle contact link if needed, currently removed for cleaner centered look) */}
         </div>
       </div>
     </header>

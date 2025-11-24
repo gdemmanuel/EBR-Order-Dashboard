@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { saveOrderToDb, AppSettings } from '../services/dbService';
 import { Order, OrderItem, PaymentStatus, FollowUpStatus, ApprovalStatus, PricingSettings, Flavor, MenuPackage, SalsaProduct } from '../types';
@@ -205,10 +204,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
 
             const formattedDate = pickupDate ? `${pickupDate.split('-')[1]}/${pickupDate.split('-')[2]}/${pickupDate.split('-')[0]}` : '';
             
-            // Reformat 24h time from native picker if not using smart scheduling, OR use existing 12h from dropdown
-            // Default to TBD if no time selected
             let formattedTime = 'TBD';
-            
             if (pickupTime) {
                 if (!scheduling?.enabled && pickupTime.includes(':') && !pickupTime.includes('M')) {
                     const [h, m] = pickupTime.split(':');
@@ -263,11 +259,11 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
             <div className="min-h-screen bg-brand-cream flex flex-col">
                 <Header variant="public" />
                 <div className="flex-grow flex items-center justify-center p-4">
-                    <div className="bg-white max-w-lg w-full p-8 rounded-xl shadow-lg text-center border border-brand-tan">
-                        <div className="bg-green-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6"><CheckCircleIcon className="w-12 h-12 text-green-600" /></div>
-                        <h2 className="text-3xl font-serif text-brand-brown mb-4">Order Received!</h2>
-                        <p className="text-brand-brown/80 mb-8 text-lg">Thank you, {customerName}! We have received your order request. We will contact you shortly at <strong>{phoneNumber}</strong> to confirm details and arrange payment.</p>
-                        <button onClick={() => window.location.reload()} className="bg-brand-orange text-white font-semibold px-6 py-3 rounded-lg hover:bg-opacity-90 transition-colors">Place Another Order</button>
+                    <div className="bg-white max-w-lg w-full p-12 rounded-xl shadow-lg text-center border-t-4 border-brand-orange">
+                        <div className="bg-green-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6"><CheckCircleIcon className="w-10 h-10 text-green-700" /></div>
+                        <h2 className="text-4xl font-serif text-brand-brown mb-4">Order Received!</h2>
+                        <p className="text-brand-brown/80 mb-8 text-lg font-light">Thank you, {customerName}. We've received your order request. We'll contact you shortly at <strong>{phoneNumber}</strong> to confirm availability and arrange payment.</p>
+                        <button onClick={() => window.location.reload()} className="bg-brand-brown text-white font-serif px-8 py-3 rounded hover:bg-brand-brown/90 transition-all uppercase tracking-wider text-sm">Place Another Order</button>
                     </div>
                 </div>
             </div>
@@ -281,13 +277,10 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
     const standardFlavors = allVisibleFlavors.filter(f => !f.isSpecial);
     const specialFlavors = allVisibleFlavors.filter(f => f.isSpecial);
 
-    // Helper to check if date is blocked for UI feedback
     const isDateBlocked = (dateStr: string) => {
         if (!scheduling?.enabled) return false;
-        
         const override = scheduling.dateOverrides?.[dateStr];
-        if (override) return override.isClosed; // If explicit override says open, it's not blocked
-
+        if (override) return override.isClosed;
         if (scheduling.blockedDates.includes(dateStr)) return true;
         const [y, m, d] = dateStr.split('-').map(Number);
         const day = new Date(y, m - 1, d).getDay();
@@ -295,120 +288,270 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
     };
 
     return (
-        <div className="min-h-screen bg-brand-cream">
+        <div className="min-h-screen bg-brand-cream font-sans">
             <Header variant="public" />
-            <main className="max-w-4xl mx-auto px-4 py-8 pb-24 sm:pb-8">
-                <div className="text-center mb-10">
-                    <h2 className="text-4xl font-serif text-brand-brown mb-3">Place Your Order</h2>
-                    <p className="text-brand-brown/70 max-w-lg mx-auto">Choose from our delicious packages. Everything is made fresh to order!</p>
+            <main className="max-w-5xl mx-auto px-4 py-12 pb-32">
+                <div className="text-center mb-16">
+                    <h2 className="text-5xl sm:text-6xl font-serif text-brand-brown mb-4 tracking-tight">Place Your Order</h2>
+                    <div className="w-24 h-1 bg-brand-orange mx-auto mb-6"></div>
+                    <p className="text-brand-brown/70 max-w-2xl mx-auto text-lg font-light">Select your packages below. Everything is made fresh to order with love.</p>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-8">
-                    <section className="bg-white p-8 rounded-xl shadow-sm border border-brand-tan">
-                        <h3 className="text-2xl font-serif text-brand-brown mb-6 text-center">Our Menu</h3>
-                        <div className="space-y-8">
-                            <div>
-                                <h4 className="text-lg font-bold text-brand-orange uppercase tracking-wider mb-4 text-center sm:text-left">Empanada Flavors</h4>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                                    {standardFlavors.map(f => (
-                                        <div key={f.name} className="p-3 border-b border-brand-tan/50 sm:border sm:rounded-lg sm:bg-brand-cream/20 hover:bg-brand-cream/40 transition-colors"><div className="flex justify-between items-baseline"><span className="font-bold text-brand-brown text-sm">{f.name}</span></div>{f.description && <p className="text-xs text-gray-500 mt-1 leading-tight">{f.description}</p>}</div>
+                <form onSubmit={handleSubmit} className="space-y-16">
+                    
+                    {/* FLAVORS SECTION */}
+                    <section>
+                        <h3 className="text-3xl font-serif text-brand-brown mb-8 text-center">Our Flavors</h3>
+                        <div className="bg-white p-8 sm:p-12 rounded-xl shadow-sm">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-12 gap-y-6">
+                                {standardFlavors.map(f => (
+                                    <div key={f.name} className="flex flex-col items-center text-center group">
+                                        <span className="font-serif text-xl text-brand-brown group-hover:text-brand-orange transition-colors">{f.name}</span>
+                                        {f.description && <span className="text-sm text-gray-500 mt-1 font-light">{f.description}</span>}
+                                    </div>
+                                ))}
+                            </div>
+                            <p className="text-center text-xs text-gray-400 mt-10 font-medium uppercase tracking-widest">Available for both Mini and Full-Size</p>
+                        </div>
+                        
+                        {specialFlavors.length > 0 && (
+                            <div className="mt-8 bg-white p-8 rounded-xl shadow-sm border-t-4 border-purple-200">
+                                <h4 className="text-2xl font-serif text-purple-900 mb-6 text-center flex items-center justify-center gap-3">
+                                    <StarIcon className="w-6 h-6 text-purple-400" /> Specialty & Seasonal
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                                    {specialFlavors.map(f => (
+                                        <div key={f.name} className="text-center">
+                                            <p className="font-serif text-lg text-brand-brown">{f.name}</p>
+                                            {f.description && <p className="text-sm text-gray-500 mt-1 font-light italic">{f.description}</p>}
+                                        </div>
                                     ))}
                                 </div>
-                                <p className="text-xs text-gray-500 mt-4 text-center sm:text-left">* Flavors available for both Mini and Full-Size empanadas.</p>
                             </div>
-                            {specialFlavors.length > 0 && (
-                                <details className="group bg-purple-50 rounded-lg border border-purple-100 overflow-hidden">
-                                    <summary className="list-none cursor-pointer flex items-center justify-between p-4 font-semibold text-purple-900 hover:bg-purple-100 transition-colors"><div className="flex items-center gap-2"><StarIcon className="w-5 h-5 text-purple-600" /><span>Specialty Flavors & Platters</span></div><ChevronRightIcon className="w-5 h-5 transition-transform group-open:rotate-90 text-purple-400" /></summary>
-                                    <div className="p-4 border-t border-purple-100 animate-fade-in"><div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">{specialFlavors.map(f => (<div key={f.name} className="p-3 bg-white rounded-lg border border-purple-100 shadow-sm"><div className="font-bold text-purple-900 text-sm">{f.name}</div>{f.description && <p className="text-xs text-gray-500 mt-1 leading-tight">{f.description}</p>}</div>))}</div></div>
-                                </details>
-                            )}
-                        </div>
+                        )}
                     </section>
-                    
-                    <section className="bg-white p-6 rounded-xl shadow-sm border border-brand-tan"><h3 className="text-xl font-serif text-brand-brown mb-4 border-b border-brand-tan pb-2">Mini Empanadas</h3><div className="grid grid-cols-1 sm:grid-cols-2 gap-4">{miniPackages.map(pkg => (<div key={pkg.id} className="border border-brand-tan rounded-lg p-4 hover:shadow-md transition-shadow bg-brand-cream/30 flex flex-col justify-between"><div><h4 className="font-bold text-brand-brown text-lg">{pkg.name}</h4><p className="text-sm text-gray-600 mb-2">{pkg.quantity} Mini Empanadas</p><p className="text-xs text-gray-500">Select up to {pkg.maxFlavors} flavors</p></div><div className="mt-4 flex items-center justify-between"><span className="font-bold text-xl text-brand-orange">${pkg.price.toFixed(2)}</span><button type="button" onClick={() => openPackageBuilder(pkg)} className="bg-brand-brown text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-opacity-90 transition-colors">Select</button></div></div>))}{miniPackages.length === 0 && <p className="col-span-2 text-sm text-gray-500 italic">No mini packages available.</p>}</div></section>
-                    <section className="bg-white p-6 rounded-xl shadow-sm border border-brand-tan"><h3 className="text-xl font-serif text-brand-brown mb-4 border-b border-brand-tan pb-2">Full-Size Empanadas</h3><div className="grid grid-cols-1 sm:grid-cols-2 gap-4">{fullPackages.map(pkg => (<div key={pkg.id} className="border border-brand-tan rounded-lg p-4 hover:shadow-md transition-shadow bg-brand-cream/30 flex flex-col justify-between"><div><h4 className="font-bold text-brand-brown text-lg">{pkg.name}</h4><p className="text-sm text-gray-600 mb-2">{pkg.quantity} Full-Size Empanadas</p><p className="text-xs text-gray-500">Select up to {pkg.maxFlavors} flavors</p></div><div className="mt-4 flex items-center justify-between"><span className="font-bold text-xl text-brand-orange">${pkg.price.toFixed(2)}</span><button type="button" onClick={() => openPackageBuilder(pkg)} className="bg-brand-brown text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-opacity-90 transition-colors">Select</button></div></div>))}{fullPackages.length === 0 && <p className="col-span-2 text-sm text-gray-500 italic">No full-size packages available.</p>}</div></section>
-                     {(specialPackages.length > 0) && (<section className="bg-purple-50 p-6 rounded-xl shadow-sm border border-purple-200"><div className="flex items-center gap-2 mb-4 border-b border-purple-200 pb-2"><StarIcon className="w-5 h-5 text-purple-600" /><h3 className="text-xl font-serif text-purple-900">Party Platters & Specials</h3></div><div className="grid grid-cols-1 sm:grid-cols-2 gap-4">{specialPackages.map(pkg => (<div key={pkg.id} className="border border-purple-200 rounded-lg p-4 hover:shadow-md transition-shadow bg-white flex flex-col justify-between"><div><h4 className="font-bold text-purple-900 text-lg">{pkg.name}</h4><p className="text-sm text-gray-600 mb-2">{pkg.quantity} {pkg.itemType === 'mini' ? 'Mini' : 'Full-Size'} Items</p><p className="text-xs text-purple-600 font-medium">Special Item</p></div><div className="mt-4 flex items-center justify-between"><span className="font-bold text-xl text-brand-orange">${pkg.price.toFixed(2)}</span><button type="button" onClick={() => openPackageBuilder(pkg)} className="bg-purple-700 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-purple-800 transition-colors">Select</button></div></div>))}</div></section>)}
 
-                    {cartPackages.length > 0 && (<div className="bg-gray-50 rounded-lg p-4 border border-gray-200"><h4 className="font-bold text-brand-brown mb-3">Your Selections</h4><div className="space-y-3">{cartPackages.map((item, idx) => (<div key={item.id} className="flex justify-between items-start bg-white p-3 rounded border border-gray-200"><div><p className="font-bold text-brand-brown">{item.name}</p><p className="text-xs text-gray-500">{item.items.map(i => `${i.quantity} ${i.name}`).join(', ')}</p></div><div className="flex items-center gap-3"><span className="font-medium">${item.price.toFixed(2)}</span><button type="button" onClick={() => removeCartPackage(item.id)} className="text-red-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button></div></div>))}</div></div>)}
+                    {/* PACKAGES SECTION */}
+                    <div className="space-y-12">
+                        {/* Mini Packages */}
+                        <section>
+                            <div className="flex items-center gap-4 mb-8">
+                                <h3 className="text-3xl font-serif text-brand-brown">Mini Empanadas</h3>
+                                <div className="flex-grow h-px bg-brand-tan"></div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {miniPackages.map(pkg => (
+                                    <div key={pkg.id} className="bg-white p-8 rounded-xl shadow-sm hover:shadow-md transition-all border border-transparent hover:border-brand-tan flex flex-col items-center text-center">
+                                        <h4 className="font-serif text-2xl text-brand-brown mb-2">{pkg.name}</h4>
+                                        <div className="text-brand-orange font-bold text-xl mb-4">${pkg.price.toFixed(2)}</div>
+                                        <p className="text-gray-600 mb-1">{pkg.quantity} Mini Empanadas</p>
+                                        <p className="text-xs text-gray-400 mb-6 uppercase tracking-wide">Up to {pkg.maxFlavors} flavors</p>
+                                        <button type="button" onClick={() => openPackageBuilder(pkg)} className="mt-auto bg-brand-brown text-white px-8 py-2.5 rounded hover:bg-brand-brown/90 transition-colors text-sm uppercase tracking-wider">Select</button>
+                                    </div>
+                                ))}
+                                {miniPackages.length === 0 && <p className="col-span-3 text-center text-gray-400 italic py-8">Sold out or unavailable.</p>}
+                            </div>
+                        </section>
 
-                    <section className="bg-white p-6 rounded-xl shadow-sm border border-brand-tan"><h3 className="text-xl font-serif text-brand-brown mb-4 border-b border-brand-tan pb-2">Add Salsa & Extras (Optional)</h3><div className="space-y-2">{salsaItems.length > 0 ? (salsaItems.map((salsa, idx) => (<div key={salsa.id} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg border border-gray-200"><div className="flex items-center"><input type="checkbox" checked={salsa.checked} onChange={e => handleSalsaChange(idx, 'checked', e.target.checked)} className="h-5 w-5 text-brand-orange rounded focus:ring-brand-orange border-gray-300" /><span className="ml-2 text-brand-brown font-medium">{salsa.name} <span className="text-gray-500 font-normal text-sm">(${salsa.price.toFixed(2)})</span></span></div>{salsa.checked && (<div className="flex gap-2 items-center"><span className="text-xs">Qty:</span><input type="number" min="1" value={salsa.quantity} onChange={e => handleSalsaChange(idx, 'quantity', parseInt(e.target.value))} className="w-16 rounded-md border-gray-300 text-xs focus:ring-brand-orange focus:border-brand-orange py-1" /></div>)}</div>))) : (<p className="text-sm text-gray-500 italic">No extras available.</p>)}</div></section>
+                        {/* Full Packages */}
+                        <section>
+                            <div className="flex items-center gap-4 mb-8">
+                                <h3 className="text-3xl font-serif text-brand-brown">Full-Size Empanadas</h3>
+                                <div className="flex-grow h-px bg-brand-tan"></div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {fullPackages.map(pkg => (
+                                    <div key={pkg.id} className="bg-white p-8 rounded-xl shadow-sm hover:shadow-md transition-all border border-transparent hover:border-brand-tan flex flex-col items-center text-center">
+                                        <h4 className="font-serif text-2xl text-brand-brown mb-2">{pkg.name}</h4>
+                                        <div className="text-brand-orange font-bold text-xl mb-4">${pkg.price.toFixed(2)}</div>
+                                        <p className="text-gray-600 mb-1">{pkg.quantity} Full-Size Empanadas</p>
+                                        <p className="text-xs text-gray-400 mb-6 uppercase tracking-wide">Up to {pkg.maxFlavors} flavors</p>
+                                        <button type="button" onClick={() => openPackageBuilder(pkg)} className="mt-auto bg-brand-brown text-white px-8 py-2.5 rounded hover:bg-brand-brown/90 transition-colors text-sm uppercase tracking-wider">Select</button>
+                                    </div>
+                                ))}
+                                {fullPackages.length === 0 && <p className="col-span-3 text-center text-gray-400 italic py-8">Sold out or unavailable.</p>}
+                            </div>
+                        </section>
 
-                    {/* Step 5: Info */}
-                    <section className="bg-white p-6 rounded-xl shadow-sm border border-brand-tan">
-                        <h3 className="text-xl font-serif text-brand-brown mb-4 border-b border-brand-tan pb-2">Your Information</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="md:col-span-2"><label className="block text-sm font-medium text-brand-brown/80 mb-1">Full Name</label><input type="text" required value={customerName} onChange={e => setCustomerName(e.target.value)} className="w-full rounded-lg border-gray-300 focus:ring-brand-orange focus:border-brand-orange" /></div>
-                            <div><label className="block text-sm font-medium text-brand-brown/80 mb-1">Phone Number</label><input type="tel" required value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} className="w-full rounded-lg border-gray-300 focus:ring-brand-orange focus:border-brand-orange" /></div>
-                            <div><label className="block text-sm font-medium text-brand-brown/80 mb-1">Email Address</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full rounded-lg border-gray-300 focus:ring-brand-orange focus:border-brand-orange" /></div>
+                        {/* Specials */}
+                        {specialPackages.length > 0 && (
+                            <section>
+                                <div className="flex items-center gap-4 mb-8">
+                                    <h3 className="text-3xl font-serif text-purple-900">Platters & Specials</h3>
+                                    <div className="flex-grow h-px bg-purple-100"></div>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {specialPackages.map(pkg => (
+                                        <div key={pkg.id} className="bg-purple-50/50 p-8 rounded-xl shadow-sm hover:shadow-md transition-all border border-purple-100 flex flex-col items-center text-center">
+                                            <h4 className="font-serif text-2xl text-purple-900 mb-2">{pkg.name}</h4>
+                                            <div className="text-purple-700 font-bold text-xl mb-4">${pkg.price.toFixed(2)}</div>
+                                            <p className="text-gray-600 mb-1">{pkg.quantity} Items</p>
+                                            <p className="text-xs text-purple-400 mb-6 uppercase tracking-wide font-bold">Limited Time</p>
+                                            <button type="button" onClick={() => openPackageBuilder(pkg)} className="mt-auto bg-purple-900 text-white px-8 py-2.5 rounded hover:bg-purple-800 transition-colors text-sm uppercase tracking-wider">Select</button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </section>
+                        )}
+                    </div>
+
+                    {/* Cart Summary Block */}
+                    {cartPackages.length > 0 && (
+                        <div className="bg-white rounded-xl p-8 shadow-lg border border-brand-tan animate-fade-in">
+                            <h4 className="font-serif text-2xl text-brand-brown mb-6 border-b border-brand-tan pb-4">Your Selection</h4>
+                            <div className="space-y-4">
+                                {cartPackages.map((item) => (
+                                    <div key={item.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-brand-cream/30 p-4 rounded hover:bg-brand-cream/60 transition-colors">
+                                        <div>
+                                            <p className="font-serif text-lg text-brand-brown">{item.name}</p>
+                                            <p className="text-sm text-gray-500 font-light">{item.items.map(i => `${i.quantity} ${i.name}`).join(', ')}</p>
+                                        </div>
+                                        <div className="flex items-center gap-6 mt-2 sm:mt-0">
+                                            <span className="font-medium text-lg">${item.price.toFixed(2)}</span>
+                                            <button type="button" onClick={() => removeCartPackage(item.id)} className="text-gray-400 hover:text-red-600 transition-colors"><TrashIcon className="w-5 h-5" /></button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* EXTRAS SECTION */}
+                    {salsaItems.length > 0 && (
+                        <section className="bg-white p-8 rounded-xl shadow-sm">
+                            <h3 className="text-2xl font-serif text-brand-brown mb-6">Add Extras</h3>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {salsaItems.map((salsa, idx) => (
+                                    <div key={salsa.id} className={`flex items-center justify-between p-4 rounded border transition-all ${salsa.checked ? 'border-brand-orange bg-orange-50' : 'border-gray-100 bg-gray-50'}`}>
+                                        <div className="flex items-center">
+                                            <input type="checkbox" checked={salsa.checked} onChange={e => handleSalsaChange(idx, 'checked', e.target.checked)} className="h-5 w-5 text-brand-orange rounded focus:ring-brand-orange border-gray-300 cursor-pointer" />
+                                            <div className="ml-3">
+                                                <span className="block font-medium text-brand-brown">{salsa.name}</span>
+                                                <span className="text-sm text-gray-500">${salsa.price.toFixed(2)}</span>
+                                            </div>
+                                        </div>
+                                        {salsa.checked && (
+                                            <div className="flex items-center gap-2 bg-white rounded border border-gray-200 px-2 py-1">
+                                                <span className="text-xs text-gray-400 uppercase">Qty</span>
+                                                <input type="number" min="1" value={salsa.quantity} onChange={e => handleSalsaChange(idx, 'quantity', parseInt(e.target.value))} className="w-12 text-center border-none p-0 text-sm focus:ring-0" />
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
+                    )}
+
+                    {/* CONTACT & DETAILS FORM */}
+                    <section className="bg-white p-8 sm:p-12 rounded-xl shadow-sm">
+                        <h3 className="text-3xl font-serif text-brand-brown mb-8 text-center">Your Details</h3>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                            <div className="md:col-span-2">
+                                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Full Name</label>
+                                <input type="text" required value={customerName} onChange={e => setCustomerName(e.target.value)} className="w-full bg-brand-cream/30 border-0 border-b-2 border-gray-200 focus:border-brand-orange focus:ring-0 px-0 py-3 text-lg placeholder-gray-300 transition-colors" placeholder="Jane Doe" />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Phone Number</label>
+                                <input type="tel" required value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} className="w-full bg-brand-cream/30 border-0 border-b-2 border-gray-200 focus:border-brand-orange focus:ring-0 px-0 py-3 text-lg placeholder-gray-300 transition-colors" placeholder="(555) 123-4567" />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Email Address (Optional)</label>
+                                <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-brand-cream/30 border-0 border-b-2 border-gray-200 focus:border-brand-orange focus:ring-0 px-0 py-3 text-lg placeholder-gray-300 transition-colors" placeholder="jane@example.com" />
+                            </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                             <div>
-                                <label className="block text-sm font-medium text-brand-brown/80 mb-1">Preferred Date</label>
+                                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Preferred Pickup Date</label>
                                 <input 
                                     type="date" 
                                     required 
                                     value={pickupDate} 
                                     onChange={e => { setPickupDate(e.target.value); setPickupTime(''); }} 
-                                    className="w-full rounded-lg border-gray-300 focus:ring-brand-orange focus:border-brand-orange" 
+                                    className="w-full bg-brand-cream/30 border-0 border-b-2 border-gray-200 focus:border-brand-orange focus:ring-0 px-0 py-3 text-lg text-brand-brown" 
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-brand-brown/80 mb-1">Preferred Time</label>
-                                <p className="text-xs text-gray-500 mb-2">If your time is not available, please submit your order and we will confirm availability.</p>
+                                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Preferred Time</label>
                                 {scheduling?.enabled ? (
                                     <div className="relative">
                                         <select 
                                             value={pickupTime} 
                                             onChange={e => setPickupTime(e.target.value)} 
                                             disabled={!pickupDate}
-                                            className="w-full rounded-lg border-gray-300 focus:ring-brand-orange focus:border-brand-orange appearance-none"
+                                            className="w-full bg-brand-cream/30 border-0 border-b-2 border-gray-200 focus:border-brand-orange focus:ring-0 px-0 py-3 text-lg text-brand-brown appearance-none disabled:opacity-50"
                                         >
-                                            <option value="">Select a time (Optional)</option>
+                                            <option value="">Select a time...</option>
                                             {availableTimeSlots.map(time => (
                                                 <option key={time} value={time}>{time}</option>
                                             ))}
                                         </select>
-                                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-                                            <ClockIcon className="w-5 h-5 text-gray-400" />
+                                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center text-gray-400">
+                                            <ClockIcon className="w-5 h-5" />
                                         </div>
-                                        {pickupDate && isDateBlocked(normalizeDateStr(pickupDate)) && (
-                                            <p className="text-xs text-red-500 mt-1">This date is unavailable.</p>
-                                        )}
                                         {pickupDate && !isDateBlocked(normalizeDateStr(pickupDate)) && availableTimeSlots.length === 0 && (
-                                            <p className="text-xs text-red-500 mt-1">No time slots available for this date.</p>
+                                            <p className="text-xs text-red-500 mt-2">No slots available for this date.</p>
                                         )}
                                     </div>
                                 ) : (
-                                    <input type="time" value={pickupTime} onChange={e => setPickupTime(e.target.value)} className="w-full rounded-lg border-gray-300 focus:ring-brand-orange focus:border-brand-orange" />
+                                    <input type="time" value={pickupTime} onChange={e => setPickupTime(e.target.value)} className="w-full bg-brand-cream/30 border-0 border-b-2 border-gray-200 focus:border-brand-orange focus:ring-0 px-0 py-3 text-lg text-brand-brown" />
                                 )}
                             </div>
                         </div>
 
-                         <div className="flex items-start gap-3 mt-4 p-3 bg-blue-50 rounded-lg"><input type="checkbox" id="delivery" checked={deliveryRequired} onChange={e => setDeliveryRequired(e.target.checked)} className="mt-1 h-5 w-5 text-brand-orange rounded focus:ring-brand-orange border-gray-300" /><div><label htmlFor="delivery" className="font-medium text-brand-brown">I need this delivered</label><p className="text-xs text-gray-500">Delivery fees apply based on location.</p></div></div>
-                        {deliveryRequired && (<div className="mt-2 animate-fade-in"><label className="block text-sm font-medium text-brand-brown/80 mb-1">Delivery Address</label><input type="text" required={deliveryRequired} value={deliveryAddress} onChange={e => setDeliveryAddress(e.target.value)} className="w-full rounded-lg border-gray-300 focus:ring-brand-orange focus:border-brand-orange" /></div>)}
-                        <div className="mt-4"><label className="block text-sm font-medium text-brand-brown/80 mb-1">Special Instructions</label><textarea rows={2} value={specialInstructions} onChange={e => setSpecialInstructions(e.target.value)} className="w-full rounded-lg border-gray-300 focus:ring-brand-orange focus:border-brand-orange" /></div>
+                        <div className="mb-8">
+                            <div className="flex items-center gap-3 mb-4">
+                                <input type="checkbox" id="delivery" checked={deliveryRequired} onChange={e => setDeliveryRequired(e.target.checked)} className="h-5 w-5 text-brand-orange rounded border-gray-300 focus:ring-brand-orange cursor-pointer" />
+                                <label htmlFor="delivery" className="text-brand-brown cursor-pointer select-none">I need delivery <span className="text-sm text-gray-500">(Fees apply based on location)</span></label>
+                            </div>
+                            {deliveryRequired && (
+                                <div className="animate-fade-in pl-8">
+                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Delivery Address</label>
+                                    <input type="text" required={deliveryRequired} value={deliveryAddress} onChange={e => setDeliveryAddress(e.target.value)} className="w-full bg-brand-cream/30 border-0 border-b-2 border-gray-200 focus:border-brand-orange focus:ring-0 px-0 py-3 text-lg placeholder-gray-300" placeholder="123 Main St, Town, NY" />
+                                </div>
+                            )}
+                        </div>
+
+                        <div>
+                            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Special Instructions / Notes</label>
+                            <textarea rows={3} value={specialInstructions} onChange={e => setSpecialInstructions(e.target.value)} className="w-full bg-brand-cream/30 border-0 border-b-2 border-gray-200 focus:border-brand-orange focus:ring-0 px-0 py-3 text-brand-brown resize-none" placeholder="Allergies, gate code, etc." />
+                        </div>
                     </section>
 
-                    {/* Footer Total */}
-                    <div className="bg-brand-brown text-brand-cream p-3 sm:p-6 rounded-xl shadow-lg flex flex-row justify-between items-center gap-2 sticky bottom-4 z-10 mx-2 sm:mx-0">
-                        <div className="text-left">
-                            <p className="text-xs opacity-80">Estimated Total</p>
-                            <p className="text-xl sm:text-3xl font-bold">${estimatedTotal.toFixed(2)}*</p>
+                    {/* Sticky Footer Total */}
+                    <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-gray-200 p-4 sm:p-6 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-20">
+                        <div className="max-w-5xl mx-auto flex flex-row justify-between items-center gap-4">
+                            <div className="text-left">
+                                <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Estimated Total</p>
+                                <p className="text-3xl font-serif text-brand-brown font-bold">${estimatedTotal.toFixed(2)}*</p>
+                            </div>
+                            <button 
+                                type="submit" 
+                                disabled={isSubmitting} 
+                                className="bg-brand-orange text-white font-bold text-sm sm:text-base px-8 py-3 sm:py-4 rounded shadow-lg hover:bg-brand-orange/90 hover:shadow-xl transition-all disabled:bg-gray-400 disabled:cursor-not-allowed disabled:shadow-none uppercase tracking-widest"
+                            >
+                                {isSubmitting ? 'Sending Request...' : 'Submit Order'}
+                            </button>
                         </div>
-                        <button 
-                            type="submit" 
-                            disabled={isSubmitting} 
-                            className="bg-brand-orange text-white font-bold text-sm sm:text-lg px-4 sm:px-8 py-2 sm:py-3 rounded-lg hover:bg-brand-orange/90 transition-all shadow-md disabled:bg-gray-500 disabled:cursor-not-allowed whitespace-nowrap"
-                        >
-                            {isSubmitting ? 'Sending...' : 'Submit Order'}
-                        </button>
                     </div>
                     
-                     {error && (<div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert"><strong className="font-bold">Error: </strong><span className="block sm:inline">{error}</span></div>)}
+                    {error && (
+                        <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-lg text-center" role="alert">
+                            <strong className="block font-bold mb-1">Oops!</strong>
+                            <span>{error}</span>
+                        </div>
+                    )}
                 </form>
 
-                {activePackageBuilder && (<PackageBuilderModal pkg={activePackageBuilder} flavors={allVisibleFlavors} onClose={() => setActivePackageBuilder(null)} onConfirm={handlePackageConfirm}/>)}
+                {activePackageBuilder && (
+                    <PackageBuilderModal 
+                        pkg={activePackageBuilder} 
+                        flavors={allVisibleFlavors} 
+                        onClose={() => setActivePackageBuilder(null)} 
+                        onConfirm={handlePackageConfirm}
+                    />
+                )}
             </main>
         </div>
     );
