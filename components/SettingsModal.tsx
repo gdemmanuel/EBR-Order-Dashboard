@@ -9,9 +9,12 @@ interface SettingsModalProps {
     onClose: () => void;
 }
 
+type Tab = 'menu' | 'pricing' | 'prep' | 'costs' | 'scheduling' | 'expenses' | 'employees';
+
 export default function SettingsModal({ settings, onClose }: SettingsModalProps) {
-    const [activeTab, setActiveTab] = useState<'menu' | 'pricing' | 'prep' | 'costs' | 'scheduling' | 'expenses' | 'employees'>('menu');
+    const [activeTab, setActiveTab] = useState<Tab>('menu');
     
+    // Local state for editing
     const [empanadaFlavors, setEmpanadaFlavors] = useState<Flavor[]>(settings.empanadaFlavors);
     const [pricing, setPricing] = useState<PricingSettings>(settings.pricing);
     const [prepSettings, setPrepSettings] = useState<AppSettings['prepSettings']>(settings.prepSettings);
@@ -21,6 +24,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
     const [discoCosts, setDiscoCosts] = useState<{mini: number, full: number}>(settings.discoCosts);
     const [expenseCategories, setExpenseCategories] = useState<string[]>(settings.expenseCategories);
     
+    // Employees (Directly from props to ensure sync)
     const employees = settings.employees || []; 
     const [newEmpName, setNewEmpName] = useState('');
     const [newEmpRate, setNewEmpRate] = useState('');
@@ -40,13 +44,38 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
 
     const handleSave = async () => {
         setIsSaving(true);
-        const syncedFullFlavors: Flavor[] = empanadaFlavors.map(f => ({ ...f, name: `Full ${f.name}` }));
+        
+        const syncedFullFlavors: Flavor[] = empanadaFlavors.map(f => ({
+            ...f,
+            name: `Full ${f.name}`, 
+        }));
+
         const settingsToSave: Partial<AppSettings> = {
-            empanadaFlavors, fullSizeEmpanadaFlavors: syncedFullFlavors, pricing, prepSettings, scheduling, laborWage, materialCosts, discoCosts, expenseCategories
+            empanadaFlavors,
+            fullSizeEmpanadaFlavors: syncedFullFlavors,
+            pricing,
+            prepSettings,
+            scheduling,
+            laborWage,
+            materialCosts,
+            discoCosts,
+            expenseCategories,
+            // Employees are saved via direct helpers, but we include current state for completeness if needed by legacy logic
+            employees: settings.employees 
         };
-        try { await updateSettingsInDb(settingsToSave); } catch (e) { console.error(e); alert("Failed to save settings."); } finally { setIsSaving(false); onClose(); }
+
+        try {
+            await updateSettingsInDb(settingsToSave);
+        } catch (e) {
+            console.error("Error saving settings", e);
+            alert("Failed to save settings. Please check your connection.");
+        } finally {
+            setIsSaving(false);
+            onClose();
+        }
     };
 
+    // --- Direct Employee Handlers ---
     const handleAddOrUpdateEmployee = async () => {
         if (!newEmpName.trim() || !newEmpRate) return;
         setIsSaving(true);
@@ -67,6 +96,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                 await addEmployeeToDb(newEmp);
             }
             
+            // Clear form
             setNewEmpName(''); setNewEmpRate(''); setNewEmpMini(''); setNewEmpFull(''); setEditingEmployeeId(null);
         } catch (e) {
             console.error("Error saving employee", e);
@@ -98,6 +128,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
         setNewEmpName(''); setNewEmpRate(''); setNewEmpMini(''); setNewEmpFull(''); setEditingEmployeeId(null);
     };
 
+    // ... (Existing Handlers) ...
     const addFlavor = () => { if (newFlavorName.trim()) { setEmpanadaFlavors([...empanadaFlavors, { name: newFlavorName.trim(), visible: true, isSpecial: false }]); setNewFlavorName(''); } };
     const autoFillDescriptions = () => { setEmpanadaFlavors(empanadaFlavors.map(f => (!f.description ? { ...f, description: SUGGESTED_DESCRIPTIONS[f.name] || undefined } : f))); alert('Descriptions populated! Save to apply.'); };
     const toggleFlavorVisibility = (i: number) => { const u = [...empanadaFlavors]; u[i].visible = !u[i].visible; setEmpanadaFlavors(u); };
@@ -105,7 +136,16 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
     const updateFlavorDescription = (i: number, d: string) => { const u = [...empanadaFlavors]; u[i].description = d; setEmpanadaFlavors(u); };
     const updateFlavorSurcharge = (i: number, v: string) => { const u = [...empanadaFlavors]; u[i].surcharge = parseFloat(v) || undefined; setEmpanadaFlavors(u); };
     const removeFlavor = (i: number) => { setEmpanadaFlavors(empanadaFlavors.filter((_, idx) => idx !== i)); };
-    const handleAddOrUpdatePackage = () => { if (!packageForm.name || !packageForm.price || !packageForm.quantity) return; const pkg: MenuPackage = { id: editingPackageId || Date.now().toString(), name: packageForm.name, itemType: packageForm.itemType as 'mini'|'full', quantity: Number(packageForm.quantity), price: Number(packageForm.price), maxFlavors: Number(packageForm.maxFlavors)||Number(packageForm.quantity), increment: Number(packageForm.increment)||1, visible: packageForm.visible ?? true, isSpecial: packageForm.isSpecial ?? false }; let updated = pricing.packages || []; updated = editingPackageId ? updated.map(p => p.id === editingPackageId ? pkg : p) : [...updated, pkg]; setPricing({...pricing, packages: updated}); setPackageForm({ itemType: 'mini', quantity: 12, price: 20, maxFlavors: 4, increment: 1, visible: true, isSpecial: false, name: '' }); setEditingPackageId(null); };
+
+    const handleAddOrUpdatePackage = () => {
+        if (!packageForm.name || !packageForm.price || !packageForm.quantity) return;
+        const pkg: MenuPackage = { id: editingPackageId || Date.now().toString(), name: packageForm.name, itemType: packageForm.itemType as 'mini'|'full', quantity: Number(packageForm.quantity), price: Number(packageForm.price), maxFlavors: Number(packageForm.maxFlavors)||Number(packageForm.quantity), increment: Number(packageForm.increment)||1, visible: packageForm.visible ?? true, isSpecial: packageForm.isSpecial ?? false };
+        let updated = pricing.packages || [];
+        updated = editingPackageId ? updated.map(p => p.id === editingPackageId ? pkg : p) : [...updated, pkg];
+        setPricing({...pricing, packages: updated});
+        setPackageForm({ itemType: 'mini', quantity: 12, price: 20, maxFlavors: 4, increment: 1, visible: true, isSpecial: false, name: '' });
+        setEditingPackageId(null);
+    };
     const handleEditPackageClick = (pkg: MenuPackage) => { setPackageForm({ ...pkg, increment: pkg.increment || 10 }); setEditingPackageId(pkg.id); };
     const removePackage = (id: string) => { setPricing({...pricing, packages: pricing.packages.filter(p => p.id !== id)}); if(editingPackageId === id) { setEditingPackageId(null); setPackageForm({ itemType: 'mini', quantity: 12, price: 20, maxFlavors: 4, increment: 1, visible: true, isSpecial: false, name: '' }); } };
     const togglePackageVisibility = (id: string) => { setPricing({...pricing, packages: pricing.packages.map(p => p.id === id ? { ...p, visible: !p.visible } : p)}); };
@@ -119,12 +159,24 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
     const removeTier = (type: 'mini'|'full', minQty: number) => { setPricing({ ...pricing, [type]: { ...pricing[type], tiers: (pricing[type].tiers || []).filter(t => t.minQuantity !== minQty) } }); };
     const toggleClosedDay = (dayIndex: number) => { const current = scheduling.closedDays || []; if (current.includes(dayIndex)) { setScheduling({ ...scheduling, closedDays: current.filter(d => d !== dayIndex) }); } else { setScheduling({ ...scheduling, closedDays: [...current, dayIndex].sort() }); } };
     const handleDateClick = (dateStr: string) => { setSelectedDate(dateStr); };
-    const updateDateOverride = (dateStr: string, type: 'default' | 'closed' | 'custom', start?: string, end?: string) => { const newOverrides = { ...(scheduling.dateOverrides || {}) }; if (type === 'default') { delete newOverrides[dateStr]; } else if (type === 'closed') { newOverrides[dateStr] = { isClosed: true }; } else if (type === 'custom') { newOverrides[dateStr] = { isClosed: false, customHours: { start: start || scheduling.startTime, end: end || scheduling.endTime } }; } setScheduling({ ...scheduling, dateOverrides: newOverrides }); };
+    const updateDateOverride = (dateStr: string, type: 'default' | 'closed' | 'custom', start?: string, end?: string) => { const newOverrides = { ...(scheduling.dateOverrides || {}) }; if (type === 'default') { delete newOverrides[dateStr]; } else if (type === 'closed') { newOverrides[dateStr] = { isClosed: true }; } else if (type === 'custom') { newOverrides[dateStr] = { 
+        isClosed: false, customHours: { start: start || scheduling.startTime, end: end || scheduling.endTime } }; } setScheduling({ ...scheduling, dateOverrides: newOverrides }); };
     const calendarGrid = useMemo(() => { const year = calendarViewDate.getFullYear(); const month = calendarViewDate.getMonth(); const daysInMonth = new Date(year, month + 1, 0).getDate(); const firstDayOfWeek = new Date(year, month, 1).getDay(); const cells = []; for (let i = 0; i < firstDayOfWeek; i++) cells.push(null); for (let i = 1; i <= daysInMonth; i++) cells.push(new Date(year, month, i)); return cells; }, [calendarViewDate]);
     const handlePrevMonth = () => setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() - 1, 1));
     const handleNextMonth = () => setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() + 1, 1));
     const addCategory = () => { if (newCategory.trim() && !expenseCategories.includes(newCategory.trim())) { setExpenseCategories([...expenseCategories, newCategory.trim()]); setNewCategory(''); } };
     const removeCategory = (cat: string) => { setExpenseCategories(expenseCategories.filter(c => c !== cat)); };
+
+    // Define tabs
+    const tabs: { id: Tab; label: string }[] = [
+        { id: 'menu', label: 'Menu' },
+        { id: 'pricing', label: 'Pricing' },
+        { id: 'scheduling', label: 'Scheduling' },
+        { id: 'prep', label: 'Prep' },
+        { id: 'costs', label: 'Inventory & Costs' },
+        { id: 'expenses', label: 'Exp. Categories' },
+        { id: 'employees', label: 'Employees' }
+    ];
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fade-in">
@@ -137,19 +189,18 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                 </header>
 
                 <div className="flex flex-wrap border-b border-gray-200">
-                    {['menu', 'pricing', 'scheduling', 'prep', 'costs', 'expenses', 'employees'].map((tab) => (
+                    {tabs.map((tab) => (
                          <button
-                            key={tab}
-                            className={`flex-1 px-4 py-3 font-medium text-sm whitespace-nowrap transition-colors capitalize ${activeTab === tab ? 'border-b-2 border-brand-orange text-brand-orange bg-brand-orange/5' : 'text-gray-500 hover:text-brand-brown hover:bg-gray-50'}`}
-                            onClick={() => setActiveTab(tab as any)}
+                            key={tab.id}
+                            className={`flex-1 px-4 py-3 font-medium text-sm whitespace-nowrap transition-colors capitalize ${activeTab === tab.id ? 'border-b-2 border-brand-orange text-brand-orange bg-brand-orange/5' : 'text-gray-500 hover:text-brand-brown hover:bg-gray-50'}`}
+                            onClick={() => setActiveTab(tab.id)}
                         >
-                            {tab === 'expenses' ? 'Exp. Categories' : tab === 'scheduling' ? 'Scheduling' : tab === 'costs' ? 'Inventory & Costs' : tab === 'prep' ? 'Prep' : tab === 'menu' ? 'Menu' : tab === 'employees' ? 'Employees' : 'Pricing'}
+                            {tab.label}
                         </button>
                     ))}
                 </div>
 
                 <div className="overflow-y-auto p-6 flex-grow">
-                    {/* ... (Content for Menu, Pricing, etc.) ... */}
                     {activeTab === 'menu' && (<div className="bg-gray-50 p-4 rounded-lg border border-gray-200"><div className="flex justify-between items-center mb-4"><div><h3 className="font-bold text-brand-brown">Empanada Flavors</h3></div><button onClick={autoFillDescriptions} className="text-xs flex items-center gap-1 bg-blue-100 text-blue-800 px-2 py-1 rounded hover:bg-blue-200"><SparklesIcon className="w-3 h-3"/> Auto-fill</button></div><div className="flex gap-2 mb-4"><input type="text" value={newFlavorName} onChange={e => setNewFlavorName(e.target.value)} placeholder="New flavor name" className="flex-grow rounded border-gray-300 text-sm"/><button onClick={addFlavor} className="bg-brand-orange text-white px-3 rounded"><PlusIcon className="w-5 h-5"/></button></div><div className="space-y-2 max-h-96 overflow-y-auto">{empanadaFlavors.map((f, i) => <div key={i} className="bg-white p-2 rounded shadow-sm text-sm flex items-center justify-between"><span>{f.name}</span><button onClick={() => removeFlavor(i)} className="text-red-500"><TrashIcon className="w-4 h-4"/></button></div>)}</div></div>)}
                     {activeTab === 'pricing' && (<div className="space-y-8"><div><h3 className="font-bold text-brand-brown mb-4">Packages</h3><div className="space-y-3">{pricing.packages?.map(p => <div key={p.id} className="bg-white p-3 rounded border shadow-sm flex justify-between"><span>{p.name}</span><button onClick={() => removePackage(p.id)} className="text-red-500"><TrashIcon className="w-4 h-4"/></button></div>)}</div></div></div>)}
                     {activeTab === 'scheduling' && (<div className="space-y-8"><h3 className="font-bold text-brand-brown">Scheduling</h3><div className="grid grid-cols-2 gap-4"><div><label className="block text-xs">Open</label><input type="time" value={scheduling.startTime} onChange={e => setScheduling({...scheduling, startTime: e.target.value})} className="border rounded p-1 w-full"/></div><div><label className="block text-xs">Close</label><input type="time" value={scheduling.endTime} onChange={e => setScheduling({...scheduling, endTime: e.target.value})} className="border rounded p-1 w-full"/></div></div></div>)}
