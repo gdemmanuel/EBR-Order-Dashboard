@@ -121,16 +121,14 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
         }
 
         // 2. Check Recurring Closed Days
-        // Create date object from input string (handling timezone correctly requires splitting)
         const [y, m, d] = normalizedDate.split('-').map(Number);
         const dateObj = new Date(y, m - 1, d);
         
-        // Only apply closed days if NO override exists (an override can FORCE OPEN a closed day)
         if (!override && scheduling.closedDays && scheduling.closedDays.includes(dateObj.getDay())) {
             return [];
         }
 
-        // 3. Check Legacy Blocked Dates (if not using overrides)
+        // 3. Check Legacy Blocked Dates
         if (!override && scheduling.blockedDates.includes(normalizedDate)) {
             return [];
         }
@@ -153,23 +151,50 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
 
     // --- Calculate Estimated Total ---
     useEffect(() => {
+        // Package Base Prices
         const packagesTotal = cartPackages.reduce((sum, p) => sum + p.price, 0);
+        
         let surchargeTotal = 0;
+        let packageSalsaTotal = 0;
+
         cartPackages.forEach(pkg => {
             pkg.items.forEach(item => {
+                // 1. Surcharges
                 const miniFlavor = empanadaFlavors.find(f => f.name === item.name);
                 if (miniFlavor && miniFlavor.surcharge) surchargeTotal += (item.quantity * miniFlavor.surcharge);
                 const fullFlavor = fullSizeEmpanadaFlavors.find(f => f.name === item.name);
                 if (fullFlavor && fullFlavor.surcharge) surchargeTotal += (item.quantity * fullFlavor.surcharge);
+
+                // 2. Salsas hidden inside packages
+                const salsaProduct = safePricing.salsas.find(s => s.name === item.name);
+                if (salsaProduct) {
+                    packageSalsaTotal += (item.quantity * salsaProduct.price);
+                }
             });
         });
-        const salsaTotal = salsaItems.filter(s => s.checked).reduce((sum, s) => sum + (s.quantity * s.price), 0);
-        setEstimatedTotal(packagesTotal + salsaTotal + surchargeTotal);
+
+        const globalSalsaTotal = salsaItems.filter(s => s.checked).reduce((sum, s) => sum + (s.quantity * s.price), 0);
+        setEstimatedTotal(packagesTotal + globalSalsaTotal + surchargeTotal + packageSalsaTotal);
     }, [cartPackages, salsaItems, safePricing, empanadaFlavors, fullSizeEmpanadaFlavors]);
 
     // --- Package Builder Logic ---
     const openPackageBuilder = (pkg: MenuPackage) => { setActivePackageBuilder(pkg); };
-    const handlePackageConfirm = (items: { name: string; quantity: number }[]) => { if (!activePackageBuilder) return; const newCartItem: CartPackage = { id: Date.now().toString(), packageId: activePackageBuilder.id, name: activePackageBuilder.name, price: activePackageBuilder.price, items: items }; setCartPackages([...cartPackages, newCartItem]); setActivePackageBuilder(null); };
+    
+    const handlePackageConfirm = (items: { name: string; quantity: number }[]) => { 
+        if (!activePackageBuilder) return; 
+        
+        // Add selected items (empanadas + salsas) to the package payload
+        const newCartItem: CartPackage = { 
+            id: Date.now().toString(), 
+            packageId: activePackageBuilder.id, 
+            name: activePackageBuilder.name, 
+            price: activePackageBuilder.price, 
+            items: items 
+        }; 
+        setCartPackages([...cartPackages, newCartItem]); 
+        setActivePackageBuilder(null); 
+    };
+    
     const removeCartPackage = (id: string) => { setCartPackages(cartPackages.filter(p => p.id !== id)); };
     const handleSalsaChange = (index: number, field: keyof DynamicSalsaState, value: any) => { const newSalsaItems = [...salsaItems]; newSalsaItems[index] = { ...newSalsaItems[index], [field]: value }; setSalsaItems(newSalsaItems); };
 
@@ -185,7 +210,10 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                 const isFullPackage = pkgDef?.itemType === 'full';
                 pkg.items.forEach(item => {
                     let finalName = item.name;
-                    if (isFullPackage && !finalName.startsWith('Full ')) finalName = `Full ${finalName}`;
+                    // Don't prefix Salsas with "Full"
+                    const isSalsa = safePricing.salsas.some(s => s.name === item.name);
+                    if (isFullPackage && !finalName.startsWith('Full ') && !isSalsa) finalName = `Full ${finalName}`;
+                    
                     const existing = allEmpanadas.find(i => i.name === finalName);
                     if (existing) existing.quantity += item.quantity; else allEmpanadas.push({ ...item, name: finalName });
                 });
@@ -196,7 +224,6 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
 
             if (finalItems.length === 0) throw new Error("Please add at least one package or item to your order.");
 
-            // Check availability again on submit ONLY IF A TIME WAS SELECTED
             if (scheduling?.enabled && pickupTime) {
                 const normalizedDate = normalizeDateStr(pickupDate);
                 const override = scheduling.dateOverrides?.[normalizedDate];
@@ -231,6 +258,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                 }
             }
 
+            // Calculate counts correctly by excluding salsas
             const totalMini = cartPackages.filter(p => safePricing.packages?.find(def => def.id === p.packageId)?.itemType === 'mini').reduce((sum, p) => sum + (safePricing.packages?.find(def => def.id === p.packageId)?.quantity || 0), 0);
             const totalFull = cartPackages.filter(p => safePricing.packages?.find(def => def.id === p.packageId)?.itemType === 'full').reduce((sum, p) => sum + (safePricing.packages?.find(def => def.id === p.packageId)?.quantity || 0), 0);
 
@@ -294,7 +322,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
     const salsaFlavors: Flavor[] = useMemo(() => 
         (safePricing.salsas || [])
             .filter(s => s.visible)
-            .map(s => ({ name: s.name, visible: true, description: 'Dipping Sauce' })),
+            .map(s => ({ name: s.name, visible: true, description: 'Dipping Sauce', price: s.price })), // Adding price to flavor object
         [safePricing.salsas]
     );
 
@@ -316,11 +344,13 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
             {motd && (
                 <div className="bg-brand-brown text-brand-tan overflow-hidden whitespace-nowrap py-2 border-b border-brand-tan/20">
                     <div className="animate-marquee inline-block text-sm font-medium tracking-wide">
-                        <span className="mx-4"><MegaphoneIcon className="inline w-4 h-4 mb-0.5 mr-2" />{motd}</span>
-                        {/* Duplicate for smooth loop */}
-                        <span className="mx-4"><MegaphoneIcon className="inline w-4 h-4 mb-0.5 mr-2" />{motd}</span>
-                        <span className="mx-4"><MegaphoneIcon className="inline w-4 h-4 mb-0.5 mr-2" />{motd}</span>
-                        <span className="mx-4"><MegaphoneIcon className="inline w-4 h-4 mb-0.5 mr-2" />{motd}</span>
+                        {/* Duplicated multiple times for smoother loop on wide screens */}
+                        <span className="mx-8"><MegaphoneIcon className="inline w-4 h-4 mb-0.5 mr-2" />{motd}</span>
+                        <span className="mx-8"><MegaphoneIcon className="inline w-4 h-4 mb-0.5 mr-2" />{motd}</span>
+                        <span className="mx-8"><MegaphoneIcon className="inline w-4 h-4 mb-0.5 mr-2" />{motd}</span>
+                        <span className="mx-8"><MegaphoneIcon className="inline w-4 h-4 mb-0.5 mr-2" />{motd}</span>
+                        <span className="mx-8"><MegaphoneIcon className="inline w-4 h-4 mb-0.5 mr-2" />{motd}</span>
+                        <span className="mx-8"><MegaphoneIcon className="inline w-4 h-4 mb-0.5 mr-2" />{motd}</span>
                     </div>
                 </div>
             )}
@@ -340,8 +370,8 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                         <div className="bg-white p-8 sm:p-12 rounded-xl shadow-sm">
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-x-12 gap-y-6">
                                 {standardFlavors.map(f => (
-                                    <div key={f.name} className="flex flex-col items-center text-center group">
-                                        <span className="font-serif text-xl text-brand-brown group-hover:text-brand-orange transition-colors">{f.name}</span>
+                                    <div key={f.name} className="flex flex-col items-center text-center">
+                                        <span className="font-serif text-xl text-brand-brown">{f.name}</span>
                                         {f.description && <span className="text-sm text-gray-500 mt-1 font-light">{f.description}</span>}
                                     </div>
                                 ))}
@@ -485,18 +515,27 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                         <div className="bg-white rounded-xl p-8 shadow-lg border border-brand-tan animate-fade-in">
                             <h4 className="font-serif text-2xl text-brand-brown mb-6 border-b border-brand-tan pb-4">Your Selection</h4>
                             <div className="space-y-4">
-                                {cartPackages.map((item) => (
-                                    <div key={item.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-brand-cream/30 p-4 rounded hover:bg-brand-cream/60 transition-colors">
-                                        <div>
-                                            <p className="font-serif text-lg text-brand-brown">{item.name}</p>
-                                            <p className="text-sm text-gray-500 font-light">{item.items.map(i => `${i.quantity} ${i.name}`).join(', ')}</p>
+                                {cartPackages.map((item) => {
+                                    // Calculate extra salsa cost for display
+                                    const extraSalsaCost = item.items.reduce((sum, i) => {
+                                        const salsa = safePricing.salsas.find(s => s.name === i.name);
+                                        return sum + (salsa ? (salsa.price * i.quantity) : 0);
+                                    }, 0);
+                                    const displayPrice = item.price + extraSalsaCost;
+
+                                    return (
+                                        <div key={item.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-brand-cream/30 p-4 rounded hover:bg-brand-cream/60 transition-colors">
+                                            <div>
+                                                <p className="font-serif text-lg text-brand-brown">{item.name}</p>
+                                                <p className="text-sm text-gray-500 font-light">{item.items.map(i => `${i.quantity} ${i.name}`).join(', ')}</p>
+                                            </div>
+                                            <div className="flex items-center gap-6 mt-2 sm:mt-0">
+                                                <span className="font-medium text-lg">${displayPrice.toFixed(2)}</span>
+                                                <button type="button" onClick={() => removeCartPackage(item.id)} className="text-gray-400 hover:text-red-600 transition-colors"><TrashIcon className="w-5 h-5" /></button>
+                                            </div>
                                         </div>
-                                        <div className="flex items-center gap-6 mt-2 sm:mt-0">
-                                            <span className="font-medium text-lg">${item.price.toFixed(2)}</span>
-                                            <button type="button" onClick={() => removeCartPackage(item.id)} className="text-gray-400 hover:text-red-600 transition-colors"><TrashIcon className="w-5 h-5" /></button>
-                                        </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
                     )}
@@ -632,7 +671,8 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                 {activePackageBuilder && (
                     <PackageBuilderModal 
                         pkg={activePackageBuilder} 
-                        flavors={[...allVisibleFlavors, ...salsaFlavors]} 
+                        flavors={activePackageBuilder.isSpecial ? specialFlavors : standardFlavors}
+                        salsas={salsaFlavors}
                         onClose={() => setActivePackageBuilder(null)} 
                         onConfirm={handlePackageConfirm}
                     />
@@ -641,11 +681,11 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
             
             <style>{`
                 @keyframes marquee {
-                    0% { transform: translateX(100%); }
+                    0% { transform: translateX(0); }
                     100% { transform: translateX(-100%); }
                 }
                 .animate-marquee {
-                    animation: marquee 25s linear infinite;
+                    animation: marquee 60s linear infinite;
                 }
             `}</style>
         </div>

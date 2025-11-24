@@ -194,7 +194,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
     const salsaFlavors: Flavor[] = useMemo(() => 
         (pricing.salsas || [])
             .filter(s => s.visible)
-            .map(s => ({ name: s.name, visible: true, description: 'Dipping Sauce' })),
+            .map(s => ({ name: s.name, visible: true, description: 'Dipping Sauce', price: s.price })),
         [pricing.salsas]
     );
 
@@ -588,7 +588,8 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                     finalName = customName;
                 }
                 
-                if (type === 'full' && !finalName.startsWith('Full ')) {
+                const isSalsa = pricing.salsas.some(s => s.name === item.name);
+                if (type === 'full' && !finalName.startsWith('Full ') && !isSalsa) {
                     finalName = `Full ${finalName}`;
                 }
 
@@ -920,7 +921,8 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                 {activePackageBuilder && (
                     <PackageBuilderModal 
                         pkg={activePackageBuilder}
-                        flavors={[...(activePackageBuilder.isSpecial ? specialFlavors : standardFlavors), ...salsaFlavors]}
+                        flavors={activePackageBuilder.isSpecial ? specialFlavors : standardFlavors}
+                        salsas={salsaFlavors}
                         onClose={() => setActivePackageBuilder(null)}
                         onConfirm={handlePackageConfirm}
                     />
