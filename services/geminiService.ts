@@ -38,6 +38,9 @@ export async function generateFollowUpMessage(order: Order): Promise<string> {
       totalsText = `${order.totalMini} mini and ${order.totalFullSize} full-size empanadas`;
   }
 
+  // Extract first name for the greeting
+  const firstName = order.customerName.split(' ')[0];
+
   const prompt = `
     You are Rose, the owner of "Empanadas by Rose". Generate a text message exactly following the template below.
     Do not add any conversational filler before or after the template.
@@ -53,9 +56,9 @@ export async function generateFollowUpMessage(order: Order): Promise<string> {
     ${itemsList}
 
     REQUIRED OUTPUT FORMAT:
-    Hi [Customer First Name]! This is Rose from Empanadas by Rose. Thank you for placing an order. Please confirm your order for [pick up/delivery] on [Day of Week], [Date] at [Time] as follows:
-    [Totals Summary]
-    [Items List with bullets]
+    Hi ${firstName}! This is Rose from Empanadas by Rose. Thank you for placing an order. Please confirm your order for ${order.deliveryRequired ? 'delivery' : 'pick up'} on [Day of Week], ${order.pickupDate} at ${order.pickupTime} as follows:
+    ${totalsText}
+    ${itemsList}
   `;
   
   try {
@@ -87,7 +90,7 @@ export async function generateOrderConfirmationMessage(order: Order): Promise<st
         - Time: ${order.pickupTime}
 
         REQUIRED OUTPUT FORMAT:
-        Perfect! The total is [Total Amount]. Cash on [pick up/delivery], please. I'll see you on [Day of Week], [Date] at [Time].
+        Perfect! The total is $${order.amountCharged.toFixed(2)}. Cash on ${order.deliveryRequired ? 'delivery' : 'pick up'}, please. I'll see you on [Day of Week], ${order.pickupDate} at ${order.pickupTime}.
         Thank you for your order!
     `;
 
