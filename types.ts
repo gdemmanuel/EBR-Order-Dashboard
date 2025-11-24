@@ -140,6 +140,7 @@ export interface WorkShift {
 }
 
 export interface AppSettings {
+    motd: string; // Message of the Day
     empanadaFlavors: Flavor[];
     fullSizeEmpanadaFlavors: Flavor[];
     sheetUrl: string;

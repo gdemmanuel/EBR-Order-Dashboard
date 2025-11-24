@@ -24,6 +24,7 @@ const GENERAL_SETTINGS_DOC = "general";
 export type { AppSettings };
 
 const DEFAULT_SETTINGS: AppSettings = {
+    motd: '',
     empanadaFlavors: initialEmpanadaFlavors.map(f => ({ name: f, visible: true })),
     fullSizeEmpanadaFlavors: initialFullSizeEmpanadaFlavors.map(f => ({ name: f, visible: true })),
     sheetUrl: '',

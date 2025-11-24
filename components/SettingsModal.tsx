@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { AppSettings, updateSettingsInDb } from '../services/dbService';
 import { PricingSettings, MenuPackage, Flavor, SalsaProduct, PricingTier, Employee } from '../types';
-import { XMarkIcon, PlusIcon, TrashIcon, CheckCircleIcon, CogIcon, PencilIcon, ScaleIcon, CurrencyDollarIcon, ClockIcon, SparklesIcon, CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon, ReceiptIcon, UsersIcon, BriefcaseIcon, DocumentTextIcon, ListBulletIcon } from './icons/Icons';
+import { XMarkIcon, PlusIcon, TrashIcon, CheckCircleIcon, CogIcon, PencilIcon, ScaleIcon, CurrencyDollarIcon, ClockIcon, SparklesIcon, CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon, ReceiptIcon, UsersIcon, BriefcaseIcon, DocumentTextIcon, ListBulletIcon, MegaphoneIcon } from './icons/Icons';
 import { SUGGESTED_DESCRIPTIONS } from '../data/mockData';
 
 interface SettingsModalProps {
@@ -11,9 +11,10 @@ interface SettingsModalProps {
 }
 
 export default function SettingsModal({ settings, onClose }: SettingsModalProps) {
-    const [activeTab, setActiveTab] = useState<'menu' | 'pricing' | 'prep' | 'costs' | 'scheduling' | 'expenses' | 'employees'>('menu');
+    const [activeTab, setActiveTab] = useState<'general' | 'menu' | 'pricing' | 'prep' | 'costs' | 'scheduling' | 'expenses' | 'employees'>('general');
     
     // Local state for editing
+    const [motd, setMotd] = useState(settings.motd || '');
     const [empanadaFlavors, setEmpanadaFlavors] = useState<Flavor[]>(settings.empanadaFlavors);
     const [pricing, setPricing] = useState<PricingSettings>(settings.pricing);
     
@@ -161,6 +162,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
             }));
 
             await updateSettingsInDb({
+                motd,
                 empanadaFlavors,
                 fullSizeEmpanadaFlavors: syncedFullFlavors,
                 pricing: sanitizedPricing,
@@ -342,6 +344,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
     };
 
     const tabs = [
+        { id: 'general', label: 'General', icon: <MegaphoneIcon className="w-4 h-4" /> },
         { id: 'menu', label: 'Menu Items', icon: <ListBulletIcon className="w-4 h-4" /> },
         { id: 'pricing', label: 'Pricing', icon: <CurrencyDollarIcon className="w-4 h-4" /> },
         { id: 'scheduling', label: 'Scheduling', icon: <CalendarDaysIcon className="w-4 h-4" /> },
@@ -385,6 +388,27 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
 
                     {/* Content Area */}
                     <div className="flex-grow overflow-y-auto p-4 md:p-8 bg-white">
+                        {activeTab === 'general' && (
+                            <div className="max-w-2xl mx-auto space-y-6">
+                                <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+                                    <h3 className="font-bold text-brand-brown mb-4 flex items-center gap-2">
+                                        <MegaphoneIcon className="w-5 h-5" /> Message of the Day (MOTD)
+                                    </h3>
+                                    <p className="text-sm text-gray-500 mb-4">
+                                        This message will appear as a scrolling banner at the top of the Customer Order page. 
+                                        Leave it empty to disable the banner.
+                                    </p>
+                                    <textarea
+                                        rows={3}
+                                        value={motd}
+                                        onChange={(e) => setMotd(e.target.value)}
+                                        placeholder="e.g., We will be closed for the holidays starting Dec 24th! Place your orders early."
+                                        className="w-full rounded-md border-gray-300 shadow-sm focus:ring-brand-orange focus:border-brand-orange text-sm"
+                                    />
+                                </div>
+                            </div>
+                        )}
+
                         {activeTab === 'menu' && (
                             <div className="grid grid-cols-1 gap-8 max-w-4xl">
                                 <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">

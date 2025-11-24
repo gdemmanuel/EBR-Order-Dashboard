@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { User } from 'firebase/auth';
@@ -24,6 +25,7 @@ export default function App() {
   const [importedSignatures, setImportedSignatures] = useState<Set<string>>(new Set());
   const [sheetUrl, setSheetUrl] = useState<string>('');
   const [pricing, setPricing] = useState<PricingSettings | undefined>(undefined);
+  const [motd, setMotd] = useState<string>('');
   
   // Extended Settings State
   const [prepSettings, setPrepSettings] = useState<AppSettings['prepSettings']>({ 
@@ -128,6 +130,7 @@ export default function App() {
               const rawFull = JSON.parse(localStorage.getItem('fullSizeEmpanadaFlavors') || JSON.stringify(initialFullSizeEmpanadaFlavors));
 
               const localSettings: AppSettings = {
+                  motd: '',
                   empanadaFlavors: Array.isArray(rawMini) && typeof rawMini[0] === 'string' ? rawMini.map((f: string) => ({ name: f, visible: true })) : rawMini,
                   fullSizeEmpanadaFlavors: Array.isArray(rawFull) && typeof rawFull[0] === 'string' ? rawFull.map((f: string) => ({ name: f, visible: true })) : rawFull,
                   sheetUrl: localStorage.getItem('sheetUrl') || '',
@@ -159,6 +162,7 @@ export default function App() {
   // Data Subscriptions
   useEffect(() => {
     const unsubscribeSettings = subscribeToSettings((settings: AppSettings) => {
+        if (settings.motd !== undefined) setMotd(settings.motd);
         if (settings.empanadaFlavors) setEmpanadaFlavors(settings.empanadaFlavors);
         if (settings.fullSizeEmpanadaFlavors) setFullSizeEmpanadaFlavors(settings.fullSizeEmpanadaFlavors);
         if (settings.importedSignatures) setImportedSignatures(new Set(settings.importedSignatures));
@@ -212,6 +216,7 @@ export default function App() {
   }
 
   const fullSettings: AppSettings = {
+      motd,
       empanadaFlavors,
       fullSizeEmpanadaFlavors,
       sheetUrl,
@@ -239,6 +244,7 @@ export default function App() {
                         pricing={pricing}
                         scheduling={scheduling}
                         busySlots={busySlots}
+                        motd={motd}
                     />
                 } 
             />

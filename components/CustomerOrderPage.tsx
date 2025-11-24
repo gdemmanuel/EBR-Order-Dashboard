@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { saveOrderToDb, AppSettings } from '../services/dbService';
 import { Order, OrderItem, PaymentStatus, FollowUpStatus, ApprovalStatus, PricingSettings, Flavor, MenuPackage, SalsaProduct } from '../types';
 import { SalsaSize } from '../config';
-import { TrashIcon, CheckCircleIcon, StarIcon, ChevronRightIcon, ClockIcon, ChevronDownIcon } from './icons/Icons';
+import { TrashIcon, CheckCircleIcon, StarIcon, ChevronRightIcon, ClockIcon, ChevronDownIcon, MegaphoneIcon } from './icons/Icons';
 import Header from './Header';
 import PackageBuilderModal from './PackageBuilderModal';
 import { generateTimeSlots, normalizeDateStr } from '../utils/dateUtils';
@@ -14,6 +14,7 @@ interface CustomerOrderPageProps {
     pricing?: PricingSettings;
     scheduling?: AppSettings['scheduling'];
     busySlots?: { date: string; time: string }[];
+    motd?: string;
 }
 
 interface CartPackage {
@@ -32,7 +33,7 @@ interface DynamicSalsaState {
     quantity: number;
 }
 
-export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFlavors, pricing, scheduling, busySlots = [] }: CustomerOrderPageProps) {
+export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFlavors, pricing, scheduling, busySlots = [], motd }: CustomerOrderPageProps) {
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -301,9 +302,23 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
     };
 
     return (
-        <div className="min-h-screen bg-brand-cream font-sans">
+        <div className="min-h-screen bg-brand-cream font-sans flex flex-col">
             <Header variant="public" />
-            <main className="max-w-5xl mx-auto px-4 py-12 pb-32">
+            
+            {/* MOTD Banner */}
+            {motd && (
+                <div className="bg-brand-brown text-brand-tan overflow-hidden whitespace-nowrap py-2 border-b border-brand-tan/20">
+                    <div className="animate-marquee inline-block text-sm font-medium tracking-wide">
+                        <span className="mx-4"><MegaphoneIcon className="inline w-4 h-4 mb-0.5 mr-2" />{motd}</span>
+                        {/* Duplicate for smooth loop */}
+                        <span className="mx-4"><MegaphoneIcon className="inline w-4 h-4 mb-0.5 mr-2" />{motd}</span>
+                        <span className="mx-4"><MegaphoneIcon className="inline w-4 h-4 mb-0.5 mr-2" />{motd}</span>
+                        <span className="mx-4"><MegaphoneIcon className="inline w-4 h-4 mb-0.5 mr-2" />{motd}</span>
+                    </div>
+                </div>
+            )}
+
+            <main className="max-w-5xl mx-auto px-4 py-12 pb-32 w-full">
                 <div className="text-center mb-16">
                     <h2 className="text-5xl sm:text-6xl font-serif text-brand-brown mb-4 tracking-tight">Place Your Order</h2>
                     <div className="w-24 h-1 bg-brand-orange mx-auto mb-6"></div>
@@ -616,6 +631,16 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                     />
                 )}
             </main>
+            
+            <style>{`
+                @keyframes marquee {
+                    0% { transform: translateX(100%); }
+                    100% { transform: translateX(-100%); }
+                }
+                .animate-marquee {
+                    animation: marquee 25s linear infinite;
+                }
+            `}</style>
         </div>
     );
 }

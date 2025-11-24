@@ -149,6 +149,7 @@ export default function AdminDashboard({
     }, [activeOrders, dateFilter]);
 
     const safeSettings: AppSettings = settings || { 
+        motd: '',
         empanadaFlavors, 
         fullSizeEmpanadaFlavors, 
         sheetUrl, 
