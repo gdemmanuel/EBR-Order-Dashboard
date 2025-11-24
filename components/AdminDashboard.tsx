@@ -85,6 +85,16 @@ export default function AdminDashboard({
         };
     }, []);
 
+    // Keep selectedOrder in sync with live orders to reflect changes immediately
+    useEffect(() => {
+        if (selectedOrder) {
+            const liveOrder = orders.find(o => o.id === selectedOrder.id);
+            if (liveOrder) {
+                setSelectedOrder(liveOrder);
+            }
+        }
+    }, [orders, selectedOrder?.id]);
+
     const activeOrders = useMemo(() => orders.filter(o => o.approvalStatus === ApprovalStatus.APPROVED), [orders]);
     const pendingOrders = useMemo(() => orders.filter(o => o.approvalStatus === ApprovalStatus.PENDING), [orders]);
     const cancelledOrders = useMemo(() => orders.filter(o => o.approvalStatus === ApprovalStatus.CANCELLED), [orders]);
@@ -183,7 +193,19 @@ export default function AdminDashboard({
     const confirmDeleteShift = (shiftId: string) => { setConfirmModal({ isOpen: true, title: "Delete Shift", message: "Are you sure you want to delete this shift record?", onConfirm: async () => { await deleteShiftFromDb(shiftId); setConfirmModal(prev => ({ ...prev, isOpen: false })); } }); };
 
     const handleAddNewFlavor = async (flavorName: string, type: 'mini' | 'full') => { if (type === 'mini') { if (!empanadaFlavors.some(f => f.name === flavorName)) { await updateSettingsInDb({ empanadaFlavors: [...empanadaFlavors, { name: flavorName, visible: true }] }); } } else { if (!fullSizeEmpanadaFlavors.some(f => f.name === flavorName)) { await updateSettingsInDb({ fullSizeEmpanadaFlavors: [...fullSizeEmpanadaFlavors, { name: flavorName, visible: true }] }); } } };
-    const handleUpdateFollowUp = async (orderId: string, status: FollowUpStatus) => { const order = orders.find(o => o.id === orderId); if (order) await saveOrderToDb({ ...order, followUpStatus: status }); };
+    
+    const handleUpdateFollowUp = async (orderId: string, status: FollowUpStatus) => {
+        const order = orders.find(o => o.id === orderId);
+        if (order) {
+            const updatedOrder = { ...order, followUpStatus: status };
+            // Update local state immediately for responsiveness
+            if (selectedOrder && selectedOrder.id === orderId) {
+                setSelectedOrder(updatedOrder);
+            }
+            await saveOrderToDb(updatedOrder);
+        }
+    };
+
     const handleApproveOrder = async (orderId: string) => { const order = orders.find(o => o.id === orderId); if (order) await saveOrderToDb({ ...order, approvalStatus: ApprovalStatus.APPROVED }); };
     const handleDenyOrder = async (orderId: string) => { const order = orders.find(o => o.id === orderId); if (order) await saveOrderToDb({ ...order, approvalStatus: ApprovalStatus.CANCELLED }); };
     const handleOrdersImported = async (newOrders: Partial<Order>[], newSignatures: string[]) => { const ordersToSave: Order[] = newOrders.map((pOrder, index) => { const items = pOrder.items || []; const deliveryFee = 0; const calculatedTotal = calculateOrderTotal(items, deliveryFee, safePricing, empanadaFlavors, fullSizeEmpanadaFlavors); const calculatedCost = calculateSupplyCost(items, safeSettings); return { id: `${Date.now()}-${index}`, pickupDate: pOrder.pickupDate || '', pickupTime: pOrder.pickupTime || '', customerName: pOrder.customerName || 'Unknown', contactMethod: pOrder.contactMethod || 'Unknown', phoneNumber: pOrder.phoneNumber || null, items: items, totalFullSize: items.filter(i => i.name.includes('Full')).reduce((s, i) => s + i.quantity, 0), totalMini: items.filter(i => !i.name.includes('Full') && !i.name.includes('Salsa')).reduce((s, i) => s + i.quantity, 0), amountCharged: calculatedTotal, totalCost: calculatedCost, deliveryRequired: pOrder.deliveryRequired || false, deliveryFee: deliveryFee, amountCollected: 0, paymentMethod: null, deliveryAddress: pOrder.deliveryAddress || null, followUpStatus: FollowUpStatus.NEEDED, paymentStatus: pOrder.paymentStatus as any || 'Pending', specialInstructions: pOrder.specialInstructions || null, approvalStatus: ApprovalStatus.PENDING } as Order; }); await saveOrdersBatch(ordersToSave); const updatedSignatures = [...Array.from(importedSignatures), ...newSignatures]; await updateSettingsInDb({ importedSignatures: updatedSignatures }); setIsImportModalOpen(false); };

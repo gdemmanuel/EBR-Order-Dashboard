@@ -26,7 +26,8 @@ const ai = new GoogleGenAI({ apiKey: getApiKey() });
 
 export async function generateFollowUpMessage(order: Order): Promise<string> {
   const model = 'gemini-2.5-flash';
-  const itemsList = order.items.map(item => `- ${item.quantity} ${item.name}`).join('\n');
+  // Updated: Removed hyphen prefix as requested
+  const itemsList = order.items.map(item => `${item.quantity} ${item.name}`).join('\n');
   
   // Calculate totals text
   let totalsText = "";
