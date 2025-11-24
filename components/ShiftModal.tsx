@@ -17,7 +17,6 @@ export default function ShiftModal({ employees, shifts, date, onClose, onSave, o
     const [end, setEnd] = useState('17:00');
     const [isSaving, setIsSaving] = useState(false);
 
-    // Derived logic for preview
     const emp = employees.find(e => e.id === selectedEmp);
     
     const calculateCost = () => {
@@ -25,7 +24,7 @@ export default function ShiftModal({ employees, shifts, date, onClose, onSave, o
         const [sH, sM] = start.split(':').map(Number);
         const [eH, eM] = end.split(':').map(Number);
         let hours = (eH + eM/60) - (sH + sM/60);
-        if (hours < 0) hours += 24; // Overnight shift
+        if (hours < 0) hours += 24; 
         return hours * emp.hourlyRate;
     };
 
@@ -54,7 +53,6 @@ export default function ShiftModal({ employees, shifts, date, onClose, onSave, o
         setIsSaving(false);
     };
 
-    // Filter shifts for this specific day
     const dailyShifts = shifts.filter(s => s.date === date);
 
     return (
@@ -69,7 +67,6 @@ export default function ShiftModal({ employees, shifts, date, onClose, onSave, o
                 </header>
 
                 <div className="p-4 space-y-6">
-                    {/* List Existing */}
                     <div className="space-y-2">
                         <h4 className="text-xs font-bold text-gray-500 uppercase">Scheduled Today</h4>
                         {dailyShifts.length === 0 ? (
@@ -90,7 +87,6 @@ export default function ShiftModal({ employees, shifts, date, onClose, onSave, o
                         )}
                     </div>
 
-                    {/* Add New Form */}
                     {employees.length > 0 ? (
                         <form onSubmit={handleSave} className="border-t border-gray-200 pt-4">
                             <h4 className="text-xs font-bold text-brand-orange uppercase mb-3">Add Shift</h4>
