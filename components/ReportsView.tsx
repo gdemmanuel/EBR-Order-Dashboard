@@ -457,16 +457,16 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div className="bg-white p-4 rounded-lg border border-brand-tan shadow-sm">
                             <p className="text-sm text-gray-500 font-medium">Total Revenue</p>
-                            <p className="text-2xl font-bold text-green-600">${financials.revenue.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+                            <p className="text-2xl font-bold text-green-600">${financials.revenue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
                         </div>
                         <div className="bg-white p-4 rounded-lg border border-brand-tan shadow-sm">
                             <p className="text-sm text-gray-500 font-medium">Total Expenses</p>
-                            <p className="text-2xl font-bold text-red-600">${financials.actualExpensesTotal.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+                            <p className="text-2xl font-bold text-red-600">${financials.actualExpensesTotal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
                             <p className="text-xs text-gray-400 mt-1">Labor: ${financials.laborTotal.toFixed(2)}</p>
                         </div>
                         <div className="bg-white p-4 rounded-lg border border-brand-tan shadow-sm">
                             <p className="text-sm text-gray-500 font-medium">Net Profit</p>
-                            <p className={`text-2xl font-bold ${financials.netProfit >= 0 ? 'text-brand-brown' : 'text-red-600'}`}>${financials.netProfit.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+                            <p className={`text-2xl font-bold ${financials.netProfit >= 0 ? 'text-brand-brown' : 'text-red-600'}`}>${financials.netProfit.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
                         </div>
                         <div className="bg-white p-4 rounded-lg border border-brand-tan shadow-sm">
                             <p className="text-sm text-gray-500 font-medium">Profit Margin</p>
@@ -480,7 +480,7 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
                             <h4 className="font-bold text-blue-800 text-sm uppercase">Theoretical Material Cost</h4>
                             <p className="text-xs text-blue-600">Based on recipes & orders (Reference only - not deducted from profit)</p>
                         </div>
-                        <p className="text-2xl font-bold text-blue-900">${financials.estimatedMaterialUsage.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+                        <p className="text-2xl font-bold text-blue-900">${financials.estimatedMaterialUsage.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
                     </div>
 
                     {/* Charts */}
