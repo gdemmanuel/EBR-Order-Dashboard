@@ -377,14 +377,14 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                             </button>
                             
                             {sectionsState.mini && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-fade-in">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 animate-fade-in">
                                     {miniPackages.map(pkg => (
-                                        <div key={pkg.id} className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-all border border-transparent hover:border-brand-tan flex flex-col items-center text-center">
-                                            <h4 className="font-serif text-xl text-brand-brown mb-1">{pkg.name}</h4>
-                                            <div className="text-brand-orange font-bold text-lg mb-3">${pkg.price.toFixed(2)}</div>
-                                            <p className="text-sm text-gray-600 mb-1">{pkg.quantity} Mini Empanadas</p>
-                                            <p className="text-xs text-gray-400 mb-4 uppercase tracking-wide">Up to {pkg.maxFlavors} flavors</p>
-                                            <button type="button" onClick={() => openPackageBuilder(pkg)} className="mt-auto bg-brand-brown text-white px-6 py-2 rounded hover:bg-brand-brown/90 transition-colors text-xs uppercase tracking-wider font-bold">Select</button>
+                                        <div key={pkg.id} className="bg-white p-4 rounded-lg shadow-sm hover:shadow-md transition-all border border-transparent hover:border-brand-tan flex flex-col items-center text-center">
+                                            <h4 className="font-serif text-lg font-bold text-brand-brown mb-0.5">{pkg.name}</h4>
+                                            <div className="text-brand-orange font-bold text-base mb-2">${pkg.price.toFixed(2)}</div>
+                                            <p className="text-xs text-gray-600 mb-0.5">{pkg.quantity} Mini Empanadas</p>
+                                            <p className="text-[10px] text-gray-400 mb-3 uppercase tracking-wide">Up to {pkg.maxFlavors} flavors</p>
+                                            <button type="button" onClick={() => openPackageBuilder(pkg)} className="mt-auto bg-brand-brown text-white px-4 py-1.5 rounded hover:bg-brand-brown/90 transition-colors text-xs uppercase tracking-wider font-bold w-full">Select</button>
                                         </div>
                                     ))}
                                     {miniPackages.length === 0 && <p className="col-span-3 text-center text-gray-400 italic py-8">Sold out or unavailable.</p>}
@@ -409,14 +409,14 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                             </button>
 
                             {sectionsState.full && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-fade-in">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 animate-fade-in">
                                     {fullPackages.map(pkg => (
-                                        <div key={pkg.id} className="bg-white p-6 rounded-xl shadow-sm hover:shadow-md transition-all border border-transparent hover:border-brand-tan flex flex-col items-center text-center">
-                                            <h4 className="font-serif text-xl text-brand-brown mb-1">{pkg.name}</h4>
-                                            <div className="text-brand-orange font-bold text-lg mb-3">${pkg.price.toFixed(2)}</div>
-                                            <p className="text-sm text-gray-600 mb-1">{pkg.quantity} Full-Size Empanadas</p>
-                                            <p className="text-xs text-gray-400 mb-4 uppercase tracking-wide">Up to {pkg.maxFlavors} flavors</p>
-                                            <button type="button" onClick={() => openPackageBuilder(pkg)} className="mt-auto bg-brand-brown text-white px-6 py-2 rounded hover:bg-brand-brown/90 transition-colors text-xs uppercase tracking-wider font-bold">Select</button>
+                                        <div key={pkg.id} className="bg-white p-4 rounded-lg shadow-sm hover:shadow-md transition-all border border-transparent hover:border-brand-tan flex flex-col items-center text-center">
+                                            <h4 className="font-serif text-lg font-bold text-brand-brown mb-0.5">{pkg.name}</h4>
+                                            <div className="text-brand-orange font-bold text-base mb-2">${pkg.price.toFixed(2)}</div>
+                                            <p className="text-xs text-gray-600 mb-0.5">{pkg.quantity} Full-Size Empanadas</p>
+                                            <p className="text-[10px] text-gray-400 mb-3 uppercase tracking-wide">Up to {pkg.maxFlavors} flavors</p>
+                                            <button type="button" onClick={() => openPackageBuilder(pkg)} className="mt-auto bg-brand-brown text-white px-4 py-1.5 rounded hover:bg-brand-brown/90 transition-colors text-xs uppercase tracking-wider font-bold w-full">Select</button>
                                         </div>
                                     ))}
                                     {fullPackages.length === 0 && <p className="col-span-3 text-center text-gray-400 italic py-8">Sold out or unavailable.</p>}
@@ -442,14 +442,14 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                                 </button>
 
                                 {sectionsState.platters && (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-fade-in">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 animate-fade-in">
                                         {specialPackages.map(pkg => (
-                                            <div key={pkg.id} className="bg-purple-50/50 p-6 rounded-xl shadow-sm hover:shadow-md transition-all border border-purple-100 flex flex-col items-center text-center">
-                                                <h4 className="font-serif text-xl text-purple-900 mb-1">{pkg.name}</h4>
-                                                <div className="text-purple-700 font-bold text-lg mb-3">${pkg.price.toFixed(2)}</div>
-                                                <p className="text-sm text-gray-600 mb-1">{pkg.quantity} Items</p>
-                                                <p className="text-xs text-purple-400 mb-4 uppercase tracking-wide font-bold">Limited Time</p>
-                                                <button type="button" onClick={() => openPackageBuilder(pkg)} className="mt-auto bg-purple-900 text-white px-6 py-2 rounded hover:bg-purple-800 transition-colors text-xs uppercase tracking-wider font-bold">Select</button>
+                                            <div key={pkg.id} className="bg-purple-50/50 p-4 rounded-lg shadow-sm hover:shadow-md transition-all border border-purple-100 flex flex-col items-center text-center">
+                                                <h4 className="font-serif text-lg font-bold text-purple-900 mb-0.5">{pkg.name}</h4>
+                                                <div className="text-purple-700 font-bold text-base mb-2">${pkg.price.toFixed(2)}</div>
+                                                <p className="text-xs text-gray-600 mb-0.5">{pkg.quantity} Items</p>
+                                                <p className="text-[10px] text-purple-400 mb-3 uppercase tracking-wide font-bold">Limited Time</p>
+                                                <button type="button" onClick={() => openPackageBuilder(pkg)} className="mt-auto bg-purple-900 text-white px-4 py-1.5 rounded hover:bg-purple-800 transition-colors text-xs uppercase tracking-wider font-bold w-full">Select</button>
                                             </div>
                                         ))}
                                     </div>
