@@ -17,7 +17,7 @@ import { initialEmpanadaFlavors, initialFullSizeEmpanadaFlavors } from "../data/
 // Collection References
 const ORDERS_COLLECTION = "orders";
 const EXPENSES_COLLECTION = "expenses";
-const SHIFTS_COLLECTION = "shifts";
+// Removed explicit SHIFTS_COLLECTION to consolidate permissions
 const SETTINGS_COLLECTION = "app_settings";
 const GENERAL_SETTINGS_DOC = "general";
 
@@ -83,11 +83,15 @@ export const subscribeToExpenses = (
     onUpdate: (expenses: Expense[]) => void,
     onError?: (error: Error) => void
 ) => {
+    // Fetch all expenses, but filter OUT 'Labor' items which are shifts
     const q = query(collection(db, EXPENSES_COLLECTION));
     return onSnapshot(q, (snapshot) => {
         const expenses: Expense[] = [];
         snapshot.forEach((doc) => {
-            expenses.push(doc.data() as Expense);
+            const data = doc.data() as Expense;
+            if (data.category !== 'Labor') {
+                expenses.push(data);
+            }
         });
         onUpdate(expenses);
     }, onError);
@@ -97,11 +101,30 @@ export const subscribeToShifts = (
     onUpdate: (shifts: WorkShift[]) => void,
     onError?: (error: Error) => void
 ) => {
-    const q = query(collection(db, SHIFTS_COLLECTION));
+    // Fetch 'Labor' expenses and convert them back to WorkShift objects
+    const q = query(collection(db, EXPENSES_COLLECTION), where("category", "==", "Labor"));
     return onSnapshot(q, (snapshot) => {
         const shifts: WorkShift[] = [];
         snapshot.forEach((doc) => {
-            shifts.push(doc.data() as WorkShift);
+            const data = doc.data() as Expense;
+            try {
+                // Parse the metadata stored in description
+                const meta = data.description ? JSON.parse(data.description) : {};
+                shifts.push({
+                    id: data.id,
+                    employeeId: meta.employeeId || '',
+                    employeeName: data.vendor, // We store employee name in vendor field
+                    date: data.date,
+                    startTime: meta.startTime || '00:00',
+                    endTime: meta.endTime || '00:00',
+                    hours: data.quantity,
+                    hourlyWage: data.pricePerUnit,
+                    totalPay: data.totalCost,
+                    notes: meta.notes || ''
+                });
+            } catch (e) {
+                console.warn("Failed to parse shift data for id:", data.id);
+            }
         });
         onUpdate(shifts);
     }, onError);
@@ -157,11 +180,33 @@ export const deleteExpenseFromDb = async (expenseId: string) => {
 };
 
 export const saveShiftToDb = async (shift: WorkShift) => {
-    await setDoc(doc(db, SHIFTS_COLLECTION, shift.id), shift);
+    // Convert Shift to Expense format to avoid new collection permissions
+    const metaData = JSON.stringify({
+        startTime: shift.startTime,
+        endTime: shift.endTime,
+        employeeId: shift.employeeId,
+        notes: shift.notes
+    });
+
+    const shiftExpense: Expense = {
+        id: shift.id,
+        date: shift.date,
+        category: 'Labor',
+        vendor: shift.employeeName,
+        item: 'Shift Work',
+        unitName: 'hours',
+        pricePerUnit: shift.hourlyWage,
+        quantity: shift.hours,
+        totalCost: shift.totalPay,
+        description: metaData
+    };
+
+    await setDoc(doc(db, EXPENSES_COLLECTION, shift.id), shiftExpense);
 };
 
 export const deleteShiftFromDb = async (shiftId: string) => {
-    await deleteDoc(doc(db, SHIFTS_COLLECTION, shiftId));
+    // Shifts are stored in expenses collection now
+    await deleteDoc(doc(db, EXPENSES_COLLECTION, shiftId));
 };
 
 export const updateSettingsInDb = async (settings: Partial<AppSettings>) => {
