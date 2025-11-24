@@ -17,7 +17,6 @@ import { initialEmpanadaFlavors, initialFullSizeEmpanadaFlavors } from "../data/
 // Collection References
 const ORDERS_COLLECTION = "orders";
 const EXPENSES_COLLECTION = "expenses";
-// Removed explicit SHIFTS_COLLECTION to consolidate permissions
 const SETTINGS_COLLECTION = "app_settings";
 const GENERAL_SETTINGS_DOC = "general";
 
@@ -83,7 +82,8 @@ export const subscribeToExpenses = (
     onUpdate: (expenses: Expense[]) => void,
     onError?: (error: Error) => void
 ) => {
-    // Fetch all expenses, but filter OUT 'Labor' items which are shifts
+    // Fetch all expenses, but filter OUT 'Labor' items so they don't duplicate in the expense list
+    // (We handle them separately in subscribeToShifts)
     const q = query(collection(db, EXPENSES_COLLECTION));
     return onSnapshot(q, (snapshot) => {
         const expenses: Expense[] = [];
@@ -123,7 +123,19 @@ export const subscribeToShifts = (
                     notes: meta.notes || ''
                 });
             } catch (e) {
-                console.warn("Failed to parse shift data for id:", data.id);
+                // Fallback if description is not valid JSON
+                 shifts.push({
+                    id: data.id,
+                    employeeId: '',
+                    employeeName: data.vendor, 
+                    date: data.date,
+                    startTime: '00:00',
+                    endTime: '00:00',
+                    hours: data.quantity,
+                    hourlyWage: data.pricePerUnit,
+                    totalPay: data.totalCost,
+                    notes: data.description || ''
+                });
             }
         });
         onUpdate(shifts);
