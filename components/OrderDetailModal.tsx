@@ -1,7 +1,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { Order, FollowUpStatus, ApprovalStatus } from '../types';
-import { generateFollowUpMessage, generateOrderConfirmationMessage } from '../services/geminiService';
+import { generateMessageForOrder } from '../services/geminiService';
 import { CalendarIcon, ClockIcon, UserIcon, PhoneIcon, MapPinIcon, CurrencyDollarIcon, SparklesIcon, XMarkIcon, PencilIcon, ClipboardDocumentCheckIcon, PaperAirplaneIcon, CreditCardIcon, ArrowTopRightOnSquareIcon, InstagramIcon, ChatBubbleOvalLeftEllipsisIcon, FacebookIcon, CheckCircleIcon, XCircleIcon, TrashIcon, TruckIcon } from './icons/Icons';
 
 interface OrderDetailModalProps {
@@ -30,33 +30,18 @@ const DetailItem: React.FC<{ icon: React.ReactNode; label: string; value: string
 
 export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onEdit, onApprove, onDeny, onDelete, onDeductInventory }: OrderDetailModalProps) {
   const [generatedMessage, setGeneratedMessage] = useState<string>('');
-  const [loadingAction, setLoadingAction] = useState<'confirmation' | 'followup' | 'inventory' | null>(null);
+  const [loadingAction, setLoadingAction] = useState<'message' | 'inventory' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copiedState, setCopiedState] = useState<'instagram' | 'facebook' | null>(null);
 
   const mapsUrl = order.deliveryAddress ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.deliveryAddress)}` : '#';
 
-  const handleGenerateFollowUp = useCallback(async () => {
-    setLoadingAction('followup');
+  const handleGenerateMessage = useCallback(async () => {
+    setLoadingAction('message');
     setError(null);
     setGeneratedMessage('');
     try {
-      const message = await generateFollowUpMessage(order);
-      setGeneratedMessage(message);
-    } catch (err) {
-      setError('Failed to generate message. Please check your API key and try again.');
-      console.error(err);
-    } finally {
-      setLoadingAction(null);
-    }
-  }, [order]);
-
-  const handleGenerateConfirmation = useCallback(async () => {
-    setLoadingAction('confirmation');
-    setError(null);
-    setGeneratedMessage('');
-    try {
-      const message = await generateOrderConfirmationMessage(order);
+      const message = await generateMessageForOrder(order);
       setGeneratedMessage(message);
     } catch (err) {
       setError('Failed to generate message. Please check your API key and try again.');
@@ -347,30 +332,22 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
               )}
 
               <div className="flex flex-col sm:flex-row gap-4 items-end border-t border-gray-200 pt-4">
-                <div>
+                <div className="flex-grow">
                   <label htmlFor="followUpStatus" className="block text-sm font-medium text-brand-brown/90 mb-1">Status</label>
-                  <select id="followUpStatus" value={order.followUpStatus} onChange={handleStatusChange} className="rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown">
+                  <select id="followUpStatus" value={order.followUpStatus} onChange={handleStatusChange} className="w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown">
                     {Object.values(FollowUpStatus).map(status => (
                       <option key={status} value={status}>{status}</option>
                     ))}
                   </select>
                 </div>
-                <div className="flex-grow w-full flex flex-col sm:flex-row gap-2">
+                <div className="flex-grow w-full sm:w-auto">
                    <button
-                    onClick={handleGenerateConfirmation}
-                    disabled={loadingAction !== null}
-                    className="w-full flex items-center justify-center gap-2 bg-stone-600 text-white font-semibold px-4 py-2 rounded-lg shadow-md hover:bg-stone-700 transition-colors duration-200 disabled:bg-stone-300"
-                  >
-                    <ClipboardDocumentCheckIcon className="w-5 h-5" />
-                    {loadingAction === 'confirmation' ? 'Drafting...' : 'Draft Confirmation'}
-                  </button>
-                  <button
-                    onClick={handleGenerateFollowUp}
-                    disabled={loadingAction !== null}
+                    onClick={handleGenerateMessage}
+                    disabled={loadingAction === 'message'}
                     className="w-full flex items-center justify-center gap-2 bg-brand-orange text-white font-semibold px-4 py-2 rounded-lg shadow-md hover:bg-opacity-90 transition-colors duration-200 disabled:bg-brand-orange/50"
                   >
                     <SparklesIcon className="w-5 h-5" />
-                    {loadingAction === 'followup' ? 'Generating...' : 'Draft Follow-up'}
+                    {loadingAction === 'message' ? 'Generating...' : `Draft "${order.followUpStatus}" Message`}
                   </button>
                 </div>
               </div>

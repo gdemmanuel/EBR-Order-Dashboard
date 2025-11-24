@@ -1,6 +1,7 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { Order, Expense } from '../types';
+import { Order, Expense, FollowUpStatus } from '../types';
+import { parseOrderDateTime } from '../utils/dateUtils';
 
 // Safe API Key retrieval for Vite/Vercel deployments
 const getApiKey = () => {
@@ -24,75 +25,62 @@ const getApiKey = () => {
 
 const ai = new GoogleGenAI({ apiKey: getApiKey() });
 
-export async function generateFollowUpMessage(order: Order): Promise<string> {
-  const model = 'gemini-2.5-flash';
-  // Updated: Removed hyphen prefix as requested
-  const itemsList = order.items.map(item => `${item.quantity} ${item.name}`).join('\n');
-  
-  // Calculate totals text
-  let totalsText = "";
-  if (order.totalMini > 0 && order.totalFullSize === 0) {
-      totalsText = `${order.totalMini} total mini empanadas`;
-  } else if (order.totalFullSize > 0 && order.totalMini === 0) {
-      totalsText = `${order.totalFullSize} total full-size empanadas`;
-  } else {
-      totalsText = `${order.totalMini} mini and ${order.totalFullSize} full-size empanadas`;
-  }
-
-  // Extract first name for the greeting
-  const firstName = order.customerName.split(' ')[0];
-
-  const prompt = `
-    You are Rose, the owner of "Empanadas by Rose". Generate a text message exactly following the template below.
-    Do not add any conversational filler before or after the template.
-    Do not use emojis unless specified.
-
-    Order Details:
-    - Customer Name: ${order.customerName}
-    - Type: ${order.deliveryRequired ? 'delivery' : 'pick up'}
-    - Date: ${order.pickupDate} (Please figure out the Day of the Week)
-    - Time: ${order.pickupTime}
-    - Totals Summary: ${totalsText}
-    - Items List:
-    ${itemsList}
-
-    REQUIRED OUTPUT FORMAT:
-    Hi ${firstName}! This is Rose from Empanadas by Rose. Thank you for placing an order. Please confirm your order for ${order.deliveryRequired ? 'delivery' : 'pick up'} on [Day of Week], ${order.pickupDate} at ${order.pickupTime} as follows:
-    ${totalsText}
-    ${itemsList}
-  `;
-  
-  try {
-    const response = await ai.models.generateContent({
-        model: model,
-        contents: prompt
-    });
-
-    const text = response.text;
-    if (text) return text.trim();
-    throw new Error("Received an empty response from the API.");
-  } catch (error) {
-    console.error("Error calling Gemini API:", error);
-    throw new Error("Failed to generate message from Gemini API.");
-  }
-}
-
-export async function generateOrderConfirmationMessage(order: Order): Promise<string> {
-    const model = 'gemini-2.5-flash';
+export async function generateMessageForOrder(order: Order): Promise<string> {
+    const status = order.followUpStatus;
+    const firstName = order.customerName.split(' ')[0];
+    const deliveryType = order.deliveryRequired ? 'delivery' : 'pick up';
     
-    const prompt = `
-        You are Rose, the owner of "Empanadas by Rose". Generate a text message confirmation exactly following the format below.
-        Do not add any conversational filler before or after the template.
-        
-        Order Details:
-        - Total Amount: $${order.amountCharged.toFixed(2)}
-        - Type: ${order.deliveryRequired ? 'delivery' : 'pick up'}
-        - Date: ${order.pickupDate} (Please figure out the Day of the Week)
-        - Time: ${order.pickupTime}
+    // Get formatted Date with Day of Week
+    let dateString = order.pickupDate;
+    try {
+        const dateObj = parseOrderDateTime(order);
+        if (!isNaN(dateObj.getTime())) {
+            const dayOfWeek = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+            dateString = `${dayOfWeek}, ${order.pickupDate}`;
+        }
+    } catch (e) {
+        console.warn("Date parsing error", e);
+    }
 
-        REQUIRED OUTPUT FORMAT:
-        Perfect! The total is $${order.amountCharged.toFixed(2)}. Cash on ${order.deliveryRequired ? 'delivery' : 'pick up'}, please. I'll see you on [Day of Week], ${order.pickupDate} at ${order.pickupTime}.
-        Thank you for your order!
+    if (status === FollowUpStatus.NEEDED) {
+        // Strict Template for Follow-up Needed
+        let totalsText = "";
+        if (order.totalMini > 0 && order.totalFullSize === 0) {
+            totalsText = `${order.totalMini} total mini empanadas`;
+        } else if (order.totalFullSize > 0 && order.totalMini === 0) {
+            totalsText = `${order.totalFullSize} total full-size empanadas`;
+        } else {
+            totalsText = `${order.totalMini} mini and ${order.totalFullSize} full-size empanadas`;
+        }
+
+        const itemsList = order.items.map(item => `${item.quantity} ${item.name}`).join('\n');
+
+        return `Hi ${firstName}! This is Rose from Empanadas by Rose. Thank you for placing an order. Please confirm your order for ${deliveryType} on ${dateString} at ${order.pickupTime} as follows:
+${totalsText}
+${itemsList}`;
+    }
+
+    if (status === FollowUpStatus.PENDING) {
+        // Strict Template for Pending (Confirmation)
+        return `Perfect! The total is $${order.amountCharged.toFixed(2)}. Cash on ${deliveryType}, please. I'll see you on ${dateString} at ${order.pickupTime}.
+Thank you for your order!`;
+    }
+
+    // For Confirmed, Completed, or other statuses -> Use AI
+    const model = 'gemini-2.5-flash';
+    const prompt = `
+    You are Rose, the owner of "Empanadas by Rose". Write a short, friendly text message to a customer named ${firstName}.
+    
+    Context:
+    - Order Status: ${status}
+    - Items: ${order.totalMini + order.totalFullSize} empanadas
+    - Pickup/Delivery: ${deliveryType} on ${dateString} at ${order.pickupTime}
+    
+    Instructions:
+    - If status is 'Confirmed', confirm that everything is set.
+    - If status is 'Completed', thank them for their business and hope they enjoyed the food.
+    - Keep it brief and professional but warm.
+    - Do not include subject lines.
     `;
 
     try {
@@ -100,14 +88,14 @@ export async function generateOrderConfirmationMessage(order: Order): Promise<st
             model: model,
             contents: prompt
         });
-        const text = response.text;
-        if (text) return text.trim();
-        throw new Error("Received an empty response from the API.");
-    } catch (error) {
-        console.error("Error calling Gemini API:", error);
-        throw new Error("Failed to generate confirmation message from Gemini API.");
+        return response.text?.trim() || "Message generation failed.";
+    } catch (e) {
+        console.error(e);
+        return "Error generating message.";
     }
 }
+
+// --- Legacy/Other Functions ---
 
 interface Location { latitude: number; longitude: number; }
 
