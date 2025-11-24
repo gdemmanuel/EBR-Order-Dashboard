@@ -1,6 +1,6 @@
 
 import React, { useMemo, useState } from 'react';
-import { Order, Expense, AppSettings } from '../types';
+import { Order, Expense, AppSettings, WorkShift } from '../types';
 import { calculateSupplyCost } from '../utils/pricingUtils';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { parseOrderDateTime } from '../utils/dateUtils';
@@ -9,6 +9,7 @@ import { TrashIcon } from './icons/Icons';
 interface ReportsViewProps {
     orders: Order[];
     expenses: Expense[];
+    shifts?: WorkShift[];
     settings: AppSettings;
     dateRange: { start?: string; end?: string };
     onDeleteExpense?: (id: string) => void;
@@ -18,18 +19,23 @@ const COLORS = ['#c8441c', '#eab308', '#3b82f6', '#a855f7', '#10b981', '#6366f1'
 
 type SortKey = 'date' | 'category' | 'vendor' | 'item' | 'totalCost';
 
-export default function ReportsView({ orders, expenses, settings, dateRange, onDeleteExpense }: ReportsViewProps) {
+export default function ReportsView({ orders, expenses, shifts = [], settings, dateRange, onDeleteExpense }: ReportsViewProps) {
     const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' }>({ key: 'date', direction: 'desc' });
 
     const filteredData = useMemo(() => {
         let filteredOrders = orders;
         let filteredExpenses = expenses;
+        let filteredShifts = shifts;
 
         if (dateRange.start) {
             const start = new Date(dateRange.start);
             start.setHours(0,0,0,0);
             filteredOrders = filteredOrders.filter(o => parseOrderDateTime(o) >= start);
             filteredExpenses = filteredExpenses.filter(e => new Date(e.date) >= start);
+            filteredShifts = filteredShifts.filter(s => {
+                const [y, m, d] = s.date.split('-').map(Number);
+                return new Date(y, m - 1, d) >= start;
+            });
         }
         
         if (dateRange.end) {
@@ -37,23 +43,32 @@ export default function ReportsView({ orders, expenses, settings, dateRange, onD
             end.setHours(23,59,59,999);
             filteredOrders = filteredOrders.filter(o => parseOrderDateTime(o) <= end);
             filteredExpenses = filteredExpenses.filter(e => new Date(e.date) <= end);
+            filteredShifts = filteredShifts.filter(s => {
+                const [y, m, d] = s.date.split('-').map(Number);
+                return new Date(y, m - 1, d) <= end;
+            });
         }
 
-        return { orders: filteredOrders, expenses: filteredExpenses };
-    }, [orders, expenses, dateRange]);
+        return { orders: filteredOrders, expenses: filteredExpenses, shifts: filteredShifts };
+    }, [orders, expenses, shifts, dateRange]);
 
     const financials = useMemo(() => {
-        const { orders, expenses } = filteredData;
+        const { orders, expenses, shifts } = filteredData;
 
         const revenue = orders.reduce((sum, o) => sum + o.amountCharged, 0);
         const estimatedMaterialUsage = orders.reduce((sum, o) => {
             return sum + (o.totalCost !== undefined ? o.totalCost : calculateSupplyCost(o.items, settings));
         }, 0);
-        const actualExpensesTotal = expenses.reduce((sum, e) => sum + (e.totalCost || 0), 0);
+        
+        const manualExpensesTotal = expenses.reduce((sum, e) => sum + (e.totalCost || 0), 0);
+        const laborTotal = shifts.reduce((sum, s) => sum + (s.totalPay || 0), 0);
+        
+        const actualExpensesTotal = manualExpensesTotal + laborTotal;
+        
         const netProfit = revenue - actualExpensesTotal;
         const margin = revenue > 0 ? (netProfit / revenue) * 100 : 0;
 
-        return { revenue, estimatedMaterialUsage, actualExpensesTotal, netProfit, margin };
+        return { revenue, estimatedMaterialUsage, manualExpensesTotal, laborTotal, actualExpensesTotal, netProfit, margin };
     }, [filteredData, settings]);
 
     const sortedExpenses = useMemo(() => {
@@ -102,17 +117,28 @@ export default function ReportsView({ orders, expenses, settings, dateRange, onD
 
     const expenseBreakdownData = useMemo(() => {
         const categoryMap = new Map<string, number>();
+        
+        // Add manual expenses
         filteredData.expenses.forEach(e => {
             const cost = e.totalCost || 0;
             categoryMap.set(e.category, (categoryMap.get(e.category) || 0) + cost);
         });
+        
+        // Add Labor
+        const laborCost = filteredData.shifts.reduce((sum, s) => sum + (s.totalPay || 0), 0);
+        if (laborCost > 0) {
+            categoryMap.set('Employee Labor', (categoryMap.get('Employee Labor') || 0) + laborCost);
+        }
+        
         const data: {name: string, value: number}[] = [];
         categoryMap.forEach((val, key) => { data.push({ name: key, value: val }); });
         return data.filter(d => d.value > 0);
-    }, [filteredData.expenses]);
+    }, [filteredData]);
 
     const pnlChartData = useMemo(() => {
         const monthlyData = new Map<string, { revenue: number, expense: number }>();
+        
+        // Process Orders
         filteredData.orders.forEach(o => {
             const d = parseOrderDateTime(o);
             if (isNaN(d.getTime())) return;
@@ -121,12 +147,23 @@ export default function ReportsView({ orders, expenses, settings, dateRange, onD
             current.revenue += o.amountCharged;
             monthlyData.set(key, current);
         });
+        
+        // Process Manual Expenses
         filteredData.expenses.forEach(e => {
             const key = e.date.substring(0, 7);
             const current = monthlyData.get(key) || { revenue: 0, expense: 0 };
             current.expense += (e.totalCost || 0);
             monthlyData.set(key, current);
         });
+        
+        // Process Shifts (Labor Expenses)
+        filteredData.shifts.forEach(s => {
+            const key = s.date.substring(0, 7);
+            const current = monthlyData.get(key) || { revenue: 0, expense: 0 };
+            current.expense += (s.totalPay || 0);
+            monthlyData.set(key, current);
+        });
+
         return Array.from(monthlyData.entries()).sort((a,b) => a[0].localeCompare(b[0])).map(([key, val]) => {
             const [y, m] = key.split('-');
             const label = new Date(parseInt(y), parseInt(m)-1).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
@@ -143,8 +180,9 @@ export default function ReportsView({ orders, expenses, settings, dateRange, onD
                     <p className="text-2xl font-bold text-green-600">${financials.revenue.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
                 </div>
                 <div className="bg-white p-4 rounded-lg border border-brand-tan shadow-sm">
-                    <p className="text-sm text-gray-500 font-medium">Actual Expenses</p>
+                    <p className="text-sm text-gray-500 font-medium">Total Expenses</p>
                     <p className="text-2xl font-bold text-red-600">${financials.actualExpensesTotal.toLocaleString(undefined, {minimumFractionDigits: 2})}</p>
+                    <p className="text-xs text-gray-400 mt-1">Labor: ${financials.laborTotal.toFixed(2)}</p>
                 </div>
                 <div className="bg-white p-4 rounded-lg border border-brand-tan shadow-sm">
                     <p className="text-sm text-gray-500 font-medium">Net Profit</p>
@@ -181,7 +219,7 @@ export default function ReportsView({ orders, expenses, settings, dateRange, onD
                 </div>
 
                 <div className="bg-white p-6 rounded-lg border border-brand-tan shadow-sm">
-                    <h3 className="text-lg font-semibold text-brand-brown mb-4">Actual Expense Breakdown</h3>
+                    <h3 className="text-lg font-semibold text-brand-brown mb-4">Expense Breakdown (Includes Labor)</h3>
                     {expenseBreakdownData.length > 0 ? (
                         <div className="w-full h-[300px]">
                             <ResponsiveContainer width="100%" height="100%">
@@ -213,7 +251,7 @@ export default function ReportsView({ orders, expenses, settings, dateRange, onD
             </div>
 
             <div className="bg-white p-6 rounded-lg border border-brand-tan shadow-sm">
-                <h3 className="text-lg font-semibold text-brand-brown mb-4">Recent Expenses Log</h3>
+                <h3 className="text-lg font-semibold text-brand-brown mb-4">Recent Manual Expenses Log</h3>
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
@@ -229,7 +267,7 @@ export default function ReportsView({ orders, expenses, settings, dateRange, onD
                         <tbody className="bg-white divide-y divide-gray-200">
                             {sortedExpenses.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">No expenses found for this period.</td>
+                                    <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">No manual expenses found for this period. (Labor costs are calculated separately).</td>
                                 </tr>
                             ) : (
                                 sortedExpenses.map((expense) => (

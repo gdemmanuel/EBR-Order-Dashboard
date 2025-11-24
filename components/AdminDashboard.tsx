@@ -1,7 +1,8 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
-import { Order, ApprovalStatus, FollowUpStatus, PricingSettings, Flavor, Expense } from '../types';
+import { Order, ApprovalStatus, FollowUpStatus, PricingSettings, Flavor, Expense, WorkShift } from '../types';
 import { parseOrderDateTime } from '../utils/dateUtils';
-import { saveOrderToDb, deleteOrderFromDb, updateSettingsInDb, saveOrdersBatch, AppSettings, subscribeToExpenses, saveExpenseToDb, deleteExpenseFromDb } from '../services/dbService';
+import { saveOrderToDb, deleteOrderFromDb, updateSettingsInDb, saveOrdersBatch, AppSettings, subscribeToExpenses, saveExpenseToDb, deleteExpenseFromDb, subscribeToShifts, saveShiftToDb, deleteShiftFromDb } from '../services/dbService';
 import { calculateOrderTotal, calculateSupplyCost } from '../utils/pricingUtils';
 
 import Header from './Header';
@@ -18,8 +19,9 @@ import SettingsModal from './SettingsModal';
 import ConfirmationModal from './ConfirmationModal';
 import PrepListModal from './PrepListModal';
 import ExpenseModal from './ExpenseModal';
+import ShiftLogModal from './ShiftLogModal'; // Imported Shift Modal
 import ReportsView from './ReportsView';
-import { PlusCircleIcon, ListBulletIcon, CalendarDaysIcon, ArrowTopRightOnSquareIcon, CogIcon, ScaleIcon, ReceiptIcon, ChartBarIcon } from './icons/Icons';
+import { PlusCircleIcon, ListBulletIcon, CalendarDaysIcon, ArrowTopRightOnSquareIcon, CogIcon, ScaleIcon, ReceiptIcon, ChartBarIcon, BriefcaseIcon } from './icons/Icons';
 import { User } from 'firebase/auth';
 
 interface AdminDashboardProps {
@@ -66,14 +68,21 @@ export default function AdminDashboard({
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isPrepListOpen, setIsPrepListOpen] = useState(false);
     const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
+    const [isShiftLogOpen, setIsShiftLogOpen] = useState(false); // Shift Log Modal State
     const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; title: string; message: string; onConfirm: () => void; }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
 
     // Local Expenses State
     const [expenses, setExpenses] = useState<Expense[]>([]);
+    // Local Shifts State
+    const [shifts, setShifts] = useState<WorkShift[]>([]);
 
     useEffect(() => {
-        const unsubscribe = subscribeToExpenses(setExpenses);
-        return () => unsubscribe();
+        const unsubscribeExpenses = subscribeToExpenses(setExpenses);
+        const unsubscribeShifts = subscribeToShifts(setShifts);
+        return () => {
+            unsubscribeExpenses();
+            unsubscribeShifts();
+        };
     }, []);
 
     const activeOrders = useMemo(() => orders.filter(o => o.approvalStatus === ApprovalStatus.APPROVED), [orders]);
@@ -171,6 +180,8 @@ export default function AdminDashboard({
     };
 
     const confirmDeleteOrder = (orderId: string) => { setConfirmModal({ isOpen: true, title: "Delete Order", message: "Are you sure you want to delete this order? This action cannot be undone.", onConfirm: async () => { await deleteOrderFromDb(orderId); if (selectedOrder?.id === orderId) setSelectedOrder(null); if (orderToEdit?.id === orderId) { setOrderToEdit(undefined); setIsNewOrderModalOpen(false); } setConfirmModal(prev => ({ ...prev, isOpen: false })); } }); };
+    const confirmDeleteShift = (shiftId: string) => { setConfirmModal({ isOpen: true, title: "Delete Shift", message: "Are you sure you want to delete this shift record?", onConfirm: async () => { await deleteShiftFromDb(shiftId); setConfirmModal(prev => ({ ...prev, isOpen: false })); } }); };
+
     const handleAddNewFlavor = async (flavorName: string, type: 'mini' | 'full') => { if (type === 'mini') { if (!empanadaFlavors.some(f => f.name === flavorName)) { await updateSettingsInDb({ empanadaFlavors: [...empanadaFlavors, { name: flavorName, visible: true }] }); } } else { if (!fullSizeEmpanadaFlavors.some(f => f.name === flavorName)) { await updateSettingsInDb({ fullSizeEmpanadaFlavors: [...fullSizeEmpanadaFlavors, { name: flavorName, visible: true }] }); } } };
     const handleUpdateFollowUp = async (orderId: string, status: FollowUpStatus) => { const order = orders.find(o => o.id === orderId); if (order) await saveOrderToDb({ ...order, followUpStatus: status }); };
     const handleApproveOrder = async (orderId: string) => { const order = orders.find(o => o.id === orderId); if (order) await saveOrderToDb({ ...order, approvalStatus: ApprovalStatus.APPROVED }); };
@@ -194,6 +205,7 @@ export default function AdminDashboard({
                         </div>
                     </div>
                     <div className="flex gap-3 flex-wrap w-full md:w-auto justify-end">
+                        <button onClick={() => setIsShiftLogOpen(true)} className="flex items-center gap-2 bg-white text-brand-brown border border-brand-tan font-semibold px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"><BriefcaseIcon className="w-5 h-5" /> Log Hours</button>
                         <button onClick={() => setIsExpenseModalOpen(true)} className="flex items-center gap-2 bg-white text-brand-brown border border-brand-tan font-semibold px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"><ReceiptIcon className="w-5 h-5" /> Expenses</button>
                         <button onClick={() => setIsPrepListOpen(true)} className="flex items-center gap-2 bg-white text-brand-brown border border-brand-tan font-semibold px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"><ScaleIcon className="w-5 h-5" /> Prep List</button>
                         <button onClick={() => setIsSettingsOpen(true)} className="flex items-center gap-2 bg-white text-brand-brown border border-brand-tan font-semibold px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"><CogIcon className="w-5 h-5" /> Settings</button>
@@ -235,12 +247,22 @@ export default function AdminDashboard({
                     />
                 )}
 
-                {view === 'calendar' && <CalendarView orders={activeOrders} onSelectOrder={setSelectedOrder} onPrintSelected={setPrintPreviewOrders} onDelete={confirmDeleteOrder} settings={safeSettings} />}
+                {view === 'calendar' && (
+                    <CalendarView 
+                        orders={activeOrders} 
+                        shifts={shifts} // Passing shifts to calendar
+                        onSelectOrder={setSelectedOrder} 
+                        onPrintSelected={setPrintPreviewOrders} 
+                        onDelete={confirmDeleteOrder} 
+                        settings={safeSettings} 
+                    />
+                )}
                 
                 {view === 'reports' && (
                     <ReportsView 
                         orders={activeOrders} 
                         expenses={expenses} 
+                        shifts={shifts} // Passing shifts to reports
                         settings={safeSettings} 
                         dateRange={dateFilter} 
                         onDeleteExpense={deleteExpenseFromDb}
@@ -259,6 +281,13 @@ export default function AdminDashboard({
                     onClose={() => setIsExpenseModalOpen(false)} 
                     onSave={saveExpenseToDb} 
                     onDelete={deleteExpenseFromDb} 
+                />
+            )}
+            {isShiftLogOpen && (
+                <ShiftLogModal
+                    employees={safeSettings.employees || []}
+                    onClose={() => setIsShiftLogOpen(false)}
+                    onSave={saveShiftToDb}
                 />
             )}
             {isPrepListOpen && <PrepListModal orders={activeOrders.filter(o => { const d = parseOrderDateTime(o); if (dateFilter.start) { const [y, m, d_start] = dateFilter.start.split('-').map(Number); if (d < new Date(y, m - 1, d_start)) return false; } if (dateFilter.end) { const [y, m, d_end] = dateFilter.end.split('-').map(Number); const end = new Date(y, m - 1, d_end); end.setHours(23,59,59,999); if (d > end) return false; } return true; })} settings={safeSettings} onClose={() => setIsPrepListOpen(false)} onUpdateSettings={updateSettingsInDb} />}

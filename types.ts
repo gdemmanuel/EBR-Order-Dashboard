@@ -126,6 +126,19 @@ export interface Employee {
     isActive: boolean;
 }
 
+export interface WorkShift {
+    id: string;
+    employeeId: string;
+    employeeName: string;
+    date: string; // YYYY-MM-DD
+    startTime: string; // HH:MM (24h)
+    endTime: string; // HH:MM (24h)
+    hours: number;
+    hourlyWage: number;
+    totalPay: number;
+    notes?: string;
+}
+
 export interface AppSettings {
     empanadaFlavors: Flavor[];
     fullSizeEmpanadaFlavors: Flavor[];

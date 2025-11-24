@@ -1,14 +1,15 @@
 
 import React, { useState, useMemo } from 'react';
-import { Order, PaymentStatus } from '../types';
+import { Order, PaymentStatus, WorkShift } from '../types';
 import { parseOrderDateTime, generateTimeSlots, normalizeDateStr } from '../utils/dateUtils';
-import { ChevronLeftIcon, ChevronRightIcon } from './icons/Icons';
+import { ChevronLeftIcon, ChevronRightIcon, BriefcaseIcon } from './icons/Icons';
 import DayOrdersModal from './DayOrdersModal';
 import { getUSHolidays } from '../utils/holidayUtils';
 import { AppSettings } from '../services/dbService';
 
 interface CalendarViewProps {
     orders: Order[];
+    shifts?: WorkShift[];
     onSelectOrder: (order: Order) => void;
     onPrintSelected: (orders: Order[]) => void;
     onDelete?: (orderId: string) => void;
@@ -17,7 +18,7 @@ interface CalendarViewProps {
 
 const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-export default function CalendarView({ orders, onSelectOrder, onPrintSelected, onDelete, settings }: CalendarViewProps) {
+export default function CalendarView({ orders, shifts = [], onSelectOrder, onPrintSelected, onDelete, settings }: CalendarViewProps) {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [viewMode, setViewMode] = useState<'month' | 'week' | 'day'>('month');
     const [selectedDay, setSelectedDay] = useState<{ date: Date; orders: Order[] } | null>(null);
@@ -60,6 +61,16 @@ export default function CalendarView({ orders, onSelectOrder, onPrintSelected, o
         });
     };
 
+    const getShiftsForDate = (date: Date) => {
+        return shifts.filter(shift => {
+            const [y, m, d] = shift.date.split('-').map(Number);
+            // Note: input date is likely "YYYY-MM-DD", local time.
+            // shift.date is YYYY-MM-DD string.
+            // Date object `date` passed in usually represents 00:00 local time
+            return d === date.getDate() && (m - 1) === date.getMonth() && y === date.getFullYear();
+        });
+    };
+
     // --- Render Logic for Month View ---
     const renderMonthView = () => {
         const currentMonth = currentDate.getMonth();
@@ -75,6 +86,7 @@ export default function CalendarView({ orders, onSelectOrder, onPrintSelected, o
         for (let day = 1; day <= daysInMonth; day++) {
             const cellDate = new Date(currentYear, currentMonth, day);
             const dailyOrders = getOrdersForDate(cellDate);
+            const dailyShifts = getShiftsForDate(cellDate);
             const isToday = day === new Date().getDate() && currentMonth === new Date().getMonth() && currentYear === new Date().getFullYear();
             const holidayName = holidaysMap.get(`${currentMonth}-${day}`);
 
@@ -89,7 +101,16 @@ export default function CalendarView({ orders, onSelectOrder, onPrintSelected, o
                         {dailyOrders.length > 0 && <span className="text-xs font-medium text-gray-400">{dailyOrders.length} orders</span>}
                     </div>
                     {holidayName && <div className="text-[10px] font-medium text-purple-700 bg-purple-50 rounded px-1.5 py-0.5 mb-1 truncate border border-purple-100" title={holidayName}>{holidayName}</div>}
+                    
                     <div className="flex-grow flex flex-col gap-1 overflow-y-auto max-h-[100px]">
+                        {/* Shifts Summary */}
+                        {dailyShifts.length > 0 && (
+                            <div className="text-[10px] bg-blue-50 text-blue-800 px-1.5 py-0.5 rounded border border-blue-100 font-medium flex items-center gap-1" title={`${dailyShifts.length} employee shifts scheduled`}>
+                                <BriefcaseIcon className="w-3 h-3" /> {dailyShifts.length} Shift{dailyShifts.length !== 1 && 's'}
+                            </div>
+                        )}
+                        
+                        {/* Orders List */}
                         {dailyOrders.slice(0, 3).map(order => (
                             <button
                                 key={order.id}
@@ -124,6 +145,7 @@ export default function CalendarView({ orders, onSelectOrder, onPrintSelected, o
             <div className="grid grid-cols-7 bg-gray-200 gap-[1px] min-h-[600px]">
                 {weekDays.map((date, i) => {
                     const dailyOrders = getOrdersForDate(date);
+                    const dailyShifts = getShiftsForDate(date);
                     const isToday = date.toDateString() === new Date().toDateString();
                     const holidayName = holidaysMap.get(`${date.getMonth()}-${date.getDate()}`);
 
@@ -135,6 +157,15 @@ export default function CalendarView({ orders, onSelectOrder, onPrintSelected, o
                                 {holidayName && <div className="text-[10px] text-purple-700 bg-purple-50 rounded px-1 py-0.5 mt-1 truncate" title={holidayName}>{holidayName}</div>}
                             </div>
                             <div className="flex-grow space-y-2 overflow-y-auto">
+                                {/* Shifts First */}
+                                {dailyShifts.map(shift => (
+                                    <div key={shift.id} className="w-full text-left p-1.5 rounded border text-xs bg-blue-50 border-blue-200 text-blue-800">
+                                        <div className="font-bold flex items-center gap-1"><BriefcaseIcon className="w-3 h-3"/> {shift.employeeName}</div>
+                                        <div className="text-[10px]">{shift.startTime} - {shift.endTime}</div>
+                                    </div>
+                                ))}
+
+                                {/* Then Orders */}
                                 {dailyOrders.map(order => (
                                     <button
                                         key={order.id}
@@ -158,23 +189,13 @@ export default function CalendarView({ orders, onSelectOrder, onPrintSelected, o
     const renderDayView = () => {
         const dateStr = normalizeDateStr(currentDate.toISOString().split('T')[0]);
         const dailyOrders = getOrdersForDate(currentDate);
+        const dailyShifts = getShiftsForDate(currentDate);
         
         // Calculate slots based on settings or default
         const override = settings.scheduling?.dateOverrides?.[dateStr];
         const start = override?.customHours?.start || settings.scheduling?.startTime || "08:00";
         const end = override?.customHours?.end || settings.scheduling?.endTime || "20:00";
-        const slots = generateTimeSlots(dateStr, start, end, 60); // 1 hour slots for visualization
-
-        // Group orders by hour
-        const ordersByHour: Record<string, Order[]> = {};
-        dailyOrders.forEach(o => {
-            // Simple parsing: "12:30 PM" -> "12 PM" bucket
-            const hourKey = o.pickupTime.split(':')[0] + (o.pickupTime.includes('PM') ? ' PM' : ' AM'); 
-            // Note: This is a rough grouping for visualization. 
-            // Better: convert both slot and order time to 24h and compare.
-            // For simplicity in this view, we'll list orders under their closest slot or just list them sorted.
-        });
-
+        
         // Easier approach for Day View: Vertical Timeline
         // Sort orders by time
         const sortedOrders = [...dailyOrders].sort((a, b) => {
@@ -189,6 +210,28 @@ export default function CalendarView({ orders, onSelectOrder, onPrintSelected, o
                 </div>
 
                 <div className="max-w-3xl mx-auto w-full space-y-4">
+                    {/* Shift Display Block */}
+                    {dailyShifts.length > 0 && (
+                        <div className="mb-6 border-b border-gray-200 pb-4">
+                            <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-3 flex items-center gap-2">
+                                <BriefcaseIcon className="w-4 h-4" /> Employee Shifts
+                            </h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {dailyShifts.map(shift => (
+                                    <div key={shift.id} className="bg-blue-50 border border-blue-200 p-3 rounded-lg flex justify-between items-center">
+                                        <div>
+                                            <p className="font-bold text-blue-900">{shift.employeeName}</p>
+                                            <p className="text-xs text-blue-700">{shift.startTime} - {shift.endTime} ({shift.hours.toFixed(1)} hrs)</p>
+                                        </div>
+                                        <div className="text-right text-xs text-blue-600">
+                                            ${shift.totalPay.toFixed(2)}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     {sortedOrders.length === 0 ? (
                         <div className="text-center text-gray-400 py-10 italic">No orders scheduled for this day.</div>
                     ) : (
