@@ -28,34 +28,34 @@ export async function generateFollowUpMessage(order: Order): Promise<string> {
   const model = 'gemini-2.5-flash';
   const itemsList = order.items.map(item => `- ${item.quantity} ${item.name}`).join('\n');
   
+  // Calculate totals text
+  let totalsText = "";
+  if (order.totalMini > 0 && order.totalFullSize === 0) {
+      totalsText = `${order.totalMini} total mini empanadas`;
+  } else if (order.totalFullSize > 0 && order.totalMini === 0) {
+      totalsText = `${order.totalFullSize} total full-size empanadas`;
+  } else {
+      totalsText = `${order.totalMini} mini and ${order.totalFullSize} full-size empanadas`;
+  }
+
   const prompt = `
-    You are the owner of "Empanadas by Rose". Generate a text message exactly following the template below.
+    You are Rose, the owner of "Empanadas by Rose". Generate a text message exactly following the template below.
     Do not add any conversational filler before or after the template.
-    Do not use emojis.
+    Do not use emojis unless specified.
 
     Order Details:
     - Customer Name: ${order.customerName}
-    - Pickup/Delivery Date: ${order.pickupDate}
-    - Pickup Time: ${order.pickupTime}
-    - Items:
+    - Type: ${order.deliveryRequired ? 'delivery' : 'pick up'}
+    - Date: ${order.pickupDate} (Please figure out the Day of the Week)
+    - Time: ${order.pickupTime}
+    - Totals Summary: ${totalsText}
+    - Items List:
     ${itemsList}
-    - Total Cost: ${order.amountCharged.toFixed(2)}
 
     REQUIRED OUTPUT FORMAT:
-    Hi [Customer First Name],
-
-    Just wanted to confirm your empanada order with us!
-
-    You've got a pickup scheduled for [Date] at [Time].
-
-    Here's a quick summary of your order:
-    [List of Items with bullets]
-
-    Your total cost for this order is $[Total]. Cash on pickup, please. Pick up address is: 27 Hastings Rd, Massapequa, NY
-
-    Please reply to this message to confirm everything looks correct.
-
-    Thanks!
+    Hi [Customer First Name]! This is Rose from Empanadas by Rose. Thank you for placing an order. Please confirm your order for [pick up/delivery] on [Day of Week], [Date] at [Time] as follows:
+    [Totals Summary]
+    [Items List with bullets]
   `;
   
   try {
@@ -75,36 +75,20 @@ export async function generateFollowUpMessage(order: Order): Promise<string> {
 
 export async function generateOrderConfirmationMessage(order: Order): Promise<string> {
     const model = 'gemini-2.5-flash';
-    const itemsList = order.items.map(item => `- ${item.quantity} ${item.name}`).join('\n');
-
+    
     const prompt = `
-        You are the owner of "Empanadas by Rose". Generate a text message confirmation exactly following the format below.
+        You are Rose, the owner of "Empanadas by Rose". Generate a text message confirmation exactly following the format below.
         Do not add any conversational filler before or after the template.
-        Do not use emojis.
-
+        
         Order Details:
-        - Customer Name: ${order.customerName}
-        - Pickup/Delivery Date: ${order.pickupDate}
-        - Pickup Time: ${order.pickupTime}
-        - Items:
-        ${itemsList}
-        - Total Cost: ${order.amountCharged.toFixed(2)}
+        - Total Amount: $${order.amountCharged.toFixed(2)}
+        - Type: ${order.deliveryRequired ? 'delivery' : 'pick up'}
+        - Date: ${order.pickupDate} (Please figure out the Day of the Week)
+        - Time: ${order.pickupTime}
 
         REQUIRED OUTPUT FORMAT:
-        Hi [Customer First Name],
-
-        Just wanted to confirm your empanada order with us!
-
-        You've got a pickup scheduled for [Date] at [Time].
-
-        Here's a quick summary of your order:
-        [List of Items with bullets]
-
-        Your total cost for this order is $[Total]. Cash on pickup, please. Pick up address is: 27 Hastings Rd, Massapequa, NY
-
-        Please reply to this message to confirm everything looks correct.
-
-        Thanks!
+        Perfect! The total is [Total Amount]. Cash on [pick up/delivery], please. I'll see you on [Day of Week], [Date] at [Time].
+        Thank you for your order!
     `;
 
     try {
