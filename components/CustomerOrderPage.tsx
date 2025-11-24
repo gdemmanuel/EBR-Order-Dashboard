@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { saveOrderToDb, AppSettings } from '../services/dbService';
 import { Order, OrderItem, PaymentStatus, FollowUpStatus, ApprovalStatus, PricingSettings, Flavor, MenuPackage, SalsaProduct } from '../types';
 import { SalsaSize } from '../config';
-import { TrashIcon, CheckCircleIcon, StarIcon, ChevronRightIcon, ClockIcon, ChevronDownIcon, MegaphoneIcon } from './icons/Icons';
+import { TrashIcon, CheckCircleIcon, StarIcon, ChevronRightIcon, ClockIcon, ChevronDownIcon, MegaphoneIcon, ShoppingBagIcon } from './icons/Icons';
 import Header from './Header';
 import PackageBuilderModal from './PackageBuilderModal';
 import { generateTimeSlots, normalizeDateStr } from '../utils/dateUtils';
@@ -340,17 +340,24 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
         <div className="min-h-screen bg-brand-cream font-sans flex flex-col">
             <Header variant="public" />
             
-            {/* MOTD Banner */}
+            {/* MOTD Banner - Seamless Loop */}
             {motd && (
-                <div className="bg-brand-brown text-brand-tan overflow-hidden whitespace-nowrap py-2 border-b border-brand-tan/20">
-                    <div className="animate-marquee inline-block text-sm font-medium tracking-wide">
-                        {/* Duplicated multiple times for smoother loop on wide screens */}
-                        <span className="mx-8"><MegaphoneIcon className="inline w-4 h-4 mb-0.5 mr-2" />{motd}</span>
-                        <span className="mx-8"><MegaphoneIcon className="inline w-4 h-4 mb-0.5 mr-2" />{motd}</span>
-                        <span className="mx-8"><MegaphoneIcon className="inline w-4 h-4 mb-0.5 mr-2" />{motd}</span>
-                        <span className="mx-8"><MegaphoneIcon className="inline w-4 h-4 mb-0.5 mr-2" />{motd}</span>
-                        <span className="mx-8"><MegaphoneIcon className="inline w-4 h-4 mb-0.5 mr-2" />{motd}</span>
-                        <span className="mx-8"><MegaphoneIcon className="inline w-4 h-4 mb-0.5 mr-2" />{motd}</span>
+                <div className="bg-brand-brown text-brand-tan overflow-hidden py-2 border-b border-brand-tan/20 flex select-none">
+                    <div className="animate-marquee flex-shrink-0 flex items-center whitespace-nowrap text-sm font-medium tracking-wide">
+                        {/* Duplicated content for seamless loop */}
+                        {Array(10).fill(motd).map((msg, i) => (
+                            <span key={`a-${i}`} className="mx-8 inline-flex items-center">
+                                <MegaphoneIcon className="w-4 h-4 mr-2" />{msg}
+                            </span>
+                        ))}
+                    </div>
+                    <div className="animate-marquee flex-shrink-0 flex items-center whitespace-nowrap text-sm font-medium tracking-wide" aria-hidden="true">
+                        {/* Duplicated content for seamless loop */}
+                        {Array(10).fill(motd).map((msg, i) => (
+                            <span key={`b-${i}`} className="mx-8 inline-flex items-center">
+                                <MegaphoneIcon className="w-4 h-4 mr-2" />{msg}
+                            </span>
+                        ))}
                     </div>
                 </div>
             )}
@@ -510,36 +517,6 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                         )}
                     </div>
 
-                    {/* Cart Summary Block */}
-                    {cartPackages.length > 0 && (
-                        <div className="bg-white rounded-xl p-8 shadow-lg border border-brand-tan animate-fade-in">
-                            <h4 className="font-serif text-2xl text-brand-brown mb-6 border-b border-brand-tan pb-4">Your Selection</h4>
-                            <div className="space-y-4">
-                                {cartPackages.map((item) => {
-                                    // Calculate extra salsa cost for display
-                                    const extraSalsaCost = item.items.reduce((sum, i) => {
-                                        const salsa = safePricing.salsas.find(s => s.name === i.name);
-                                        return sum + (salsa ? (salsa.price * i.quantity) : 0);
-                                    }, 0);
-                                    const displayPrice = item.price + extraSalsaCost;
-
-                                    return (
-                                        <div key={item.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-brand-cream/30 p-4 rounded hover:bg-brand-cream/60 transition-colors">
-                                            <div>
-                                                <p className="font-serif text-lg text-brand-brown">{item.name}</p>
-                                                <p className="text-sm text-gray-500 font-light">{item.items.map(i => `${i.quantity} ${i.name}`).join(', ')}</p>
-                                            </div>
-                                            <div className="flex items-center gap-6 mt-2 sm:mt-0">
-                                                <span className="font-medium text-lg">${displayPrice.toFixed(2)}</span>
-                                                <button type="button" onClick={() => removeCartPackage(item.id)} className="text-gray-400 hover:text-red-600 transition-colors"><TrashIcon className="w-5 h-5" /></button>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    )}
-
                     {/* EXTRAS SECTION */}
                     {salsaItems.length > 0 && (
                         <section className="bg-white p-8 rounded-xl shadow-sm">
@@ -564,6 +541,41 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                                 ))}
                             </div>
                         </section>
+                    )}
+
+                    {/* Cart Summary Block */}
+                    {cartPackages.length > 0 && (
+                        <div className="bg-white rounded-xl p-8 shadow-xl border-l-8 border-brand-orange animate-fade-in relative">
+                            <div className="flex items-center gap-3 mb-6 border-b border-gray-100 pb-4">
+                                <div className="bg-brand-orange text-white p-2 rounded-full shadow-sm">
+                                    <ShoppingBagIcon className="w-6 h-6" />
+                                </div>
+                                <h4 className="font-serif text-2xl text-brand-brown font-bold">Your Selection</h4>
+                            </div>
+                            <div className="space-y-4">
+                                {cartPackages.map((item) => {
+                                    // Calculate extra salsa cost for display
+                                    const extraSalsaCost = item.items.reduce((sum, i) => {
+                                        const salsa = safePricing.salsas.find(s => s.name === i.name);
+                                        return sum + (salsa ? (salsa.price * i.quantity) : 0);
+                                    }, 0);
+                                    const displayPrice = item.price + extraSalsaCost;
+
+                                    return (
+                                        <div key={item.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-gray-50 p-5 rounded-lg border border-gray-200 hover:shadow-md transition-all">
+                                            <div>
+                                                <p className="font-serif text-lg text-brand-brown font-bold">{item.name}</p>
+                                                <p className="text-sm text-gray-600 mt-1 leading-relaxed">{item.items.map(i => `${i.quantity} ${i.name}`).join(', ')}</p>
+                                            </div>
+                                            <div className="flex items-center gap-6 mt-4 sm:mt-0 w-full sm:w-auto justify-between sm:justify-end">
+                                                <span className="font-bold text-xl text-brand-brown">${displayPrice.toFixed(2)}</span>
+                                                <button type="button" onClick={() => removeCartPackage(item.id)} className="text-gray-400 hover:text-red-600 transition-colors p-2 hover:bg-red-50 rounded-full"><TrashIcon className="w-5 h-5" /></button>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
                     )}
 
                     {/* CONTACT & DETAILS FORM */}
