@@ -111,6 +111,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
     const toggleFlavorVisibility = (i: number) => { const u = [...empanadaFlavors]; u[i].visible = !u[i].visible; setEmpanadaFlavors(u); };
     const toggleFlavorSpecial = (i: number) => { const u = [...empanadaFlavors]; u[i].isSpecial = !u[i].isSpecial; setEmpanadaFlavors(u); };
     const updateFlavorDescription = (i: number, d: string) => { const u = [...empanadaFlavors]; u[i].description = d; setEmpanadaFlavors(u); };
+    const updateFlavorName = (i: number, name: string) => { const u = [...empanadaFlavors]; u[i].name = name; setEmpanadaFlavors(u); };
     const updateFlavorSurcharge = (i: number, v: string) => { const u = [...empanadaFlavors]; u[i].surcharge = parseFloat(v) || undefined; setEmpanadaFlavors(u); };
     const removeFlavor = (i: number) => { setEmpanadaFlavors(empanadaFlavors.filter((_, idx) => idx !== i)); };
 
@@ -317,7 +318,38 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                     </div>
                                     <div className="flex gap-2 mb-4"><input type="text" value={newFlavorName} onChange={(e) => setNewFlavorName(e.target.value)} placeholder="New flavor name" className="flex-grow rounded-md border-gray-300 shadow-sm focus:ring-brand-orange focus:border-brand-orange text-sm"/><button onClick={addFlavor} className="bg-brand-orange text-white px-3 rounded-md hover:bg-opacity-90"><PlusIcon className="w-5 h-5" /></button></div>
                                     <div className="space-y-2 max-h-96 overflow-y-auto">
-                                        {empanadaFlavors.map((flavor, idx) => (<div key={idx} className="bg-white p-2 rounded shadow-sm text-sm"><div className="flex justify-between items-center mb-1"><div className="flex items-center gap-3"><div className="flex items-center gap-1"><input type="checkbox" checked={flavor.visible} onChange={() => toggleFlavorVisibility(idx)} className="rounded text-brand-orange focus:ring-brand-orange h-4 w-4"/><label className="text-xs text-gray-500">Visible</label></div><div className="flex items-center gap-1"><input type="checkbox" checked={flavor.isSpecial || false} onChange={() => toggleFlavorSpecial(idx)} className="rounded text-purple-600 focus:ring-purple-600 h-4 w-4"/><label className="text-xs text-purple-600 font-medium">Special?</label></div></div><button onClick={() => removeFlavor(idx)} className="text-red-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button></div><div className="mb-2"><span className={`font-medium block ${!flavor.visible ? 'text-gray-400 line-through' : ''}`}>{flavor.name}</span></div><div className="flex gap-2"><input type="text" placeholder="Description" value={flavor.description || ''} onChange={(e) => updateFlavorDescription(idx, e.target.value)} className="flex-grow text-xs border-gray-200 rounded focus:ring-brand-orange focus:border-brand-orange"/><div className="w-20 relative"><div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-1.5"><span className="text-gray-400 text-xs">+ $</span></div><input type="number" step="0.05" placeholder="Extra" value={flavor.surcharge || ''} onChange={(e) => updateFlavorSurcharge(idx, e.target.value)} className="w-full text-xs border-gray-200 rounded pl-6 focus:ring-brand-orange focus:border-brand-orange"/></div></div></div>))}
+                                        {empanadaFlavors.map((flavor, idx) => (
+                                            <div key={idx} className="bg-white p-2 rounded shadow-sm text-sm">
+                                                <div className="flex justify-between items-center mb-1">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="flex items-center gap-1">
+                                                            <input type="checkbox" checked={flavor.visible} onChange={() => toggleFlavorVisibility(idx)} className="rounded text-brand-orange focus:ring-brand-orange h-4 w-4"/>
+                                                            <label className="text-xs text-gray-500">Visible</label>
+                                                        </div>
+                                                        <div className="flex items-center gap-1">
+                                                            <input type="checkbox" checked={flavor.isSpecial || false} onChange={() => toggleFlavorSpecial(idx)} className="rounded text-purple-600 focus:ring-purple-600 h-4 w-4"/>
+                                                            <label className="text-xs text-purple-600 font-medium">Special?</label>
+                                                        </div>
+                                                    </div>
+                                                    <button onClick={() => removeFlavor(idx)} className="text-red-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button>
+                                                </div>
+                                                <div className="mb-2">
+                                                    <input 
+                                                        type="text" 
+                                                        value={flavor.name} 
+                                                        onChange={(e) => updateFlavorName(idx, e.target.value)}
+                                                        className={`font-medium block w-full border-b border-transparent hover:border-gray-300 focus:border-brand-orange focus:ring-0 px-0 py-0.5 text-sm bg-transparent ${!flavor.visible ? 'text-gray-400 line-through' : 'text-brand-brown'}`}
+                                                    />
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    <input type="text" placeholder="Description" value={flavor.description || ''} onChange={(e) => updateFlavorDescription(idx, e.target.value)} className="flex-grow text-xs border-gray-200 rounded focus:ring-brand-orange focus:border-brand-orange"/>
+                                                    <div className="w-20 relative">
+                                                        <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-1.5"><span className="text-gray-400 text-xs">+ $</span></div>
+                                                        <input type="number" step="0.05" placeholder="Extra" value={flavor.surcharge || ''} onChange={(e) => updateFlavorSurcharge(idx, e.target.value)} className="w-full text-xs border-gray-200 rounded pl-6 focus:ring-brand-orange focus:border-brand-orange"/>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
                                 <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">

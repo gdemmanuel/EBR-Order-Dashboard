@@ -53,22 +53,28 @@ export default function CalendarView({ orders, shifts = [], onSelectOrder, onPri
 
     // --- Group Orders Logic ---
     const getOrdersForDate = (date: Date) => {
-        return orders.filter(order => {
+        const dailyOrders = orders.filter(order => {
             const d = parseOrderDateTime(order);
             return d.getDate() === date.getDate() && 
                    d.getMonth() === date.getMonth() && 
                    d.getFullYear() === date.getFullYear();
         });
+        
+        // Sort by time (earliest to latest)
+        return dailyOrders.sort((a, b) => parseOrderDateTime(a).getTime() - parseOrderDateTime(b).getTime());
     };
 
     const getShiftsForDate = (date: Date) => {
-        return shifts.filter(shift => {
+        const dailyShifts = shifts.filter(shift => {
             const [y, m, d] = shift.date.split('-').map(Number);
             // Note: input date is likely "YYYY-MM-DD", local time.
             // shift.date is YYYY-MM-DD string.
             // Date object `date` passed in usually represents 00:00 local time
             return d === date.getDate() && (m - 1) === date.getMonth() && y === date.getFullYear();
         });
+        
+        // Sort by startTime (earliest to latest)
+        return dailyShifts.sort((a, b) => a.startTime.localeCompare(b.startTime));
     };
 
     // --- Render Logic for Month View ---
@@ -197,10 +203,8 @@ export default function CalendarView({ orders, shifts = [], onSelectOrder, onPri
         const end = override?.customHours?.end || settings.scheduling?.endTime || "20:00";
         
         // Easier approach for Day View: Vertical Timeline
-        // Sort orders by time
-        const sortedOrders = [...dailyOrders].sort((a, b) => {
-            return parseOrderDateTime(a).getTime() - parseOrderDateTime(b).getTime();
-        });
+        // Sort orders by time - ALREADY SORTED by getOrdersForDate
+        const sortedOrders = dailyOrders;
 
         return (
             <div className="bg-white min-h-[600px] p-4 flex flex-col">
