@@ -254,9 +254,11 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
             if (e.id !== id) return e;
             
             if (field === 'productionRates.mini') {
-                return { ...e, productionRates: { ...e.productionRates, mini: parseFloat(value) || 0 } };
+                const currentRates = e.productionRates || { mini: 0, full: 0 };
+                return { ...e, productionRates: { ...currentRates, mini: parseFloat(value) || 0 } };
             } else if (field === 'productionRates.full') {
-                return { ...e, productionRates: { ...e.productionRates, full: parseFloat(value) || 0 } };
+                const currentRates = e.productionRates || { mini: 0, full: 0 };
+                return { ...e, productionRates: { ...currentRates, full: parseFloat(value) || 0 } };
             } else {
                 return { ...e, [field]: value };
             }
@@ -338,11 +340,11 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                     </div>
                                     <div className="md:col-span-1">
                                         <label className="block text-xs font-bold text-gray-700 mb-1">Mini/Hr Rate</label>
-                                        <input type="number" value={newEmployee.productionRates?.mini} onChange={e => setNewEmployee({ ...newEmployee, productionRates: { mini: parseInt(e.target.value) || 0, full: newEmployee.productionRates?.full || 0 } })} className="w-full rounded-md border-gray-300 text-sm" />
+                                        <input type="number" value={newEmployee.productionRates?.mini ?? ''} onChange={e => setNewEmployee({ ...newEmployee, productionRates: { mini: parseInt(e.target.value) || 0, full: newEmployee.productionRates?.full || 0 } })} className="w-full rounded-md border-gray-300 text-sm" />
                                     </div>
                                      <div className="md:col-span-1">
                                         <label className="block text-xs font-bold text-gray-700 mb-1">Full/Hr Rate</label>
-                                        <input type="number" value={newEmployee.productionRates?.full} onChange={e => setNewEmployee({ ...newEmployee, productionRates: { full: parseInt(e.target.value) || 0, mini: newEmployee.productionRates?.mini || 0 } })} className="w-full rounded-md border-gray-300 text-sm" />
+                                        <input type="number" value={newEmployee.productionRates?.full ?? ''} onChange={e => setNewEmployee({ ...newEmployee, productionRates: { full: parseInt(e.target.value) || 0, mini: newEmployee.productionRates?.mini || 0 } })} className="w-full rounded-md border-gray-300 text-sm" />
                                     </div>
                                     <div className="md:col-span-4 flex justify-end">
                                          <button onClick={addEmployee} disabled={!newEmployee.name} className="flex items-center gap-2 bg-brand-orange text-white px-4 py-2 rounded-md text-sm font-semibold hover:bg-opacity-90 disabled:opacity-50">
@@ -352,10 +354,10 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                 </div>
                                 
                                 <div className="space-y-3">
-                                    {employees.length === 0 ? (
+                                    {(!employees || employees.length === 0) ? (
                                         <p className="text-gray-500 text-sm text-center py-4">No employees added yet.</p>
                                     ) : (
-                                        employees.map((emp) => (
+                                        (employees || []).map((emp) => (
                                             <div key={emp.id} className="bg-white p-3 rounded border border-gray-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
                                                 <div className="flex-grow">
                                                     <div className="flex items-center gap-2">
@@ -378,7 +380,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                                         <label className="block text-[10px] text-gray-500">Mini/Hr</label>
                                                         <input 
                                                             type="number" 
-                                                            value={emp.productionRates.mini} 
+                                                            value={emp.productionRates?.mini ?? 0} 
                                                             onChange={(e) => updateEmployee(emp.id, 'productionRates.mini', e.target.value)} 
                                                             className="w-16 rounded border-gray-200 text-xs py-1"
                                                         />
@@ -387,7 +389,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                                         <label className="block text-[10px] text-gray-500">Full/Hr</label>
                                                         <input 
                                                             type="number" 
-                                                            value={emp.productionRates.full} 
+                                                            value={emp.productionRates?.full ?? 0} 
                                                             onChange={(e) => updateEmployee(emp.id, 'productionRates.full', e.target.value)} 
                                                             className="w-16 rounded border-gray-200 text-xs py-1"
                                                         />
