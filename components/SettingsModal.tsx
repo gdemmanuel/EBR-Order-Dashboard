@@ -320,16 +320,20 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                     <div className="space-y-2 max-h-96 overflow-y-auto">
                                         {empanadaFlavors.map((flavor, idx) => (
                                             <div key={idx} className="bg-white p-2 rounded shadow-sm text-sm">
-                                                <div className="flex justify-between items-center mb-1">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="flex items-center gap-1">
-                                                            <input type="checkbox" checked={flavor.visible} onChange={() => toggleFlavorVisibility(idx)} className="rounded text-brand-orange focus:ring-brand-orange h-4 w-4"/>
-                                                            <label className="text-xs text-gray-500">Visible</label>
-                                                        </div>
-                                                        <div className="flex items-center gap-1">
-                                                            <input type="checkbox" checked={flavor.isSpecial || false} onChange={() => toggleFlavorSpecial(idx)} className="rounded text-purple-600 focus:ring-purple-600 h-4 w-4"/>
-                                                            <label className="text-xs text-purple-600 font-medium">Special?</label>
-                                                        </div>
+                                                <div className="flex justify-between items-center mb-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <button 
+                                                            onClick={() => toggleFlavorVisibility(idx)} 
+                                                            className={`text-xs px-2 py-1 rounded font-medium transition-colors ${flavor.visible ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}
+                                                        >
+                                                            {flavor.visible ? 'Visible' : 'Hidden'}
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => toggleFlavorSpecial(idx)} 
+                                                            className={`text-xs px-2 py-1 rounded font-medium transition-colors ${flavor.isSpecial ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-400'}`}
+                                                        >
+                                                            {flavor.isSpecial ? 'Special' : 'Standard'}
+                                                        </button>
                                                     </div>
                                                     <button onClick={() => removeFlavor(idx)} className="text-red-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button>
                                                 </div>
