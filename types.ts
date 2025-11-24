@@ -1,3 +1,4 @@
+
 export enum ContactMethod {
   GF = 'Google Forms',
   IG = 'Instagram',
@@ -67,27 +68,6 @@ export interface Expense {
     description?: string; // Optional notes
 }
 
-export interface Employee {
-    id: string;
-    name: string;
-    hourlyRate: number;
-    speedMini: number; // Units per hour
-    speedFull: number; // Units per hour
-    color: string;
-    isActive: boolean;
-}
-
-export interface Shift {
-    id: string;
-    employeeId: string;
-    employeeName: string;
-    date: string; // YYYY-MM-DD
-    startTime: string;
-    endTime: string;
-    hours: number;
-    laborCost: number;
-}
-
 export interface Flavor {
     name: string;
     visible: boolean;
@@ -133,4 +113,33 @@ export interface PricingSettings {
     // Deprecated but kept for type safety during migration if needed, though we will migrate away from them
     salsaSmall?: number; 
     salsaLarge?: number;
+}
+
+export interface AppSettings {
+    empanadaFlavors: Flavor[];
+    fullSizeEmpanadaFlavors: Flavor[];
+    sheetUrl: string;
+    importedSignatures: string[];
+    pricing: PricingSettings;
+    prepSettings: {
+        lbsPer20: Record<string, number>; 
+        fullSizeMultiplier: number; 
+        discosPer: { mini: number; full: number; };
+        discoPackSize: { mini: number; full: number; };
+        productionRates: { mini: number; full: number; };
+    };
+    scheduling: {
+        enabled: boolean;
+        intervalMinutes: number;
+        startTime: string;
+        endTime: string;
+        blockedDates: string[];
+        closedDays: number[];
+        dateOverrides: Record<string, { isClosed: boolean; customHours?: { start: string; end: string; }; }>; 
+    };
+    laborWage: number; 
+    materialCosts: Record<string, number>; 
+    discoCosts: { mini: number; full: number; };
+    inventory: Record<string, { mini: number; full: number }>;
+    expenseCategories: string[];
 }

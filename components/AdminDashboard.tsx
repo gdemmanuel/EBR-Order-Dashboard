@@ -1,7 +1,8 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
-import { Order, ApprovalStatus, FollowUpStatus, PricingSettings, Flavor, Expense, Shift } from '../types';
+import { Order, ApprovalStatus, FollowUpStatus, PricingSettings, Flavor, Expense } from '../types';
 import { parseOrderDateTime } from '../utils/dateUtils';
-import { saveOrderToDb, deleteOrderFromDb, updateSettingsInDb, saveOrdersBatch, AppSettings, subscribeToExpenses, saveExpenseToDb, deleteExpenseFromDb, subscribeToShifts } from '../services/dbService';
+import { saveOrderToDb, deleteOrderFromDb, updateSettingsInDb, saveOrdersBatch, AppSettings, subscribeToExpenses, saveExpenseToDb, deleteExpenseFromDb } from '../services/dbService';
 import { calculateOrderTotal, calculateSupplyCost } from '../utils/pricingUtils';
 
 import Header from './Header';
@@ -68,14 +69,12 @@ export default function AdminDashboard({
     const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
     const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; title: string; message: string; onConfirm: () => void; }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
 
-    // Local Data State
+    // Local Expenses State
     const [expenses, setExpenses] = useState<Expense[]>([]);
-    const [shifts, setShifts] = useState<Shift[]>([]);
 
     useEffect(() => {
-        const unsubExpenses = subscribeToExpenses(setExpenses);
-        const unsubShifts = subscribeToShifts(setShifts);
-        return () => { unsubExpenses(); unsubShifts(); };
+        const unsubscribe = subscribeToExpenses(setExpenses);
+        return () => unsubscribe();
     }, []);
 
     const activeOrders = useMemo(() => orders.filter(o => o.approvalStatus === ApprovalStatus.APPROVED), [orders]);
@@ -131,7 +130,7 @@ export default function AdminDashboard({
         return { totalRevenue, ordersToFollowUp, totalEmpanadasSold };
     }, [activeOrders, dateFilter]);
 
-    const safeSettings: AppSettings = settings || { empanadaFlavors, fullSizeEmpanadaFlavors, sheetUrl, importedSignatures: Array.from(importedSignatures), pricing: pricing || { mini: { basePrice: 1.75 }, full: { basePrice: 3.00 }, packages: [], salsas: [] }, prepSettings: prepSettings || { lbsPer20: {}, fullSizeMultiplier: 2.0, discosPer: { mini: 1, full: 1 }, discoPackSize: { mini: 10, full: 10 }, productionRates: { mini: 40, full: 25 } }, scheduling: { enabled: true, intervalMinutes: 15, startTime: "09:00", endTime: "17:00", blockedDates: [], closedDays: [], dateOverrides: {} }, laborWage: 15.00, materialCosts: {}, discoCosts: { mini: 0.10, full: 0.15 }, inventory: {}, expenseCategories: ['Packaging', 'Marketing', 'Rent', 'Utilities', 'Equipment', 'Other'], employees: [] };
+    const safeSettings: AppSettings = settings || { empanadaFlavors, fullSizeEmpanadaFlavors, sheetUrl, importedSignatures: Array.from(importedSignatures), pricing: pricing || { mini: { basePrice: 1.75 }, full: { basePrice: 3.00 }, packages: [], salsas: [] }, prepSettings: prepSettings || { lbsPer20: {}, fullSizeMultiplier: 2.0, discosPer: { mini: 1, full: 1 }, discoPackSize: { mini: 10, full: 10 }, productionRates: { mini: 40, full: 25 } }, scheduling: { enabled: true, intervalMinutes: 15, startTime: "09:00", endTime: "17:00", blockedDates: [], closedDays: [], dateOverrides: {} }, laborWage: 15.00, materialCosts: {}, discoCosts: { mini: 0.10, full: 0.15 }, inventory: {}, expenseCategories: ['Packaging', 'Marketing', 'Rent', 'Utilities', 'Equipment', 'Other'] };
     const safePricing = safeSettings.pricing;
 
     const handleSaveOrder = async (orderData: Order | Omit<Order, 'id'>) => {
@@ -223,13 +222,12 @@ export default function AdminDashboard({
                     />
                 )}
 
-                {view === 'calendar' && <CalendarView orders={activeOrders} shifts={shifts} onSelectOrder={setSelectedOrder} onPrintSelected={setPrintPreviewOrders} onDelete={confirmDeleteOrder} settings={safeSettings} />}
+                {view === 'calendar' && <CalendarView orders={activeOrders} onSelectOrder={setSelectedOrder} onPrintSelected={setPrintPreviewOrders} onDelete={confirmDeleteOrder} settings={safeSettings} />}
                 
                 {view === 'reports' && (
                     <ReportsView 
                         orders={activeOrders} 
                         expenses={expenses} 
-                        shifts={shifts}
                         settings={safeSettings} 
                         dateRange={dateFilter} 
                         onDeleteExpense={deleteExpenseFromDb}
