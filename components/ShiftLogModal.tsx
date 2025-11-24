@@ -1,7 +1,7 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Employee, WorkShift } from '../types';
-import { XMarkIcon, ClockIcon } from './icons/Icons';
+import { XMarkIcon, ClockIcon, CurrencyDollarIcon } from './icons/Icons';
 
 interface ShiftLogModalProps {
     employees: Employee[];
@@ -17,19 +17,26 @@ export default function ShiftLogModal({ employees, onClose, onSave }: ShiftLogMo
     const [notes, setNotes] = useState('');
     
     const [isSaving, setIsSaving] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     
     // Derived values
     const selectedEmployee = employees.find(e => e.id === selectedEmployeeId);
     
     const calculateHours = (start: string, end: string) => {
+        if (!start || !end) return 0;
+        
         const [h1, m1] = start.split(':').map(Number);
         const [h2, m2] = end.split(':').map(Number);
+        
+        if (isNaN(h1) || isNaN(m1) || isNaN(h2) || isNaN(m2)) return 0;
+
         const date1 = new Date(2000, 0, 1, h1, m1);
         const date2 = new Date(2000, 0, 1, h2, m2);
         
         let diffMs = date2.getTime() - date1.getTime();
         if (diffMs < 0) {
-            // Handle overnight shifts if needed, but for now simple same-day
+            // Simple handling for same-day shifts. 
+            // If negative, assume user input error or needs next-day logic (omitted for simplicity here)
             return 0;
         }
         return diffMs / (1000 * 60 * 60); // hours
@@ -41,34 +48,52 @@ export default function ShiftLogModal({ employees, onClose, onSave }: ShiftLogMo
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!selectedEmployee) return;
+        setError(null);
+
+        if (!selectedEmployee) {
+            setError("Please select an employee.");
+            return;
+        }
+        if (hours <= 0 || isNaN(hours)) {
+            setError("Invalid start or end time.");
+            return;
+        }
+        if (isNaN(totalPay)) {
+            setError("Invalid pay calculation. Check employee wage.");
+            return;
+        }
         
         setIsSaving(true);
         try {
+            // Sanitize object to ensure no undefined values are passed to Firestore
             const shift: WorkShift = {
                 id: Date.now().toString(),
                 employeeId: selectedEmployee.id,
-                employeeName: selectedEmployee.name,
-                date,
-                startTime,
-                endTime,
-                hours,
-                hourlyWage: wage,
-                totalPay,
-                notes
+                employeeName: selectedEmployee.name || 'Unknown',
+                date: date || new Date().toISOString().split('T')[0],
+                startTime: startTime || '00:00',
+                endTime: endTime || '00:00',
+                hours: Number(hours) || 0,
+                hourlyWage: Number(wage) || 0,
+                totalPay: Number(totalPay) || 0,
+                notes: notes || ''
             };
+            
+            console.log("Saving shift:", shift); // Debug log
             await onSave(shift);
             onClose();
-        } catch (error) {
-            console.error(error);
-            alert("Failed to save shift");
+        } catch (error: any) {
+            console.error("Save Error:", error);
+            setError(error.message || "Failed to save shift. Please check your connection.");
         } finally {
             setIsSaving(false);
         }
     };
 
+    const isValid = selectedEmployee && hours > 0 && !isNaN(totalPay);
+
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fade-in">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70] p-4 animate-fade-in">
             <div className="bg-white rounded-lg shadow-2xl w-full max-w-md flex flex-col border border-brand-tan">
                 <header className="p-5 border-b border-brand-tan flex justify-between items-center bg-gray-50 rounded-t-lg">
                     <h2 className="text-xl font-bold text-brand-brown flex items-center gap-2">
@@ -79,18 +104,27 @@ export default function ShiftLogModal({ employees, onClose, onSave }: ShiftLogMo
                     </button>
                 </header>
                 
-                <form onSubmit={handleSave} className="p-6 space-y-4">
+                <form onSubmit={handleSave} className="p-6 space-y-5">
                     {employees.length === 0 ? (
-                        <p className="text-red-500 text-sm text-center">Please add employees in Settings before logging hours.</p>
+                        <div className="text-center py-4">
+                            <p className="text-red-600 font-medium mb-2">No Employees Found</p>
+                            <p className="text-sm text-gray-500">Go to Settings &gt; Employees to add your team first.</p>
+                        </div>
                     ) : (
                         <>
+                            {error && (
+                                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
+                                    {error}
+                                </div>
+                            )}
+
                             <div>
                                 <label className="block text-xs font-bold text-gray-700 mb-1">Employee</label>
                                 <select 
                                     required
                                     value={selectedEmployeeId}
                                     onChange={e => setSelectedEmployeeId(e.target.value)}
-                                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm"
+                                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm bg-white py-2"
                                 >
                                     <option value="">Select Employee...</option>
                                     {employees.filter(e => e.isActive).map(e => (
@@ -133,14 +167,18 @@ export default function ShiftLogModal({ employees, onClose, onSave }: ShiftLogMo
                                 </div>
                             </div>
                             
-                            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                                <div className="flex justify-between items-center text-sm mb-1">
-                                    <span className="text-gray-600">Total Hours:</span>
-                                    <span className="font-bold">{hours.toFixed(2)} hrs</span>
-                                </div>
+                            <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 space-y-2">
                                 <div className="flex justify-between items-center text-sm">
-                                    <span className="text-gray-600">Est. Pay (@${wage}/hr):</span>
-                                    <span className="font-bold text-green-600">${totalPay.toFixed(2)}</span>
+                                    <span className="text-blue-800 font-medium">Duration:</span>
+                                    <span className="font-bold text-blue-900">{hours > 0 ? hours.toFixed(2) : '0.00'} hrs</span>
+                                </div>
+                                <div className="flex justify-between items-center text-sm border-t border-blue-200 pt-2">
+                                    <span className="text-blue-800 font-medium">Estimated Pay:</span>
+                                    <div className="flex items-center gap-1 text-green-700 font-bold">
+                                        <CurrencyDollarIcon className="w-4 h-4" />
+                                        <span>{isNaN(totalPay) ? '0.00' : totalPay.toFixed(2)}</span>
+                                        <span className="text-[10px] font-normal text-blue-600 ml-1">(@${wage}/hr)</span>
+                                    </div>
                                 </div>
                             </div>
 
@@ -151,16 +189,23 @@ export default function ShiftLogModal({ employees, onClose, onSave }: ShiftLogMo
                                     onChange={e => setNotes(e.target.value)}
                                     className="w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm"
                                     rows={2}
+                                    placeholder="Task details, breaks, etc."
                                 />
                             </div>
 
                             <div className="pt-2">
                                 <button 
                                     type="submit" 
-                                    disabled={isSaving || !selectedEmployee || hours <= 0}
-                                    className="w-full bg-brand-orange text-white font-bold py-2 rounded-lg shadow-md hover:bg-opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    disabled={isSaving || !isValid}
+                                    className="w-full bg-brand-orange text-white font-bold py-3 rounded-lg shadow-md hover:bg-opacity-90 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex justify-center items-center gap-2"
                                 >
-                                    {isSaving ? 'Saving...' : 'Log Hours'}
+                                    {isSaving ? (
+                                        <>Saving...</> 
+                                    ) : (
+                                        <>
+                                            <ClockIcon className="w-5 h-5" /> Log Shift
+                                        </>
+                                    )}
                                 </button>
                             </div>
                         </>
