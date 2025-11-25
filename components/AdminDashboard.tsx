@@ -11,7 +11,7 @@ import OrderList from './OrderList';
 import CalendarView from './CalendarView';
 import OrderFormModal from './OrderFormModal';
 import OrderDetailModal from './OrderDetailModal';
-import ImportOrderModal from './ImportOrderModal';
+// ImportOrderModal removed
 import PrintPreviewPage from './PrintPreviewPage';
 import PendingOrders from './PendingOrders';
 import DateRangeFilter from './DateRangeFilter';
@@ -63,7 +63,6 @@ export default function AdminDashboard({
     const [orderToEdit, setOrderToEdit] = useState<Order | undefined>(undefined);
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
     
-    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
     const [printPreviewOrders, setPrintPreviewOrders] = useState<Order[] | null>(null);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isPrepListOpen, setIsPrepListOpen] = useState(false);
@@ -213,9 +212,7 @@ export default function AdminDashboard({
 
     const handleApproveOrder = async (orderId: string) => { const order = orders.find(o => o.id === orderId); if (order) await saveOrderToDb({ ...order, approvalStatus: ApprovalStatus.APPROVED }); };
     const handleDenyOrder = async (orderId: string) => { const order = orders.find(o => o.id === orderId); if (order) await saveOrderToDb({ ...order, approvalStatus: ApprovalStatus.CANCELLED }); };
-    const handleOrdersImported = async (newOrders: Partial<Order>[], newSignatures: string[]) => { const ordersToSave: Order[] = newOrders.map((pOrder, index) => { const items = pOrder.items || []; const deliveryFee = 0; const calculatedTotal = calculateOrderTotal(items, deliveryFee, safePricing, empanadaFlavors, fullSizeEmpanadaFlavors); const calculatedCost = calculateSupplyCost(items, safeSettings); return { id: `${Date.now()}-${index}`, pickupDate: pOrder.pickupDate || '', pickupTime: pOrder.pickupTime || '', customerName: pOrder.customerName || 'Unknown', contactMethod: pOrder.contactMethod || 'Unknown', phoneNumber: pOrder.phoneNumber || null, items: items, totalFullSize: items.filter(i => i.name.includes('Full')).reduce((s, i) => s + i.quantity, 0), totalMini: items.filter(i => !i.name.includes('Full') && !i.name.includes('Salsa')).reduce((s, i) => s + i.quantity, 0), amountCharged: calculatedTotal, totalCost: calculatedCost, deliveryRequired: pOrder.deliveryRequired || false, deliveryFee: deliveryFee, amountCollected: 0, paymentMethod: null, deliveryAddress: pOrder.deliveryAddress || null, followUpStatus: FollowUpStatus.NEEDED, paymentStatus: pOrder.paymentStatus as any || 'Pending', specialInstructions: pOrder.specialInstructions || null, approvalStatus: ApprovalStatus.PENDING } as Order; }); await saveOrdersBatch(ordersToSave); const updatedSignatures = [...Array.from(importedSignatures), ...newSignatures]; await updateSettingsInDb({ importedSignatures: updatedSignatures }); setIsImportModalOpen(false); };
-    const handleUpdateSheetUrl = async (url: string) => { await updateSettingsInDb({ sheetUrl: url }); };
-
+    
     if (printPreviewOrders) { return <PrintPreviewPage orders={printPreviewOrders} onExit={() => setPrintPreviewOrders(null)} />; }
 
     return (
@@ -236,7 +233,6 @@ export default function AdminDashboard({
                         <button onClick={() => setIsExpenseModalOpen(true)} className="flex items-center gap-2 bg-white text-brand-brown border border-brand-tan font-semibold px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"><ReceiptIcon className="w-5 h-5" /> Expenses</button>
                         <button onClick={() => setIsPrepListOpen(true)} className="flex items-center gap-2 bg-white text-brand-brown border border-brand-tan font-semibold px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"><ScaleIcon className="w-5 h-5" /> Prep List</button>
                         <button onClick={() => setIsSettingsOpen(true)} className="flex items-center gap-2 bg-white text-brand-brown border border-brand-tan font-semibold px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"><CogIcon className="w-5 h-5" /> Settings</button>
-                        <button onClick={() => setIsImportModalOpen(true)} className="flex items-center gap-2 bg-white text-brand-brown border border-brand-tan font-semibold px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"><ArrowTopRightOnSquareIcon className="w-5 h-5" /> Import</button>
                         <button onClick={() => { setOrderToEdit(undefined); setIsNewOrderModalOpen(true); }} className="flex items-center gap-2 bg-brand-brown text-white font-semibold px-4 py-2 rounded-lg hover:bg-opacity-90 transition-colors shadow-sm"><PlusCircleIcon className="w-5 h-5" /> New Order</button>
                     </div>
                 </div>
@@ -299,7 +295,6 @@ export default function AdminDashboard({
 
             {isNewOrderModalOpen && <OrderFormModal order={orderToEdit} onClose={() => setIsNewOrderModalOpen(false)} onSave={handleSaveOrder} empanadaFlavors={empanadaFlavors} fullSizeEmpanadaFlavors={fullSizeEmpanadaFlavors} onAddNewFlavor={handleAddNewFlavor} onDelete={confirmDeleteOrder} pricing={safePricing} settings={safeSettings} existingOrders={orders} />}
             {selectedOrder && <OrderDetailModal order={selectedOrder} onClose={() => setSelectedOrder(null)} onUpdateFollowUp={handleUpdateFollowUp} onEdit={(order) => { setSelectedOrder(null); setOrderToEdit(order); setIsNewOrderModalOpen(true); }} onApprove={selectedOrder.approvalStatus === ApprovalStatus.PENDING ? handleApproveOrder : undefined} onDeny={selectedOrder.approvalStatus === ApprovalStatus.PENDING ? handleDenyOrder : (orderId) => saveOrderToDb({ ...selectedOrder, approvalStatus: ApprovalStatus.CANCELLED })} onDelete={confirmDeleteOrder} onDeductInventory={handleDeductInventory} />}
-            {isImportModalOpen && <ImportOrderModal onClose={() => setIsImportModalOpen(false)} onOrdersImported={handleOrdersImported} onUpdateSheetUrl={handleUpdateSheetUrl} existingSignatures={importedSignatures} />}
             {isSettingsOpen && <SettingsModal settings={safeSettings} onClose={() => setIsSettingsOpen(false)} />}
             {isExpenseModalOpen && (
                 <ExpenseModal 

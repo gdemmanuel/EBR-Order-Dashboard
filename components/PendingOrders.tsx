@@ -1,5 +1,4 @@
 
-
 import React from 'react';
 import { Order } from '../types';
 import { CheckCircleIcon, XCircleIcon } from './icons/Icons';
@@ -69,7 +68,7 @@ export default function PendingOrders({ orders, onApprove, onDeny, onSelectOrder
         <div className="bg-amber-50 border-l-4 border-amber-400 p-6 rounded-lg">
             <h2 className="text-2xl font-serif text-amber-900 mb-4">Pending Approval ({orders.length})</h2>
             <p className="text-sm text-amber-800 mb-4">
-                These orders were imported from your Google Sheet. Click an order to review its details, then approve or deny it.
+                These are new orders placed via the website. Click an order to review its details, then approve or deny it.
             </p>
             <ul className="space-y-3">
                 {orders.map(order => (
