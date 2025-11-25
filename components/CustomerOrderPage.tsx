@@ -120,11 +120,29 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
         }
     }, [safePricing.salsas]);
 
-    // Auto-Scroll Logic
+    // Auto Redirect on Success
     useEffect(() => {
         if (isSubmitted) {
-            // Force scroll to top
+            // 1. Force scroll top immediately
             window.scrollTo(0, 0);
+            
+            // 2. Set timer for redirect
+            const timer = setTimeout(() => {
+                const targetUrl = 'https://www.empanadasbyrose.com';
+                try {
+                    // Try to break out of iframe
+                    if (window.top) {
+                        window.top.location.href = targetUrl;
+                    } else {
+                        window.location.href = targetUrl;
+                    }
+                } catch (e) {
+                    // Fallback if blocked by cross-origin
+                    console.warn("Standard redirect blocked, forcing top navigation.", e);
+                    window.open(targetUrl, '_top');
+                }
+            }, 3500);
+            return () => clearTimeout(timer);
         }
     }, [isSubmitted]);
 
@@ -323,12 +341,14 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
             };
 
             await saveOrderToDb(newOrder);
+            
+            // Scroll top BEFORE setting state to ensure clean render
+            window.scrollTo(0, 0);
             setIsSubmitted(true);
 
         } catch (err: any) {
             console.error(err);
             setError(err.message || "Something went wrong. Please try again.");
-            // Scroll to top to ensure error is seen in iframe
             window.scrollTo(0, 0);
         } finally {
             setIsSubmitting(false);
@@ -348,6 +368,13 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                         Thank you, {customerName}. We've received your order request. We'll contact you shortly at <strong>{phoneNumber}</strong> to confirm availability.
                     </p>
                     
+                    <div className="bg-gray-50 p-4 rounded-lg mb-6 border border-gray-200">
+                        <p className="text-sm text-gray-500 font-medium mb-2">Redirecting to home page...</p>
+                        <div className="w-full bg-gray-200 rounded-full h-1.5">
+                            <div className="bg-brand-orange h-1.5 rounded-full animate-[width_3s_linear_forwards]" style={{width: '0%'}}></div>
+                        </div>
+                    </div>
+
                     {/* 
                         Native anchor tag with target="_top" is the most robust way 
                         to break out of the iframe and return to the parent site.
@@ -357,7 +384,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                         target="_top"
                         className="bg-brand-brown text-white font-serif px-8 py-4 rounded hover:bg-brand-brown/90 transition-all uppercase tracking-wider text-sm flex items-center justify-center gap-2 w-full shadow-md cursor-pointer no-underline"
                     >
-                        <ArrowUturnLeftIcon className="w-5 h-5" /> Return to Website
+                        <ArrowUturnLeftIcon className="w-5 h-5" /> Return to Website Now
                     </a>
                     
                     <button 
@@ -367,6 +394,12 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                         Place Another Order
                     </button>
                 </div>
+                <style>{`
+                    @keyframes width {
+                        from { width: 0%; }
+                        to { width: 100%; }
+                    }
+                `}</style>
             </div>
         );
     }
