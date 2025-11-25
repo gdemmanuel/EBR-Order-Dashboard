@@ -372,12 +372,6 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
             )}
 
             <main className="max-w-5xl mx-auto px-4 py-12 pb-32 w-full">
-                <div className="text-center mb-16">
-                    <h2 className="text-5xl sm:text-6xl font-serif text-brand-brown mb-4 tracking-tight">Place Your Order</h2>
-                    <div className="w-24 h-1 bg-brand-orange mx-auto mb-6"></div>
-                    <p className="text-brand-brown/70 max-w-2xl mx-auto text-lg font-light">Select your packages below. Everything is made fresh to order with love.</p>
-                </div>
-
                 <form onSubmit={handleSubmit} className="space-y-16">
                     
                     {/* FLAVORS SECTION */}
@@ -425,6 +419,13 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                             </div>
                         )}
                     </section>
+
+                    {/* Moved Header Section Here */}
+                    <div className="text-center py-8 border-t border-brand-tan/20">
+                        <h2 className="text-5xl sm:text-6xl font-serif text-brand-brown mb-4 tracking-tight">Place Your Order</h2>
+                        <div className="w-24 h-1 bg-brand-orange mx-auto mb-6"></div>
+                        <p className="text-brand-brown/70 max-w-2xl mx-auto text-lg font-light">Select your packages below. Everything is made fresh to order with love.</p>
+                    </div>
 
                     {/* PACKAGES SECTION */}
                     <div className="space-y-8">
