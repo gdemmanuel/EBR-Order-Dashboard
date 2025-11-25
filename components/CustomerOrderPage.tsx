@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useLayoutEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { saveOrderToDb, AppSettings } from '../services/dbService';
@@ -306,7 +305,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
 
     if (isSubmitted) {
         const SuccessCard = () => (
-            <div className="max-w-lg w-full bg-white p-8 rounded-xl shadow-2xl border-t-4 border-brand-orange mx-auto mb-12">
+            <div className="max-w-lg w-full bg-white p-8 rounded-xl shadow-2xl border-t-4 border-brand-orange mx-auto my-8 relative z-10">
                 <div className="bg-green-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
                     <CheckCircleIcon className="w-10 h-10 text-green-700" />
                 </div>
@@ -344,31 +343,38 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
         );
 
         return (
-            <div className="min-h-screen bg-white w-full">
+            <div className="min-h-screen bg-brand-cream w-full flex flex-col items-center border-t border-brand-tan">
                 {/* 
-                   IFRAME VISIBILITY FIX:
-                   We render the success message repeatedly down the page.
-                   If the iframe is 2000px tall and the user is at the bottom, they will see the bottom card.
-                   If they are at the top, they see the top card.
+                   AGGRESSIVE VISIBILITY STRATEGY:
+                   Render the success card continuously down the page.
+                   We use a cream background to distinguish from potential white iframe background issues.
+                   Cards repeat every ~300px to guarantee visibility on any screen size or scroll position.
                 */}
                 
-                <div className="pt-12 flex justify-center">
-                    <SuccessCard />
-                </div>
-
-                {/* Stack of cards for tall iframes */}
+                <SuccessCard />
+                
                 {isEmbedded && (
-                    <div className="flex flex-col items-center">
-                        {/* Gap of ~600px prevents it from looking too cluttered but ensures visibility */}
-                        <div className="h-[600px]"></div>
+                    <>
+                        <div className="h-64 w-full flex justify-center items-center opacity-20">
+                            <CheckCircleIcon className="w-12 h-12 text-brand-brown" />
+                        </div>
                         <SuccessCard />
                         
-                        <div className="h-[600px]"></div>
+                        <div className="h-64 w-full flex justify-center items-center opacity-20">
+                            <CheckCircleIcon className="w-12 h-12 text-brand-brown" />
+                        </div>
                         <SuccessCard />
                         
-                        <div className="h-[600px]"></div>
+                        <div className="h-64 w-full flex justify-center items-center opacity-20">
+                            <CheckCircleIcon className="w-12 h-12 text-brand-brown" />
+                        </div>
                         <SuccessCard />
-                    </div>
+
+                        <div className="h-64 w-full flex justify-center items-center opacity-20">
+                            <CheckCircleIcon className="w-12 h-12 text-brand-brown" />
+                        </div>
+                        <SuccessCard />
+                    </>
                 )}
                 
                 <style>{`
