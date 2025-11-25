@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Order, ApprovalStatus, FollowUpStatus, PricingSettings, Flavor, Expense, WorkShift } from '../types';
 import { parseOrderDateTime } from '../utils/dateUtils';
@@ -251,7 +250,7 @@ export default function AdminDashboard({
                     <DashboardMetrics 
                         stats={stats} 
                         orders={dateFilteredDashboardOrders} 
-                        allOrders={activeOrders} // Pass all active orders for historical charts
+                        allOrders={activeOrders} 
                         empanadaFlavors={empanadaFlavors.map(f => f.name)} 
                         fullSizeEmpanadaFlavors={fullSizeEmpanadaFlavors.map(f => f.name)} 
                         pendingCount={pendingOrders.length}
