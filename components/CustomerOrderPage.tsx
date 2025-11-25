@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { saveOrderToDb, AppSettings } from '../services/dbService';
 import { Order, OrderItem, PaymentStatus, FollowUpStatus, ApprovalStatus, PricingSettings, Flavor, MenuPackage, SalsaProduct } from '../types';
 import { SalsaSize } from '../config';
@@ -43,6 +44,9 @@ const getLocalMinDate = () => {
 };
 
 export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFlavors, pricing, scheduling, busySlots = [], motd }: CustomerOrderPageProps) {
+    const [searchParams] = useSearchParams();
+    const isEmbedded = searchParams.get('embed') === 'true';
+
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -308,7 +312,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
     if (isSubmitted) {
         return (
             <div className="min-h-screen bg-brand-cream flex flex-col">
-                <Header variant="public" />
+                {!isEmbedded && <Header variant="public" />}
                 <div className="flex-grow flex items-center justify-center p-4">
                     <div className="bg-white max-w-lg w-full p-12 rounded-xl shadow-lg text-center border-t-4 border-brand-orange">
                         <div className="bg-green-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6"><CheckCircleIcon className="w-10 h-10 text-green-700" /></div>
@@ -347,7 +351,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
 
     return (
         <div className="min-h-screen bg-brand-cream font-sans flex flex-col">
-            <Header variant="public" />
+            {!isEmbedded && <Header variant="public" />}
             
             {/* MOTD Banner - Seamless Loop */}
             {motd && (
@@ -371,7 +375,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                 </div>
             )}
 
-            <main className="max-w-5xl mx-auto px-4 py-12 pb-32 w-full">
+            <main className={`max-w-5xl mx-auto px-4 ${isEmbedded ? 'py-4' : 'py-12'} pb-32 w-full`}>
                 <form onSubmit={handleSubmit} className="space-y-16">
                     
                     {/* FLAVORS SECTION */}
@@ -420,7 +424,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                         )}
                     </section>
 
-                    {/* Moved Header Section Here - Resized to match other headers */}
+                    {/* Header Section - Resized to match other headers */}
                     <div className="text-center py-8 border-t border-brand-tan/20">
                         <h3 className="text-3xl font-serif text-brand-brown mb-4">Place Your Order</h3>
                         <div className="w-24 h-1 bg-brand-orange mx-auto mb-6"></div>
