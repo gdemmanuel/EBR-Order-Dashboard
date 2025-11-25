@@ -66,8 +66,7 @@ export default function DashboardMetrics({ stats, orders, empanadaFlavors, fullS
 
         return Array.from(productCounts.entries())
             .map(([name, count]) => ({ name, count }))
-            .sort((a, b) => b.count - a.count)
-            .slice(0, 7);
+            .sort((a, b) => b.count - a.count);
     }, [orders, miniFlavorsSet]);
 
     const popularFullSizeProductsData = useMemo(() => {
@@ -83,8 +82,7 @@ export default function DashboardMetrics({ stats, orders, empanadaFlavors, fullS
 
         return Array.from(productCounts.entries())
             .map(([name, count]) => ({ name, count }))
-            .sort((a, b) => b.count - a.count)
-            .slice(0, 7);
+            .sort((a, b) => b.count - a.count);
     }, [orders, fullSizeFlavorsSet]);
     
     const weeklySalesData = useMemo(() => {
@@ -158,7 +156,7 @@ export default function DashboardMetrics({ stats, orders, empanadaFlavors, fullS
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <div className="bg-white p-6 rounded-lg border border-brand-tan">
-                    <h3 className="text-lg font-semibold text-brand-brown mb-4">Most Popular Mini Empanadas</h3>
+                    <h3 className="text-lg font-semibold text-brand-brown mb-4">Mini Empanadas Sold</h3>
                     <ResponsiveContainer width="100%" height={300}>
                         <BarChart data={popularMiniProductsData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -171,7 +169,7 @@ export default function DashboardMetrics({ stats, orders, empanadaFlavors, fullS
                     </ResponsiveContainer>
                 </div>
                 <div className="bg-white p-6 rounded-lg border border-brand-tan">
-                    <h3 className="text-lg font-semibold text-brand-brown mb-4">Most Popular Full-Size Empanadas</h3>
+                    <h3 className="text-lg font-semibold text-brand-brown mb-4">Full-Size Empanadas Sold</h3>
                     <ResponsiveContainer width="100%" height={300}>
                         <BarChart data={popularFullSizeProductsData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} />
