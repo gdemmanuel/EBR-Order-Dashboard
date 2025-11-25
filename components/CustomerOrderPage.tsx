@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo, useLayoutEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { saveOrderToDb, AppSettings } from '../services/dbService';
@@ -223,12 +222,6 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
         return slots.filter(time => !todaysBusyTimes.has(time));
     }, [pickupDate, scheduling, busySlots]);
 
-    const isDateFull = useMemo(() => {
-        if (!pickupDate || !scheduling?.dateOverrides) return false;
-        const normalizedDate = normalizeDateStr(pickupDate);
-        return scheduling.dateOverrides[normalizedDate]?.isFull;
-    }, [pickupDate, scheduling]);
-
     // --- Calculate Estimated Total ---
     useEffect(() => {
         const packagesTotal = cartPackages.reduce((sum, p) => sum + p.price, 0);
@@ -380,6 +373,12 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
         return scheduling.closedDays?.includes(day);
     };
 
+    const isDateFull = useMemo(() => {
+        if (!pickupDate || !scheduling) return false;
+        const normalizedDate = normalizeDateStr(pickupDate);
+        return scheduling.dateOverrides?.[normalizedDate]?.isFull || false;
+    }, [pickupDate, scheduling]);
+
     return (
         <div className={`font-sans flex flex-col ${isEmbedded ? 'h-auto bg-white' : 'min-h-screen bg-brand-cream'}`}>
             {/* AGGRESSIVE SCROLLBAR HIDING for Embedded View */}
@@ -424,7 +423,8 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                 </div>
             )}
 
-            <main className={`max-w-5xl mx-auto px-4 ${isEmbedded ? 'py-2' : 'py-12'} pb-32 w-full`}>
+            {/* Increased padding-bottom here (pb-48) to ensure the form end is not cut off in tall iframes */}
+            <main className={`max-w-5xl mx-auto px-4 ${isEmbedded ? 'py-2 pb-48' : 'py-12 pb-32'} w-full`}>
                 {error && (
                     <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-lg text-center mb-8" role="alert">
                         <strong className="block font-bold mb-1">Oops!</strong>
@@ -732,7 +732,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                         </div>
                     </section>
 
-                    {/* Sticky Footer Total */}
+                    {/* Footer with Submit Button - Standard Layout for both modes, but embedded gets relative positioning + padding */}
                     <div className={`${isEmbedded ? 'relative mt-8 border-t border-brand-tan/20 pt-6' : 'fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-gray-200 p-4 sm:p-6 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-20'}`}>
                         <div className={`max-w-5xl mx-auto flex flex-row justify-between items-center gap-4 ${isEmbedded ? '' : ''}`}>
                             <div className="text-left">

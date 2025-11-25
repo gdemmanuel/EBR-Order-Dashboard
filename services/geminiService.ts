@@ -25,7 +25,7 @@ const getApiKey = () => {
 
 const ai = new GoogleGenAI({ apiKey: getApiKey() });
 
-export async function generateMessageForOrder(order: Order, templates?: { followUpNeeded?: string; pendingConfirmation?: string }): Promise<string> {
+export async function generateMessageForOrder(order: Order, templates?: { followUpNeeded?: string; pendingConfirmation?: string; confirmed?: string; completed?: string; }): Promise<string> {
     const status = order.followUpStatus;
     const firstName = order.customerName.split(' ')[0];
     const deliveryType = order.deliveryRequired ? 'delivery' : 'pick up';
@@ -52,6 +52,7 @@ export async function generateMessageForOrder(order: Order, templates?: { follow
             itemsText = `${order.totalMini} mini and ${order.totalFullSize} full-size empanadas`;
         }
         const itemsList = order.items.map(item => `${item.quantity} ${item.name}`).join('\n');
+        const address = order.deliveryAddress || "N/A";
 
         return template
             .replace(/{firstName}|{{firstName}}/g, firstName)
@@ -59,16 +60,28 @@ export async function generateMessageForOrder(order: Order, templates?: { follow
             .replace(/{date}|{{date}}/g, dateString)
             .replace(/{time}|{{time}}/g, order.pickupTime)
             .replace(/{deliveryType}|{{deliveryType}}/g, deliveryType)
+            .replace(/{deliveryAddress}|{{deliveryAddress}}/g, address)
             .replace(/{total}|{{total}}/g, order.amountCharged.toFixed(2))
             .replace(/{totals}|{{totals}}/g, itemsText)
             .replace(/{items}|{{items}}/g, itemsList);
     };
 
+    // Check configurable templates first
+    if (status === FollowUpStatus.NEEDED && templates?.followUpNeeded) {
+        return replacePlaceholders(templates.followUpNeeded);
+    }
+    if (status === FollowUpStatus.PENDING && templates?.pendingConfirmation) {
+        return replacePlaceholders(templates.pendingConfirmation);
+    }
+    if (status === FollowUpStatus.CONFIRMED && templates?.confirmed) {
+        return replacePlaceholders(templates.confirmed);
+    }
+    if (status === FollowUpStatus.COMPLETED && templates?.completed) {
+        return replacePlaceholders(templates.completed);
+    }
+
+    // Fallbacks for default statuses if no template provided
     if (status === FollowUpStatus.NEEDED) {
-        if (templates?.followUpNeeded) {
-            return replacePlaceholders(templates.followUpNeeded);
-        }
-        // Fallback
         let totalsText = "";
         if (order.totalMini > 0 && order.totalFullSize === 0) {
             totalsText = `${order.totalMini} total mini empanadas`;
@@ -82,15 +95,11 @@ export async function generateMessageForOrder(order: Order, templates?: { follow
     }
 
     if (status === FollowUpStatus.PENDING) {
-        if (templates?.pendingConfirmation) {
-            return replacePlaceholders(templates.pendingConfirmation);
-        }
-        // Fallback
         return `Perfect! The total is $${order.amountCharged.toFixed(2)}. Cash on ${deliveryType}, please. I'll see you on ${dateString} at ${order.pickupTime}.
 Thank you for your order!`;
     }
 
-    // For Confirmed, Completed, or other statuses -> Use AI
+    // Fallback to AI for unknown or un-templated statuses
     const model = 'gemini-2.5-flash';
     const prompt = `
     You are Rose, the owner of "Empanadas by Rose". Write a short, friendly text message to a customer named ${firstName}.

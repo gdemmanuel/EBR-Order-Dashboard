@@ -166,6 +166,8 @@ export interface AppSettings {
     messageTemplates: {
         followUpNeeded: string;
         pendingConfirmation: string;
+        confirmed?: string;
+        completed?: string;
     };
     laborWage: number; // Global default
     materialCosts: Record<string, number>; 
