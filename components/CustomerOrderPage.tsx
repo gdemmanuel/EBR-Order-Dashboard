@@ -342,6 +342,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
             </div>
         );
 
+        // NOTE: We removed `animate-fade-in` class to prevent invisibility issues.
         return (
             <div className="min-h-screen bg-brand-cream w-full flex flex-col items-center border-t border-brand-tan">
                 {/* 
@@ -353,29 +354,25 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                 
                 <SuccessCard />
                 
-                {isEmbedded && (
-                    <>
-                        <div className="h-64 w-full flex justify-center items-center opacity-20">
-                            <CheckCircleIcon className="w-12 h-12 text-brand-brown" />
-                        </div>
-                        <SuccessCard />
-                        
-                        <div className="h-64 w-full flex justify-center items-center opacity-20">
-                            <CheckCircleIcon className="w-12 h-12 text-brand-brown" />
-                        </div>
-                        <SuccessCard />
-                        
-                        <div className="h-64 w-full flex justify-center items-center opacity-20">
-                            <CheckCircleIcon className="w-12 h-12 text-brand-brown" />
-                        </div>
-                        <SuccessCard />
+                <div className="h-64 w-full flex justify-center items-center opacity-20">
+                    <CheckCircleIcon className="w-12 h-12 text-brand-brown" />
+                </div>
+                <SuccessCard />
+                
+                <div className="h-64 w-full flex justify-center items-center opacity-20">
+                    <CheckCircleIcon className="w-12 h-12 text-brand-brown" />
+                </div>
+                <SuccessCard />
+                
+                <div className="h-64 w-full flex justify-center items-center opacity-20">
+                    <CheckCircleIcon className="w-12 h-12 text-brand-brown" />
+                </div>
+                <SuccessCard />
 
-                        <div className="h-64 w-full flex justify-center items-center opacity-20">
-                            <CheckCircleIcon className="w-12 h-12 text-brand-brown" />
-                        </div>
-                        <SuccessCard />
-                    </>
-                )}
+                <div className="h-64 w-full flex justify-center items-center opacity-20">
+                    <CheckCircleIcon className="w-12 h-12 text-brand-brown" />
+                </div>
+                <SuccessCard />
                 
                 <style>{`
                     @keyframes width { from { width: 0%; } to { width: 100%; } }
@@ -434,7 +431,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
 
             <main className={`max-w-5xl mx-auto px-4 ${isEmbedded ? 'py-4' : 'py-12'} pb-32 w-full`}>
                 {error && (
-                    <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-lg text-center mb-8 animate-fade-in" role="alert">
+                    <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-lg text-center mb-8" role="alert">
                         <strong className="block font-bold mb-1">Oops!</strong>
                         <span>{error}</span>
                     </div>
@@ -473,7 +470,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                                 </button>
                                 
                                 {isSpecialtyOpen && (
-                                    <div className="p-8 border-t border-purple-100 animate-fade-in bg-white">
+                                    <div className="p-8 border-t border-purple-100 bg-white">
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                                             {specialFlavors.map(f => (
                                                 <div key={f.name} className="text-center">
@@ -514,7 +511,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                             </button>
                             
                             {sectionsState.mini && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 animate-fade-in">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                                     {miniPackages.map(pkg => (
                                         <div key={pkg.id} className="bg-white p-4 rounded-lg shadow-sm hover:shadow-md transition-all border border-transparent hover:border-brand-tan flex flex-col items-center text-center">
                                             <h4 className="font-serif text-lg font-bold text-brand-brown mb-0.5">{pkg.name}</h4>
@@ -546,7 +543,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                             </button>
 
                             {sectionsState.full && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 animate-fade-in">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                                     {fullPackages.map(pkg => (
                                         <div key={pkg.id} className="bg-white p-4 rounded-lg shadow-sm hover:shadow-md transition-all border border-transparent hover:border-brand-tan flex flex-col items-center text-center">
                                             <h4 className="font-serif text-lg font-bold text-brand-brown mb-0.5">{pkg.name}</h4>
@@ -579,7 +576,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                                 </button>
 
                                 {sectionsState.platters && (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 animate-fade-in">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                                         {specialPackages.map(pkg => (
                                             <div key={pkg.id} className="bg-purple-50/50 p-4 rounded-lg shadow-sm hover:shadow-md transition-all border border-purple-100 flex flex-col items-center text-center">
                                                 <h4 className="font-serif text-lg font-bold text-purple-900 mb-0.5">{pkg.name}</h4>
@@ -623,7 +620,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
 
                     {/* Cart Summary Block */}
                     {cartPackages.length > 0 && (
-                        <div className="bg-white rounded-xl p-8 shadow-xl border-l-8 border-brand-orange animate-fade-in relative">
+                        <div className="bg-white rounded-xl p-8 shadow-xl border-l-8 border-brand-orange relative">
                             <div className="flex items-center gap-3 mb-6 border-b border-gray-100 pb-4">
                                 <div className="bg-brand-orange text-white p-2 rounded-full shadow-sm">
                                     <ShoppingBagIcon className="w-6 h-6" />
@@ -721,7 +718,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                                 <label htmlFor="delivery" className="text-brand-brown cursor-pointer select-none">I need delivery <span className="text-sm text-gray-500">(Fees apply based on location)</span></label>
                             </div>
                             {deliveryRequired && (
-                                <div className="animate-fade-in pl-8">
+                                <div className="pl-8">
                                     <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Delivery Address</label>
                                     <input type="text" required={deliveryRequired} value={deliveryAddress} onChange={e => setDeliveryAddress(e.target.value)} className="w-full bg-brand-cream/50 border-0 border-b-2 border-gray-200 focus:border-brand-orange focus:ring-0 px-0 py-3 text-lg placeholder-gray-300" placeholder="123 Main St, Town, NY" />
                                 </div>
