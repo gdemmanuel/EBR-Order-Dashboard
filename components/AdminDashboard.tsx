@@ -1,27 +1,32 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
-import { Order, ApprovalStatus, FollowUpStatus, PricingSettings, Flavor, Expense, WorkShift } from '../types';
+import firebase from 'firebase/compat/app';
+import { Order, AppSettings, PricingSettings, Flavor, FollowUpStatus, ApprovalStatus, Expense, WorkShift } from '../types';
+import { saveOrderToDb, deleteOrderFromDb, saveOrdersBatch, saveExpenseToDb, deleteExpenseFromDb, saveShiftToDb, subscribeToExpenses, subscribeToShifts, updateSettingsInDb, deleteShiftFromDb } from '../services/dbService';
 import { parseOrderDateTime } from '../utils/dateUtils';
-import { saveOrderToDb, deleteOrderFromDb, updateSettingsInDb, saveOrdersBatch, AppSettings, subscribeToExpenses, saveExpenseToDb, deleteExpenseFromDb, subscribeToShifts, saveShiftToDb, deleteShiftFromDb } from '../services/dbService';
-import { calculateOrderTotal, calculateSupplyCost } from '../utils/pricingUtils';
 
 import Header from './Header';
 import DashboardMetrics from './DashboardMetrics';
 import OrderList from './OrderList';
 import CalendarView from './CalendarView';
-import OrderFormModal from './OrderFormModal';
-import OrderDetailModal from './OrderDetailModal';
-// ImportOrderModal removed
-import PrintPreviewPage from './PrintPreviewPage';
+import ReportsView from './ReportsView';
 import PendingOrders from './PendingOrders';
 import DateRangeFilter from './DateRangeFilter';
+
+import OrderFormModal from './OrderFormModal';
+import OrderDetailModal from './OrderDetailModal';
 import SettingsModal from './SettingsModal';
-import ConfirmationModal from './ConfirmationModal';
 import PrepListModal from './PrepListModal';
 import ExpenseModal from './ExpenseModal';
-import ShiftLogModal from './ShiftLogModal'; // Imported Shift Modal
-import ReportsView from './ReportsView';
-import { PlusCircleIcon, ListBulletIcon, CalendarDaysIcon, ArrowTopRightOnSquareIcon, CogIcon, ScaleIcon, ReceiptIcon, ChartBarIcon, BriefcaseIcon } from './icons/Icons';
-import firebase from 'firebase/compat/app';
+import ShiftLogModal from './ShiftLogModal';
+import ImportOrderModal from './ImportOrderModal';
+import PrintPreviewPage from './PrintPreviewPage';
+
+import { 
+    ChartPieIcon, ListBulletIcon, CalendarDaysIcon, PresentationChartBarIcon, 
+    PlusIcon, CogIcon, ScaleIcon, CurrencyDollarIcon, 
+    ClockIcon, DocumentArrowDownIcon 
+} from './icons/Icons';
 
 interface AdminDashboardProps {
     user: firebase.User;
@@ -31,232 +36,278 @@ interface AdminDashboardProps {
     importedSignatures: Set<string>;
     sheetUrl: string;
     pricing: PricingSettings;
-    prepSettings?: AppSettings['prepSettings'];
-    settings?: AppSettings;
+    prepSettings: AppSettings['prepSettings'];
+    settings: AppSettings;
 }
 
-const getTodayStr = () => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-};
-
-export default function AdminDashboard({ 
-    user, 
-    orders, 
-    empanadaFlavors, 
-    fullSizeEmpanadaFlavors, 
-    importedSignatures, 
-    sheetUrl, 
-    pricing, 
-    prepSettings, 
-    settings 
+export default function AdminDashboard({
+    user,
+    orders,
+    empanadaFlavors,
+    fullSizeEmpanadaFlavors,
+    importedSignatures,
+    sheetUrl,
+    pricing,
+    prepSettings,
+    settings
 }: AdminDashboardProps) {
-
-    const [view, setView] = useState<'dashboard' | 'list' | 'calendar' | 'reports'>('dashboard');
-    const [dateFilter, setDateFilter] = useState<{ start?: string; end?: string }>({ start: getTodayStr() });
-    const [searchTerm, setSearchTerm] = useState(''); 
-    const [statusFilter, setStatusFilter] = useState<FollowUpStatus | null>(null); 
-    const [viewingCancelled, setViewingCancelled] = useState(false); 
+    // View State
+    const [view, setView] = useState<'dashboard' | 'list' | 'calendar' | 'reports' | 'print'>('dashboard');
     
-    const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState(false);
-    const [orderToEdit, setOrderToEdit] = useState<Order | undefined>(undefined);
-    const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-    
-    const [printPreviewOrders, setPrintPreviewOrders] = useState<Order[] | null>(null);
-    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-    const [isPrepListOpen, setIsPrepListOpen] = useState(false);
-    const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
-    const [isShiftLogOpen, setIsShiftLogOpen] = useState(false); // Shift Log Modal State
-    const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; title: string; message: string; onConfirm: () => void; }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
-
-    // Local Expenses State
+    // Data State (Expenses & Shifts loaded locally here)
     const [expenses, setExpenses] = useState<Expense[]>([]);
-    // Local Shifts State
     const [shifts, setShifts] = useState<WorkShift[]>([]);
 
+    // Filter State
+    const [searchTerm, setSearchTerm] = useState('');
+    const [statusFilter, setStatusFilter] = useState<FollowUpStatus | null>(null);
+    const [dateRange, setDateRange] = useState<{ start?: string; end?: string }>({});
+    const [viewingCancelled, setViewingCancelled] = useState(false);
+
+    // Modal State
+    const [isOrderFormOpen, setIsOrderFormOpen] = useState(false);
+    const [selectedOrder, setSelectedOrder] = useState<Order | null>(null); // For detail view
+    const [editingOrder, setEditingOrder] = useState<Order | null>(null); // For form view
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [isPrepListOpen, setIsPrepListOpen] = useState(false);
+    const [isExpenseOpen, setIsExpenseOpen] = useState(false);
+    const [isShiftLogOpen, setIsShiftLogOpen] = useState(false);
+    const [isImportOpen, setIsImportOpen] = useState(false);
+    
+    // Printing State
+    const [ordersToPrint, setOrdersToPrint] = useState<Order[]>([]);
+
+    // Subscribe to Expenses and Shifts
     useEffect(() => {
-        const unsubscribeExpenses = subscribeToExpenses(setExpenses);
-        const unsubscribeShifts = subscribeToShifts(setShifts);
-        return () => {
-            unsubscribeExpenses();
-            unsubscribeShifts();
-        };
+        const unsubExpenses = subscribeToExpenses(setExpenses);
+        const unsubShifts = subscribeToShifts(setShifts);
+        return () => { unsubExpenses(); unsubShifts(); };
     }, []);
 
-    // Keep selectedOrder in sync with live orders to reflect changes immediately
-    useEffect(() => {
-        if (selectedOrder) {
-            const liveOrder = orders.find(o => o.id === selectedOrder.id);
-            if (liveOrder) {
-                setSelectedOrder(liveOrder);
-            }
-        }
-    }, [orders, selectedOrder?.id]);
+    // --- Derived Data ---
 
-    const activeOrders = useMemo(() => orders.filter(o => o.approvalStatus === ApprovalStatus.APPROVED), [orders]);
-    const pendingOrders = useMemo(() => orders.filter(o => o.approvalStatus === ApprovalStatus.PENDING), [orders]);
-    const cancelledOrders = useMemo(() => orders.filter(o => o.approvalStatus === ApprovalStatus.CANCELLED), [orders]);
+    const allOrders = useMemo(() => orders, [orders]);
 
-    // Filter orders for Dashboard charts/stats (Date filter only, ignores search/status filters)
-    const dateFilteredDashboardOrders = useMemo(() => {
-        let result = activeOrders;
-        if (dateFilter.start) {
-            const [y, m, d] = dateFilter.start.split('-').map(Number);
-            const start = new Date(y, m - 1, d);
-            result = result.filter(o => parseOrderDateTime(o) >= start);
-        }
-        if (dateFilter.end) {
-            const [y, m, d] = dateFilter.end.split('-').map(Number);
-            const end = new Date(y, m - 1, d);
-            end.setHours(23,59,59,999);
-            result = result.filter(o => parseOrderDateTime(o) <= end);
-        }
-        return result;
-    }, [activeOrders, dateFilter]);
+    // 1. Pending Orders
+    const pendingOrders = useMemo(() => 
+        allOrders.filter(o => o.approvalStatus === ApprovalStatus.PENDING)
+    , [allOrders]);
 
+    // 2. Cancelled Orders
+    const cancelledOrders = useMemo(() => 
+        allOrders.filter(o => o.approvalStatus === ApprovalStatus.CANCELLED || o.approvalStatus === ApprovalStatus.DENIED)
+    , [allOrders]);
+
+    // 3. Active Orders (Approved)
+    const activeOrders = useMemo(() => 
+        allOrders.filter(o => o.approvalStatus === ApprovalStatus.APPROVED)
+    , [allOrders]);
+
+    // 4. Filtered Active Orders (for List/Dashboard)
     const filteredOrders = useMemo(() => {
         let result = viewingCancelled ? cancelledOrders : activeOrders;
-        if (searchTerm.trim()) {
-            const term = searchTerm.toLowerCase();
-            return result.filter(o => o.customerName.toLowerCase().includes(term) || (o.phoneNumber && o.phoneNumber.includes(term)));
+
+        // Search
+        if (searchTerm) {
+            const lower = searchTerm.toLowerCase();
+            result = result.filter(o => o.customerName.toLowerCase().includes(lower));
         }
-        if (dateFilter.start) {
-            const [y, m, d] = dateFilter.start.split('-').map(Number);
-            const start = new Date(y, m - 1, d);
+
+        // Status Filter
+        if (statusFilter) {
+            result = result.filter(o => o.followUpStatus === statusFilter);
+        }
+
+        // Date Range Filter
+        if (dateRange.start) {
+            const start = new Date(dateRange.start);
+            start.setHours(0, 0, 0, 0);
             result = result.filter(o => parseOrderDateTime(o) >= start);
         }
-        if (dateFilter.end) {
-            const [y, m, d] = dateFilter.end.split('-').map(Number);
-            const end = new Date(y, m - 1, d);
-            end.setHours(23,59,59,999);
+        if (dateRange.end) {
+            const end = new Date(dateRange.end);
+            end.setHours(23, 59, 59, 999);
             result = result.filter(o => parseOrderDateTime(o) <= end);
         }
+
         return result;
-    }, [activeOrders, cancelledOrders, viewingCancelled, dateFilter, searchTerm]);
+    }, [activeOrders, cancelledOrders, viewingCancelled, searchTerm, statusFilter, dateRange]);
 
-    const ordersForList = useMemo(() => {
-        if (!statusFilter) return filteredOrders;
-        return filteredOrders.filter(o => o.followUpStatus === statusFilter);
-    }, [filteredOrders, statusFilter]);
-
-    const currentListFilter = viewingCancelled ? 'CANCELLED' : (statusFilter || 'ALL');
-    const handleListFilterChange = (filter: string) => {
-        if (filter === 'CANCELLED') { setViewingCancelled(true); setStatusFilter(null); } else if (filter === 'ALL') { setViewingCancelled(false); setStatusFilter(null); } else { setViewingCancelled(false); setStatusFilter(filter as FollowUpStatus); }
-    };
-
+    // Stats Calculation
     const stats = useMemo(() => {
-        const result = dateFilteredDashboardOrders;
-        const totalRevenue = result.reduce((sum, o) => sum + o.amountCharged, 0);
-        const ordersToFollowUp = result.filter(o => o.followUpStatus === FollowUpStatus.NEEDED).length;
-        const totalEmpanadasSold = result.reduce((sum, o) => sum + o.totalMini + o.totalFullSize, 0);
+        const relevantOrders = filteredOrders; 
+        const totalRevenue = relevantOrders.reduce((sum, o) => sum + o.amountCharged, 0);
+        const ordersToFollowUp = relevantOrders.filter(o => o.followUpStatus === FollowUpStatus.NEEDED).length;
+        const totalEmpanadasSold = relevantOrders.reduce((sum, o) => sum + o.totalMini + o.totalFullSize, 0);
+
         return { totalRevenue, ordersToFollowUp, totalEmpanadasSold };
-    }, [dateFilteredDashboardOrders]);
+    }, [filteredOrders]);
 
-    const safeSettings: AppSettings = settings || { 
-        motd: '',
-        empanadaFlavors, 
-        fullSizeEmpanadaFlavors, 
-        sheetUrl, 
-        importedSignatures: Array.from(importedSignatures), 
-        pricing: pricing || { mini: { basePrice: 1.75 }, full: { basePrice: 3.00 }, packages: [], salsas: [] }, 
-        prepSettings: prepSettings || { lbsPer20: {}, fullSizeMultiplier: 2.0, discosPer: { mini: 1, full: 1 }, discoPackSize: { mini: 10, full: 10 }, productionRates: { mini: 40, full: 25 } }, 
-        scheduling: { enabled: true, intervalMinutes: 15, startTime: "09:00", endTime: "17:00", blockedDates: [], closedDays: [], dateOverrides: {} }, 
-        messageTemplates: {
-            followUpNeeded: "Hi {firstName}! This is Rose from Empanadas by Rose. Thank you for placing an order. Please confirm your order for {deliveryType} on {date} at {time} as follows:\n{totals}\n{items}",
-            pendingConfirmation: "Perfect! The total is ${total}. Cash on {deliveryType}, please. I'll see you on {date} at {time}.\nThank you for your order!"
-        },
-        laborWage: 15.00, 
-        materialCosts: {}, 
-        discoCosts: { mini: 0.10, full: 0.15 }, 
-        inventory: {}, 
-        expenseCategories: ['Packaging', 'Marketing', 'Rent', 'Utilities', 'Equipment', 'Other'],
-        employees: []
-    };
-    const safePricing = safeSettings.pricing;
 
-    const handleSaveOrder = async (orderData: Order | Omit<Order, 'id'>) => {
-        let orderToSave: Order;
-        if ('id' in orderData) { orderToSave = { ...orderData as Order }; if (orderToSave.approvalStatus === ApprovalStatus.PENDING) { orderToSave.approvalStatus = ApprovalStatus.APPROVED; } } else { orderToSave = { ...orderData, id: Date.now().toString() }; }
+    // --- Actions ---
+
+    const handleSaveOrder = async (order: Order | Omit<Order, 'id'>) => {
+        let orderToSave = order as Order;
+        if (!orderToSave.id) {
+            orderToSave.id = Date.now().toString();
+        }
         await saveOrderToDb(orderToSave);
-        setIsNewOrderModalOpen(false);
-        setOrderToEdit(undefined);
+        setIsOrderFormOpen(false);
+        setEditingOrder(null);
+    };
+
+    const handleDeleteOrder = async (id: string) => {
+        await deleteOrderFromDb(id);
+        if (selectedOrder?.id === id) setSelectedOrder(null);
+        if (editingOrder?.id === id) setIsOrderFormOpen(false);
+    };
+
+    const handleUpdateStatus = async (id: string, status: FollowUpStatus) => {
+        const order = allOrders.find(o => o.id === id);
+        if (order) {
+            await saveOrderToDb({ ...order, followUpStatus: status });
+        }
+    };
+
+    const handleApproval = async (id: string, approved: boolean) => {
+        const order = allOrders.find(o => o.id === id);
+        if (!order) return;
+        const newStatus = approved ? ApprovalStatus.APPROVED : ApprovalStatus.DENIED;
+        await saveOrderToDb({ ...order, approvalStatus: newStatus });
     };
 
     const handleDeductInventory = async (order: Order) => {
-        const currentInventory = { ...safeSettings.inventory };
-        let changesMade = false;
+        const currentInventory = { ...(settings.inventory || {}) };
+        
         order.items.forEach(item => {
-            const isSalsa = safePricing.salsas.some(s => item.name.includes(s.name));
-            if (isSalsa) return; 
-            let flavor = item.name;
-            let type: 'mini' | 'full' = 'mini';
-            if (item.name.startsWith('Full ')) { type = 'full'; flavor = item.name.replace('Full ', ''); }
-            if (!currentInventory[flavor]) { currentInventory[flavor] = { mini: 0, full: 0 }; }
-            currentInventory[flavor][type] -= item.quantity;
-            changesMade = true;
-        });
-        if (changesMade) { await updateSettingsInDb({ inventory: currentInventory }); await saveOrderToDb({ ...order, followUpStatus: FollowUpStatus.COMPLETED }); if (selectedOrder && selectedOrder.id === order.id) { setSelectedOrder({ ...order, followUpStatus: FollowUpStatus.COMPLETED }); } }
-    };
-
-    const confirmDeleteOrder = (orderId: string) => { setConfirmModal({ isOpen: true, title: "Delete Order", message: "Are you sure you want to delete this order? This action cannot be undone.", onConfirm: async () => { await deleteOrderFromDb(orderId); if (selectedOrder?.id === orderId) setSelectedOrder(null); if (orderToEdit?.id === orderId) { setOrderToEdit(undefined); setIsNewOrderModalOpen(false); } setConfirmModal(prev => ({ ...prev, isOpen: false })); } }); };
-    const confirmDeleteShift = (shiftId: string) => { setConfirmModal({ isOpen: true, title: "Delete Shift", message: "Are you sure you want to delete this shift record?", onConfirm: async () => { await deleteShiftFromDb(shiftId); setConfirmModal(prev => ({ ...prev, isOpen: false })); } }); };
-
-    const handleAddNewFlavor = async (flavorName: string, type: 'mini' | 'full') => { if (type === 'mini') { if (!empanadaFlavors.some(f => f.name === flavorName)) { await updateSettingsInDb({ empanadaFlavors: [...empanadaFlavors, { name: flavorName, visible: true }] }); } } else { if (!fullSizeEmpanadaFlavors.some(f => f.name === flavorName)) { await updateSettingsInDb({ fullSizeEmpanadaFlavors: [...fullSizeEmpanadaFlavors, { name: flavorName, visible: true }] }); } } };
-    
-    const handleUpdateFollowUp = async (orderId: string, status: FollowUpStatus) => {
-        const order = orders.find(o => o.id === orderId);
-        if (order) {
-            const updatedOrder = { ...order, followUpStatus: status };
-            // Update local state immediately for responsiveness
-            if (selectedOrder && selectedOrder.id === orderId) {
-                setSelectedOrder(updatedOrder);
+            const isFull = item.name.startsWith('Full ');
+            const flavorName = item.name.replace('Full ', '');
+            
+            if (!currentInventory[flavorName]) {
+                currentInventory[flavorName] = { mini: 0, full: 0 };
             }
-            await saveOrderToDb(updatedOrder);
-        }
+            
+            if (isFull) {
+                currentInventory[flavorName].full = Math.max(0, currentInventory[flavorName].full - item.quantity);
+            } else {
+                currentInventory[flavorName].mini = Math.max(0, currentInventory[flavorName].mini - item.quantity);
+            }
+        });
+
+        await updateSettingsInDb({ inventory: currentInventory });
+        await saveOrderToDb({ ...order, followUpStatus: FollowUpStatus.COMPLETED });
+        setSelectedOrder(null); 
     };
 
-    const handleApproveOrder = async (orderId: string) => { const order = orders.find(o => o.id === orderId); if (order) await saveOrderToDb({ ...order, approvalStatus: ApprovalStatus.APPROVED }); };
-    const handleDenyOrder = async (orderId: string) => { const order = orders.find(o => o.id === orderId); if (order) await saveOrderToDb({ ...order, approvalStatus: ApprovalStatus.CANCELLED }); };
-    
-    if (printPreviewOrders) { return <PrintPreviewPage orders={printPreviewOrders} onExit={() => setPrintPreviewOrders(null)} />; }
+    const handlePrint = (selectedOrders: Order[]) => {
+        setOrdersToPrint(selectedOrders);
+        setView('print');
+    };
+
+    // Render
+    if (view === 'print') {
+        return <PrintPreviewPage orders={ordersToPrint} onExit={() => setView('list')} />;
+    }
 
     return (
-        <div className="min-h-screen bg-brand-cream">
+        <div className="min-h-screen bg-brand-cream flex flex-col">
             <Header user={user} variant="admin" />
-            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-                    <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
-                        <div className="flex bg-white rounded-lg shadow-sm p-1 border border-brand-tan self-start">
-                            <button onClick={() => { setView('dashboard'); setStatusFilter(null); setViewingCancelled(false); }} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${view === 'dashboard' ? 'bg-brand-orange text-white' : 'text-brand-brown hover:bg-brand-tan/30'}`}>Dashboard</button>
-                            <button onClick={() => setView('list')} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${view === 'list' ? 'bg-brand-orange text-white' : 'text-brand-brown hover:bg-brand-tan/30'}`}><ListBulletIcon className="w-4 h-4" /> List</button>
-                            <button onClick={() => setView('calendar')} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${view === 'calendar' ? 'bg-brand-orange text-white' : 'text-brand-brown hover:bg-brand-tan/30'}`}><CalendarDaysIcon className="w-4 h-4" /> Calendar</button>
-                            <button onClick={() => setView('reports')} className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${view === 'reports' ? 'bg-brand-orange text-white' : 'text-brand-brown hover:bg-brand-tan/30'}`}><ChartBarIcon className="w-4 h-4" /> Reports</button>
+            
+            {/* Sub Navigation / Toolbar */}
+            <div className="bg-white shadow-sm border-b border-brand-tan/50 sticky top-0 z-20">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="flex justify-between items-center h-16 overflow-x-auto">
+                        <div className="flex space-x-4">
+                            <button 
+                                onClick={() => setView('dashboard')}
+                                className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${view === 'dashboard' ? 'bg-brand-orange text-white' : 'text-brand-brown hover:bg-brand-tan/20'}`}
+                            >
+                                <ChartPieIcon className="w-5 h-5 mr-2" /> Dashboard
+                            </button>
+                            <button 
+                                onClick={() => setView('list')}
+                                className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${view === 'list' ? 'bg-brand-orange text-white' : 'text-brand-brown hover:bg-brand-tan/20'}`}
+                            >
+                                <ListBulletIcon className="w-5 h-5 mr-2" /> Orders
+                            </button>
+                            <button 
+                                onClick={() => setView('calendar')}
+                                className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${view === 'calendar' ? 'bg-brand-orange text-white' : 'text-brand-brown hover:bg-brand-tan/20'}`}
+                            >
+                                <CalendarDaysIcon className="w-5 h-5 mr-2" /> Calendar
+                            </button>
+                            <button 
+                                onClick={() => setView('reports')}
+                                className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${view === 'reports' ? 'bg-brand-orange text-white' : 'text-brand-brown hover:bg-brand-tan/20'}`}
+                            >
+                                <PresentationChartBarIcon className="w-5 h-5 mr-2" /> Reports
+                            </button>
+                        </div>
+                        
+                        <div className="flex space-x-2">
+                            <button onClick={() => setIsOrderFormOpen(true)} className="p-2 text-brand-brown hover:text-brand-orange hover:bg-brand-tan/20 rounded-full" title="Add Order">
+                                <PlusIcon className="w-6 h-6" />
+                            </button>
+                            <button onClick={() => setIsPrepListOpen(true)} className="p-2 text-brand-brown hover:text-brand-orange hover:bg-brand-tan/20 rounded-full" title="Prep List">
+                                <ScaleIcon className="w-6 h-6" />
+                            </button>
+                            <button onClick={() => setIsExpenseOpen(true)} className="p-2 text-brand-brown hover:text-brand-orange hover:bg-brand-tan/20 rounded-full" title="Expenses">
+                                <CurrencyDollarIcon className="w-6 h-6" />
+                            </button>
+                            <button onClick={() => setIsShiftLogOpen(true)} className="p-2 text-brand-brown hover:text-brand-orange hover:bg-brand-tan/20 rounded-full" title="Log Shift">
+                                <ClockIcon className="w-6 h-6" />
+                            </button>
+                            <button onClick={() => setIsImportOpen(true)} className="p-2 text-brand-brown hover:text-brand-orange hover:bg-brand-tan/20 rounded-full" title="Import Orders">
+                                <DocumentArrowDownIcon className="w-6 h-6" />
+                            </button>
+                            <button onClick={() => setIsSettingsOpen(true)} className="p-2 text-brand-brown hover:text-brand-orange hover:bg-brand-tan/20 rounded-full" title="Settings">
+                                <CogIcon className="w-6 h-6" />
+                            </button>
                         </div>
                     </div>
-                    <div className="flex gap-3 flex-wrap w-full md:w-auto justify-end">
-                        <button onClick={() => setIsShiftLogOpen(true)} className="flex items-center gap-2 bg-white text-brand-brown border border-brand-tan font-semibold px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"><BriefcaseIcon className="w-5 h-5" /> Log Hours</button>
-                        <button onClick={() => setIsExpenseModalOpen(true)} className="flex items-center gap-2 bg-white text-brand-brown border border-brand-tan font-semibold px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"><ReceiptIcon className="w-5 h-5" /> Expenses</button>
-                        <button onClick={() => setIsPrepListOpen(true)} className="flex items-center gap-2 bg-white text-brand-brown border border-brand-tan font-semibold px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"><ScaleIcon className="w-5 h-5" /> Prep List</button>
-                        <button onClick={() => setIsSettingsOpen(true)} className="flex items-center gap-2 bg-white text-brand-brown border border-brand-tan font-semibold px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"><CogIcon className="w-5 h-5" /> Settings</button>
-                        <button onClick={() => { setOrderToEdit(undefined); setIsNewOrderModalOpen(true); }} className="flex items-center gap-2 bg-brand-brown text-white font-semibold px-4 py-2 rounded-lg hover:bg-opacity-90 transition-colors shadow-sm"><PlusCircleIcon className="w-5 h-5" /> New Order</button>
+                </div>
+            </div>
+
+            <main className="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+                {/* Pending Orders Alert */}
+                {pendingOrders.length > 0 && (
+                    <div className="mb-8">
+                        <PendingOrders 
+                            orders={pendingOrders}
+                            onApprove={(id) => handleApproval(id, true)}
+                            onDeny={(id) => handleApproval(id, false)}
+                            onSelectOrder={setSelectedOrder}
+                        />
                     </div>
+                )}
+
+                {/* Filter Bar */}
+                <div className="mb-6">
+                    <DateRangeFilter 
+                        initialStartDate={dateRange.start} 
+                        initialEndDate={dateRange.end} 
+                        onDateChange={setDateRange} 
+                    />
                 </div>
 
-                <PendingOrders orders={pendingOrders} onApprove={handleApproveOrder} onDeny={handleDenyOrder} onSelectOrder={setSelectedOrder} />
-                {pendingOrders.length > 0 && <div className="mb-8" />}
-                {view !== 'calendar' && <DateRangeFilter initialStartDate={dateFilter.start} initialEndDate={dateFilter.end} onDateChange={setDateFilter} />}
-
+                {/* VIEW CONTENT */}
                 {view === 'dashboard' && (
                     <DashboardMetrics 
                         stats={stats} 
-                        orders={dateFilteredDashboardOrders} 
-                        allOrders={activeOrders} 
+                        orders={filteredOrders} 
+                        allOrders={activeOrders}
                         empanadaFlavors={empanadaFlavors.map(f => f.name)} 
                         fullSizeEmpanadaFlavors={fullSizeEmpanadaFlavors.map(f => f.name)} 
                         pendingCount={pendingOrders.length}
                         cancelledCount={cancelledOrders.length}
                         onFilterStatus={(status) => {
-                            if (status === 'CANCELLED') { setViewingCancelled(true); setStatusFilter(null); } else { setViewingCancelled(false); setStatusFilter(status); }
+                            if (status === 'CANCELLED') { 
+                                setViewingCancelled(true); 
+                                setStatusFilter(null); 
+                            } else { 
+                                setViewingCancelled(false); 
+                                setStatusFilter(status); 
+                            }
                             setView('list');
                         }}
                     />
@@ -264,62 +315,143 @@ export default function AdminDashboard({
 
                 {view === 'list' && (
                     <OrderList 
-                        title={viewingCancelled ? 'Cancelled Orders' : 'Active Orders'}
-                        orders={ordersForList} 
-                        onSelectOrder={setSelectedOrder} 
-                        onPrintSelected={setPrintPreviewOrders} 
-                        onDelete={confirmDeleteOrder} 
+                        orders={filteredOrders} 
+                        title={viewingCancelled ? "Cancelled Orders" : "Active Orders"}
+                        onSelectOrder={setSelectedOrder}
+                        onPrintSelected={handlePrint}
+                        onDelete={handleDeleteOrder}
                         searchTerm={searchTerm}
                         onSearchChange={setSearchTerm}
-                        currentFilter={currentListFilter}
-                        onFilterChange={handleListFilterChange}
+                        activeStatusFilter={statusFilter}
+                        onClearStatusFilter={() => { setStatusFilter(null); setViewingCancelled(false); }}
+                        currentFilter={viewingCancelled ? 'CANCELLED' : (statusFilter || 'ALL')}
+                        onFilterChange={(val) => {
+                            if (val === 'CANCELLED') {
+                                setViewingCancelled(true);
+                                setStatusFilter(null);
+                            } else if (val === 'ALL') {
+                                setViewingCancelled(false);
+                                setStatusFilter(null);
+                            } else {
+                                setViewingCancelled(false);
+                                setStatusFilter(val as FollowUpStatus);
+                            }
+                        }}
                     />
                 )}
 
                 {view === 'calendar' && (
                     <CalendarView 
-                        orders={activeOrders} 
-                        shifts={shifts} // Passing shifts to calendar
-                        onSelectOrder={setSelectedOrder} 
-                        onPrintSelected={setPrintPreviewOrders} 
-                        onDelete={confirmDeleteOrder} 
-                        settings={safeSettings} 
+                        orders={filteredOrders}
+                        shifts={shifts}
+                        onSelectOrder={setSelectedOrder}
+                        onPrintSelected={handlePrint}
+                        onDelete={handleDeleteOrder}
+                        settings={settings}
                     />
                 )}
-                
+
                 {view === 'reports' && (
                     <ReportsView 
-                        orders={activeOrders} 
-                        expenses={expenses} 
-                        shifts={shifts} // Passing shifts to reports
-                        settings={safeSettings} 
-                        dateRange={dateFilter} 
+                        orders={filteredOrders}
+                        expenses={expenses}
+                        shifts={shifts}
+                        settings={settings}
+                        dateRange={dateRange}
                         onDeleteExpense={deleteExpenseFromDb}
                     />
                 )}
             </main>
 
-            {isNewOrderModalOpen && <OrderFormModal order={orderToEdit} onClose={() => setIsNewOrderModalOpen(false)} onSave={handleSaveOrder} empanadaFlavors={empanadaFlavors} fullSizeEmpanadaFlavors={fullSizeEmpanadaFlavors} onAddNewFlavor={handleAddNewFlavor} onDelete={confirmDeleteOrder} pricing={safePricing} settings={safeSettings} existingOrders={orders} />}
-            {selectedOrder && <OrderDetailModal order={selectedOrder} onClose={() => setSelectedOrder(null)} onUpdateFollowUp={handleUpdateFollowUp} onEdit={(order) => { setSelectedOrder(null); setOrderToEdit(order); setIsNewOrderModalOpen(true); }} onApprove={selectedOrder.approvalStatus === ApprovalStatus.PENDING ? handleApproveOrder : undefined} onDeny={selectedOrder.approvalStatus === ApprovalStatus.PENDING ? handleDenyOrder : (orderId) => saveOrderToDb({ ...selectedOrder, approvalStatus: ApprovalStatus.CANCELLED })} onDelete={confirmDeleteOrder} onDeductInventory={handleDeductInventory} />}
-            {isSettingsOpen && <SettingsModal settings={safeSettings} onClose={() => setIsSettingsOpen(false)} />}
-            {isExpenseModalOpen && (
-                <ExpenseModal 
-                    expenses={expenses} 
-                    categories={safeSettings.expenseCategories} 
-                    onClose={() => setIsExpenseModalOpen(false)} 
-                    onSave={saveExpenseToDb} 
-                    onDelete={deleteExpenseFromDb} 
+            {/* MODALS */}
+            
+            {(isOrderFormOpen || editingOrder) && (
+                <OrderFormModal 
+                    order={editingOrder || undefined}
+                    onClose={() => { setIsOrderFormOpen(false); setEditingOrder(null); }}
+                    onSave={handleSaveOrder}
+                    empanadaFlavors={empanadaFlavors}
+                    fullSizeEmpanadaFlavors={fullSizeEmpanadaFlavors}
+                    onAddNewFlavor={(name, type) => {
+                        const newFlavor: Flavor = { name, visible: true };
+                        const newSettings = { ...settings };
+                        if (type === 'mini') {
+                            newSettings.empanadaFlavors = [...newSettings.empanadaFlavors, newFlavor];
+                        } else {
+                            newSettings.fullSizeEmpanadaFlavors = [...newSettings.fullSizeEmpanadaFlavors, newFlavor];
+                        }
+                        updateSettingsInDb(newSettings);
+                    }}
+                    onDelete={handleDeleteOrder}
+                    pricing={pricing}
+                    settings={settings}
+                    existingOrders={activeOrders}
                 />
             )}
+
+            {selectedOrder && (
+                <OrderDetailModal 
+                    order={selectedOrder}
+                    onClose={() => setSelectedOrder(null)}
+                    onUpdateFollowUp={handleUpdateStatus}
+                    onEdit={(order) => {
+                        setEditingOrder(order);
+                        setSelectedOrder(null);
+                    }}
+                    onApprove={(id) => handleApproval(id, true)}
+                    onDeny={(id) => handleApproval(id, false)}
+                    onDelete={handleDeleteOrder}
+                    onDeductInventory={handleDeductInventory}
+                />
+            )}
+
+            {isSettingsOpen && (
+                <SettingsModal 
+                    settings={settings} 
+                    onClose={() => setIsSettingsOpen(false)}
+                />
+            )}
+
+            {isPrepListOpen && (
+                <PrepListModal 
+                    orders={activeOrders}
+                    settings={settings}
+                    onClose={() => setIsPrepListOpen(false)}
+                    onUpdateSettings={updateSettingsInDb}
+                />
+            )}
+
+            {isExpenseOpen && (
+                <ExpenseModal 
+                    expenses={expenses}
+                    categories={settings.expenseCategories || []}
+                    onClose={() => setIsExpenseOpen(false)}
+                    onSave={saveExpenseToDb}
+                    onDelete={deleteExpenseFromDb}
+                />
+            )}
+
             {isShiftLogOpen && (
-                <ShiftLogModal
-                    employees={safeSettings.employees || []}
+                <ShiftLogModal 
+                    employees={settings.employees || []}
                     onClose={() => setIsShiftLogOpen(false)}
                     onSave={saveShiftToDb}
                 />
             )}
-            {isPrepListOpen && <PrepListModal orders={activeOrders.filter(o => { const d = parseOrderDateTime(o); if (dateFilter.start) { const [y, m, d_start] = dateFilter.start.split('-').map(Number); if (d < new Date(y, m - 1, d_start)) return false; } if (dateFilter.end) { const [y, m, d_end] = dateFilter.end.split('-').map(Number); const end = new Date(y, m - 1, d_end); end.setHours(23,59,59,999); if (d > end) return false; } return true; })} settings={safeSettings} onClose={() => setIsPrepListOpen(false)} onUpdateSettings={updateSettingsInDb} />}
-            <ConfirmationModal isOpen={confirmModal.isOpen} title={confirmModal.title} message={confirmModal.message} onConfirm={confirmModal.onConfirm} onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))} isDangerous={true} confirmText="Delete" />
+
+            {isImportOpen && (
+                <ImportOrderModal 
+                    onClose={() => setIsImportOpen(false)}
+                    onOrdersImported={async (newOrders, newSignatures) => {
+                        await saveOrdersBatch(newOrders as Order[]);
+                        await updateSettingsInDb({ 
+                            importedSignatures: [...Array.from(importedSignatures), ...newSignatures]
+                        });
+                    }}
+                    onUpdateSheetUrl={(url) => updateSettingsInDb({ sheetUrl: url })}
+                    existingSignatures={importedSignatures}
+                />
+            )}
         </div>
     );
 }

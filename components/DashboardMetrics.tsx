@@ -1,4 +1,3 @@
-
 import React, { useMemo } from 'react';
 import { Order, FollowUpStatus } from '../types';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList } from 'recharts';
