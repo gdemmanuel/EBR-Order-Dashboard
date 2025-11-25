@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Order, ApprovalStatus, FollowUpStatus, PricingSettings, Flavor, Expense, WorkShift } from '../types';
 import { parseOrderDateTime } from '../utils/dateUtils';
@@ -98,6 +97,23 @@ export default function AdminDashboard({
     const pendingOrders = useMemo(() => orders.filter(o => o.approvalStatus === ApprovalStatus.PENDING), [orders]);
     const cancelledOrders = useMemo(() => orders.filter(o => o.approvalStatus === ApprovalStatus.CANCELLED), [orders]);
 
+    // Filter orders for Dashboard charts/stats (Date filter only, ignores search/status filters)
+    const dateFilteredDashboardOrders = useMemo(() => {
+        let result = activeOrders;
+        if (dateFilter.start) {
+            const [y, m, d] = dateFilter.start.split('-').map(Number);
+            const start = new Date(y, m - 1, d);
+            result = result.filter(o => parseOrderDateTime(o) >= start);
+        }
+        if (dateFilter.end) {
+            const [y, m, d] = dateFilter.end.split('-').map(Number);
+            const end = new Date(y, m - 1, d);
+            end.setHours(23,59,59,999);
+            result = result.filter(o => parseOrderDateTime(o) <= end);
+        }
+        return result;
+    }, [activeOrders, dateFilter]);
+
     const filteredOrders = useMemo(() => {
         let result = viewingCancelled ? cancelledOrders : activeOrders;
         if (searchTerm.trim()) {
@@ -129,23 +145,12 @@ export default function AdminDashboard({
     };
 
     const stats = useMemo(() => {
-        let result = activeOrders;
-        if (dateFilter.start) {
-            const [y, m, d] = dateFilter.start.split('-').map(Number);
-            const start = new Date(y, m - 1, d);
-            result = result.filter(o => parseOrderDateTime(o) >= start);
-        }
-        if (dateFilter.end) {
-            const [y, m, d] = dateFilter.end.split('-').map(Number);
-            const end = new Date(y, m - 1, d);
-            end.setHours(23,59,59,999);
-            result = result.filter(o => parseOrderDateTime(o) <= end);
-        }
+        const result = dateFilteredDashboardOrders;
         const totalRevenue = result.reduce((sum, o) => sum + o.amountCharged, 0);
         const ordersToFollowUp = result.filter(o => o.followUpStatus === FollowUpStatus.NEEDED).length;
         const totalEmpanadasSold = result.reduce((sum, o) => sum + o.totalMini + o.totalFullSize, 0);
         return { totalRevenue, ordersToFollowUp, totalEmpanadasSold };
-    }, [activeOrders, dateFilter]);
+    }, [dateFilteredDashboardOrders]);
 
     const safeSettings: AppSettings = settings || { 
         motd: '',
@@ -244,7 +249,7 @@ export default function AdminDashboard({
                 {view === 'dashboard' && (
                     <DashboardMetrics 
                         stats={stats} 
-                        orders={activeOrders} 
+                        orders={dateFilteredDashboardOrders} 
                         empanadaFlavors={empanadaFlavors.map(f => f.name)} 
                         fullSizeEmpanadaFlavors={fullSizeEmpanadaFlavors.map(f => f.name)} 
                         pendingCount={pendingOrders.length}
