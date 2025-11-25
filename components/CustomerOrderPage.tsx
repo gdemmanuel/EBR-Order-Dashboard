@@ -52,70 +52,66 @@ const formatPhoneNumber = (value: string) => {
     return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`;
 };
 
-// --- New Receipt Component ---
-const OrderReceiptOverlay = ({ order }: { order: Order }) => {
+// --- Receipt Component (Inline Version) ---
+const InlineReceiptCard = ({ order }: { order: Order }) => {
     return (
-        <div className="fixed inset-0 z-[100] bg-brand-cream/95 backdrop-blur-sm flex flex-col overflow-y-auto animate-fade-in">
-            <div className="min-h-full flex items-center justify-center p-4 sm:p-6">
-                <div className="bg-white w-full max-w-md rounded-xl shadow-2xl border-t-8 border-brand-orange overflow-hidden relative">
-                    {/* Success Header */}
-                    <div className="bg-green-50 p-8 text-center border-b border-green-100">
-                        <div className="mx-auto bg-green-100 w-20 h-20 rounded-full flex items-center justify-center mb-4 shadow-sm">
-                            <CheckCircleIcon className="w-10 h-10 text-green-600" />
-                        </div>
-                        <h2 className="text-3xl font-serif text-brand-brown mb-2">Order Received!</h2>
-                        <p className="text-brand-brown/70">
-                            Thank you, <strong>{order.customerName.split(' ')[0]}</strong>.
-                        </p>
-                        <p className="text-xs text-gray-500 mt-2">We'll contact you at {order.phoneNumber} shortly.</p>
-                    </div>
+        <div className="bg-white w-full rounded-xl shadow-xl border-t-8 border-brand-orange overflow-hidden relative animate-fade-in mt-8 mb-12">
+            {/* Success Header */}
+            <div className="bg-green-50 p-8 text-center border-b border-green-100">
+                <div className="mx-auto bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mb-4 shadow-sm">
+                    <CheckCircleIcon className="w-8 h-8 text-green-600" />
+                </div>
+                <h2 className="text-2xl font-serif text-brand-brown mb-2">Order Received!</h2>
+                <p className="text-brand-brown/70">
+                    Thank you, <strong>{order.customerName.split(' ')[0]}</strong>.
+                </p>
+                <p className="text-xs text-gray-500 mt-2">We'll contact you at {order.phoneNumber} shortly.</p>
+            </div>
 
-                    {/* Receipt Details */}
-                    <div className="p-6 space-y-6">
-                        <div className="flex justify-between items-center text-sm border-b border-dashed border-gray-200 pb-4">
-                            <span className="text-gray-500 font-medium">Pickup Time</span>
-                            <span className="font-bold text-brand-brown text-base">{order.pickupDate} @ {order.pickupTime}</span>
-                        </div>
+            {/* Receipt Details */}
+            <div className="p-6 space-y-6">
+                <div className="flex justify-between items-center text-sm border-b border-dashed border-gray-200 pb-4">
+                    <span className="text-gray-500 font-medium">Pickup Time</span>
+                    <span className="font-bold text-brand-brown text-base">{order.pickupDate} @ {order.pickupTime}</span>
+                </div>
 
-                        <div className="space-y-3">
-                            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Order Summary</p>
-                            <div className="max-h-60 overflow-y-auto pr-2 space-y-2 custom-scrollbar">
-                                {order.items.map((item, idx) => (
-                                    <div key={idx} className="flex justify-between text-sm items-start">
-                                        <span className="text-gray-700 font-medium">{item.name}</span>
-                                        <span className="text-gray-500 whitespace-nowrap ml-4">x {item.quantity}</span>
-                                    </div>
-                                ))}
+                <div className="space-y-3">
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Order Summary</p>
+                    <div className="max-h-60 overflow-y-auto pr-2 space-y-2 custom-scrollbar">
+                        {order.items.map((item, idx) => (
+                            <div key={idx} className="flex justify-between text-sm items-start">
+                                <span className="text-gray-700 font-medium">{item.name}</span>
+                                <span className="text-gray-500 whitespace-nowrap ml-4">x {item.quantity}</span>
                             </div>
-                        </div>
-
-                        <div className="border-t border-gray-200 pt-4 flex justify-between items-end">
-                            <span className="font-bold text-brand-brown text-lg">Total</span>
-                            <div className="text-right">
-                                <span className="text-3xl font-serif font-bold text-brand-orange">${order.amountCharged.toFixed(2)}</span>
-                                {order.deliveryRequired && <p className="text-[10px] text-gray-400 uppercase">Includes Delivery</p>}
-                            </div>
-                        </div>
+                        ))}
                     </div>
+                </div>
 
-                    {/* Action */}
-                    <div className="p-6 bg-gray-50 border-t border-gray-100">
-                        <a 
-                            href="https://www.empanadasbyrose.com" 
-                            target="_top"
-                            className="block w-full bg-brand-brown text-white font-serif py-4 rounded-lg text-center hover:bg-brand-brown/90 transition-all uppercase tracking-wider text-sm font-bold shadow-md no-underline flex items-center justify-center gap-2"
-                        >
-                            <ArrowUturnLeftIcon className="w-5 h-5" /> Return to Website
-                        </a>
-                        <div className="mt-4 text-center">
-                             <button 
-                                onClick={() => window.location.reload()} 
-                                className="text-brand-orange hover:underline text-xs font-medium"
-                            >
-                                Place Another Order
-                            </button>
-                        </div>
+                <div className="border-t border-gray-200 pt-4 flex justify-between items-end">
+                    <span className="font-bold text-brand-brown text-lg">Total</span>
+                    <div className="text-right">
+                        <span className="text-3xl font-serif font-bold text-brand-orange">${order.amountCharged.toFixed(2)}</span>
+                        {order.deliveryRequired && <p className="text-[10px] text-gray-400 uppercase">Includes Delivery</p>}
                     </div>
+                </div>
+            </div>
+
+            {/* Action */}
+            <div className="p-6 bg-gray-50 border-t border-gray-100">
+                <a 
+                    href="https://www.empanadasbyrose.com" 
+                    target="_top"
+                    className="block w-full bg-brand-brown text-white font-serif py-4 rounded-lg text-center hover:bg-brand-brown/90 transition-all uppercase tracking-wider text-sm font-bold shadow-md no-underline flex items-center justify-center gap-2"
+                >
+                    <ArrowUturnLeftIcon className="w-5 h-5" /> Return to Website
+                </a>
+                <div className="mt-4 text-center">
+                        <button 
+                        onClick={() => window.location.reload()} 
+                        className="text-brand-orange hover:underline text-xs font-medium"
+                    >
+                        Place Another Order
+                    </button>
                 </div>
             </div>
         </div>
@@ -333,6 +329,9 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
             await saveOrderToDb(newOrder);
             setLastOrder(newOrder);
             setIsSubmitted(true);
+            
+            // Attempt scroll to top for good measure, but don't rely on it
+            window.scrollTo(0, 0);
 
         } catch (err: any) {
             console.error(err);
@@ -343,10 +342,6 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
         }
     };
 
-    // RENDER SUCCESS VIEW
-    if (isSubmitted && lastOrder) {
-        return <OrderReceiptOverlay order={lastOrder} />;
-    }
     
     const miniPackages = safePricing.packages?.filter(p => p.itemType === 'mini' && p.visible && !p.isSpecial) || [];
     const fullPackages = safePricing.packages?.filter(p => p.itemType === 'full' && p.visible && !p.isSpecial) || [];
@@ -374,13 +369,22 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
 
     return (
         <div className={`font-sans flex flex-col ${isEmbedded ? 'h-auto bg-white' : 'min-h-screen bg-brand-cream'}`}>
-            {/* HIDE SCROLLBARS FOR EMBEDDED VIEW & PREVENT PARENT SCROLL CHAINING */}
+            {/* AGGRESSIVE SCROLLBAR HIDING for Embedded View */}
             {isEmbedded && (
                 <style>
                     {`
-                        body { overflow-y: auto; overscroll-behavior-y: none; }
-                        ::-webkit-scrollbar { width: 0px; background: transparent; }
-                        html { scrollbar-width: none; -ms-overflow-style: none; }
+                        /* Chrome, Safari, Edge, Opera */
+                        html, body { 
+                            overflow-y: auto; 
+                            overscroll-behavior-y: none; 
+                            -ms-overflow-style: none;  /* IE and Edge */
+                            scrollbar-width: none;  /* Firefox */
+                        }
+                        ::-webkit-scrollbar { 
+                            display: none; 
+                            width: 0px; 
+                            background: transparent; 
+                        }
                     `}
                 </style>
             )}
@@ -415,7 +419,14 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                     </div>
                 )}
 
-                <form onSubmit={handleSubmit} className="space-y-16">
+                {/* BACKUP RECEIPT AT TOP (Just in case user scrolled up) */}
+                {isSubmitted && lastOrder && (
+                    <div className="mb-8 opacity-80 md:hidden">
+                        <InlineReceiptCard order={lastOrder} />
+                    </div>
+                )}
+
+                <form onSubmit={handleSubmit} className={`space-y-16 ${isSubmitted ? 'opacity-30 pointer-events-none grayscale transition-opacity duration-1000' : ''}`}>
                     
                     {/* FLAVORS SECTION */}
                     <section>
@@ -710,22 +721,30 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                     </section>
 
                     {/* Sticky Footer Total */}
-                    <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-gray-200 p-4 sm:p-6 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-20">
-                        <div className="max-w-5xl mx-auto flex flex-row justify-between items-center gap-4">
-                            <div className="text-left">
-                                <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Estimated Total</p>
-                                <p className="text-3xl font-serif text-brand-brown font-bold">${estimatedTotal.toFixed(2)}*</p>
+                    {/* ONLY SHOW IF NOT SUBMITTED - Otherwise replaced by receipt inline */}
+                    {!isSubmitted && (
+                        <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-gray-200 p-4 sm:p-6 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-20">
+                            <div className="max-w-5xl mx-auto flex flex-row justify-between items-center gap-4">
+                                <div className="text-left">
+                                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Estimated Total</p>
+                                    <p className="text-3xl font-serif text-brand-brown font-bold">${estimatedTotal.toFixed(2)}*</p>
+                                </div>
+                                <button 
+                                    type="submit" 
+                                    disabled={isSubmitting} 
+                                    className="bg-brand-orange text-white font-bold text-sm sm:text-base px-8 py-3 sm:py-4 rounded shadow-lg hover:bg-brand-orange/90 hover:shadow-xl transition-all disabled:bg-gray-400 disabled:cursor-not-allowed disabled:shadow-none uppercase tracking-widest"
+                                >
+                                    {isSubmitting ? 'Sending Request...' : 'Submit Order'}
+                                </button>
                             </div>
-                            <button 
-                                type="submit" 
-                                disabled={isSubmitting} 
-                                className="bg-brand-orange text-white font-bold text-sm sm:text-base px-8 py-3 sm:py-4 rounded shadow-lg hover:bg-brand-orange/90 hover:shadow-xl transition-all disabled:bg-gray-400 disabled:cursor-not-allowed disabled:shadow-none uppercase tracking-widest"
-                            >
-                                {isSubmitting ? 'Sending Request...' : 'Submit Order'}
-                            </button>
                         </div>
-                    </div>
+                    )}
                 </form>
+
+                {/* MAIN INLINE RECEIPT (Replaces Button) */}
+                {isSubmitted && lastOrder && (
+                    <InlineReceiptCard order={lastOrder} />
+                )}
 
                 {activePackageBuilder && (
                     <PackageBuilderModal 
