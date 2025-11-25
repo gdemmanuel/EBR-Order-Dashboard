@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Order, OrderItem, ContactMethod, PaymentStatus, FollowUpStatus, ApprovalStatus, PricingSettings, Flavor, MenuPackage } from '../types';
 import { TrashIcon, PlusIcon, XMarkIcon, ShoppingBagIcon, CogIcon, ArrowUturnLeftIcon, ClockIcon, UserIcon } from './icons/Icons';
@@ -938,7 +937,8 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                 {activePackageBuilder && (
                     <PackageBuilderModal 
                         pkg={activePackageBuilder}
-                        flavors={activePackageBuilder.isSpecial ? specialFlavors : standardFlavors}
+                        standardFlavors={empanadaFlavors.filter(f => !f.isSpecial)}
+                        specialFlavors={empanadaFlavors.filter(f => f.isSpecial)}
                         salsas={salsaFlavors}
                         onClose={() => setActivePackageBuilder(null)}
                         onConfirm={handlePackageConfirm}

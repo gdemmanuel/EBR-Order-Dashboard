@@ -4,7 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { saveOrderToDb, AppSettings } from '../services/dbService';
 import { Order, OrderItem, PaymentStatus, FollowUpStatus, ApprovalStatus, PricingSettings, Flavor, MenuPackage, SalsaProduct } from '../types';
 import { SalsaSize } from '../config';
-import { TrashIcon, CheckCircleIcon, StarIcon, ChevronRightIcon, ClockIcon, ChevronDownIcon, MegaphoneIcon, ShoppingBagIcon } from './icons/Icons';
+import { TrashIcon, CheckCircleIcon, StarIcon, ChevronRightIcon, ClockIcon, ChevronDownIcon, MegaphoneIcon, ShoppingBagIcon, ArrowUturnLeftIcon } from './icons/Icons';
 import Header from './Header';
 import PackageBuilderModal from './PackageBuilderModal';
 import { generateTimeSlots, normalizeDateStr } from '../utils/dateUtils';
@@ -41,6 +41,17 @@ const getLocalMinDate = () => {
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+};
+
+const formatPhoneNumber = (value: string) => {
+    if (!value) return value;
+    const phoneNumber = value.replace(/[^\d]/g, '');
+    const phoneNumberLength = phoneNumber.length;
+    if (phoneNumberLength < 4) return phoneNumber;
+    if (phoneNumberLength < 7) {
+      return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3)}`;
+    }
+    return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`;
 };
 
 export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFlavors, pricing, scheduling, busySlots = [], motd }: CustomerOrderPageProps) {
@@ -108,6 +119,12 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
             setSalsaItems(initialSalsas);
         }
     }, [safePricing.salsas]);
+
+    // Phone Number Handler
+    const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const formatted = formatPhoneNumber(e.target.value);
+        setPhoneNumber(formatted);
+    };
 
     // --- Scheduling Logic ---
     const availableTimeSlots = useMemo(() => {
@@ -318,7 +335,12 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                         <div className="bg-green-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6"><CheckCircleIcon className="w-10 h-10 text-green-700" /></div>
                         <h2 className="text-4xl font-serif text-brand-brown mb-4">Order Received!</h2>
                         <p className="text-brand-brown/80 mb-8 text-lg font-light">Thank you, {customerName}. We've received your order request. We'll contact you shortly at <strong>{phoneNumber}</strong> to confirm availability and arrange payment.</p>
-                        <button onClick={() => window.location.reload()} className="bg-brand-brown text-white font-serif px-8 py-3 rounded hover:bg-brand-brown/90 transition-all uppercase tracking-wider text-sm">Place Another Order</button>
+                        <div className="flex flex-col gap-3">
+                            <button onClick={() => window.location.reload()} className="bg-brand-brown text-white font-serif px-8 py-3 rounded hover:bg-brand-brown/90 transition-all uppercase tracking-wider text-sm">Place Another Order</button>
+                            <button onClick={() => window.top.location.href = 'https://www.empanadasbyrose.com'} className="text-brand-brown hover:text-brand-orange transition-colors text-sm font-medium flex items-center justify-center gap-2">
+                                <ArrowUturnLeftIcon className="w-4 h-4" /> Back to Website
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -604,10 +626,10 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Phone Number</label>
-                                <input type="tel" required value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} className="w-full bg-brand-cream/50 border-0 border-b-2 border-gray-200 focus:border-brand-orange focus:ring-0 px-0 py-3 text-lg placeholder-gray-300 transition-colors" placeholder="(555) 123-4567" />
+                                <input type="tel" required value={phoneNumber} onChange={handlePhoneChange} className="w-full bg-brand-cream/50 border-0 border-b-2 border-gray-200 focus:border-brand-orange focus:ring-0 px-0 py-3 text-lg placeholder-gray-300 transition-colors" placeholder="(555) 123-4567" maxLength={14} />
                             </div>
                             <div>
-                                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Email Address (Optional)</label>
+                                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Email Address</label>
                                 <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-brand-cream/50 border-0 border-b-2 border-gray-200 focus:border-brand-orange focus:ring-0 px-0 py-3 text-lg placeholder-gray-300 transition-colors" placeholder="jane@example.com" />
                             </div>
                         </div>
@@ -700,7 +722,8 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                 {activePackageBuilder && (
                     <PackageBuilderModal 
                         pkg={activePackageBuilder} 
-                        flavors={activePackageBuilder.isSpecial ? specialFlavors : standardFlavors}
+                        standardFlavors={activePackageBuilder.isSpecial ? specialFlavors : standardFlavors}
+                        specialFlavors={specialFlavors}
                         salsas={salsaFlavors}
                         onClose={() => setActivePackageBuilder(null)} 
                         onConfirm={handlePackageConfirm}

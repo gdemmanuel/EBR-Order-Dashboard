@@ -1,23 +1,27 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { MenuPackage, Flavor } from '../types';
-import { XMarkIcon } from './icons/Icons';
+import { XMarkIcon, ChevronDownIcon } from './icons/Icons';
 
 interface PackageBuilderModalProps {
     pkg: MenuPackage;
-    flavors: Flavor[];
-    salsas?: Flavor[]; // Salsas passed separately to handle logic differently
+    standardFlavors: Flavor[];
+    specialFlavors: Flavor[];
+    salsas?: Flavor[];
     onClose: () => void;
     onConfirm: (items: { name: string; quantity: number }[]) => void;
 }
 
-export default function PackageBuilderModal({ pkg, flavors, salsas = [], onClose, onConfirm }: PackageBuilderModalProps) {
+export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavors, salsas = [], onClose, onConfirm }: PackageBuilderModalProps) {
     const [builderSelections, setBuilderSelections] = useState<{ [flavorName: string]: number }>({});
     const [salsaSelections, setSalsaSelections] = useState<{ [salsaName: string]: number }>({});
+    const [flavorCategory, setFlavorCategory] = useState<'standard' | 'special'>('standard');
     
     // Default increment to 10 if not set to preserve legacy behavior for existing packages,
     // or utilize the configured increment.
-    const step = pkg.increment || 10;
+    const step = pkg.increment || 1;
+
+    const activeFlavors = flavorCategory === 'standard' ? standardFlavors : specialFlavors;
 
     // --- Empanada Logic (Counts towards limit) ---
     const updateBuilderSelection = (flavorName: string, change: number) => {
@@ -122,9 +126,32 @@ export default function PackageBuilderModal({ pkg, flavors, salsas = [], onClose
                 <div className="overflow-y-auto flex-grow">
                     {/* Empanadas Section */}
                     <div className="p-5">
-                        <h4 className="font-bold text-brand-brown mb-3 border-b border-gray-200 pb-1">Select Flavors</h4>
+                        <div className="flex justify-between items-center mb-3 border-b border-gray-200 pb-2">
+                            <h4 className="font-bold text-brand-brown">Select Flavors</h4>
+                            {/* Category Toggle */}
+                            <div className="relative inline-block text-left">
+                                <div className="flex bg-gray-100 rounded-lg p-1">
+                                    <button
+                                        onClick={() => setFlavorCategory('standard')}
+                                        className={`px-3 py-1 text-xs font-bold rounded-md transition-colors ${flavorCategory === 'standard' ? 'bg-white shadow text-brand-brown' : 'text-gray-500 hover:text-brand-brown'}`}
+                                    >
+                                        Standard
+                                    </button>
+                                    <button
+                                        onClick={() => setFlavorCategory('special')}
+                                        className={`px-3 py-1 text-xs font-bold rounded-md transition-colors ${flavorCategory === 'special' ? 'bg-white shadow text-purple-700' : 'text-gray-500 hover:text-purple-700'}`}
+                                    >
+                                        Specialty
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
                         <div className="space-y-1">
-                            {flavors
+                            {activeFlavors.length === 0 && (
+                                <p className="text-sm text-gray-400 italic text-center py-4">No flavors available in this category.</p>
+                            )}
+                            {activeFlavors
                                 .filter(f => f.visible)
                                 .map(flavor => {
                                     const qty = builderSelections[flavor.name] || 0;
@@ -136,7 +163,10 @@ export default function PackageBuilderModal({ pkg, flavors, salsas = [], onClose
                                     return (
                                         <div key={flavor.name} className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0">
                                             <div className="flex-grow pr-2">
-                                                <p className="font-medium text-brand-brown">{flavor.name}</p>
+                                                <p className="font-medium text-brand-brown">
+                                                    {flavor.name} 
+                                                    {flavor.isSpecial && <span className="ml-1 text-[10px] bg-purple-100 text-purple-700 px-1 rounded">Special</span>}
+                                                </p>
                                                 {flavor.description && <p className="text-xs text-gray-500">{flavor.description}</p>}
                                             </div>
                                             <div className="flex items-center gap-2 flex-shrink-0">
