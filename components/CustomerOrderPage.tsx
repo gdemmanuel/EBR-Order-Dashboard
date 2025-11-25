@@ -2,9 +2,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { saveOrderToDb, AppSettings } from '../services/dbService';
-import { Order, OrderItem, PaymentStatus, FollowUpStatus, ApprovalStatus, PricingSettings, Flavor, MenuPackage, SalsaProduct } from '../types';
-import { SalsaSize } from '../config';
-import { TrashIcon, CheckCircleIcon, StarIcon, ChevronRightIcon, ClockIcon, ChevronDownIcon, MegaphoneIcon, ShoppingBagIcon, ArrowUturnLeftIcon } from './icons/Icons';
+import { Order, OrderItem, PaymentStatus, FollowUpStatus, ApprovalStatus, PricingSettings, Flavor, MenuPackage } from '../types';
+import { CheckCircleIcon, StarIcon, ClockIcon, ChevronDownIcon, MegaphoneIcon, ShoppingBagIcon, ArrowUturnLeftIcon, TrashIcon } from './icons/Icons';
 import Header from './Header';
 import PackageBuilderModal from './PackageBuilderModal';
 import { generateTimeSlots, normalizeDateStr } from '../utils/dateUtils';
@@ -123,10 +122,6 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
     // Auto Redirect on Success
     useEffect(() => {
         if (isSubmitted) {
-            // 1. Force scroll top immediately
-            window.scrollTo(0, 0);
-            
-            // 2. Set timer for redirect
             const timer = setTimeout(() => {
                 const targetUrl = 'https://www.empanadasbyrose.com';
                 try {
@@ -136,9 +131,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                         window.location.href = targetUrl;
                     }
                 } catch (e) {
-                    // Fallback for cross-origin blocking
-                    console.warn("Standard redirect blocked, forcing top navigation.", e);
-                    window.open(targetUrl, '_top');
+                    console.warn("Standard redirect blocked by iframe policy, relying on manual link.", e);
                 }
             }, 3500);
             return () => clearTimeout(timer);
@@ -155,76 +148,46 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
     const availableTimeSlots = useMemo(() => {
         if (!pickupDate || !scheduling || !scheduling.enabled) return [];
 
-        const normalizedDate = normalizeDateStr(pickupDate); // ensure YYYY-MM-DD
-        
-        // 1. Check for Date Override (Highest Priority)
+        const normalizedDate = normalizeDateStr(pickupDate); 
         const override = scheduling.dateOverrides?.[normalizedDate];
         
         if (override) {
-            if (override.isClosed) {
-                return []; // Force Closed
-            }
-            // Custom Hours
+            if (override.isClosed) return [];
             if (override.customHours) {
                 const slots = generateTimeSlots(normalizedDate, override.customHours.start, override.customHours.end, scheduling.intervalMinutes);
-                const todaysBusyTimes = new Set(
-                    busySlots.filter(slot => slot.date === normalizedDate).map(slot => slot.time)
-                );
+                const todaysBusyTimes = new Set(busySlots.filter(slot => slot.date === normalizedDate).map(slot => slot.time));
                 return slots.filter(time => !todaysBusyTimes.has(time));
             }
-            // If override exists but isClosed is false and no custom hours, treat as normal open day below
         }
 
-        // 2. Check Recurring Closed Days
         const [y, m, d] = normalizedDate.split('-').map(Number);
         const dateObj = new Date(y, m - 1, d);
-        
-        if (!override && scheduling.closedDays && scheduling.closedDays.includes(dateObj.getDay())) {
-            return [];
-        }
+        if (!override && scheduling.closedDays && scheduling.closedDays.includes(dateObj.getDay())) return [];
+        if (!override && scheduling.blockedDates.includes(normalizedDate)) return [];
 
-        // 3. Check Legacy Blocked Dates
-        if (!override && scheduling.blockedDates.includes(normalizedDate)) {
-            return [];
-        }
-
-        // Generate slots using default or custom start/end
         const start = override?.customHours?.start || scheduling.startTime;
         const end = override?.customHours?.end || scheduling.endTime;
-        
         const slots = generateTimeSlots(normalizedDate, start, end, scheduling.intervalMinutes);
-
-        // Filter out busy slots
-        const todaysBusyTimes = new Set(
-            busySlots
-                .filter(slot => slot.date === normalizedDate)
-                .map(slot => slot.time)
-        );
+        const todaysBusyTimes = new Set(busySlots.filter(slot => slot.date === normalizedDate).map(slot => slot.time));
 
         return slots.filter(time => !todaysBusyTimes.has(time));
     }, [pickupDate, scheduling, busySlots]);
 
     // --- Calculate Estimated Total ---
     useEffect(() => {
-        // Package Base Prices
         const packagesTotal = cartPackages.reduce((sum, p) => sum + p.price, 0);
-        
         let surchargeTotal = 0;
         let packageSalsaTotal = 0;
 
         cartPackages.forEach(pkg => {
             pkg.items.forEach(item => {
-                // 1. Surcharges
                 const miniFlavor = empanadaFlavors.find(f => f.name === item.name);
                 if (miniFlavor && miniFlavor.surcharge) surchargeTotal += (item.quantity * miniFlavor.surcharge);
                 const fullFlavor = fullSizeEmpanadaFlavors.find(f => f.name === item.name);
                 if (fullFlavor && fullFlavor.surcharge) surchargeTotal += (item.quantity * fullFlavor.surcharge);
-
-                // 2. Salsas hidden inside packages
+                
                 const salsaProduct = safePricing.salsas.find(s => s.name === item.name);
-                if (salsaProduct) {
-                    packageSalsaTotal += (item.quantity * salsaProduct.price);
-                }
+                if (salsaProduct) packageSalsaTotal += (item.quantity * salsaProduct.price);
             });
         });
 
@@ -237,15 +200,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
     
     const handlePackageConfirm = (items: { name: string; quantity: number }[]) => { 
         if (!activePackageBuilder) return; 
-        
-        // Add selected items (empanadas + salsas) to the package payload
-        const newCartItem: CartPackage = { 
-            id: Date.now().toString(), 
-            packageId: activePackageBuilder.id, 
-            name: activePackageBuilder.name, 
-            price: activePackageBuilder.price, 
-            items: items 
-        }; 
+        const newCartItem: CartPackage = { id: Date.now().toString(), packageId: activePackageBuilder.id, name: activePackageBuilder.name, price: activePackageBuilder.price, items: items }; 
         setCartPackages([...cartPackages, newCartItem]); 
         setActivePackageBuilder(null); 
     };
@@ -265,7 +220,6 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                 const isFullPackage = pkgDef?.itemType === 'full';
                 pkg.items.forEach(item => {
                     let finalName = item.name;
-                    // Don't prefix Salsas with "Full"
                     const isSalsa = safePricing.salsas.some(s => s.name === item.name);
                     if (isFullPackage && !finalName.startsWith('Full ') && !isSalsa) finalName = `Full ${finalName}`;
                     
@@ -284,36 +238,22 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                 const override = scheduling.dateOverrides?.[normalizedDate];
                 const [y, m, d] = normalizedDate.split('-').map(Number);
                 const dayOfWeek = new Date(y, m - 1, d).getDay();
+                const isClosed = override?.isClosed || (!override && scheduling.blockedDates.includes(normalizedDate)) || (!override && scheduling.closedDays?.includes(dayOfWeek));
 
-                const isClosed = override?.isClosed 
-                    || (!override && scheduling.blockedDates.includes(normalizedDate))
-                    || (!override && scheduling.closedDays?.includes(dayOfWeek));
-
-                if (isClosed) {
-                    throw new Error("Sorry, this date is unavailable. Please select another date.");
-                }
-                
-                if (busySlots.some(s => s.date === normalizedDate && s.time === pickupTime)) {
-                    throw new Error("Sorry, that time slot was just taken. Please select another time.");
-                }
+                if (isClosed) throw new Error("Sorry, this date is unavailable. Please select another date.");
+                if (busySlots.some(s => s.date === normalizedDate && s.time === pickupTime)) throw new Error("Sorry, that time slot was just taken. Please select another time.");
             }
 
             const formattedDate = pickupDate ? `${pickupDate.split('-')[1]}/${pickupDate.split('-')[2]}/${pickupDate.split('-')[0]}` : '';
-            
-            let formattedTime = 'TBD';
-            if (pickupTime) {
-                if (!scheduling?.enabled && pickupTime.includes(':') && !pickupTime.includes('M')) {
-                    const [h, m] = pickupTime.split(':');
-                    const hour = parseInt(h);
-                    const ampm = hour >= 12 ? 'PM' : 'AM';
-                    const hour12 = hour % 12 || 12;
-                    formattedTime = `${hour12}:${m} ${ampm}`;
-                } else {
-                    formattedTime = pickupTime;
-                }
+            let formattedTime = pickupTime;
+            if (pickupTime && !pickupTime.includes('M') && pickupTime.includes(':')) {
+                 const [h, m] = pickupTime.split(':');
+                 const hour = parseInt(h);
+                 const ampm = hour >= 12 ? 'PM' : 'AM';
+                 const hour12 = hour % 12 || 12;
+                 formattedTime = `${hour12}:${m} ${ampm}`;
             }
 
-            // Calculate counts correctly by excluding salsas
             const totalMini = cartPackages.filter(p => safePricing.packages?.find(def => def.id === p.packageId)?.itemType === 'mini').reduce((sum, p) => sum + (safePricing.packages?.find(def => def.id === p.packageId)?.quantity || 0), 0);
             const totalFull = cartPackages.filter(p => safePricing.packages?.find(def => def.id === p.packageId)?.itemType === 'full').reduce((sum, p) => sum + (safePricing.packages?.find(def => def.id === p.packageId)?.quantity || 0), 0);
 
@@ -323,7 +263,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                 phoneNumber,
                 contactMethod: email ? `Website (Email: ${email})` : 'Website Form',
                 pickupDate: formattedDate,
-                pickupTime: formattedTime,
+                pickupTime: formattedTime || 'TBD',
                 items: finalItems,
                 totalMini,
                 totalFullSize: totalFull,
@@ -340,9 +280,6 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
             };
 
             await saveOrderToDb(newOrder);
-            
-            // Scroll top BEFORE setting state to ensure clean render
-            window.scrollTo(0, 0);
             setIsSubmitted(true);
 
         } catch (err: any) {
@@ -354,61 +291,48 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
         }
     };
 
+    // FIXED POSITION SUCCESS VIEW
+    // Using position: fixed guarantees the message covers the iframe viewport
+    // regardless of how tall the document is or where the user scrolled.
     if (isSubmitted) {
-        const SuccessMessage = () => (
-            <div className="max-w-lg w-full p-8 rounded-xl shadow-2xl text-center border-t-4 border-brand-orange bg-white mx-auto my-4">
-                <div className="bg-green-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <CheckCircleIcon className="w-10 h-10 text-green-700" />
-                </div>
-                <h2 className="text-3xl font-serif text-brand-brown mb-4">Order Received!</h2>
-                <p className="text-brand-brown/80 mb-8 text-lg font-light">
-                    Thank you, {customerName}. We've received your order request. We'll contact you shortly at <strong>{phoneNumber}</strong> to confirm availability.
-                </p>
-                
-                <div className="bg-gray-50 p-4 rounded-lg mb-6 border border-gray-200">
-                    <p className="text-sm text-gray-500 font-medium mb-2">Redirecting to home page...</p>
-                    <div className="w-full bg-gray-200 rounded-full h-1.5">
-                        <div className="bg-brand-orange h-1.5 rounded-full animate-[width_3s_linear_forwards]" style={{width: '0%'}}></div>
-                    </div>
-                </div>
-
-                <a 
-                    href="https://www.empanadasbyrose.com" 
-                    target="_top"
-                    className="bg-brand-brown text-white font-serif px-8 py-4 rounded hover:bg-brand-brown/90 transition-all uppercase tracking-wider text-sm flex items-center justify-center gap-2 w-full shadow-md cursor-pointer no-underline"
-                >
-                    <ArrowUturnLeftIcon className="w-5 h-5" /> Return to Website Now
-                </a>
-                
-                <button 
-                    onClick={() => window.location.reload()} 
-                    className="mt-6 text-brand-orange hover:underline text-sm font-medium block mx-auto"
-                >
-                    Place Another Order
-                </button>
-            </div>
-        );
-
         return (
-            // Use flex column to space out duplicate messages if embedded to guarantee visibility
-            // regardless of scroll position in the parent iframe
-            <div className={`min-h-screen w-full bg-white flex flex-col ${isEmbedded ? 'justify-between' : 'justify-center items-center'}`}>
-                <SuccessMessage />
-                {isEmbedded && (
-                    <>
-                        <div className="flex-grow flex items-center justify-center py-10 opacity-80">
-                             <SuccessMessage />
+            <div className="fixed inset-0 z-[9999] bg-white flex flex-col items-center justify-center p-4 overflow-y-auto text-center animate-fade-in">
+                <div className="max-w-lg w-full bg-white p-8 rounded-xl shadow-2xl border-t-4 border-brand-orange">
+                    <div className="bg-green-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <CheckCircleIcon className="w-10 h-10 text-green-700" />
+                    </div>
+                    <h2 className="text-3xl font-serif text-brand-brown mb-4">Order Received!</h2>
+                    <p className="text-brand-brown/80 mb-8 text-lg font-light">
+                        Thank you, {customerName}. We've received your order. We'll contact you shortly at <strong>{phoneNumber}</strong> to confirm details.
+                    </p>
+                    
+                    <div className="bg-gray-50 p-4 rounded-lg mb-6 border border-gray-200">
+                        <p className="text-sm text-gray-500 font-medium mb-2">Redirecting...</p>
+                        <div className="w-full bg-gray-200 rounded-full h-1.5">
+                            <div className="bg-brand-orange h-1.5 rounded-full animate-[width_3s_linear_forwards]" style={{width: '0%'}}></div>
                         </div>
-                        <div className="py-10 opacity-100">
-                             <SuccessMessage />
+                    </div>
+
+                    {/* Native Anchor Tag for Robust Redirect */}
+                    <a 
+                        href="https://www.empanadasbyrose.com" 
+                        target="_top"
+                        className="block w-full bg-brand-brown text-white font-serif px-8 py-4 rounded hover:bg-brand-brown/90 transition-all uppercase tracking-wider text-sm shadow-md cursor-pointer no-underline mb-4"
+                    >
+                        <div className="flex items-center justify-center gap-2">
+                            <ArrowUturnLeftIcon className="w-5 h-5" /> Return to Website
                         </div>
-                    </>
-                )}
+                    </a>
+                    
+                    <button 
+                        onClick={() => window.location.reload()} 
+                        className="text-brand-orange hover:underline text-sm font-medium"
+                    >
+                        Place Another Order
+                    </button>
+                </div>
                 <style>{`
-                    @keyframes width {
-                        from { width: 0%; }
-                        to { width: 100%; }
-                    }
+                    @keyframes width { from { width: 0%; } to { width: 100%; } }
                 `}</style>
             </div>
         );
@@ -464,7 +388,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
 
             <main className={`max-w-5xl mx-auto px-4 ${isEmbedded ? 'py-4' : 'py-12'} pb-32 w-full`}>
                 {error && (
-                    <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-lg text-center mb-8" role="alert">
+                    <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-lg text-center mb-8 animate-fade-in" role="alert">
                         <strong className="block font-bold mb-1">Oops!</strong>
                         <span>{error}</span>
                     </div>
@@ -662,12 +586,10 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                             </div>
                             <div className="space-y-4">
                                 {cartPackages.map((item) => {
-                                    // Calculate extra salsa cost for display
                                     const extraSalsaCost = item.items.reduce((sum, i) => {
                                         const salsa = safePricing.salsas.find(s => s.name === i.name);
                                         return sum + (salsa ? (salsa.price * i.quantity) : 0);
                                     }, 0);
-                                    // Ensure displayPrice is a valid number
                                     const displayPrice = (item.price || 0) + (extraSalsaCost || 0);
 
                                     return (
@@ -782,13 +704,6 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                             </button>
                         </div>
                     </div>
-                    
-                    {error && (
-                        <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-lg text-center" role="alert">
-                            <strong className="block font-bold mb-1">Oops!</strong>
-                            <span>{error}</span>
-                        </div>
-                    )}
                 </form>
 
                 {activePackageBuilder && (
