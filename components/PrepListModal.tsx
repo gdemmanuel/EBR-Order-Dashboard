@@ -9,9 +9,10 @@ interface PrepListModalProps {
     settings: AppSettings;
     onClose: () => void;
     onUpdateSettings?: (settings: Partial<AppSettings>) => void;
+    dateRange?: { start?: string; end?: string };
 }
 
-export default function PrepListModal({ orders, settings, onClose, onUpdateSettings }: PrepListModalProps) {
+export default function PrepListModal({ orders, settings, onClose, onUpdateSettings, dateRange }: PrepListModalProps) {
     
     // Local state to manage inventory changes before saving
     const [inventory, setInventory] = useState<Record<string, { mini: number, full: number }>>(settings.inventory || {});
@@ -174,6 +175,14 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
         window.print();
     };
 
+    const dateRangeLabel = useMemo(() => {
+        if (!dateRange?.start) return "All Upcoming Orders";
+        const start = new Date(dateRange.start + 'T00:00:00').toLocaleDateString();
+        if (!dateRange.end) return `Orders since ${start}`;
+        const end = new Date(dateRange.end + 'T00:00:00').toLocaleDateString();
+        return `${start} - ${end}`;
+    }, [dateRange]);
+
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[80] p-4 animate-fade-in">
             <div className="bg-white rounded-lg shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col border border-brand-tan">
@@ -184,7 +193,7 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
                         </div>
                         <div>
                             <h2 className="text-2xl font-serif text-brand-brown">Prep & Inventory List</h2>
-                            <p className="text-sm text-gray-500">Adjust Inventory to see what needs to be made. (Completed orders are excluded).</p>
+                            <p className="text-sm text-gray-500 font-medium">{dateRangeLabel} <span className="font-normal text-gray-400 mx-1">|</span> <span className="font-normal">Excludes completed orders</span></p>
                         </div>
                     </div>
                     <div className="flex items-center gap-3">

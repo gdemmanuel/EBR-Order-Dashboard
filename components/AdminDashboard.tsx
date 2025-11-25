@@ -103,7 +103,23 @@ export default function AdminDashboard({
         allOrders.filter(o => o.approvalStatus === ApprovalStatus.APPROVED)
     , [allOrders]);
 
-    // 4. Filtered Active Orders (for List/Dashboard)
+    // 4. Date-Filtered Active Orders (For Dashboard Stats & Prep List)
+    const dateFilteredDashboardOrders = useMemo(() => {
+        let result = activeOrders;
+        if (dateRange.start) {
+            const start = new Date(dateRange.start);
+            start.setHours(0, 0, 0, 0);
+            result = result.filter(o => parseOrderDateTime(o) >= start);
+        }
+        if (dateRange.end) {
+            const end = new Date(dateRange.end);
+            end.setHours(23, 59, 59, 999);
+            result = result.filter(o => parseOrderDateTime(o) <= end);
+        }
+        return result;
+    }, [activeOrders, dateRange]);
+
+    // 5. Filtered Active Orders (for List View - includes search/status)
     const filteredOrders = useMemo(() => {
         let result = viewingCancelled ? cancelledOrders : activeOrders;
 
@@ -135,13 +151,13 @@ export default function AdminDashboard({
 
     // Stats Calculation
     const stats = useMemo(() => {
-        const relevantOrders = filteredOrders; 
+        const relevantOrders = dateFilteredDashboardOrders; 
         const totalRevenue = relevantOrders.reduce((sum, o) => sum + o.amountCharged, 0);
         const ordersToFollowUp = relevantOrders.filter(o => o.followUpStatus === FollowUpStatus.NEEDED).length;
         const totalEmpanadasSold = relevantOrders.reduce((sum, o) => sum + o.totalMini + o.totalFullSize, 0);
 
         return { totalRevenue, ordersToFollowUp, totalEmpanadasSold };
-    }, [filteredOrders]);
+    }, [dateFilteredDashboardOrders]);
 
 
     // --- Actions ---
@@ -294,7 +310,7 @@ export default function AdminDashboard({
                 {view === 'dashboard' && (
                     <DashboardMetrics 
                         stats={stats} 
-                        orders={filteredOrders} 
+                        orders={dateFilteredDashboardOrders} 
                         allOrders={activeOrders}
                         empanadaFlavors={empanadaFlavors.map(f => f.name)} 
                         fullSizeEmpanadaFlavors={fullSizeEmpanadaFlavors.map(f => f.name)} 
@@ -414,10 +430,11 @@ export default function AdminDashboard({
 
             {isPrepListOpen && (
                 <PrepListModal 
-                    orders={activeOrders}
+                    orders={dateFilteredDashboardOrders}
                     settings={settings}
                     onClose={() => setIsPrepListOpen(false)}
                     onUpdateSettings={updateSettingsInDb}
+                    dateRange={dateRange}
                 />
             )}
 
