@@ -454,53 +454,51 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
 
                 <form onSubmit={handleSubmit} className="space-y-16">
                     
-                    {/* FLAVORS SECTION - HIDDEN IN EMBEDDED MODE TO SAVE SPACE */}
-                    {!isEmbedded && (
-                        <section>
-                            <h3 className="text-3xl font-serif text-brand-brown mb-8 text-center">Our Flavors</h3>
-                            <div className="bg-white p-8 sm:p-12 rounded-xl shadow-sm">
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-x-12 gap-y-6">
-                                    {standardFlavors.map(f => (
-                                        <div key={f.name} className="flex flex-col items-center text-center">
-                                            <span className="font-serif text-xl text-brand-brown">{f.name}</span>
-                                            {f.description && <span className="text-sm text-gray-500 mt-1 font-light">{f.description}</span>}
-                                        </div>
-                                    ))}
-                                </div>
-                                <p className="text-center text-xs text-gray-400 mt-10 font-medium uppercase tracking-widest">Available for both Mini and Full-Size</p>
+                    {/* FLAVORS SECTION */}
+                    <section>
+                        <h3 className="text-3xl font-serif text-brand-brown mb-8 text-center">Our Flavors</h3>
+                        <div className="bg-white p-8 sm:p-12 rounded-xl shadow-sm">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-12 gap-y-6">
+                                {standardFlavors.map(f => (
+                                    <div key={f.name} className="flex flex-col items-center text-center">
+                                        <span className="font-serif text-xl text-brand-brown">{f.name}</span>
+                                        {f.description && <span className="text-sm text-gray-500 mt-1 font-light">{f.description}</span>}
+                                    </div>
+                                ))}
                             </div>
-                            
-                            {specialFlavors.length > 0 && (
-                                <div className="mt-8 rounded-xl shadow-sm border border-purple-100 bg-white overflow-hidden transition-all">
-                                    <button 
-                                        type="button"
-                                        onClick={() => setIsSpecialtyOpen(!isSpecialtyOpen)}
-                                        className="w-full p-6 flex items-center justify-between bg-purple-50 hover:bg-purple-100 transition-colors text-left group"
-                                    >
-                                        <h4 className="text-xl font-serif text-purple-900 flex items-center gap-3">
-                                            <StarIcon className="w-6 h-6 text-purple-400" /> Specialty & Seasonal Flavors
-                                        </h4>
-                                        <div className={`transform transition-transform duration-300 ${isSpecialtyOpen ? 'rotate-180' : ''}`}>
-                                            <ChevronDownIcon className="w-6 h-6 text-purple-400" />
+                            <p className="text-center text-xs text-gray-400 mt-10 font-medium uppercase tracking-widest">Available for both Mini and Full-Size</p>
+                        </div>
+                        
+                        {specialFlavors.length > 0 && (
+                            <div className="mt-8 rounded-xl shadow-sm border border-purple-100 bg-white overflow-hidden transition-all">
+                                <button 
+                                    type="button"
+                                    onClick={() => setIsSpecialtyOpen(!isSpecialtyOpen)}
+                                    className="w-full p-6 flex items-center justify-between bg-purple-50 hover:bg-purple-100 transition-colors text-left group"
+                                >
+                                    <h4 className="text-xl font-serif text-purple-900 flex items-center gap-3">
+                                        <StarIcon className="w-6 h-6 text-purple-400" /> Specialty & Seasonal Flavors
+                                    </h4>
+                                    <div className={`transform transition-transform duration-300 ${isSpecialtyOpen ? 'rotate-180' : ''}`}>
+                                        <ChevronDownIcon className="w-6 h-6 text-purple-400" />
+                                    </div>
+                                </button>
+                                
+                                {isSpecialtyOpen && (
+                                    <div className="p-8 border-t border-purple-100 bg-white">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                                            {specialFlavors.map(f => (
+                                                <div key={f.name} className="text-center">
+                                                    <p className="font-serif text-lg text-brand-brown">{f.name}</p>
+                                                    {f.description && <p className="text-sm text-gray-500 mt-1 font-light italic">{f.description}</p>}
+                                                </div>
+                                            ))}
                                         </div>
-                                    </button>
-                                    
-                                    {isSpecialtyOpen && (
-                                        <div className="p-8 border-t border-purple-100 bg-white">
-                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                                                {specialFlavors.map(f => (
-                                                    <div key={f.name} className="text-center">
-                                                        <p className="font-serif text-lg text-brand-brown">{f.name}</p>
-                                                        {f.description && <p className="text-sm text-gray-500 mt-1 font-light italic">{f.description}</p>}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </section>
-                    )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </section>
 
                     {/* Header Section - HIDDEN IN EMBEDDED MODE */}
                     {!isEmbedded && (
