@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useLayoutEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { saveOrderToDb, AppSettings } from '../services/dbService';
@@ -118,14 +119,17 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
         }
     }, [safePricing.salsas]);
 
-    // Force scroll to top when submitted
+    // Attempt scroll to top when submitted
     useLayoutEffect(() => {
         if (isSubmitted) {
             window.scrollTo(0, 0);
             try {
-                // Try to scroll parent window if same origin (rarely works cross-origin but worth a try)
-                if (window.parent) window.parent.scrollTo(0, 0);
-            } catch (e) {}
+                if (window.parent && window.parent !== window) {
+                    window.parent.scrollTo(0, 0);
+                }
+            } catch (e) {
+                // Ignore cross-origin errors
+            }
         }
     }, [isSubmitted]);
 
@@ -135,12 +139,11 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
             const timer = setTimeout(() => {
                 const targetUrl = 'https://www.empanadasbyrose.com';
                 try {
-                    // Try standard top navigation
                     window.open(targetUrl, '_top');
                 } catch (e) {
                     console.warn("Redirect blocked by iframe policy, relying on manual link.", e);
                 }
-            }, 3500);
+            }, 4000);
             return () => clearTimeout(timer);
         }
     }, [isSubmitted]);
@@ -301,12 +304,9 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
         }
     };
 
-    // SUCCESS VIEW - REPEATED STRATEGY
-    // If we can't force the user to scroll up, we render the message twice.
-    // Once at the top, and once further down, ensuring visibility regardless of scroll position.
     if (isSubmitted) {
         const SuccessCard = () => (
-            <div className="max-w-lg w-full bg-white p-8 rounded-xl shadow-2xl border-t-4 border-brand-orange mx-auto my-10">
+            <div className="max-w-lg w-full bg-white p-8 rounded-xl shadow-2xl border-t-4 border-brand-orange mx-auto mb-12">
                 <div className="bg-green-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
                     <CheckCircleIcon className="w-10 h-10 text-green-700" />
                 </div>
@@ -316,13 +316,12 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                 </p>
                 
                 <div className="bg-gray-50 p-4 rounded-lg mb-6 border border-gray-200">
-                    <p className="text-sm text-gray-500 font-medium mb-2 text-center">Redirecting...</p>
+                    <p className="text-sm text-gray-500 font-medium mb-2 text-center">Redirecting to home page...</p>
                     <div className="w-full bg-gray-200 rounded-full h-1.5">
-                        <div className="bg-brand-orange h-1.5 rounded-full animate-[width_3s_linear_forwards]" style={{width: '0%'}}></div>
+                        <div className="bg-brand-orange h-1.5 rounded-full animate-[width_4s_linear_forwards]" style={{width: '0%'}}></div>
                     </div>
                 </div>
 
-                {/* Native Anchor Tag for Robust Redirect */}
                 <a 
                     href="https://www.empanadasbyrose.com" 
                     target="_top"
@@ -345,18 +344,31 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
         );
 
         return (
-            <div className="min-h-screen bg-white flex flex-col items-center animate-fade-in pb-20">
-                {/* Message at Top */}
-                <SuccessCard />
+            <div className="min-h-screen bg-white w-full">
+                {/* 
+                   IFRAME VISIBILITY FIX:
+                   We render the success message repeatedly down the page.
+                   If the iframe is 2000px tall and the user is at the bottom, they will see the bottom card.
+                   If they are at the top, they see the top card.
+                */}
+                
+                <div className="pt-12 flex justify-center">
+                    <SuccessCard />
+                </div>
 
-                {/* Duplicate Message further down for embedded users stuck at bottom of iframe */}
+                {/* Stack of cards for tall iframes */}
                 {isEmbedded && (
-                    <>
-                        <div className="h-[400px] w-full flex items-center justify-center text-gray-300 text-sm italic">
-                            ...
-                        </div>
+                    <div className="flex flex-col items-center">
+                        {/* Gap of ~600px prevents it from looking too cluttered but ensures visibility */}
+                        <div className="h-[600px]"></div>
                         <SuccessCard />
-                    </>
+                        
+                        <div className="h-[600px]"></div>
+                        <SuccessCard />
+                        
+                        <div className="h-[600px]"></div>
+                        <SuccessCard />
+                    </div>
                 )}
                 
                 <style>{`
