@@ -54,25 +54,6 @@ const formatPhoneNumber = (value: string) => {
     return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`;
 };
 
-// Reusable Success Message Component
-const SuccessMessageCard = ({ customerName, phoneNumber, onReturn }: { customerName: string, phoneNumber: string, onReturn: () => void }) => (
-    <div className="bg-white max-w-lg w-full p-8 rounded-xl shadow-lg text-center border-t-4 border-brand-orange mx-auto">
-        <div className="bg-green-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
-            <CheckCircleIcon className="w-10 h-10 text-green-700" />
-        </div>
-        <h2 className="text-3xl font-serif text-brand-brown mb-4">Order Received!</h2>
-        <p className="text-brand-brown/80 mb-8 text-lg font-light">
-            Thank you, {customerName}. We've received your order request. We'll contact you shortly at <strong>{phoneNumber}</strong> to confirm availability.
-        </p>
-        <button 
-            onClick={onReturn}
-            className="bg-brand-brown text-white font-serif px-8 py-4 rounded hover:bg-brand-brown/90 transition-all uppercase tracking-wider text-sm flex items-center justify-center gap-2 w-full shadow-md"
-        >
-            <ArrowUturnLeftIcon className="w-5 h-5" /> Return to Website
-        </button>
-    </div>
-);
-
 export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFlavors, pricing, scheduling, busySlots = [], motd }: CustomerOrderPageProps) {
     const [searchParams] = useSearchParams();
     const isEmbedded = searchParams.get('embed') === 'true';
@@ -139,25 +120,11 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
         }
     }, [safePricing.salsas]);
 
-    const handleReturnToSite = () => {
-        const targetUrl = 'https://www.empanadasbyrose.com';
-        try {
-            window.open(targetUrl, '_top');
-        } catch (e) {
-            window.location.href = targetUrl;
-        }
-    };
-
-    // Auto Redirect on Success (Gentle)
+    // Auto-Scroll Logic
     useEffect(() => {
         if (isSubmitted) {
+            // Force scroll to top
             window.scrollTo(0, 0);
-            // Optional: Auto-redirect after 5 seconds
-            const timer = setTimeout(() => {
-                // Only attempt if user hasn't navigated away
-                handleReturnToSite();
-            }, 5000);
-            return () => clearTimeout(timer);
         }
     }, [isSubmitted]);
 
@@ -361,6 +328,8 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
         } catch (err: any) {
             console.error(err);
             setError(err.message || "Something went wrong. Please try again.");
+            // Scroll to top to ensure error is seen in iframe
+            window.scrollTo(0, 0);
         } finally {
             setIsSubmitting(false);
         }
@@ -368,30 +337,36 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
 
     if (isSubmitted) {
         return (
-            <div className={`w-full min-h-screen bg-white ${isEmbedded ? 'flex flex-col justify-between' : 'flex items-center justify-center'}`}>
-                {!isEmbedded && <Header variant="public" />}
-                
-                {isEmbedded ? (
-                    // Embedded View: Triple Message Layout to ensure visibility in tall iframes
-                    <>
-                        <div className="pt-4 pb-8 px-4 flex justify-center">
-                            <SuccessMessageCard customerName={customerName} phoneNumber={phoneNumber} onReturn={handleReturnToSite} />
-                        </div>
-                        
-                        <div className="py-12 px-4 flex justify-center items-center flex-grow">
-                            <SuccessMessageCard customerName={customerName} phoneNumber={phoneNumber} onReturn={handleReturnToSite} />
-                        </div>
-
-                        <div className="pt-8 pb-12 px-4 flex justify-center">
-                            <SuccessMessageCard customerName={customerName} phoneNumber={phoneNumber} onReturn={handleReturnToSite} />
-                        </div>
-                    </>
-                ) : (
-                    // Normal View
-                    <div className="flex-grow flex flex-col items-center justify-center p-4">
-                        <SuccessMessageCard customerName={customerName} phoneNumber={phoneNumber} onReturn={handleReturnToSite} />
+            // FIXED: Use fixed positioning to guarantee visibility regardless of iframe scroll
+            <div className="fixed inset-0 z-[9999] bg-white flex flex-col items-center justify-center p-4 w-full h-full overflow-y-auto">
+                <div className="max-w-lg w-full p-8 rounded-xl shadow-2xl text-center border-t-4 border-brand-orange bg-white">
+                    <div className="bg-green-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <CheckCircleIcon className="w-10 h-10 text-green-700" />
                     </div>
-                )}
+                    <h2 className="text-3xl font-serif text-brand-brown mb-4">Order Received!</h2>
+                    <p className="text-brand-brown/80 mb-8 text-lg font-light">
+                        Thank you, {customerName}. We've received your order request. We'll contact you shortly at <strong>{phoneNumber}</strong> to confirm availability.
+                    </p>
+                    
+                    {/* 
+                        Native anchor tag with target="_top" is the most robust way 
+                        to break out of the iframe and return to the parent site.
+                    */}
+                    <a 
+                        href="https://www.empanadasbyrose.com" 
+                        target="_top"
+                        className="bg-brand-brown text-white font-serif px-8 py-4 rounded hover:bg-brand-brown/90 transition-all uppercase tracking-wider text-sm flex items-center justify-center gap-2 w-full shadow-md cursor-pointer no-underline"
+                    >
+                        <ArrowUturnLeftIcon className="w-5 h-5" /> Return to Website
+                    </a>
+                    
+                    <button 
+                        onClick={() => window.location.reload()} 
+                        className="mt-6 text-brand-orange hover:underline text-sm font-medium block mx-auto"
+                    >
+                        Place Another Order
+                    </button>
+                </div>
             </div>
         );
     }
@@ -445,6 +420,13 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
             )}
 
             <main className={`max-w-5xl mx-auto px-4 ${isEmbedded ? 'py-4' : 'py-12'} pb-32 w-full`}>
+                {error && (
+                    <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-lg text-center mb-8" role="alert">
+                        <strong className="block font-bold mb-1">Oops!</strong>
+                        <span>{error}</span>
+                    </div>
+                )}
+
                 <form onSubmit={handleSubmit} className="space-y-16">
                     
                     {/* FLAVORS SECTION */}
