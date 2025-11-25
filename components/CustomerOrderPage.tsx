@@ -733,8 +733,8 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                     </section>
 
                     {/* Sticky Footer Total */}
-                    <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-gray-200 p-4 sm:p-6 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-20">
-                        <div className="max-w-5xl mx-auto flex flex-row justify-between items-center gap-4">
+                    <div className={`${isEmbedded ? 'relative mt-8 border-t border-brand-tan/20 pt-6' : 'fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-gray-200 p-4 sm:p-6 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-20'}`}>
+                        <div className={`max-w-5xl mx-auto flex flex-row justify-between items-center gap-4 ${isEmbedded ? '' : ''}`}>
                             <div className="text-left">
                                 <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Estimated Total</p>
                                 <p className="text-3xl font-serif text-brand-brown font-bold">${estimatedTotal.toFixed(2)}*</p>

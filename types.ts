@@ -111,7 +111,7 @@ export interface PricingSettings {
     full: ProductPricing;
     packages: MenuPackage[];
     salsas: SalsaProduct[];
-    // Deprecated but kept for type safety during migration if needed, though we will migrate away from them
+    // Deprecated but kept for type safety during migration if needed
     salsaSmall?: number; 
     salsaLarge?: number;
 }
