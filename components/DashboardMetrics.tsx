@@ -1,7 +1,7 @@
 
 import React, { useMemo } from 'react';
 import { Order, FollowUpStatus } from '../types';
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList } from 'recharts';
 import { TrendingUpIcon, DocumentTextIcon, ShoppingBagIcon, ClockIcon, XCircleIcon } from './icons/Icons';
 import { parseOrderDateTime } from '../utils/dateUtils';
 
@@ -116,6 +116,10 @@ export default function DashboardMetrics({ stats, orders, empanadaFlavors, fullS
             }));
     }, [orders]);
 
+    // Calculate dynamic height for charts based on number of items to ensure readability
+    const miniChartHeight = Math.max(400, popularMiniProductsData.length * 40);
+    const fullChartHeight = Math.max(400, popularFullSizeProductsData.length * 40);
+
     return (
         <div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
@@ -157,27 +161,51 @@ export default function DashboardMetrics({ stats, orders, empanadaFlavors, fullS
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <div className="bg-white p-6 rounded-lg border border-brand-tan">
                     <h3 className="text-lg font-semibold text-brand-brown mb-4">Mini Empanadas Sold</h3>
-                    <ResponsiveContainer width="100%" height={300}>
-                        <BarChart data={popularMiniProductsData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                            <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#3c2f2f' }} />
-                            <YAxis tick={{ fontSize: 12, fill: '#3c2f2f' }} />
-                            <Tooltip contentStyle={{ background: 'white', border: '1px solid #ddd', borderRadius: '0.5rem' }} />
+                    <ResponsiveContainer width="100%" height={miniChartHeight}>
+                        <BarChart 
+                            layout="vertical" 
+                            data={popularMiniProductsData} 
+                            margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
+                        >
+                            <CartesianGrid strokeDasharray="3 3" horizontal={false} vertical={true} />
+                            <XAxis type="number" tick={{ fontSize: 12, fill: '#3c2f2f' }} />
+                            <YAxis 
+                                dataKey="name" 
+                                type="category" 
+                                width={130} 
+                                tick={{ fontSize: 12, fill: '#3c2f2f' }} 
+                                interval={0}
+                            />
+                            <Tooltip cursor={{fill: 'transparent'}} contentStyle={{ background: 'white', border: '1px solid #ddd', borderRadius: '0.5rem' }} />
                             <Legend wrapperStyle={{fontSize: "14px"}}/>
-                            <Bar dataKey="count" fill="#c8441c" name="Quantity Sold" radius={[4, 4, 0, 0]} />
+                            <Bar dataKey="count" fill="#c8441c" name="Quantity Sold" radius={[0, 4, 4, 0]} barSize={24}>
+                                <LabelList dataKey="count" position="right" fill="#3c2f2f" fontSize={12} />
+                            </Bar>
                         </BarChart>
                     </ResponsiveContainer>
                 </div>
                 <div className="bg-white p-6 rounded-lg border border-brand-tan">
                     <h3 className="text-lg font-semibold text-brand-brown mb-4">Full-Size Empanadas Sold</h3>
-                    <ResponsiveContainer width="100%" height={300}>
-                        <BarChart data={popularFullSizeProductsData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                            <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#3c2f2f' }} />
-                            <YAxis tick={{ fontSize: 12, fill: '#3c2f2f' }} />
-                            <Tooltip contentStyle={{ background: 'white', border: '1px solid #ddd', borderRadius: '0.5rem' }} />
+                    <ResponsiveContainer width="100%" height={fullChartHeight}>
+                        <BarChart 
+                            layout="vertical" 
+                            data={popularFullSizeProductsData} 
+                            margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
+                        >
+                            <CartesianGrid strokeDasharray="3 3" horizontal={false} vertical={true} />
+                            <XAxis type="number" tick={{ fontSize: 12, fill: '#3c2f2f' }} />
+                            <YAxis 
+                                dataKey="name" 
+                                type="category" 
+                                width={130} 
+                                tick={{ fontSize: 12, fill: '#3c2f2f' }} 
+                                interval={0}
+                            />
+                            <Tooltip cursor={{fill: 'transparent'}} contentStyle={{ background: 'white', border: '1px solid #ddd', borderRadius: '0.5rem' }} />
                             <Legend wrapperStyle={{fontSize: "14px"}}/>
-                            <Bar dataKey="count" fill="#e25e31" name="Quantity Sold" radius={[4, 4, 0, 0]} />
+                            <Bar dataKey="count" fill="#e25e31" name="Quantity Sold" radius={[0, 4, 4, 0]} barSize={24}>
+                                <LabelList dataKey="count" position="right" fill="#3c2f2f" fontSize={12} />
+                            </Bar>
                         </BarChart>
                     </ResponsiveContainer>
                 </div>
@@ -188,7 +216,7 @@ export default function DashboardMetrics({ stats, orders, empanadaFlavors, fullS
                     <h3 className="text-lg font-semibold text-brand-brown mb-4">Weekly Sales Volume</h3>
                     {weeklySalesData.length > 0 ? (
                         <ResponsiveContainer width="100%" height={300}>
-                            <LineChart data={weeklySalesData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                            <LineChart data={weeklySalesData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                                 <XAxis dataKey="weekLabel" tick={{ fontSize: 12, fill: '#3c2f2f' }} />
                                 <YAxis tick={{ fontSize: 12, fill: '#3c2f2f' }} />
