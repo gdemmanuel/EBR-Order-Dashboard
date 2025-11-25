@@ -28,11 +28,20 @@ export default function Header({ user, variant = 'public' }: HeaderProps) {
 
           {/* Public Center Logo */}
           {variant === 'public' && (
-             <div className="flex flex-col items-center group cursor-default">
-                <div className="h-32 w-32 rounded-full bg-brand-brown flex items-center justify-center shadow-md mb-3 transform group-hover:scale-105 transition-transform duration-300">
-                    <span className="text-brand-cream font-serif text-7xl pt-2 select-none">R</span>
+             <div className="flex flex-col items-center group cursor-default" aria-label="Empanadas by Rose">
+                <div className="relative h-40 w-40 rounded-full bg-brand-brown flex items-center justify-center shadow-xl overflow-hidden transform group-hover:scale-105 transition-transform duration-300 border-4 border-brand-brown">
+                    {/* The Large R */}
+                    <span className="text-brand-cream font-serif text-[9rem] leading-none mt-6 select-none opacity-100">R</span>
+                    
+                    {/* The Text Overlay */}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="w-full bg-brand-brown py-1 flex justify-center shadow-sm">
+                            <span className="text-brand-cream font-serif text-[0.65rem] sm:text-[0.7rem] tracking-[0.25em] uppercase font-semibold whitespace-nowrap">
+                                Empanadas by Rose
+                            </span>
+                        </div>
+                    </div>
                 </div>
-                <h1 className="text-3xl font-serif text-brand-brown tracking-widest uppercase text-center">Empanadas by Rose</h1>
              </div>
           )}
           
