@@ -365,7 +365,18 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
     };
 
     return (
-        <div className={`min-h-screen font-sans flex flex-col ${isEmbedded ? 'bg-white' : 'bg-brand-cream'}`}>
+        <div className={`font-sans flex flex-col ${isEmbedded ? 'h-auto bg-white' : 'min-h-screen bg-brand-cream'}`}>
+            {/* HIDE SCROLLBARS FOR EMBEDDED VIEW */}
+            {isEmbedded && (
+                <style>
+                    {`
+                        body { overflow-y: auto; }
+                        ::-webkit-scrollbar { width: 0px; background: transparent; }
+                        html { scrollbar-width: none; -ms-overflow-style: none; }
+                    `}
+                </style>
+            )}
+
             {!isEmbedded && <Header variant="public" />}
             
             {/* MOTD Banner */}
