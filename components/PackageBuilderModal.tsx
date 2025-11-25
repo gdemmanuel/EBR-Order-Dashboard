@@ -104,16 +104,6 @@ export default function PackageBuilderModal({ pkg, flavors, salsas = [], onClose
     const totalSelected = (Object.values(builderSelections) as number[]).reduce((a, b) => a + b, 0);
     const remaining = pkg.quantity - totalSelected;
     
-    // Calculate extra cost from Salsas
-    const extraCost = Object.entries(salsaSelections).reduce((sum, [name, qty]) => {
-        // We need to find the price. Since Flavor doesn't strictly have price in all interfaces,
-        // we rely on the logic that passed salsas have it, or we infer/display it.
-        // In this specific component, we might assume salsas passed in have the price in `surcharge` or similar
-        // if we reused the type, BUT for visual accuracy we should ideally have the price.
-        // For now, we just display quantity. The Parent handles the actual total price calc.
-        return sum; 
-    }, 0);
-
     return (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[70] p-4 animate-fade-in">
             <div className="bg-white rounded-lg shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]">
@@ -203,8 +193,8 @@ export default function PackageBuilderModal({ pkg, flavors, salsas = [], onClose
                             <div className="space-y-1">
                                 {salsas.map(salsa => {
                                     const qty = salsaSelections[salsa.name] || 0;
-                                    // @ts-ignore - Assuming price might be on the object if passed from parent correctly
-                                    const price = salsa.price !== undefined ? salsa.price : (salsa.surcharge || 0); 
+                                    // @ts-ignore - Handle legacy objects where price might be surcharge, default to 0 to prevent crash
+                                    const price = (typeof salsa.price === 'number' ? salsa.price : (salsa.surcharge || 0)) || 0;
 
                                     return (
                                         <div key={salsa.name} className="flex items-center justify-between py-2 border-b border-orange-100 last:border-0">

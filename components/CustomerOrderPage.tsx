@@ -347,7 +347,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                         {/* Duplicated content for seamless loop */}
                         {Array(10).fill(motd).map((msg, i) => (
                             <span key={`a-${i}`} className="mx-8 inline-flex items-center">
-                                <MegaphoneIcon className="w-4 h-4 mr-2" />{msg}
+                                <MegaphoneIcon className="w-4 h-4 mr-2" />{String(msg)}
                             </span>
                         ))}
                     </div>
@@ -355,7 +355,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                         {/* Duplicated content for seamless loop */}
                         {Array(10).fill(motd).map((msg, i) => (
                             <span key={`b-${i}`} className="mx-8 inline-flex items-center">
-                                <MegaphoneIcon className="w-4 h-4 mr-2" />{msg}
+                                <MegaphoneIcon className="w-4 h-4 mr-2" />{String(msg)}
                             </span>
                         ))}
                     </div>
@@ -559,7 +559,8 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                                         const salsa = safePricing.salsas.find(s => s.name === i.name);
                                         return sum + (salsa ? (salsa.price * i.quantity) : 0);
                                     }, 0);
-                                    const displayPrice = item.price + extraSalsaCost;
+                                    // Ensure displayPrice is a valid number
+                                    const displayPrice = (item.price || 0) + (extraSalsaCost || 0);
 
                                     return (
                                         <div key={item.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-gray-50 p-5 rounded-lg border border-gray-200 hover:shadow-md transition-all">
