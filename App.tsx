@@ -44,6 +44,10 @@ export default function App() {
       closedDays: [],
       dateOverrides: {}
   });
+  const [messageTemplates, setMessageTemplates] = useState<AppSettings['messageTemplates']>({
+      followUpNeeded: "Hi {firstName}! This is Rose from Empanadas by Rose. Thank you for placing an order. Please confirm your order for {deliveryType} on {date} at {time} as follows:\n{totals}\n{items}",
+      pendingConfirmation: "Perfect! The total is ${total}. Cash on {deliveryType}, please. I'll see you on {date} at {time}.\nThank you for your order!"
+  });
   const [laborWage, setLaborWage] = useState<number>(15.00);
   const [materialCosts, setMaterialCosts] = useState<Record<string, number>>({});
   const [discoCosts, setDiscoCosts] = useState<{mini: number, full: number}>({mini: 0.10, full: 0.15});
@@ -138,6 +142,10 @@ export default function App() {
                   pricing: { mini: { basePrice: 1.75 }, full: { basePrice: 3.00 }, packages: [], salsas: [], salsaSmall: 2.00, salsaLarge: 4.00 },
                   prepSettings: { lbsPer20: {}, fullSizeMultiplier: 2.0, discosPer: { mini: 1, full: 1 }, discoPackSize: { mini: 10, full: 10 }, productionRates: { mini: 40, full: 25 } },
                   scheduling: { enabled: true, intervalMinutes: 15, startTime: "09:00", endTime: "17:00", blockedDates: [], closedDays: [], dateOverrides: {} },
+                  messageTemplates: {
+                      followUpNeeded: "Hi {firstName}! This is Rose from Empanadas by Rose. Thank you for placing an order. Please confirm your order for {deliveryType} on {date} at {time} as follows:\n{totals}\n{items}",
+                      pendingConfirmation: "Perfect! The total is ${total}. Cash on {deliveryType}, please. I'll see you on {date} at {time}.\nThank you for your order!"
+                  },
                   laborWage: 15.00,
                   materialCosts: {},
                   discoCosts: { mini: 0.10, full: 0.15 },
@@ -171,6 +179,7 @@ export default function App() {
         
         if (settings.prepSettings) setPrepSettings(settings.prepSettings);
         if (settings.scheduling) setScheduling(settings.scheduling);
+        if (settings.messageTemplates) setMessageTemplates(settings.messageTemplates);
         if (settings.laborWage !== undefined) setLaborWage(settings.laborWage);
         if (settings.materialCosts) setMaterialCosts(settings.materialCosts);
         if (settings.discoCosts) setDiscoCosts(settings.discoCosts);
@@ -224,6 +233,7 @@ export default function App() {
       pricing: pricing || { mini: { basePrice: 1.75 }, full: { basePrice: 3.00 }, packages: [], salsas: [], salsaSmall: 2, salsaLarge: 4 },
       prepSettings,
       scheduling,
+      messageTemplates,
       laborWage,
       materialCosts,
       discoCosts,

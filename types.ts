@@ -79,6 +79,7 @@ export interface Flavor {
 export interface MenuPackage {
     id: string;
     name: string;
+    description?: string; // Optional description
     itemType: 'mini' | 'full';
     quantity: number;
     price: number;
@@ -160,7 +161,11 @@ export interface AppSettings {
         endTime: string;
         blockedDates: string[];
         closedDays: number[];
-        dateOverrides: Record<string, { isClosed: boolean; customHours?: { start: string; end: string; }; }>; 
+        dateOverrides: Record<string, { isClosed: boolean; isFull?: boolean; customHours?: { start: string; end: string; }; }>; 
+    };
+    messageTemplates: {
+        followUpNeeded: string;
+        pendingConfirmation: string;
     };
     laborWage: number; // Global default
     materialCosts: Record<string, number>; 

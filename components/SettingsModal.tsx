@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { AppSettings, updateSettingsInDb } from '../services/dbService';
 import { PricingSettings, MenuPackage, Flavor, SalsaProduct, PricingTier, Employee } from '../types';
-import { XMarkIcon, PlusIcon, TrashIcon, CheckCircleIcon, CogIcon, PencilIcon, ScaleIcon, CurrencyDollarIcon, ClockIcon, SparklesIcon, CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon, ReceiptIcon, UsersIcon, BriefcaseIcon, DocumentTextIcon, ListBulletIcon, MegaphoneIcon } from './icons/Icons';
+import { XMarkIcon, PlusIcon, TrashIcon, CheckCircleIcon, CogIcon, PencilIcon, ScaleIcon, CurrencyDollarIcon, ClockIcon, SparklesIcon, CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon, ReceiptIcon, UsersIcon, BriefcaseIcon, DocumentTextIcon, ListBulletIcon, MegaphoneIcon, ChatBubbleOvalLeftEllipsisIcon } from './icons/Icons';
 import { SUGGESTED_DESCRIPTIONS } from '../data/mockData';
 
 interface SettingsModalProps {
@@ -11,13 +11,19 @@ interface SettingsModalProps {
 }
 
 export default function SettingsModal({ settings, onClose }: SettingsModalProps) {
-    const [activeTab, setActiveTab] = useState<'general' | 'menu' | 'pricing' | 'prep' | 'costs' | 'scheduling' | 'expenses' | 'employees'>('general');
+    const [activeTab, setActiveTab] = useState<'general' | 'templates' | 'menu' | 'pricing' | 'prep' | 'costs' | 'scheduling' | 'expenses' | 'employees'>('general');
     
     // Local state for editing
     const [motd, setMotd] = useState(settings.motd || '');
     const [empanadaFlavors, setEmpanadaFlavors] = useState<Flavor[]>(settings.empanadaFlavors);
     const [pricing, setPricing] = useState<PricingSettings>(settings.pricing);
     
+    // Templates
+    const [templates, setTemplates] = useState(settings.messageTemplates || {
+        followUpNeeded: "Hi {firstName}! This is Rose from Empanadas by Rose. Thank you for placing an order. Please confirm your order for {deliveryType} on {date} at {time} as follows:\n{totals}\n{items}",
+        pendingConfirmation: "Perfect! The total is ${total}. Cash on {deliveryType}, please. I'll see you on {date} at {time}.\nThank you for your order!"
+    });
+
     // Prep Settings State
     const [prepSettings, setPrepSettings] = useState<AppSettings['prepSettings']>(settings.prepSettings || { 
         lbsPer20: {}, 
@@ -73,7 +79,8 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
         increment: 1,
         visible: true,
         isSpecial: false,
-        name: ''
+        name: '',
+        description: ''
     });
     const [editingPackageId, setEditingPackageId] = useState<string | null>(null);
 
@@ -168,6 +175,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                 pricing: sanitizedPricing,
                 prepSettings: sanitizedPrepSettings,
                 scheduling,
+                messageTemplates: templates,
                 laborWage: Number(laborWage) || 0,
                 materialCosts: sanitizedMaterialCosts,
                 discoCosts: sanitizedDiscoCosts,
@@ -195,15 +203,15 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
 
     const handleAddOrUpdatePackage = () => {
         if (!packageForm.name || !packageForm.price || !packageForm.quantity) return;
-        const pkg: MenuPackage = { id: editingPackageId || Date.now().toString(), name: packageForm.name, itemType: packageForm.itemType as 'mini'|'full', quantity: Number(packageForm.quantity), price: Number(packageForm.price), maxFlavors: Number(packageForm.maxFlavors)||Number(packageForm.quantity), increment: Number(packageForm.increment)||1, visible: packageForm.visible ?? true, isSpecial: packageForm.isSpecial ?? false };
+        const pkg: MenuPackage = { id: editingPackageId || Date.now().toString(), name: packageForm.name, description: packageForm.description, itemType: packageForm.itemType as 'mini'|'full', quantity: Number(packageForm.quantity), price: Number(packageForm.price), maxFlavors: Number(packageForm.maxFlavors)||Number(packageForm.quantity), increment: Number(packageForm.increment)||1, visible: packageForm.visible ?? true, isSpecial: packageForm.isSpecial ?? false };
         let updated = pricing.packages || [];
         updated = editingPackageId ? updated.map(p => p.id === editingPackageId ? pkg : p) : [...updated, pkg];
         setPricing({...pricing, packages: updated});
-        setPackageForm({ itemType: 'mini', quantity: 12, price: 20, maxFlavors: 4, increment: 1, visible: true, isSpecial: false, name: '' });
+        setPackageForm({ itemType: 'mini', quantity: 12, price: 20, maxFlavors: 4, increment: 1, visible: true, isSpecial: false, name: '', description: '' });
         setEditingPackageId(null);
     };
     const handleEditPackageClick = (pkg: MenuPackage) => { setPackageForm({ ...pkg, increment: pkg.increment || 10 }); setEditingPackageId(pkg.id); };
-    const removePackage = (id: string) => { setPricing({...pricing, packages: pricing.packages.filter(p => p.id !== id)}); if(editingPackageId === id) { setEditingPackageId(null); setPackageForm({ itemType: 'mini', quantity: 12, price: 20, maxFlavors: 4, increment: 1, visible: true, isSpecial: false, name: '' }); } };
+    const removePackage = (id: string) => { setPricing({...pricing, packages: pricing.packages.filter(p => p.id !== id)}); if(editingPackageId === id) { setEditingPackageId(null); setPackageForm({ itemType: 'mini', quantity: 12, price: 20, maxFlavors: 4, increment: 1, visible: true, isSpecial: false, name: '', description: '' }); } };
     const togglePackageVisibility = (id: string) => { setPricing({...pricing, packages: pricing.packages.map(p => p.id === id ? { ...p, visible: !p.visible } : p)}); };
     const addSalsa = () => { if (!newSalsaName || !newSalsaPrice) return; setPricing({...pricing, salsas: [...(pricing.salsas||[]), {id: `salsa-${Date.now()}`, name: newSalsaName, price: parseFloat(newSalsaPrice)||0, visible: true}]}); setNewSalsaName(''); setNewSalsaPrice(''); };
     const removeSalsa = (id: string) => { setPricing({...pricing, salsas: pricing.salsas.filter(s => s.id !== id)}); };
@@ -255,13 +263,15 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
         setSelectedDate(dateStr);
     };
 
-    const updateDateOverride = (dateStr: string, type: 'default' | 'closed' | 'custom', start?: string, end?: string) => {
+    const updateDateOverride = (dateStr: string, type: 'default' | 'closed' | 'full' | 'custom', start?: string, end?: string) => {
         const newOverrides = { ...(scheduling.dateOverrides || {}) };
         
         if (type === 'default') {
             delete newOverrides[dateStr];
         } else if (type === 'closed') {
             newOverrides[dateStr] = { isClosed: true };
+        } else if (type === 'full') {
+            newOverrides[dateStr] = { isClosed: false, isFull: true };
         } else if (type === 'custom') {
             newOverrides[dateStr] = { 
                 isClosed: false,
@@ -345,6 +355,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
 
     const tabs = [
         { id: 'general', label: 'General', icon: <MegaphoneIcon className="w-4 h-4" /> },
+        { id: 'templates', label: 'Templates', icon: <ChatBubbleOvalLeftEllipsisIcon className="w-4 h-4" /> },
         { id: 'menu', label: 'Menu Items', icon: <ListBulletIcon className="w-4 h-4" /> },
         { id: 'pricing', label: 'Pricing', icon: <CurrencyDollarIcon className="w-4 h-4" /> },
         { id: 'scheduling', label: 'Scheduling', icon: <CalendarDaysIcon className="w-4 h-4" /> },
@@ -409,6 +420,39 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                             </div>
                         )}
 
+                        {activeTab === 'templates' && (
+                            <div className="max-w-4xl mx-auto space-y-6">
+                                <div className="bg-white border border-gray-200 rounded-lg p-6">
+                                    <h3 className="font-bold text-brand-brown mb-2">Message Templates</h3>
+                                    <p className="text-sm text-gray-500 mb-6">Customize the default text messages generated for different order statuses. Use placeholders like <code>{'{name}'}</code>, <code>{'{date}'}</code>, <code>{'{time}'}</code>, <code>{'{total}'}</code>.</p>
+                                    
+                                    <div className="space-y-6">
+                                        <div>
+                                            <label className="block text-sm font-bold text-brand-brown/90 mb-1">Follow-up Needed Template</label>
+                                            <p className="text-xs text-gray-500 mb-2">Sent when you need the customer to confirm their order details.</p>
+                                            <textarea
+                                                rows={5}
+                                                value={templates.followUpNeeded}
+                                                onChange={(e) => setTemplates({...templates, followUpNeeded: e.target.value})}
+                                                className="w-full rounded-md border-gray-300 shadow-sm focus:ring-brand-orange focus:border-brand-orange text-sm font-mono"
+                                            />
+                                        </div>
+                                        
+                                        <div>
+                                            <label className="block text-sm font-bold text-brand-brown/90 mb-1">Pending Confirmation Template</label>
+                                            <p className="text-xs text-gray-500 mb-2">Sent when you have confirmed the order availability and price.</p>
+                                            <textarea
+                                                rows={5}
+                                                value={templates.pendingConfirmation}
+                                                onChange={(e) => setTemplates({...templates, pendingConfirmation: e.target.value})}
+                                                className="w-full rounded-md border-gray-300 shadow-sm focus:ring-brand-orange focus:border-brand-orange text-sm font-mono"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         {activeTab === 'menu' && (
                             <div className="grid grid-cols-1 gap-8 max-w-4xl">
                                 <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
@@ -459,8 +503,28 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                 </div>
                                 <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
                                     <div className="flex justify-between items-center mb-4"><div><h3 className="font-bold text-brand-brown">Menu Packages</h3><p className="text-sm text-gray-500">Configure bundles and deals.</p></div></div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4"><input type="text" placeholder="Package Name (e.g. Dozen)" value={packageForm.name} onChange={(e) => setPackageForm({...packageForm, name: e.target.value})} className="rounded-md border-gray-300 shadow-sm focus:ring-brand-orange focus:border-brand-orange text-sm"/><div className="flex gap-2"><select value={packageForm.itemType} onChange={(e) => setPackageForm({...packageForm, itemType: e.target.value as 'mini'|'full'})} className="rounded-md border-gray-300 shadow-sm focus:ring-brand-orange focus:border-brand-orange text-sm"><option value="mini">Mini</option><option value="full">Full-Size</option></select><div className="relative w-full"><span className="absolute left-2 top-2 text-gray-500 text-sm">Qty</span><input type="number" placeholder="Qty" value={packageForm.quantity} onChange={(e) => setPackageForm({...packageForm, quantity: parseInt(e.target.value)})} className="w-full pl-10 rounded-md border-gray-300 shadow-sm focus:ring-brand-orange focus:border-brand-orange text-sm"/></div></div><div className="flex gap-2"><div className="relative w-full"><span className="absolute left-2 top-2 text-gray-500 text-sm">$</span><input type="number" step="0.01" placeholder="Price" value={packageForm.price} onChange={(e) => setPackageForm({...packageForm, price: parseFloat(e.target.value)})} className="w-full pl-6 rounded-md border-gray-300 shadow-sm focus:ring-brand-orange focus:border-brand-orange text-sm"/></div><div className="relative w-full"><span className="absolute left-2 top-2 text-gray-500 text-sm">Max Flavors</span><input type="number" placeholder="Max Flavors" value={packageForm.maxFlavors} onChange={(e) => setPackageForm({...packageForm, maxFlavors: parseInt(e.target.value)})} className="w-full pl-24 rounded-md border-gray-300 shadow-sm focus:ring-brand-orange focus:border-brand-orange text-sm"/></div></div><div className="flex gap-2 items-center"><div className="relative w-32"><span className="absolute left-2 top-2 text-gray-500 text-sm">Step</span><input type="number" min="1" placeholder="Inc" value={packageForm.increment} onChange={(e) => setPackageForm({...packageForm, increment: parseInt(e.target.value)})} className="w-full pl-12 rounded-md border-gray-300 shadow-sm focus:ring-brand-orange focus:border-brand-orange text-sm" title="Increment Amount"/></div><div className="flex items-center"><input type="checkbox" id="pkgSpecial" checked={packageForm.isSpecial || false} onChange={(e) => setPackageForm({...packageForm, isSpecial: e.target.checked})} className="mr-2 rounded text-purple-600 focus:ring-purple-600"/><label htmlFor="pkgSpecial" className="text-sm text-gray-700">Is Special/Platter?</label></div><button onClick={handleAddOrUpdatePackage} className="flex-grow bg-brand-brown text-white px-4 py-2 rounded-md hover:bg-opacity-90 text-sm">{editingPackageId ? 'Update Package' : 'Add Package'}</button></div></div>
-                                    <div className="space-y-2">{pricing.packages?.map(pkg => (<div key={pkg.id} className={`p-3 rounded border flex justify-between items-center ${pkg.isSpecial ? 'bg-purple-50 border-purple-200' : 'bg-white border-gray-200'}`}><div><span className={`font-bold block ${!pkg.visible ? 'text-gray-400 line-through' : 'text-brand-brown'}`}>{pkg.name}</span><span className="text-xs text-gray-500">{pkg.quantity} {pkg.itemType} for ${pkg.price.toFixed(2)} (Max {pkg.maxFlavors} flavors) {pkg.isSpecial && <span className="text-purple-600 font-bold ml-1">SPECIAL</span>}</span></div><div className="flex gap-2"><button onClick={() => togglePackageVisibility(pkg.id)} className={`text-xs px-2 py-1 rounded ${pkg.visible ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>{pkg.visible ? 'Visible' : 'Hidden'}</button><button onClick={() => handleEditPackageClick(pkg)} className="text-blue-500 hover:text-blue-700"><PencilIcon className="w-4 h-4" /></button><button onClick={() => removePackage(pkg.id)} className="text-red-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button></div></div>))}</div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                        <div className="md:col-span-2">
+                                            <input type="text" placeholder="Package Name (e.g. Dozen)" value={packageForm.name} onChange={(e) => setPackageForm({...packageForm, name: e.target.value})} className="w-full rounded-md border-gray-300 shadow-sm focus:ring-brand-orange focus:border-brand-orange text-sm"/>
+                                        </div>
+                                        <div className="md:col-span-2">
+                                            <input type="text" placeholder="Description (e.g. Great for parties!)" value={packageForm.description || ''} onChange={(e) => setPackageForm({...packageForm, description: e.target.value})} className="w-full rounded-md border-gray-300 shadow-sm focus:ring-brand-orange focus:border-brand-orange text-sm"/>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <select value={packageForm.itemType} onChange={(e) => setPackageForm({...packageForm, itemType: e.target.value as 'mini'|'full'})} className="rounded-md border-gray-300 shadow-sm focus:ring-brand-orange focus:border-brand-orange text-sm"><option value="mini">Mini</option><option value="full">Full-Size</option></select>
+                                            <div className="relative w-full"><span className="absolute left-2 top-2 text-gray-500 text-sm">Qty</span><input type="number" placeholder="Qty" value={packageForm.quantity} onChange={(e) => setPackageForm({...packageForm, quantity: parseInt(e.target.value)})} className="w-full pl-10 rounded-md border-gray-300 shadow-sm focus:ring-brand-orange focus:border-brand-orange text-sm"/></div>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <div className="relative w-full"><span className="absolute left-2 top-2 text-gray-500 text-sm">$</span><input type="number" step="0.01" placeholder="Price" value={packageForm.price} onChange={(e) => setPackageForm({...packageForm, price: parseFloat(e.target.value)})} className="w-full pl-6 rounded-md border-gray-300 shadow-sm focus:ring-brand-orange focus:border-brand-orange text-sm"/></div>
+                                            <div className="relative w-full"><span className="absolute left-2 top-2 text-gray-500 text-sm">Max Flavors</span><input type="number" placeholder="Max Flavors" value={packageForm.maxFlavors} onChange={(e) => setPackageForm({...packageForm, maxFlavors: parseInt(e.target.value)})} className="w-full pl-24 rounded-md border-gray-300 shadow-sm focus:ring-brand-orange focus:border-brand-orange text-sm"/></div>
+                                        </div>
+                                        <div className="flex gap-2 items-center">
+                                            <div className="relative w-32"><span className="absolute left-2 top-2 text-gray-500 text-sm">Step</span><input type="number" min="1" placeholder="Inc" value={packageForm.increment} onChange={(e) => setPackageForm({...packageForm, increment: parseInt(e.target.value)})} className="w-full pl-12 rounded-md border-gray-300 shadow-sm focus:ring-brand-orange focus:border-brand-orange text-sm" title="Increment Amount"/></div>
+                                            <div className="flex items-center"><input type="checkbox" id="pkgSpecial" checked={packageForm.isSpecial || false} onChange={(e) => setPackageForm({...packageForm, isSpecial: e.target.checked})} className="mr-2 rounded text-purple-600 focus:ring-purple-600"/><label htmlFor="pkgSpecial" className="text-sm text-gray-700">Is Special/Platter?</label></div>
+                                            <button onClick={handleAddOrUpdatePackage} className="flex-grow bg-brand-brown text-white px-4 py-2 rounded-md hover:bg-opacity-90 text-sm">{editingPackageId ? 'Update Package' : 'Add Package'}</button>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">{pricing.packages?.map(pkg => (<div key={pkg.id} className={`p-3 rounded border flex justify-between items-center ${pkg.isSpecial ? 'bg-purple-50 border-purple-200' : 'bg-white border-gray-200'}`}><div><span className={`font-bold block ${!pkg.visible ? 'text-gray-400 line-through' : 'text-brand-brown'}`}>{pkg.name}</span><span className="text-xs text-gray-500 block">{pkg.quantity} {pkg.itemType} for ${pkg.price.toFixed(2)} (Max {pkg.maxFlavors} flavors) {pkg.isSpecial && <span className="text-purple-600 font-bold ml-1">SPECIAL</span>}</span>{pkg.description && <span className="text-xs text-gray-400 italic">{pkg.description}</span>}</div><div className="flex gap-2"><button onClick={() => togglePackageVisibility(pkg.id)} className={`text-xs px-2 py-1 rounded ${pkg.visible ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>{pkg.visible ? 'Visible' : 'Hidden'}</button><button onClick={() => handleEditPackageClick(pkg)} className="text-blue-500 hover:text-blue-700"><PencilIcon className="w-4 h-4" /></button><button onClick={() => removePackage(pkg.id)} className="text-red-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button></div></div>))}</div>
                                 </div>
                                 <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
                                     <h3 className="font-bold text-brand-brown mb-2">Salsas & Extras</h3><div className="flex gap-2 mb-4"><input type="text" placeholder="Name" value={newSalsaName} onChange={(e) => setNewSalsaName(e.target.value)} className="flex-grow rounded-md border-gray-300 shadow-sm focus:ring-brand-orange focus:border-brand-orange text-sm"/><input type="number" step="0.01" placeholder="Price" value={newSalsaPrice} onChange={(e) => setNewSalsaPrice(e.target.value)} className="w-24 rounded-md border-gray-300 shadow-sm focus:ring-brand-orange focus:border-brand-orange text-sm"/><button onClick={addSalsa} className="bg-brand-orange text-white px-3 rounded-md hover:bg-opacity-90"><PlusIcon className="w-5 h-5" /></button></div><div className="space-y-2">{pricing.salsas?.map(s => (<div key={s.id} className="bg-white p-2 rounded shadow-sm flex justify-between items-center text-sm"><div><span className={`font-medium ${!s.visible ? 'text-gray-400 line-through' : ''}`}>{s.name}</span></div><div className="flex items-center gap-2"><input type="number" step="0.01" value={s.price} onChange={(e) => updateSalsaPrice(s.id, e.target.value)} className="w-16 text-xs border-gray-200 rounded"/><button onClick={() => toggleSalsaVisibility(s.id)} className={`text-xs px-2 py-1 rounded ${s.visible ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>{s.visible ? 'Visible' : 'Hidden'}</button><button onClick={() => removeSalsa(s.id)} className="text-red-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button></div></div>))}</div>
@@ -593,6 +657,10 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                                         bgClass = 'bg-red-50 hover:bg-red-100';
                                                         textClass = 'text-red-700 font-bold';
                                                         borderClass = 'border-red-200';
+                                                    } else if (override.isFull) {
+                                                        bgClass = 'bg-amber-50 hover:bg-amber-100';
+                                                        textClass = 'text-amber-700 font-bold';
+                                                        borderClass = 'border-amber-200';
                                                     } else {
                                                         bgClass = 'bg-green-50 hover:bg-green-100';
                                                         textClass = 'text-green-700 font-bold';
@@ -614,7 +682,8 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                                         className={`h-10 text-xs rounded border ${bgClass} ${textClass} ${borderClass} flex flex-col items-center justify-center transition-all`}
                                                     >
                                                         {date.getDate()}
-                                                        {override && !override.isClosed && <span className="text-[8px] leading-none">Custom</span>}
+                                                        {override && !override.isClosed && !override.isFull && <span className="text-[8px] leading-none">Custom</span>}
+                                                        {override && override.isFull && <span className="text-[8px] leading-none">Full</span>}
                                                         {override && override.isClosed && <span className="text-[8px] leading-none">Closed</span>}
                                                     </button>
                                                 );
@@ -624,9 +693,10 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                     {selectedDate && (
                                         <div className="p-4 bg-gray-50 border-t border-gray-200">
                                             <p className="font-bold text-sm text-brand-brown mb-2">Settings for {selectedDate}</p>
-                                            <div className="flex gap-2">
+                                            <div className="flex gap-2 flex-wrap">
                                                 <button onClick={() => updateDateOverride(selectedDate, 'default')} className="flex-1 text-xs bg-white border border-gray-300 px-2 py-1.5 rounded hover:bg-gray-100">Default</button>
                                                 <button onClick={() => updateDateOverride(selectedDate, 'closed')} className="flex-1 text-xs bg-red-100 text-red-700 border border-red-200 px-2 py-1.5 rounded hover:bg-red-200">Force Close</button>
+                                                <button onClick={() => updateDateOverride(selectedDate, 'full')} className="flex-1 text-xs bg-amber-100 text-amber-700 border border-amber-200 px-2 py-1.5 rounded hover:bg-amber-200">Mark Full</button>
                                                 <button onClick={() => updateDateOverride(selectedDate, 'custom')} className="flex-1 text-xs bg-green-100 text-green-700 border border-green-200 px-2 py-1.5 rounded hover:bg-green-200">Custom Hours</button>
                                             </div>
                                             {scheduling.dateOverrides?.[selectedDate]?.customHours && (

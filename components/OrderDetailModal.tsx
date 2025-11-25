@@ -1,7 +1,8 @@
 
-import React, { useState, useCallback } from 'react';
-import { Order, FollowUpStatus, ApprovalStatus } from '../types';
+import React, { useState, useCallback, useEffect } from 'react';
+import { Order, FollowUpStatus, ApprovalStatus, AppSettings } from '../types';
 import { generateMessageForOrder } from '../services/geminiService';
+import { subscribeToSettings } from '../services/dbService';
 import { CalendarIcon, ClockIcon, UserIcon, PhoneIcon, MapPinIcon, CurrencyDollarIcon, SparklesIcon, XMarkIcon, PencilIcon, ClipboardDocumentCheckIcon, PaperAirplaneIcon, CreditCardIcon, ArrowTopRightOnSquareIcon, InstagramIcon, ChatBubbleOvalLeftEllipsisIcon, FacebookIcon, CheckCircleIcon, XCircleIcon, TrashIcon, TruckIcon } from './icons/Icons';
 
 interface OrderDetailModalProps {
@@ -33,6 +34,12 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
   const [loadingAction, setLoadingAction] = useState<'message' | 'inventory' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copiedState, setCopiedState] = useState<'instagram' | 'facebook' | null>(null);
+  const [settings, setSettings] = useState<AppSettings | null>(null);
+
+  useEffect(() => {
+      const unsubscribe = subscribeToSettings((s) => setSettings(s));
+      return () => unsubscribe();
+  }, []);
 
   const mapsUrl = order.deliveryAddress ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.deliveryAddress)}` : '#';
 
@@ -41,7 +48,8 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
     setError(null);
     setGeneratedMessage('');
     try {
-      const message = await generateMessageForOrder(order);
+      // Pass custom templates if available
+      const message = await generateMessageForOrder(order, settings?.messageTemplates);
       setGeneratedMessage(message);
     } catch (err) {
       setError('Failed to generate message. Please check your API key and try again.');
@@ -49,7 +57,7 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
     } finally {
       setLoadingAction(null);
     }
-  }, [order]);
+  }, [order, settings]);
   
   const handleStatusChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
       const newStatus = e.target.value as FollowUpStatus;

@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { Order, Expense, FollowUpStatus } from '../types';
 import { parseOrderDateTime } from '../utils/dateUtils';
@@ -24,7 +25,7 @@ const getApiKey = () => {
 
 const ai = new GoogleGenAI({ apiKey: getApiKey() });
 
-export async function generateMessageForOrder(order: Order): Promise<string> {
+export async function generateMessageForOrder(order: Order, templates?: { followUpNeeded?: string; pendingConfirmation?: string }): Promise<string> {
     const status = order.followUpStatus;
     const firstName = order.customerName.split(' ')[0];
     const deliveryType = order.deliveryRequired ? 'delivery' : 'pick up';
@@ -41,8 +42,33 @@ export async function generateMessageForOrder(order: Order): Promise<string> {
         console.warn("Date parsing error", e);
     }
 
+    const replacePlaceholders = (template: string) => {
+        let itemsText = "";
+        if (order.totalMini > 0 && order.totalFullSize === 0) {
+            itemsText = `${order.totalMini} total mini empanadas`;
+        } else if (order.totalFullSize > 0 && order.totalMini === 0) {
+            itemsText = `${order.totalFullSize} total full-size empanadas`;
+        } else {
+            itemsText = `${order.totalMini} mini and ${order.totalFullSize} full-size empanadas`;
+        }
+        const itemsList = order.items.map(item => `${item.quantity} ${item.name}`).join('\n');
+
+        return template
+            .replace(/{firstName}|{{firstName}}/g, firstName)
+            .replace(/{name}|{{name}}/g, order.customerName)
+            .replace(/{date}|{{date}}/g, dateString)
+            .replace(/{time}|{{time}}/g, order.pickupTime)
+            .replace(/{deliveryType}|{{deliveryType}}/g, deliveryType)
+            .replace(/{total}|{{total}}/g, order.amountCharged.toFixed(2))
+            .replace(/{totals}|{{totals}}/g, itemsText)
+            .replace(/{items}|{{items}}/g, itemsList);
+    };
+
     if (status === FollowUpStatus.NEEDED) {
-        // Strict Template for Follow-up Needed
+        if (templates?.followUpNeeded) {
+            return replacePlaceholders(templates.followUpNeeded);
+        }
+        // Fallback
         let totalsText = "";
         if (order.totalMini > 0 && order.totalFullSize === 0) {
             totalsText = `${order.totalMini} total mini empanadas`;
@@ -51,16 +77,15 @@ export async function generateMessageForOrder(order: Order): Promise<string> {
         } else {
             totalsText = `${order.totalMini} mini and ${order.totalFullSize} full-size empanadas`;
         }
-
         const itemsList = order.items.map(item => `${item.quantity} ${item.name}`).join('\n');
-
-        return `Hi ${firstName}! This is Rose from Empanadas by Rose. Thank you for placing an order. Please confirm your order for ${deliveryType} on ${dateString} at ${order.pickupTime} as follows:
-${totalsText}
-${itemsList}`;
+        return `Hi ${firstName}! This is Rose from Empanadas by Rose. Thank you for placing an order. Please confirm your order for ${deliveryType} on ${dateString} at ${order.pickupTime} as follows:\n${totalsText}\n${itemsList}`;
     }
 
     if (status === FollowUpStatus.PENDING) {
-        // Strict Template for Pending (Confirmation)
+        if (templates?.pendingConfirmation) {
+            return replacePlaceholders(templates.pendingConfirmation);
+        }
+        // Fallback
         return `Perfect! The total is $${order.amountCharged.toFixed(2)}. Cash on ${deliveryType}, please. I'll see you on ${dateString} at ${order.pickupTime}.
 Thank you for your order!`;
     }
