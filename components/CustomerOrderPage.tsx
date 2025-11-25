@@ -52,32 +52,32 @@ const formatPhoneNumber = (value: string) => {
     return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`;
 };
 
-// --- Receipt Component ---
-const ReceiptCard = ({ order, location }: { order: Order, location: 'top' | 'bottom' }) => {
+// --- Receipt Component (Inline Version) ---
+const InlineReceiptCard = ({ order }: { order: Order }) => {
     return (
-        <div className={`bg-white w-full max-w-md rounded-xl shadow-xl border-t-8 border-brand-orange overflow-hidden relative ${location === 'top' ? 'mb-8' : 'mt-8'}`}>
+        <div className="bg-white w-full rounded-xl shadow-xl border-t-8 border-brand-orange overflow-hidden relative animate-fade-in mt-8 mb-12">
             {/* Success Header */}
-            <div className="bg-green-50 p-6 text-center border-b border-green-100">
-                <div className="mx-auto bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mb-3 shadow-sm">
+            <div className="bg-green-50 p-8 text-center border-b border-green-100">
+                <div className="mx-auto bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mb-4 shadow-sm">
                     <CheckCircleIcon className="w-8 h-8 text-green-600" />
                 </div>
-                <h2 className="text-2xl font-serif text-brand-brown mb-1">Order Received!</h2>
-                <p className="text-sm text-brand-brown/70">
+                <h2 className="text-2xl font-serif text-brand-brown mb-2">Order Received!</h2>
+                <p className="text-brand-brown/70">
                     Thank you, <strong>{order.customerName.split(' ')[0]}</strong>.
                 </p>
-                <p className="text-xs text-gray-500 mt-1">We'll contact you at {order.phoneNumber} shortly.</p>
+                <p className="text-xs text-gray-500 mt-2">We'll contact you at {order.phoneNumber} shortly.</p>
             </div>
 
             {/* Receipt Details */}
-            <div className="p-5 space-y-4">
-                <div className="flex justify-between items-center text-sm border-b border-dashed border-gray-200 pb-3">
+            <div className="p-6 space-y-6">
+                <div className="flex justify-between items-center text-sm border-b border-dashed border-gray-200 pb-4">
                     <span className="text-gray-500 font-medium">Pickup Time</span>
-                    <span className="font-bold text-brand-brown">{order.pickupDate} @ {order.pickupTime}</span>
+                    <span className="font-bold text-brand-brown text-base">{order.pickupDate} @ {order.pickupTime}</span>
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-3">
                     <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Order Summary</p>
-                    <div className="max-h-48 overflow-y-auto pr-2 space-y-2 custom-scrollbar">
+                    <div className="max-h-60 overflow-y-auto pr-2 space-y-2 custom-scrollbar">
                         {order.items.map((item, idx) => (
                             <div key={idx} className="flex justify-between text-sm items-start">
                                 <span className="text-gray-700 font-medium">{item.name}</span>
@@ -87,25 +87,25 @@ const ReceiptCard = ({ order, location }: { order: Order, location: 'top' | 'bot
                     </div>
                 </div>
 
-                <div className="border-t border-gray-200 pt-3 flex justify-between items-end">
+                <div className="border-t border-gray-200 pt-4 flex justify-between items-end">
                     <span className="font-bold text-brand-brown text-lg">Total</span>
                     <div className="text-right">
-                        <span className="text-2xl font-serif font-bold text-brand-orange">${order.amountCharged.toFixed(2)}</span>
+                        <span className="text-3xl font-serif font-bold text-brand-orange">${order.amountCharged.toFixed(2)}</span>
                         {order.deliveryRequired && <p className="text-[10px] text-gray-400 uppercase">Includes Delivery</p>}
                     </div>
                 </div>
             </div>
 
             {/* Action */}
-            <div className="p-5 bg-gray-50 border-t border-gray-100">
+            <div className="p-6 bg-gray-50 border-t border-gray-100">
                 <a 
                     href="https://www.empanadasbyrose.com" 
                     target="_top"
-                    className="block w-full bg-brand-brown text-white font-serif py-3 rounded-lg text-center hover:bg-brand-brown/90 transition-all uppercase tracking-wider text-sm font-bold shadow-md no-underline flex items-center justify-center gap-2"
+                    className="block w-full bg-brand-brown text-white font-serif py-4 rounded-lg text-center hover:bg-brand-brown/90 transition-all uppercase tracking-wider text-sm font-bold shadow-md no-underline flex items-center justify-center gap-2"
                 >
-                    <ArrowUturnLeftIcon className="w-4 h-4" /> Return to Website
+                    <ArrowUturnLeftIcon className="w-5 h-5" /> Return to Website
                 </a>
-                <div className="mt-3 text-center">
+                <div className="mt-4 text-center">
                         <button 
                         onClick={() => window.location.reload()} 
                         className="text-brand-orange hover:underline text-xs font-medium"
@@ -330,7 +330,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
             setLastOrder(newOrder);
             setIsSubmitted(true);
             
-            // Attempt scroll to top
+            // Attempt scroll to top for good measure, but don't rely on it
             window.scrollTo(0, 0);
 
         } catch (err: any) {
@@ -341,6 +341,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
             setIsSubmitting(false);
         }
     };
+
     
     const miniPackages = safePricing.packages?.filter(p => p.itemType === 'mini' && p.visible && !p.isSpecial) || [];
     const fullPackages = safePricing.packages?.filter(p => p.itemType === 'full' && p.visible && !p.isSpecial) || [];
@@ -367,7 +368,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
     };
 
     return (
-        <div className={`font-sans flex flex-col ${isEmbedded ? 'bg-white' : 'min-h-screen bg-brand-cream'}`}>
+        <div className={`font-sans flex flex-col ${isEmbedded ? 'h-auto bg-white' : 'min-h-screen bg-brand-cream'}`}>
             {/* AGGRESSIVE SCROLLBAR HIDING for Embedded View */}
             {isEmbedded && (
                 <style>
@@ -410,7 +411,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                 </div>
             )}
 
-            <main className={`max-w-5xl mx-auto px-4 ${isEmbedded ? 'py-2' : 'py-12'} pb-32 w-full`}>
+            <main className={`max-w-5xl mx-auto px-4 ${isEmbedded ? 'py-2 pb-12' : 'py-12 pb-32'} w-full`}>
                 {error && (
                     <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-lg text-center mb-8" role="alert">
                         <strong className="block font-bold mb-1">Oops!</strong>
@@ -418,12 +419,14 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                     </div>
                 )}
 
-                {/* RECEIPT AT TOP (Just in case user scrolled up) */}
+                {/* BACKUP RECEIPT AT TOP (Just in case user scrolled up) */}
                 {isSubmitted && lastOrder && (
-                    <ReceiptCard order={lastOrder} location="top" />
+                    <div className="mb-8 opacity-80 md:hidden">
+                        <InlineReceiptCard order={lastOrder} />
+                    </div>
                 )}
 
-                <form onSubmit={handleSubmit} className={`space-y-16 ${isSubmitted ? 'opacity-40 pointer-events-none grayscale transition-opacity duration-1000' : ''}`}>
+                <form onSubmit={handleSubmit} className={`space-y-16 ${isSubmitted ? 'opacity-30 pointer-events-none grayscale transition-opacity duration-1000' : ''}`}>
                     
                     {/* FLAVORS SECTION */}
                     <section>
@@ -722,7 +725,10 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                     {/* Sticky Footer Total */}
                     {/* ONLY SHOW IF NOT SUBMITTED - Otherwise replaced by receipt inline */}
                     {!isSubmitted && (
-                        <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-gray-200 p-4 sm:p-6 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-20">
+                        <div className={isEmbedded 
+                            ? "mt-8 bg-gray-50 border-t border-brand-tan p-6 rounded-lg" 
+                            : "fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-gray-200 p-4 sm:p-6 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-20"
+                        }>
                             <div className="max-w-5xl mx-auto flex flex-row justify-between items-center gap-4">
                                 <div className="text-left">
                                     <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Estimated Total</p>
@@ -740,9 +746,9 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                     )}
                 </form>
 
-                {/* RECEIPT AT BOTTOM (Where user clicked submit) */}
+                {/* MAIN INLINE RECEIPT (Replaces Button) */}
                 {isSubmitted && lastOrder && (
-                    <ReceiptCard order={lastOrder} location="bottom" />
+                    <InlineReceiptCard order={lastOrder} />
                 )}
 
                 {activePackageBuilder && (
