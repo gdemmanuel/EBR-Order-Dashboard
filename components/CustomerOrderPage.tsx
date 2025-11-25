@@ -52,6 +52,44 @@ const formatPhoneNumber = (value: string) => {
     return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`;
 };
 
+const SuccessCard = ({ customerName, phoneNumber }: { customerName: string, phoneNumber: string }) => (
+    <div className="max-w-lg w-full bg-white p-8 rounded-xl shadow-2xl border-t-4 border-brand-orange mx-auto my-8 relative z-10">
+        <div className="bg-green-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+            <CheckCircleIcon className="w-10 h-10 text-green-700" />
+        </div>
+        <h2 className="text-3xl font-serif text-brand-brown mb-4 text-center">Order Received!</h2>
+        <p className="text-brand-brown/80 mb-8 text-lg font-light text-center">
+            Thank you, {customerName}. We've received your order. We'll contact you shortly at <strong>{phoneNumber}</strong> to confirm details.
+        </p>
+        
+        <div className="bg-gray-50 p-4 rounded-lg mb-6 border border-gray-200">
+            <p className="text-sm text-gray-500 font-medium mb-2 text-center">Redirecting to home page...</p>
+            <div className="w-full bg-gray-200 rounded-full h-1.5">
+                <div className="bg-brand-orange h-1.5 rounded-full animate-[width_4s_linear_forwards]" style={{width: '0%'}}></div>
+            </div>
+        </div>
+
+        <a 
+            href="https://www.empanadasbyrose.com" 
+            target="_top"
+            className="block w-full bg-brand-brown text-white font-serif px-8 py-4 rounded hover:bg-brand-brown/90 transition-all uppercase tracking-wider text-sm shadow-md cursor-pointer no-underline mb-4 text-center"
+        >
+            <div className="flex items-center justify-center gap-2">
+                <ArrowUturnLeftIcon className="w-5 h-5" /> Return to Website
+            </div>
+        </a>
+        
+        <div className="text-center">
+            <button 
+                onClick={() => window.location.reload()} 
+                className="text-brand-orange hover:underline text-sm font-medium"
+            >
+                Place Another Order
+            </button>
+        </div>
+    </div>
+);
+
 export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFlavors, pricing, scheduling, busySlots = [], motd }: CustomerOrderPageProps) {
     const [searchParams] = useSearchParams();
     const isEmbedded = searchParams.get('embed') === 'true';
@@ -304,75 +342,36 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
     };
 
     if (isSubmitted) {
-        const SuccessCard = () => (
-            <div className="max-w-lg w-full bg-white p-8 rounded-xl shadow-2xl border-t-4 border-brand-orange mx-auto my-8 relative z-10">
-                <div className="bg-green-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <CheckCircleIcon className="w-10 h-10 text-green-700" />
-                </div>
-                <h2 className="text-3xl font-serif text-brand-brown mb-4 text-center">Order Received!</h2>
-                <p className="text-brand-brown/80 mb-8 text-lg font-light text-center">
-                    Thank you, {customerName}. We've received your order. We'll contact you shortly at <strong>{phoneNumber}</strong> to confirm details.
-                </p>
-                
-                <div className="bg-gray-50 p-4 rounded-lg mb-6 border border-gray-200">
-                    <p className="text-sm text-gray-500 font-medium mb-2 text-center">Redirecting to home page...</p>
-                    <div className="w-full bg-gray-200 rounded-full h-1.5">
-                        <div className="bg-brand-orange h-1.5 rounded-full animate-[width_4s_linear_forwards]" style={{width: '0%'}}></div>
-                    </div>
-                </div>
-
-                <a 
-                    href="https://www.empanadasbyrose.com" 
-                    target="_top"
-                    className="block w-full bg-brand-brown text-white font-serif px-8 py-4 rounded hover:bg-brand-brown/90 transition-all uppercase tracking-wider text-sm shadow-md cursor-pointer no-underline mb-4 text-center"
-                >
-                    <div className="flex items-center justify-center gap-2">
-                        <ArrowUturnLeftIcon className="w-5 h-5" /> Return to Website
-                    </div>
-                </a>
-                
-                <div className="text-center">
-                    <button 
-                        onClick={() => window.location.reload()} 
-                        className="text-brand-orange hover:underline text-sm font-medium"
-                    >
-                        Place Another Order
-                    </button>
-                </div>
-            </div>
-        );
-
-        // NOTE: We removed `animate-fade-in` class to prevent invisibility issues.
         return (
-            <div className="min-h-screen bg-brand-cream w-full flex flex-col items-center border-t border-brand-tan">
+            <div className="min-h-screen bg-brand-cream w-full flex flex-col items-center border-t border-brand-tan pb-20">
                 {/* 
                    AGGRESSIVE VISIBILITY STRATEGY:
-                   Render the success card continuously down the page.
-                   We use a cream background to distinguish from potential white iframe background issues.
-                   Cards repeat every ~300px to guarantee visibility on any screen size or scroll position.
+                   Render the success card continuously down the page (5 times).
+                   This ensures that no matter what "Height" GoDaddy forces on the iframe (1200, 2000, 5000),
+                   or where the user is scrolled, they see the confirmation.
                 */}
                 
-                <SuccessCard />
+                <SuccessCard customerName={customerName} phoneNumber={phoneNumber} />
                 
                 <div className="h-64 w-full flex justify-center items-center opacity-20">
                     <CheckCircleIcon className="w-12 h-12 text-brand-brown" />
                 </div>
-                <SuccessCard />
+                <SuccessCard customerName={customerName} phoneNumber={phoneNumber} />
                 
                 <div className="h-64 w-full flex justify-center items-center opacity-20">
                     <CheckCircleIcon className="w-12 h-12 text-brand-brown" />
                 </div>
-                <SuccessCard />
+                <SuccessCard customerName={customerName} phoneNumber={phoneNumber} />
                 
                 <div className="h-64 w-full flex justify-center items-center opacity-20">
                     <CheckCircleIcon className="w-12 h-12 text-brand-brown" />
                 </div>
-                <SuccessCard />
+                <SuccessCard customerName={customerName} phoneNumber={phoneNumber} />
 
                 <div className="h-64 w-full flex justify-center items-center opacity-20">
                     <CheckCircleIcon className="w-12 h-12 text-brand-brown" />
                 </div>
-                <SuccessCard />
+                <SuccessCard customerName={customerName} phoneNumber={phoneNumber} />
                 
                 <style>{`
                     @keyframes width { from { width: 0%; } to { width: 100%; } }
@@ -752,8 +751,8 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                 {activePackageBuilder && (
                     <PackageBuilderModal 
                         pkg={activePackageBuilder} 
-                        standardFlavors={activePackageBuilder.isSpecial ? specialFlavors : standardFlavors}
-                        specialFlavors={specialFlavors}
+                        standardFlavors={empanadaFlavors.filter(f => !f.isSpecial)}
+                        specialFlavors={empanadaFlavors.filter(f => f.isSpecial)}
                         salsas={salsaFlavors}
                         onClose={() => setActivePackageBuilder(null)} 
                         onConfirm={handlePackageConfirm}
