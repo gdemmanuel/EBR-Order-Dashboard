@@ -423,7 +423,6 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                 </div>
             )}
 
-            {/* Increased padding-bottom here (pb-48) to ensure the form end is not cut off in tall iframes */}
             <main className={`max-w-5xl mx-auto px-4 ${isEmbedded ? 'py-2 pb-48' : 'py-12 pb-32'} w-full`}>
                 {error && (
                     <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-lg text-center mb-8" role="alert">
@@ -514,7 +513,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                                             <h4 className="font-serif text-lg font-bold text-brand-brown mb-0.5">{pkg.name}</h4>
                                             <div className="text-brand-orange font-bold text-base mb-2">${pkg.price.toFixed(2)}</div>
                                             <p className="text-xs text-gray-600 mb-0.5">{pkg.quantity} Mini Empanadas</p>
-                                            <p className="text-[10px] text-gray-400 mb-3 uppercase tracking-wide">Up to {pkg.maxFlavors} flavors</p>
+                                            <p className="text-[10px] text-gray-400 mb-3 uppercase tracking-wide">Up to {pkg.maxFlavors} {pkg.maxFlavors === 1 ? 'flavor' : 'flavors'}</p>
                                             {pkg.description && <p className="text-xs text-gray-500 italic mb-3 px-2">{pkg.description}</p>}
                                             <button type="button" onClick={() => openPackageBuilder(pkg)} className="mt-auto bg-brand-brown text-white px-4 py-1.5 rounded hover:bg-brand-brown/90 transition-colors text-xs uppercase tracking-wider font-bold w-full">Select</button>
                                         </div>
@@ -547,8 +546,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                                             <h4 className="font-serif text-lg font-bold text-brand-brown mb-0.5">{pkg.name}</h4>
                                             <div className="text-brand-orange font-bold text-base mb-2">${pkg.price.toFixed(2)}</div>
                                             <p className="text-xs text-gray-600 mb-0.5">{pkg.quantity} Full-Size Empanadas</p>
-                                            <p className="text-[10px] text-gray-400 mb-3 uppercase tracking-wide">Up to {pkg.maxFlavors} flavors</p>
-                                            {pkg.description && <p className="text-xs text-gray-500 italic mb-3 px-2">{pkg.description}</p>}
+                                            <p className="text-[10px] text-gray-400 mb-3 uppercase tracking-wide">Up to {pkg.maxFlavors} {pkg.maxFlavors === 1 ? 'flavor' : 'flavors'}</p>
                                             <button type="button" onClick={() => openPackageBuilder(pkg)} className="mt-auto bg-brand-brown text-white px-4 py-1.5 rounded hover:bg-brand-brown/90 transition-colors text-xs uppercase tracking-wider font-bold w-full">Select</button>
                                         </div>
                                     ))}
@@ -733,7 +731,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                     </section>
 
                     {/* Footer with Submit Button - Standard Layout for both modes, but embedded gets relative positioning + padding */}
-                    <div className={`${isEmbedded ? 'relative mt-8 border-t border-brand-tan/20 pt-6' : 'fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-gray-200 p-4 sm:p-6 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-20'}`}>
+                    <div className={`${isEmbedded ? 'relative mt-8 border-t border-brand-tan/20 pt-6 pb-20' : 'fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-gray-200 p-4 sm:p-6 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-20'}`}>
                         <div className={`max-w-5xl mx-auto flex flex-row justify-between items-center gap-4 ${isEmbedded ? '' : ''}`}>
                             <div className="text-left">
                                 <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Estimated Total</p>
