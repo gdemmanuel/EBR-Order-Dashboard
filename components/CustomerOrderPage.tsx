@@ -130,14 +130,13 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
             const timer = setTimeout(() => {
                 const targetUrl = 'https://www.empanadasbyrose.com';
                 try {
-                    // Try to break out of iframe
                     if (window.top) {
                         window.top.location.href = targetUrl;
                     } else {
                         window.location.href = targetUrl;
                     }
                 } catch (e) {
-                    // Fallback if blocked by cross-origin
+                    // Fallback for cross-origin blocking
                     console.warn("Standard redirect blocked, forcing top navigation.", e);
                     window.open(targetUrl, '_top');
                 }
@@ -356,44 +355,55 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
     };
 
     if (isSubmitted) {
-        return (
-            // FIXED: Use fixed positioning to guarantee visibility regardless of iframe scroll
-            <div className="fixed inset-0 z-[9999] bg-white flex flex-col items-center justify-center p-4 w-full h-full overflow-y-auto">
-                <div className="max-w-lg w-full p-8 rounded-xl shadow-2xl text-center border-t-4 border-brand-orange bg-white">
-                    <div className="bg-green-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <CheckCircleIcon className="w-10 h-10 text-green-700" />
-                    </div>
-                    <h2 className="text-3xl font-serif text-brand-brown mb-4">Order Received!</h2>
-                    <p className="text-brand-brown/80 mb-8 text-lg font-light">
-                        Thank you, {customerName}. We've received your order request. We'll contact you shortly at <strong>{phoneNumber}</strong> to confirm availability.
-                    </p>
-                    
-                    <div className="bg-gray-50 p-4 rounded-lg mb-6 border border-gray-200">
-                        <p className="text-sm text-gray-500 font-medium mb-2">Redirecting to home page...</p>
-                        <div className="w-full bg-gray-200 rounded-full h-1.5">
-                            <div className="bg-brand-orange h-1.5 rounded-full animate-[width_3s_linear_forwards]" style={{width: '0%'}}></div>
-                        </div>
-                    </div>
-
-                    {/* 
-                        Native anchor tag with target="_top" is the most robust way 
-                        to break out of the iframe and return to the parent site.
-                    */}
-                    <a 
-                        href="https://www.empanadasbyrose.com" 
-                        target="_top"
-                        className="bg-brand-brown text-white font-serif px-8 py-4 rounded hover:bg-brand-brown/90 transition-all uppercase tracking-wider text-sm flex items-center justify-center gap-2 w-full shadow-md cursor-pointer no-underline"
-                    >
-                        <ArrowUturnLeftIcon className="w-5 h-5" /> Return to Website Now
-                    </a>
-                    
-                    <button 
-                        onClick={() => window.location.reload()} 
-                        className="mt-6 text-brand-orange hover:underline text-sm font-medium block mx-auto"
-                    >
-                        Place Another Order
-                    </button>
+        const SuccessMessage = () => (
+            <div className="max-w-lg w-full p-8 rounded-xl shadow-2xl text-center border-t-4 border-brand-orange bg-white mx-auto my-4">
+                <div className="bg-green-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <CheckCircleIcon className="w-10 h-10 text-green-700" />
                 </div>
+                <h2 className="text-3xl font-serif text-brand-brown mb-4">Order Received!</h2>
+                <p className="text-brand-brown/80 mb-8 text-lg font-light">
+                    Thank you, {customerName}. We've received your order request. We'll contact you shortly at <strong>{phoneNumber}</strong> to confirm availability.
+                </p>
+                
+                <div className="bg-gray-50 p-4 rounded-lg mb-6 border border-gray-200">
+                    <p className="text-sm text-gray-500 font-medium mb-2">Redirecting to home page...</p>
+                    <div className="w-full bg-gray-200 rounded-full h-1.5">
+                        <div className="bg-brand-orange h-1.5 rounded-full animate-[width_3s_linear_forwards]" style={{width: '0%'}}></div>
+                    </div>
+                </div>
+
+                <a 
+                    href="https://www.empanadasbyrose.com" 
+                    target="_top"
+                    className="bg-brand-brown text-white font-serif px-8 py-4 rounded hover:bg-brand-brown/90 transition-all uppercase tracking-wider text-sm flex items-center justify-center gap-2 w-full shadow-md cursor-pointer no-underline"
+                >
+                    <ArrowUturnLeftIcon className="w-5 h-5" /> Return to Website Now
+                </a>
+                
+                <button 
+                    onClick={() => window.location.reload()} 
+                    className="mt-6 text-brand-orange hover:underline text-sm font-medium block mx-auto"
+                >
+                    Place Another Order
+                </button>
+            </div>
+        );
+
+        return (
+            // Use flex column to space out duplicate messages if embedded to guarantee visibility
+            // regardless of scroll position in the parent iframe
+            <div className={`min-h-screen w-full bg-white flex flex-col ${isEmbedded ? 'justify-between' : 'justify-center items-center'}`}>
+                <SuccessMessage />
+                {isEmbedded && (
+                    <>
+                        <div className="flex-grow flex items-center justify-center py-10 opacity-80">
+                             <SuccessMessage />
+                        </div>
+                        <div className="py-10 opacity-100">
+                             <SuccessMessage />
+                        </div>
+                    </>
+                )}
                 <style>{`
                     @keyframes width {
                         from { width: 0%; }
