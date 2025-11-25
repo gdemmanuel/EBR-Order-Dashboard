@@ -54,10 +54,10 @@ const formatPhoneNumber = (value: string) => {
 };
 
 // --- Inline Receipt Component ---
-// Designed to replace the footer/button area in-place so visibility is guaranteed
+// Added 'pointer-events-auto' to ensure clicks work even if parent container is disabled
 const InlineReceiptCard = ({ order }: { order: Order }) => {
     return (
-        <div className="bg-white w-full rounded-xl shadow-xl border-t-8 border-brand-orange overflow-hidden relative animate-fade-in my-4">
+        <div className="bg-white w-full rounded-xl shadow-xl border-t-8 border-brand-orange overflow-hidden relative animate-fade-in my-4 pointer-events-auto z-50">
             {/* Success Header */}
             <div className="bg-green-50 p-6 text-center border-b border-green-100">
                 <div className="mx-auto bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mb-3 shadow-sm">
@@ -103,14 +103,14 @@ const InlineReceiptCard = ({ order }: { order: Order }) => {
                 <a 
                     href="https://www.empanadasbyrose.com" 
                     target="_top"
-                    className="block w-full bg-brand-brown text-white font-serif py-3 rounded-lg text-center hover:bg-brand-brown/90 transition-all uppercase tracking-wider text-sm font-bold shadow-md no-underline flex items-center justify-center gap-2"
+                    className="block w-full bg-brand-brown text-white font-serif py-3 rounded-lg text-center hover:bg-brand-brown/90 transition-all uppercase tracking-wider text-sm font-bold shadow-md no-underline flex items-center justify-center gap-2 cursor-pointer pointer-events-auto"
                 >
                     <ArrowUturnLeftIcon className="w-4 h-4" /> Return to Website
                 </a>
                 <div className="mt-3 text-center">
                         <button 
                         onClick={() => window.location.reload()} 
-                        className="text-brand-orange hover:underline text-xs font-medium"
+                        className="text-brand-orange hover:underline text-xs font-medium cursor-pointer pointer-events-auto"
                     >
                         Place Another Order
                     </button>
@@ -738,8 +738,8 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                             <InlineReceiptCard order={lastOrder} />
                         </div>
                     ) : (
-                        /* Sticky Footer Total - ONLY IF NOT SUBMITTED */
-                        <div className={`${isEmbedded ? 'relative mt-8 border-t border-brand-tan/20 pt-6' : 'fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-gray-200 p-4 sm:p-6 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-20'}`}>
+                        /* Footer with Submit Button - Standard Layout for both modes, but embedded gets relative positioning + padding */
+                        <div className={`${isEmbedded ? 'relative mt-8 border-t border-brand-tan/20 pt-6 pb-20' : 'fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-gray-200 p-4 sm:p-6 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-20'}`}>
                             <div className={`max-w-5xl mx-auto flex flex-row justify-between items-center gap-4 ${isEmbedded ? '' : ''}`}>
                                 <div className="text-left">
                                     <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Estimated Total</p>
