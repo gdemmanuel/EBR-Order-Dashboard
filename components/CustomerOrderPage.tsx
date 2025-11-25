@@ -311,7 +311,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
 
     if (isSubmitted) {
         return (
-            <div className="min-h-screen bg-brand-cream flex flex-col">
+            <div className={`min-h-screen flex flex-col ${isEmbedded ? 'bg-white' : 'bg-brand-cream'}`}>
                 {!isEmbedded && <Header variant="public" />}
                 <div className="flex-grow flex items-center justify-center p-4">
                     <div className="bg-white max-w-lg w-full p-12 rounded-xl shadow-lg text-center border-t-4 border-brand-orange">
@@ -350,11 +350,11 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
     };
 
     return (
-        <div className="min-h-screen bg-brand-cream font-sans flex flex-col">
+        <div className={`min-h-screen font-sans flex flex-col ${isEmbedded ? 'bg-white' : 'bg-brand-cream'}`}>
             {!isEmbedded && <Header variant="public" />}
             
             {/* MOTD Banner - Seamless Loop */}
-            {motd && (
+            {motd && !isEmbedded && (
                 <div className="bg-brand-brown text-brand-tan overflow-hidden py-2 border-b border-brand-tan/20 flex select-none">
                     <div className="animate-marquee flex-shrink-0 flex items-center whitespace-nowrap text-sm font-medium tracking-wide">
                         {/* Duplicated content for seamless loop */}
