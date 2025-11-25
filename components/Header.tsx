@@ -28,20 +28,20 @@ export default function Header({ user, variant = 'public' }: HeaderProps) {
 
           {/* Public Center Logo */}
           {variant === 'public' && (
-             <div className="flex flex-col items-center group cursor-default" aria-label="Empanadas by Rose">
-                <div className="relative h-40 w-40 rounded-full bg-brand-brown flex items-center justify-center shadow-xl overflow-hidden transform group-hover:scale-105 transition-transform duration-300 border-4 border-brand-brown">
-                    {/* The Large R */}
-                    <span className="text-brand-cream font-serif text-[9rem] leading-none mt-6 select-none opacity-100">R</span>
-                    
-                    {/* The Text Overlay */}
-                    <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-full bg-brand-brown py-1 flex justify-center shadow-sm">
-                            <span className="text-brand-cream font-serif text-[0.65rem] sm:text-[0.7rem] tracking-[0.25em] uppercase font-semibold whitespace-nowrap">
-                                Empanadas by Rose
-                            </span>
-                        </div>
-                    </div>
-                </div>
+             <div className="flex justify-center py-4" aria-label="Empanadas by Rose">
+                {/* Image Logo - expects 'logo.png' in public folder */}
+                <img 
+                    src="/logo.png" 
+                    alt="Empanadas by Rose" 
+                    className="h-40 w-auto object-contain"
+                    onError={(e) => {
+                        // Fallback if image is missing
+                        e.currentTarget.style.display = 'none';
+                        e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                    }}
+                />
+                {/* Text Fallback */}
+                <h1 className="hidden text-4xl font-serif text-brand-brown tracking-tight">Empanadas by Rose</h1>
              </div>
           )}
           
