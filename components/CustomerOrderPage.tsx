@@ -54,6 +54,25 @@ const formatPhoneNumber = (value: string) => {
     return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`;
 };
 
+// Reusable Success Message Component
+const SuccessMessageCard = ({ customerName, phoneNumber, onReturn }: { customerName: string, phoneNumber: string, onReturn: () => void }) => (
+    <div className="bg-white max-w-lg w-full p-8 rounded-xl shadow-lg text-center border-t-4 border-brand-orange mx-auto">
+        <div className="bg-green-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+            <CheckCircleIcon className="w-10 h-10 text-green-700" />
+        </div>
+        <h2 className="text-3xl font-serif text-brand-brown mb-4">Order Received!</h2>
+        <p className="text-brand-brown/80 mb-8 text-lg font-light">
+            Thank you, {customerName}. We've received your order request. We'll contact you shortly at <strong>{phoneNumber}</strong> to confirm availability.
+        </p>
+        <button 
+            onClick={onReturn}
+            className="bg-brand-brown text-white font-serif px-8 py-4 rounded hover:bg-brand-brown/90 transition-all uppercase tracking-wider text-sm flex items-center justify-center gap-2 w-full shadow-md"
+        >
+            <ArrowUturnLeftIcon className="w-5 h-5" /> Return to Website
+        </button>
+    </div>
+);
+
 export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFlavors, pricing, scheduling, busySlots = [], motd }: CustomerOrderPageProps) {
     const [searchParams] = useSearchParams();
     const isEmbedded = searchParams.get('embed') === 'true';
@@ -120,27 +139,24 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
         }
     }, [safePricing.salsas]);
 
-    // Auto Redirect on Success
+    const handleReturnToSite = () => {
+        const targetUrl = 'https://www.empanadasbyrose.com';
+        try {
+            window.open(targetUrl, '_top');
+        } catch (e) {
+            window.location.href = targetUrl;
+        }
+    };
+
+    // Auto Redirect on Success (Gentle)
     useEffect(() => {
         if (isSubmitted) {
-            // Scroll top inside iframe immediately
             window.scrollTo(0, 0);
-            
+            // Optional: Auto-redirect after 5 seconds
             const timer = setTimeout(() => {
-                const targetUrl = 'https://www.empanadasbyrose.com';
-                try {
-                    // Try to redirect the parent window standard way
-                    if (window.top) {
-                        window.top.location.href = targetUrl;
-                    } else {
-                        window.location.href = targetUrl;
-                    }
-                } catch (e) {
-                    // Fallback if cross-origin policies block window.top access
-                    console.warn("Standard redirect blocked, forcing top navigation.", e);
-                    window.open(targetUrl, '_top');
-                }
-            }, 3500);
+                // Only attempt if user hasn't navigated away
+                handleReturnToSite();
+            }, 5000);
             return () => clearTimeout(timer);
         }
     }, [isSubmitted]);
@@ -352,61 +368,30 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
 
     if (isSubmitted) {
         return (
-            <div className={`flex flex-col w-full ${isEmbedded ? 'min-h-screen bg-white' : 'min-h-screen bg-brand-cream items-center justify-center'}`}>
+            <div className={`w-full min-h-screen bg-white ${isEmbedded ? 'flex flex-col justify-between' : 'flex items-center justify-center'}`}>
                 {!isEmbedded && <Header variant="public" />}
                 
-                <div className={`flex-grow flex flex-col items-center ${isEmbedded ? 'justify-between py-8' : 'justify-center p-4'}`}>
-                    
-                    {/* Top Message */}
-                    <div className={`bg-white max-w-lg w-full p-8 rounded-xl shadow-lg text-center border-t-4 border-brand-orange ${isEmbedded ? 'shadow-none border-x-0 border-b-0 rounded-none' : ''}`}>
-                        <div className="bg-green-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
-                            <CheckCircleIcon className="w-10 h-10 text-green-700" />
+                {isEmbedded ? (
+                    // Embedded View: Triple Message Layout to ensure visibility in tall iframes
+                    <>
+                        <div className="pt-4 pb-8 px-4 flex justify-center">
+                            <SuccessMessageCard customerName={customerName} phoneNumber={phoneNumber} onReturn={handleReturnToSite} />
                         </div>
-                        <h2 className="text-3xl md:text-4xl font-serif text-brand-brown mb-4">Order Received!</h2>
-                        <p className="text-brand-brown/80 mb-8 text-lg font-light">
-                            Thank you, {customerName}. We've received your order request. We'll contact you shortly at <strong>{phoneNumber}</strong> to confirm availability.
-                        </p>
                         
-                        <div className="bg-gray-50 p-4 rounded-lg mb-6 border border-gray-200">
-                            <p className="text-sm text-gray-500 font-medium mb-2">Redirecting to home page...</p>
-                            <div className="w-full bg-gray-200 rounded-full h-1.5">
-                                <div className="bg-brand-orange h-1.5 rounded-full animate-[width_3s_linear_forwards]" style={{width: '0%'}}></div>
-                            </div>
+                        <div className="py-12 px-4 flex justify-center items-center flex-grow">
+                            <SuccessMessageCard customerName={customerName} phoneNumber={phoneNumber} onReturn={handleReturnToSite} />
                         </div>
 
-                        <div className="flex flex-col gap-3">
-                            <button 
-                                onClick={() => window.open('https://www.empanadasbyrose.com', '_top')} 
-                                className="bg-brand-brown text-white font-serif px-8 py-3 rounded hover:bg-brand-brown/90 transition-all uppercase tracking-wider text-sm flex items-center justify-center gap-2 w-full"
-                            >
-                                <ArrowUturnLeftIcon className="w-4 h-4" /> Return to Website Now
-                            </button>
-                            <button onClick={() => window.location.reload()} className="text-brand-brown hover:text-brand-orange transition-colors text-xs font-medium">
-                                Place Another Order
-                            </button>
+                        <div className="pt-8 pb-12 px-4 flex justify-center">
+                            <SuccessMessageCard customerName={customerName} phoneNumber={phoneNumber} onReturn={handleReturnToSite} />
                         </div>
+                    </>
+                ) : (
+                    // Normal View
+                    <div className="flex-grow flex flex-col items-center justify-center p-4">
+                        <SuccessMessageCard customerName={customerName} phoneNumber={phoneNumber} onReturn={handleReturnToSite} />
                     </div>
-
-                    {/* Bottom Duplicate Message for Long Iframes (Embed Only) */}
-                    {isEmbedded && (
-                        <div className="mt-20 w-full max-w-lg p-8 text-center border-t border-gray-100">
-                             <h2 className="text-2xl font-serif text-brand-brown mb-2">Order Confirmed</h2>
-                             <p className="text-sm text-gray-500 mb-6">Scroll up for details or click below to return.</p>
-                             <button 
-                                onClick={() => window.open('https://www.empanadasbyrose.com', '_top')} 
-                                className="bg-brand-orange text-white font-serif px-8 py-3 rounded hover:bg-opacity-90 transition-all uppercase tracking-wider text-sm flex items-center justify-center gap-2 w-full shadow-md"
-                            >
-                                <ArrowUturnLeftIcon className="w-4 h-4" /> Return to Website
-                            </button>
-                        </div>
-                    )}
-                </div>
-                <style>{`
-                    @keyframes width {
-                        from { width: 0%; }
-                        to { width: 100%; }
-                    }
-                `}</style>
+                )}
             </div>
         );
     }
