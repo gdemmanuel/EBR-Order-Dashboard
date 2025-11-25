@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { User } from 'firebase/auth';
+import firebase from 'firebase/compat/app';
 
 import { Order, ApprovalStatus, PricingSettings, Flavor, Employee } from './types';
 import { subscribeToOrders, subscribeToSettings, AppSettings, migrateLocalDataToFirestore } from './services/dbService';
@@ -15,7 +15,7 @@ import { normalizeDateStr } from './utils/dateUtils';
 
 export default function App() {
   // Auth State
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<firebase.User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
   // Shared App State

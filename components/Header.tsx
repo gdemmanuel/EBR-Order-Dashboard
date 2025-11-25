@@ -1,10 +1,10 @@
 
 import React from 'react';
 import { logout } from '../services/authService';
-import { User } from 'firebase/auth';
+import firebase from 'firebase/compat/app';
 
 interface HeaderProps {
-  user?: User | null;
+  user?: firebase.User | null;
   variant?: 'admin' | 'public';
 }
 

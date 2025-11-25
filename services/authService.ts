@@ -1,15 +1,10 @@
 
-import { 
-    signInWithEmailAndPassword, 
-    signOut, 
-    onAuthStateChanged, 
-    User 
-} from "firebase/auth";
+import firebase from "firebase/compat/app";
 import { auth } from "../firebaseConfig";
 
 export const login = async (email: string, pass: string) => {
     try {
-        await signInWithEmailAndPassword(auth, email, pass);
+        await auth.signInWithEmailAndPassword(email, pass);
     } catch (error: any) {
         throw error;
     }
@@ -17,14 +12,14 @@ export const login = async (email: string, pass: string) => {
 
 export const logout = async () => {
     try {
-        await signOut(auth);
+        await auth.signOut();
     } catch (error) {
         console.error("Error signing out", error);
     }
 };
 
-export const subscribeToAuth = (callback: (user: User | null) => void) => {
-    return onAuthStateChanged(auth, (user) => {
+export const subscribeToAuth = (callback: (user: firebase.User | null) => void) => {
+    return auth.onAuthStateChanged((user) => {
         callback(user);
     });
 };

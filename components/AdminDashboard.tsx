@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Order, ApprovalStatus, FollowUpStatus, PricingSettings, Flavor, Expense, WorkShift } from '../types';
 import { parseOrderDateTime } from '../utils/dateUtils';
@@ -21,10 +22,10 @@ import ExpenseModal from './ExpenseModal';
 import ShiftLogModal from './ShiftLogModal'; // Imported Shift Modal
 import ReportsView from './ReportsView';
 import { PlusCircleIcon, ListBulletIcon, CalendarDaysIcon, ArrowTopRightOnSquareIcon, CogIcon, ScaleIcon, ReceiptIcon, ChartBarIcon, BriefcaseIcon } from './icons/Icons';
-import { User } from 'firebase/auth';
+import firebase from 'firebase/compat/app';
 
 interface AdminDashboardProps {
-    user: User;
+    user: firebase.User;
     orders: Order[];
     empanadaFlavors: Flavor[];
     fullSizeEmpanadaFlavors: Flavor[];
@@ -46,9 +47,9 @@ export default function AdminDashboard({
     empanadaFlavors, 
     fullSizeEmpanadaFlavors, 
     importedSignatures, 
-    sheetUrl,
+    sheetUrl, 
     pricing, 
-    prepSettings,
+    prepSettings, 
     settings 
 }: AdminDashboardProps) {
 
@@ -250,6 +251,7 @@ export default function AdminDashboard({
                     <DashboardMetrics 
                         stats={stats} 
                         orders={dateFilteredDashboardOrders} 
+                        allOrders={activeOrders} // Pass all active orders for historical charts
                         empanadaFlavors={empanadaFlavors.map(f => f.name)} 
                         fullSizeEmpanadaFlavors={fullSizeEmpanadaFlavors.map(f => f.name)} 
                         pendingCount={pendingOrders.length}

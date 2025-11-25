@@ -11,7 +11,8 @@ interface DashboardMetricsProps {
         ordersToFollowUp: number;
         totalEmpanadasSold: number;
     };
-    orders: Order[];
+    orders: Order[]; // Filtered orders for stats and top products
+    allOrders: Order[]; // Unfiltered orders for sales history trend
     empanadaFlavors: string[];
     fullSizeEmpanadaFlavors: string[];
     onFilterStatus?: (status: FollowUpStatus | 'CANCELLED') => void;
@@ -50,7 +51,7 @@ const getStartOfWeek = (d: Date) => {
 };
 
 
-export default function DashboardMetrics({ stats, orders, empanadaFlavors, fullSizeEmpanadaFlavors, onFilterStatus, pendingCount, cancelledCount }: DashboardMetricsProps) {
+export default function DashboardMetrics({ stats, orders, allOrders, empanadaFlavors, fullSizeEmpanadaFlavors, onFilterStatus, pendingCount, cancelledCount }: DashboardMetricsProps) {
     const miniFlavorsSet = useMemo(() => new Set(empanadaFlavors), [empanadaFlavors]);
     const fullSizeFlavorsSet = useMemo(() => new Set(fullSizeEmpanadaFlavors), [fullSizeEmpanadaFlavors]);
 
@@ -88,7 +89,8 @@ export default function DashboardMetrics({ stats, orders, empanadaFlavors, fullS
     const weeklySalesData = useMemo(() => {
         const weeklyTotals = new Map<string, { mini: number; full: number }>();
         
-        orders.forEach(order => {
+        // Use allOrders to show full history regardless of date filter
+        allOrders.forEach(order => {
             const orderDate = parseOrderDateTime(order);
             
             if (isNaN(orderDate.getTime())) {
@@ -114,7 +116,7 @@ export default function DashboardMetrics({ stats, orders, empanadaFlavors, fullS
                 ...item,
                 weekLabel: new Date(item.week).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
             }));
-    }, [orders]);
+    }, [allOrders]);
 
     // Calculate dynamic height for charts based on number of items to ensure readability
     const miniChartHeight = Math.max(400, popularMiniProductsData.length * 40);
@@ -213,7 +215,7 @@ export default function DashboardMetrics({ stats, orders, empanadaFlavors, fullS
             
             <div className="mt-8">
                 <div className="bg-white p-6 rounded-lg border border-brand-tan">
-                    <h3 className="text-lg font-semibold text-brand-brown mb-4">Weekly Sales Volume</h3>
+                    <h3 className="text-lg font-semibold text-brand-brown mb-4">Weekly Sales Volume (All Time)</h3>
                     {weeklySalesData.length > 0 ? (
                         <ResponsiveContainer width="100%" height={300}>
                             <LineChart data={weeklySalesData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
@@ -228,7 +230,7 @@ export default function DashboardMetrics({ stats, orders, empanadaFlavors, fullS
                         </ResponsiveContainer>
                     ) : (
                          <div className="flex items-center justify-center h-[300px]">
-                            <p className="text-brand-brown/70">No sales data available for the selected period.</p>
+                            <p className="text-brand-brown/70">No sales data available.</p>
                         </div>
                     )}
                 </div>
