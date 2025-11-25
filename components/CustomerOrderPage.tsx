@@ -33,6 +33,15 @@ interface DynamicSalsaState {
     quantity: number;
 }
 
+// Helper for local date min attribute
+const getLocalMinDate = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
 export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFlavors, pricing, scheduling, busySlots = [], motd }: CustomerOrderPageProps) {
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -586,15 +595,15 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                             <div className="md:col-span-2">
                                 <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Full Name</label>
-                                <input type="text" required value={customerName} onChange={e => setCustomerName(e.target.value)} className="w-full bg-brand-cream/30 border-0 border-b-2 border-gray-200 focus:border-brand-orange focus:ring-0 px-0 py-3 text-lg placeholder-gray-300 transition-colors" placeholder="Jane Doe" />
+                                <input type="text" required value={customerName} onChange={e => setCustomerName(e.target.value)} className="w-full bg-brand-cream/50 border-0 border-b-2 border-gray-200 focus:border-brand-orange focus:ring-0 px-0 py-3 text-lg placeholder-gray-300 transition-colors" placeholder="Jane Doe" />
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Phone Number</label>
-                                <input type="tel" required value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} className="w-full bg-brand-cream/30 border-0 border-b-2 border-gray-200 focus:border-brand-orange focus:ring-0 px-0 py-3 text-lg placeholder-gray-300 transition-colors" placeholder="(555) 123-4567" />
+                                <input type="tel" required value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} className="w-full bg-brand-cream/50 border-0 border-b-2 border-gray-200 focus:border-brand-orange focus:ring-0 px-0 py-3 text-lg placeholder-gray-300 transition-colors" placeholder="(555) 123-4567" />
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Email Address (Optional)</label>
-                                <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-brand-cream/30 border-0 border-b-2 border-gray-200 focus:border-brand-orange focus:ring-0 px-0 py-3 text-lg placeholder-gray-300 transition-colors" placeholder="jane@example.com" />
+                                <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-brand-cream/50 border-0 border-b-2 border-gray-200 focus:border-brand-orange focus:ring-0 px-0 py-3 text-lg placeholder-gray-300 transition-colors" placeholder="jane@example.com" />
                             </div>
                         </div>
 
@@ -604,9 +613,11 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                                 <input 
                                     type="date" 
                                     required 
+                                    min={getLocalMinDate()}
                                     value={pickupDate} 
                                     onChange={e => { setPickupDate(e.target.value); setPickupTime(''); }} 
-                                    className="w-full bg-brand-cream/30 border-0 border-b-2 border-gray-200 focus:border-brand-orange focus:ring-0 px-0 py-3 text-lg text-brand-brown" 
+                                    className="w-full bg-brand-cream/50 border-0 border-b-2 border-gray-200 focus:border-brand-orange focus:ring-0 px-0 py-3 text-lg text-brand-brown appearance-none rounded-none" 
+                                    style={{ colorScheme: 'light' }}
                                 />
                             </div>
                             <div>
@@ -617,7 +628,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                                             value={pickupTime} 
                                             onChange={e => setPickupTime(e.target.value)} 
                                             disabled={!pickupDate}
-                                            className="w-full bg-brand-cream/30 border-0 border-b-2 border-gray-200 focus:border-brand-orange focus:ring-0 px-0 py-3 text-lg text-brand-brown appearance-none disabled:opacity-50"
+                                            className="w-full bg-brand-cream/50 border-0 border-b-2 border-gray-200 focus:border-brand-orange focus:ring-0 px-0 py-3 text-lg text-brand-brown appearance-none disabled:opacity-50"
                                         >
                                             <option value="">Select a time...</option>
                                             {availableTimeSlots.map(time => (
@@ -632,7 +643,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                                         )}
                                     </div>
                                 ) : (
-                                    <input type="time" value={pickupTime} onChange={e => setPickupTime(e.target.value)} className="w-full bg-brand-cream/30 border-0 border-b-2 border-gray-200 focus:border-brand-orange focus:ring-0 px-0 py-3 text-lg text-brand-brown" />
+                                    <input type="time" value={pickupTime} onChange={e => setPickupTime(e.target.value)} className="w-full bg-brand-cream/50 border-0 border-b-2 border-gray-200 focus:border-brand-orange focus:ring-0 px-0 py-3 text-lg text-brand-brown" />
                                 )}
                             </div>
                         </div>
@@ -645,14 +656,14 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                             {deliveryRequired && (
                                 <div className="animate-fade-in pl-8">
                                     <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Delivery Address</label>
-                                    <input type="text" required={deliveryRequired} value={deliveryAddress} onChange={e => setDeliveryAddress(e.target.value)} className="w-full bg-brand-cream/30 border-0 border-b-2 border-gray-200 focus:border-brand-orange focus:ring-0 px-0 py-3 text-lg placeholder-gray-300" placeholder="123 Main St, Town, NY" />
+                                    <input type="text" required={deliveryRequired} value={deliveryAddress} onChange={e => setDeliveryAddress(e.target.value)} className="w-full bg-brand-cream/50 border-0 border-b-2 border-gray-200 focus:border-brand-orange focus:ring-0 px-0 py-3 text-lg placeholder-gray-300" placeholder="123 Main St, Town, NY" />
                                 </div>
                             )}
                         </div>
 
                         <div>
                             <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Special Instructions / Notes</label>
-                            <textarea rows={3} value={specialInstructions} onChange={e => setSpecialInstructions(e.target.value)} className="w-full bg-brand-cream/30 border-0 border-b-2 border-gray-200 focus:border-brand-orange focus:ring-0 px-0 py-3 text-brand-brown resize-none" placeholder="Allergies, gate code, etc." />
+                            <textarea rows={3} value={specialInstructions} onChange={e => setSpecialInstructions(e.target.value)} className="w-full bg-brand-cream/50 border-0 border-b-2 border-gray-200 focus:border-brand-orange focus:ring-0 px-0 py-3 text-brand-brown resize-none" placeholder="Allergies, gate code, etc." />
                         </div>
                     </section>
 

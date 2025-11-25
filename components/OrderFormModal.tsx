@@ -711,7 +711,14 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                         <div>
                             <label className="block text-sm font-medium text-brand-brown/90">Pickup Date</label>
                             <div className="flex gap-2">
-                                <input type="date" value={pickupDate} onChange={e => { setPickupDate(e.target.value); setPickupTime(''); }} required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown" />
+                                <input 
+                                    type="date" 
+                                    value={pickupDate} 
+                                    onChange={e => { setPickupDate(e.target.value); setPickupTime(''); }} 
+                                    required 
+                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown appearance-none" 
+                                    style={{ colorScheme: 'light' }}
+                                />
                                 <button 
                                     type="button"
                                     onClick={() => { setPickupDate(getLocalTodayDate()); setPickupTime(''); }}
