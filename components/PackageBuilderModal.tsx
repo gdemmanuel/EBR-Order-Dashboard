@@ -128,23 +128,16 @@ export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavo
                     <div className="p-5">
                         <div className="flex justify-between items-center mb-3 border-b border-gray-200 pb-2">
                             <h4 className="font-bold text-brand-brown">Select Flavors</h4>
-                            {/* Category Toggle */}
-                            <div className="relative inline-block text-left">
-                                <div className="flex bg-gray-100 rounded-lg p-1">
-                                    <button
-                                        onClick={() => setFlavorCategory('standard')}
-                                        className={`px-3 py-1 text-xs font-bold rounded-md transition-colors ${flavorCategory === 'standard' ? 'bg-white shadow text-brand-brown' : 'text-gray-500 hover:text-brand-brown'}`}
-                                    >
-                                        Standard
-                                    </button>
-                                    <button
-                                        onClick={() => setFlavorCategory('special')}
-                                        className={`px-3 py-1 text-xs font-bold rounded-md transition-colors ${flavorCategory === 'special' ? 'bg-white shadow text-purple-700' : 'text-gray-500 hover:text-purple-700'}`}
-                                    >
-                                        Specialty
-                                    </button>
-                                </div>
-                            </div>
+                            
+                            {/* Category Dropdown */}
+                            <select 
+                                value={flavorCategory} 
+                                onChange={(e) => setFlavorCategory(e.target.value as 'standard'|'special')}
+                                className="text-sm border-gray-300 rounded-md focus:ring-brand-orange focus:border-brand-orange bg-gray-50 py-1 pl-2 pr-8 font-medium text-gray-700"
+                            >
+                                <option value="standard">Standard Flavors</option>
+                                <option value="special">Specialty Flavors</option>
+                            </select>
                         </div>
 
                         <div className="space-y-1">

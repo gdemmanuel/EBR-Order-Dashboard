@@ -120,6 +120,25 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
         }
     }, [safePricing.salsas]);
 
+    // Auto Redirect on Success
+    useEffect(() => {
+        if (isSubmitted) {
+            // Scroll top inside iframe
+            window.scrollTo(0, 0);
+            
+            const timer = setTimeout(() => {
+                try {
+                    // Try to redirect the parent window
+                    window.top!.location.href = 'https://www.empanadasbyrose.com';
+                } catch (e) {
+                    // Fallback if blocked
+                    console.warn("Redirect blocked, staying on page.", e);
+                }
+            }, 4000);
+            return () => clearTimeout(timer);
+        }
+    }, [isSubmitted]);
+
     // Phone Number Handler
     const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const formatted = formatPhoneNumber(e.target.value);
@@ -316,7 +335,6 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
 
             await saveOrderToDb(newOrder);
             setIsSubmitted(true);
-            window.scrollTo(0, 0);
 
         } catch (err: any) {
             console.error(err);
@@ -328,21 +346,37 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
 
     if (isSubmitted) {
         return (
-            <div className={`min-h-screen flex flex-col ${isEmbedded ? 'bg-white' : 'bg-brand-cream'}`}>
+            <div className={`min-h-[50vh] flex flex-col ${isEmbedded ? 'bg-white pt-8' : 'bg-brand-cream min-h-screen items-center justify-center'}`}>
                 {!isEmbedded && <Header variant="public" />}
-                <div className="flex-grow flex items-center justify-center p-4">
-                    <div className="bg-white max-w-lg w-full p-12 rounded-xl shadow-lg text-center border-t-4 border-brand-orange">
+                <div className={`${isEmbedded ? 'w-full' : 'flex-grow flex items-center justify-center p-4'}`}>
+                    <div className={`bg-white max-w-lg w-full p-12 rounded-xl shadow-lg text-center border-t-4 border-brand-orange ${isEmbedded ? 'mx-auto shadow-none border-x-0 border-b-0 rounded-none p-4' : ''}`}>
                         <div className="bg-green-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6"><CheckCircleIcon className="w-10 h-10 text-green-700" /></div>
                         <h2 className="text-4xl font-serif text-brand-brown mb-4">Order Received!</h2>
-                        <p className="text-brand-brown/80 mb-8 text-lg font-light">Thank you, {customerName}. We've received your order request. We'll contact you shortly at <strong>{phoneNumber}</strong> to confirm availability and arrange payment.</p>
+                        <p className="text-brand-brown/80 mb-8 text-lg font-light">Thank you, {customerName}. We've received your order request. We'll contact you shortly at <strong>{phoneNumber}</strong> to confirm availability.</p>
+                        
+                        <div className="bg-gray-50 p-4 rounded-lg mb-6 border border-gray-200">
+                            <p className="text-sm text-gray-500 font-medium mb-2">Redirecting to home page...</p>
+                            <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                <div className="bg-brand-orange h-1.5 rounded-full animate-[width_4s_linear_forwards]" style={{width: '0%'}}></div>
+                            </div>
+                        </div>
+
                         <div className="flex flex-col gap-3">
-                            <button onClick={() => window.location.reload()} className="bg-brand-brown text-white font-serif px-8 py-3 rounded hover:bg-brand-brown/90 transition-all uppercase tracking-wider text-sm">Place Another Order</button>
-                            <button onClick={() => window.top.location.href = 'https://www.empanadasbyrose.com'} className="text-brand-brown hover:text-brand-orange transition-colors text-sm font-medium flex items-center justify-center gap-2">
-                                <ArrowUturnLeftIcon className="w-4 h-4" /> Back to Website
+                            <button onClick={() => window.top!.location.href = 'https://www.empanadasbyrose.com'} className="bg-brand-brown text-white font-serif px-8 py-3 rounded hover:bg-brand-brown/90 transition-all uppercase tracking-wider text-sm flex items-center justify-center gap-2">
+                                <ArrowUturnLeftIcon className="w-4 h-4" /> Return to Website Now
+                            </button>
+                            <button onClick={() => window.location.reload()} className="text-brand-brown hover:text-brand-orange transition-colors text-xs font-medium">
+                                Place Another Order
                             </button>
                         </div>
                     </div>
                 </div>
+                <style>{`
+                    @keyframes width {
+                        from { width: 0%; }
+                        to { width: 100%; }
+                    }
+                `}</style>
             </div>
         );
     }
@@ -357,7 +391,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
     const salsaFlavors: Flavor[] = useMemo(() => 
         (safePricing.salsas || [])
             .filter(s => s.visible)
-            .map(s => ({ name: s.name, visible: true, description: 'Dipping Sauce', price: s.price })), // Adding price to flavor object
+            .map(s => ({ name: s.name, visible: true, description: 'Dipping Sauce', price: s.price })), 
         [safePricing.salsas]
     );
 
@@ -375,11 +409,10 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
         <div className={`min-h-screen font-sans flex flex-col ${isEmbedded ? 'bg-white' : 'bg-brand-cream'}`}>
             {!isEmbedded && <Header variant="public" />}
             
-            {/* MOTD Banner - Seamless Loop */}
+            {/* MOTD Banner */}
             {motd && !isEmbedded && (
                 <div className="bg-brand-brown text-brand-tan overflow-hidden py-2 border-b border-brand-tan/20 flex select-none">
                     <div className="animate-marquee flex-shrink-0 flex items-center whitespace-nowrap text-sm font-medium tracking-wide">
-                        {/* Duplicated content for seamless loop */}
                         {Array(10).fill(motd).map((msg, i) => (
                             <span key={`a-${i}`} className="mx-8 inline-flex items-center">
                                 <MegaphoneIcon className="w-4 h-4 mr-2" />{String(msg)}
@@ -387,7 +420,6 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                         ))}
                     </div>
                     <div className="animate-marquee flex-shrink-0 flex items-center whitespace-nowrap text-sm font-medium tracking-wide" aria-hidden="true">
-                        {/* Duplicated content for seamless loop */}
                         {Array(10).fill(motd).map((msg, i) => (
                             <span key={`b-${i}`} className="mx-8 inline-flex items-center">
                                 <MegaphoneIcon className="w-4 h-4 mr-2" />{String(msg)}
@@ -446,7 +478,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                         )}
                     </section>
 
-                    {/* Header Section - Resized to match other headers */}
+                    {/* Header Section */}
                     <div className="text-center py-8 border-t border-brand-tan/20">
                         <h3 className="text-3xl font-serif text-brand-brown mb-4">Place Your Order</h3>
                         <div className="w-24 h-1 bg-brand-orange mx-auto mb-6"></div>
