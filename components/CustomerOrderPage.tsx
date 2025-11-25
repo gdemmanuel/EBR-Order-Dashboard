@@ -52,40 +52,27 @@ const formatPhoneNumber = (value: string) => {
     return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`;
 };
 
-const SuccessCard = ({ customerName, phoneNumber }: { customerName: string, phoneNumber: string }) => (
-    <div className="max-w-lg w-full bg-white p-8 rounded-xl shadow-2xl border-t-4 border-brand-orange mx-auto my-8 relative z-10">
-        <div className="bg-green-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
-            <CheckCircleIcon className="w-10 h-10 text-green-700" />
+// Inline Success Component to be used in-place
+const InlineSuccessMessage = ({ customerName, phoneNumber }: { customerName: string, phoneNumber: string }) => (
+    <div className="bg-green-50 border border-green-200 rounded-xl p-6 text-center animate-fade-in shadow-sm">
+        <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+            <CheckCircleIcon className="w-8 h-8 text-green-700" />
         </div>
-        <h2 className="text-3xl font-serif text-brand-brown mb-4 text-center">Order Received!</h2>
-        <p className="text-brand-brown/80 mb-8 text-lg font-light text-center">
-            Thank you, {customerName}. We've received your order. We'll contact you shortly at <strong>{phoneNumber}</strong> to confirm details.
+        <h2 className="text-2xl font-serif text-brand-brown mb-2">Order Received!</h2>
+        <p className="text-brand-brown/80 mb-6">
+            Thank you, {customerName}. We'll contact you at <strong>{phoneNumber}</strong> shortly.
         </p>
         
-        <div className="bg-gray-50 p-4 rounded-lg mb-6 border border-gray-200">
-            <p className="text-sm text-gray-500 font-medium mb-2 text-center">Redirecting to home page...</p>
-            <div className="w-full bg-gray-200 rounded-full h-1.5">
-                <div className="bg-brand-orange h-1.5 rounded-full animate-[width_4s_linear_forwards]" style={{width: '0%'}}></div>
-            </div>
-        </div>
-
         <a 
             href="https://www.empanadasbyrose.com" 
             target="_top"
-            className="block w-full bg-brand-brown text-white font-serif px-8 py-4 rounded hover:bg-brand-brown/90 transition-all uppercase tracking-wider text-sm shadow-md cursor-pointer no-underline mb-4 text-center"
+            className="inline-flex items-center justify-center gap-2 bg-brand-brown text-white font-serif px-6 py-3 rounded hover:bg-brand-brown/90 transition-all uppercase tracking-wider text-sm shadow-md no-underline w-full sm:w-auto"
         >
-            <div className="flex items-center justify-center gap-2">
-                <ArrowUturnLeftIcon className="w-5 h-5" /> Return to Website
-            </div>
+            <ArrowUturnLeftIcon className="w-4 h-4" /> Return to Website
         </a>
         
-        <div className="text-center">
-            <button 
-                onClick={() => window.location.reload()} 
-                className="text-brand-orange hover:underline text-sm font-medium"
-            >
-                Place Another Order
-            </button>
+        <div className="mt-4">
+            <p className="text-xs text-gray-500">Redirecting automatically in a few seconds...</p>
         </div>
     </div>
 );
@@ -155,20 +142,6 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
             setSalsaItems(initialSalsas);
         }
     }, [safePricing.salsas]);
-
-    // Attempt scroll to top when submitted
-    useLayoutEffect(() => {
-        if (isSubmitted) {
-            window.scrollTo(0, 0);
-            try {
-                if (window.parent && window.parent !== window) {
-                    window.parent.scrollTo(0, 0);
-                }
-            } catch (e) {
-                // Ignore cross-origin errors
-            }
-        }
-    }, [isSubmitted]);
 
     // Auto Redirect on Success
     useEffect(() => {
@@ -327,9 +300,6 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
             };
 
             await saveOrderToDb(newOrder);
-            
-            // Attempt scroll before setting state
-            window.scrollTo(0, 0);
             setIsSubmitted(true);
 
         } catch (err: any) {
@@ -341,44 +311,6 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
         }
     };
 
-    if (isSubmitted) {
-        return (
-            <div className="min-h-screen bg-brand-cream w-full flex flex-col items-center border-t border-brand-tan pb-20">
-                {/* 
-                   AGGRESSIVE VISIBILITY STRATEGY:
-                   Render the success card continuously down the page (5 times).
-                   This ensures that no matter what "Height" GoDaddy forces on the iframe (1200, 2000, 5000),
-                   or where the user is scrolled, they see the confirmation.
-                */}
-                
-                <SuccessCard customerName={customerName} phoneNumber={phoneNumber} />
-                
-                <div className="h-64 w-full flex justify-center items-center opacity-20">
-                    <CheckCircleIcon className="w-12 h-12 text-brand-brown" />
-                </div>
-                <SuccessCard customerName={customerName} phoneNumber={phoneNumber} />
-                
-                <div className="h-64 w-full flex justify-center items-center opacity-20">
-                    <CheckCircleIcon className="w-12 h-12 text-brand-brown" />
-                </div>
-                <SuccessCard customerName={customerName} phoneNumber={phoneNumber} />
-                
-                <div className="h-64 w-full flex justify-center items-center opacity-20">
-                    <CheckCircleIcon className="w-12 h-12 text-brand-brown" />
-                </div>
-                <SuccessCard customerName={customerName} phoneNumber={phoneNumber} />
-
-                <div className="h-64 w-full flex justify-center items-center opacity-20">
-                    <CheckCircleIcon className="w-12 h-12 text-brand-brown" />
-                </div>
-                <SuccessCard customerName={customerName} phoneNumber={phoneNumber} />
-                
-                <style>{`
-                    @keyframes width { from { width: 0%; } to { width: 100%; } }
-                `}</style>
-            </div>
-        );
-    }
     
     const miniPackages = safePricing.packages?.filter(p => p.itemType === 'mini' && p.visible && !p.isSpecial) || [];
     const fullPackages = safePricing.packages?.filter(p => p.itemType === 'full' && p.visible && !p.isSpecial) || [];
@@ -436,7 +368,14 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                     </div>
                 )}
 
-                <form onSubmit={handleSubmit} className="space-y-16">
+                {/* IN-PLACE SUCCESS BANNER (Top) */}
+                {isSubmitted && (
+                    <div className="mb-12">
+                        <InlineSuccessMessage customerName={customerName} phoneNumber={phoneNumber} />
+                    </div>
+                )}
+
+                <form onSubmit={handleSubmit} className={`space-y-16 ${isSubmitted ? 'opacity-50 pointer-events-none grayscale' : ''}`}>
                     
                     {/* FLAVORS SECTION */}
                     <section>
@@ -732,18 +671,41 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
 
                     {/* Sticky Footer Total */}
                     <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-gray-200 p-4 sm:p-6 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-20">
-                        <div className="max-w-5xl mx-auto flex flex-row justify-between items-center gap-4">
-                            <div className="text-left">
-                                <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Estimated Total</p>
-                                <p className="text-3xl font-serif text-brand-brown font-bold">${estimatedTotal.toFixed(2)}*</p>
-                            </div>
-                            <button 
-                                type="submit" 
-                                disabled={isSubmitting} 
-                                className="bg-brand-orange text-white font-bold text-sm sm:text-base px-8 py-3 sm:py-4 rounded shadow-lg hover:bg-brand-orange/90 hover:shadow-xl transition-all disabled:bg-gray-400 disabled:cursor-not-allowed disabled:shadow-none uppercase tracking-widest"
-                            >
-                                {isSubmitting ? 'Sending Request...' : 'Submit Order'}
-                            </button>
+                        <div className="max-w-5xl mx-auto">
+                            {isSubmitted ? (
+                                /* SUCCESS STATE IN FOOTER - REPLACES BUTTON */
+                                <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex flex-col sm:flex-row items-center justify-between gap-4 animate-fade-in">
+                                    <div className="flex items-center gap-3">
+                                        <CheckCircleIcon className="w-8 h-8 text-green-600" />
+                                        <div>
+                                            <h4 className="font-bold text-green-900 text-lg">Order Received!</h4>
+                                            <p className="text-sm text-green-800">We'll text you shortly.</p>
+                                        </div>
+                                    </div>
+                                    <a 
+                                        href="https://www.empanadasbyrose.com" 
+                                        target="_top"
+                                        className="bg-green-600 text-white px-6 py-2 rounded-md font-bold hover:bg-green-700 transition-colors text-sm no-underline"
+                                    >
+                                        Return to Website
+                                    </a>
+                                </div>
+                            ) : (
+                                /* NORMAL SUBMIT BUTTON */
+                                <div className="flex flex-row justify-between items-center gap-4">
+                                    <div className="text-left">
+                                        <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Estimated Total</p>
+                                        <p className="text-3xl font-serif text-brand-brown font-bold">${estimatedTotal.toFixed(2)}*</p>
+                                    </div>
+                                    <button 
+                                        type="submit" 
+                                        disabled={isSubmitting} 
+                                        className="bg-brand-orange text-white font-bold text-sm sm:text-base px-8 py-3 sm:py-4 rounded shadow-lg hover:bg-brand-orange/90 hover:shadow-xl transition-all disabled:bg-gray-400 disabled:cursor-not-allowed disabled:shadow-none uppercase tracking-widest"
+                                    >
+                                        {isSubmitting ? 'Sending Request...' : 'Submit Order'}
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </form>
