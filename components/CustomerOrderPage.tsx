@@ -52,32 +52,32 @@ const formatPhoneNumber = (value: string) => {
     return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`;
 };
 
-// --- Receipt Component (Inline Version) ---
-const InlineReceiptCard = ({ order }: { order: Order }) => {
+// --- Receipt Component ---
+const ReceiptCard = ({ order }: { order: Order }) => {
     return (
-        <div className="bg-white w-full rounded-xl shadow-xl border-t-8 border-brand-orange overflow-hidden relative animate-fade-in mt-8 mb-12">
+        <div className="bg-white w-full max-w-md rounded-xl shadow-xl border-t-8 border-brand-orange overflow-hidden relative mb-8 mx-auto">
             {/* Success Header */}
-            <div className="bg-green-50 p-8 text-center border-b border-green-100">
-                <div className="mx-auto bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mb-4 shadow-sm">
+            <div className="bg-green-50 p-6 text-center border-b border-green-100">
+                <div className="mx-auto bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mb-3 shadow-sm">
                     <CheckCircleIcon className="w-8 h-8 text-green-600" />
                 </div>
-                <h2 className="text-2xl font-serif text-brand-brown mb-2">Order Received!</h2>
-                <p className="text-brand-brown/70">
+                <h2 className="text-2xl font-serif text-brand-brown mb-1">Order Received!</h2>
+                <p className="text-sm text-brand-brown/70">
                     Thank you, <strong>{order.customerName.split(' ')[0]}</strong>.
                 </p>
-                <p className="text-xs text-gray-500 mt-2">We'll contact you at {order.phoneNumber} shortly.</p>
+                <p className="text-xs text-gray-500 mt-1">We'll contact you at {order.phoneNumber} shortly.</p>
             </div>
 
             {/* Receipt Details */}
-            <div className="p-6 space-y-6">
-                <div className="flex justify-between items-center text-sm border-b border-dashed border-gray-200 pb-4">
+            <div className="p-5 space-y-4">
+                <div className="flex justify-between items-center text-sm border-b border-dashed border-gray-200 pb-3">
                     <span className="text-gray-500 font-medium">Pickup Time</span>
-                    <span className="font-bold text-brand-brown text-base">{order.pickupDate} @ {order.pickupTime}</span>
+                    <span className="font-bold text-brand-brown">{order.pickupDate} @ {order.pickupTime}</span>
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-2">
                     <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Order Summary</p>
-                    <div className="max-h-60 overflow-y-auto pr-2 space-y-2 custom-scrollbar">
+                    <div className="max-h-48 overflow-y-auto pr-2 space-y-2 custom-scrollbar">
                         {order.items.map((item, idx) => (
                             <div key={idx} className="flex justify-between text-sm items-start">
                                 <span className="text-gray-700 font-medium">{item.name}</span>
@@ -87,25 +87,25 @@ const InlineReceiptCard = ({ order }: { order: Order }) => {
                     </div>
                 </div>
 
-                <div className="border-t border-gray-200 pt-4 flex justify-between items-end">
+                <div className="border-t border-gray-200 pt-3 flex justify-between items-end">
                     <span className="font-bold text-brand-brown text-lg">Total</span>
                     <div className="text-right">
-                        <span className="text-3xl font-serif font-bold text-brand-orange">${order.amountCharged.toFixed(2)}</span>
+                        <span className="text-2xl font-serif font-bold text-brand-orange">${order.amountCharged.toFixed(2)}</span>
                         {order.deliveryRequired && <p className="text-[10px] text-gray-400 uppercase">Includes Delivery</p>}
                     </div>
                 </div>
             </div>
 
             {/* Action */}
-            <div className="p-6 bg-gray-50 border-t border-gray-100">
+            <div className="p-5 bg-gray-50 border-t border-gray-100">
                 <a 
                     href="https://www.empanadasbyrose.com" 
                     target="_top"
-                    className="block w-full bg-brand-brown text-white font-serif py-4 rounded-lg text-center hover:bg-brand-brown/90 transition-all uppercase tracking-wider text-sm font-bold shadow-md no-underline flex items-center justify-center gap-2"
+                    className="block w-full bg-brand-brown text-white font-serif py-3 rounded-lg text-center hover:bg-brand-brown/90 transition-all uppercase tracking-wider text-sm font-bold shadow-md no-underline flex items-center justify-center gap-2"
                 >
-                    <ArrowUturnLeftIcon className="w-5 h-5" /> Return to Website
+                    <ArrowUturnLeftIcon className="w-4 h-4" /> Return to Website
                 </a>
-                <div className="mt-4 text-center">
+                <div className="mt-3 text-center">
                         <button 
                         onClick={() => window.location.reload()} 
                         className="text-brand-orange hover:underline text-xs font-medium"
@@ -330,7 +330,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
             setLastOrder(newOrder);
             setIsSubmitted(true);
             
-            // Attempt scroll to top for good measure, but don't rely on it
+            // Attempt scroll to top
             window.scrollTo(0, 0);
 
         } catch (err: any) {
@@ -342,6 +342,39 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
         }
     };
 
+    // --- WALLPAPER SUCCESS VIEW ---
+    if (isSubmitted && lastOrder) {
+        return (
+            <div className="min-h-screen bg-brand-cream w-full flex flex-col items-center py-8 animate-fade-in">
+                {/* 
+                   WALLPAPER STRATEGY:
+                   We render the receipt 3 times vertically.
+                   1. At the very top (for normal browsers)
+                   2. In the middle (for medium scroll)
+                   3. At the bottom (for tall iframes where user is stuck at bottom)
+                   This guarantees visibility without complex scroll logic.
+                */}
+                
+                <ReceiptCard order={lastOrder} />
+                
+                <div className="h-32 w-full flex justify-center items-center opacity-20 font-serif text-brand-brown">
+                    Scroll for more...
+                </div>
+                
+                <ReceiptCard order={lastOrder} />
+                
+                <div className="h-32 w-full flex justify-center items-center opacity-20 font-serif text-brand-brown">
+                    Scroll for more...
+                </div>
+                
+                <ReceiptCard order={lastOrder} />
+                
+                <style>{`
+                    body { overflow-y: auto; }
+                `}</style>
+            </div>
+        );
+    }
     
     const miniPackages = safePricing.packages?.filter(p => p.itemType === 'mini' && p.visible && !p.isSpecial) || [];
     const fullPackages = safePricing.packages?.filter(p => p.itemType === 'full' && p.visible && !p.isSpecial) || [];
@@ -368,7 +401,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
     };
 
     return (
-        <div className={`font-sans flex flex-col ${isEmbedded ? 'h-auto bg-white' : 'min-h-screen bg-brand-cream'}`}>
+        <div className={`font-sans flex flex-col ${isEmbedded ? 'bg-white' : 'min-h-screen bg-brand-cream'}`}>
             {/* AGGRESSIVE SCROLLBAR HIDING for Embedded View */}
             {isEmbedded && (
                 <style>
@@ -419,67 +452,64 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                     </div>
                 )}
 
-                {/* BACKUP RECEIPT AT TOP (Just in case user scrolled up) */}
-                {isSubmitted && lastOrder && (
-                    <div className="mb-8 opacity-80 md:hidden">
-                        <InlineReceiptCard order={lastOrder} />
-                    </div>
-                )}
-
-                <form onSubmit={handleSubmit} className={`space-y-16 ${isSubmitted ? 'opacity-30 pointer-events-none grayscale transition-opacity duration-1000' : ''}`}>
+                <form onSubmit={handleSubmit} className="space-y-16">
                     
-                    {/* FLAVORS SECTION */}
-                    <section>
-                        <h3 className="text-3xl font-serif text-brand-brown mb-8 text-center">Our Flavors</h3>
-                        <div className="bg-white p-8 sm:p-12 rounded-xl shadow-sm">
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-12 gap-y-6">
-                                {standardFlavors.map(f => (
-                                    <div key={f.name} className="flex flex-col items-center text-center">
-                                        <span className="font-serif text-xl text-brand-brown">{f.name}</span>
-                                        {f.description && <span className="text-sm text-gray-500 mt-1 font-light">{f.description}</span>}
-                                    </div>
-                                ))}
-                            </div>
-                            <p className="text-center text-xs text-gray-400 mt-10 font-medium uppercase tracking-widest">Available for both Mini and Full-Size</p>
-                        </div>
-                        
-                        {specialFlavors.length > 0 && (
-                            <div className="mt-8 rounded-xl shadow-sm border border-purple-100 bg-white overflow-hidden transition-all">
-                                <button 
-                                    type="button"
-                                    onClick={() => setIsSpecialtyOpen(!isSpecialtyOpen)}
-                                    className="w-full p-6 flex items-center justify-between bg-purple-50 hover:bg-purple-100 transition-colors text-left group"
-                                >
-                                    <h4 className="text-xl font-serif text-purple-900 flex items-center gap-3">
-                                        <StarIcon className="w-6 h-6 text-purple-400" /> Specialty & Seasonal Flavors
-                                    </h4>
-                                    <div className={`transform transition-transform duration-300 ${isSpecialtyOpen ? 'rotate-180' : ''}`}>
-                                        <ChevronDownIcon className="w-6 h-6 text-purple-400" />
-                                    </div>
-                                </button>
-                                
-                                {isSpecialtyOpen && (
-                                    <div className="p-8 border-t border-purple-100 bg-white">
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                                            {specialFlavors.map(f => (
-                                                <div key={f.name} className="text-center">
-                                                    <p className="font-serif text-lg text-brand-brown">{f.name}</p>
-                                                    {f.description && <p className="text-sm text-gray-500 mt-1 font-light italic">{f.description}</p>}
-                                                </div>
-                                            ))}
+                    {/* FLAVORS SECTION - HIDDEN IN EMBEDDED MODE TO SAVE SPACE */}
+                    {!isEmbedded && (
+                        <section>
+                            <h3 className="text-3xl font-serif text-brand-brown mb-8 text-center">Our Flavors</h3>
+                            <div className="bg-white p-8 sm:p-12 rounded-xl shadow-sm">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-x-12 gap-y-6">
+                                    {standardFlavors.map(f => (
+                                        <div key={f.name} className="flex flex-col items-center text-center">
+                                            <span className="font-serif text-xl text-brand-brown">{f.name}</span>
+                                            {f.description && <span className="text-sm text-gray-500 mt-1 font-light">{f.description}</span>}
                                         </div>
-                                    </div>
-                                )}
+                                    ))}
+                                </div>
+                                <p className="text-center text-xs text-gray-400 mt-10 font-medium uppercase tracking-widest">Available for both Mini and Full-Size</p>
                             </div>
-                        )}
-                    </section>
+                            
+                            {specialFlavors.length > 0 && (
+                                <div className="mt-8 rounded-xl shadow-sm border border-purple-100 bg-white overflow-hidden transition-all">
+                                    <button 
+                                        type="button"
+                                        onClick={() => setIsSpecialtyOpen(!isSpecialtyOpen)}
+                                        className="w-full p-6 flex items-center justify-between bg-purple-50 hover:bg-purple-100 transition-colors text-left group"
+                                    >
+                                        <h4 className="text-xl font-serif text-purple-900 flex items-center gap-3">
+                                            <StarIcon className="w-6 h-6 text-purple-400" /> Specialty & Seasonal Flavors
+                                        </h4>
+                                        <div className={`transform transition-transform duration-300 ${isSpecialtyOpen ? 'rotate-180' : ''}`}>
+                                            <ChevronDownIcon className="w-6 h-6 text-purple-400" />
+                                        </div>
+                                    </button>
+                                    
+                                    {isSpecialtyOpen && (
+                                        <div className="p-8 border-t border-purple-100 bg-white">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                                                {specialFlavors.map(f => (
+                                                    <div key={f.name} className="text-center">
+                                                        <p className="font-serif text-lg text-brand-brown">{f.name}</p>
+                                                        {f.description && <p className="text-sm text-gray-500 mt-1 font-light italic">{f.description}</p>}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </section>
+                    )}
 
-                    {/* Header Section */}
-                    <div className="text-center py-8 border-t border-brand-tan/20">
-                        <h3 className="text-3xl font-serif text-brand-brown mb-4">Place Your Order</h3>
-                        <div className="w-24 h-1 bg-brand-orange mx-auto mb-6"></div>
-                        <p className="text-brand-brown/70 max-w-2xl mx-auto text-lg font-light">Select your packages below. Everything is made fresh to order with love.</p>
-                    </div>
+                    {/* Header Section - HIDDEN IN EMBEDDED MODE */}
+                    {!isEmbedded && (
+                        <div className="text-center py-8 border-t border-brand-tan/20">
+                            <h3 className="text-3xl font-serif text-brand-brown mb-4">Place Your Order</h3>
+                            <div className="w-24 h-1 bg-brand-orange mx-auto mb-6"></div>
+                            <p className="text-brand-brown/70 max-w-2xl mx-auto text-lg font-light">Select your packages below. Everything is made fresh to order with love.</p>
+                        </div>
+                    )}
 
                     {/* PACKAGES SECTION */}
                     <div className="space-y-8">
@@ -721,30 +751,22 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                     </section>
 
                     {/* Sticky Footer Total */}
-                    {/* ONLY SHOW IF NOT SUBMITTED - Otherwise replaced by receipt inline */}
-                    {!isSubmitted && (
-                        <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-gray-200 p-4 sm:p-6 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-20">
-                            <div className="max-w-5xl mx-auto flex flex-row justify-between items-center gap-4">
-                                <div className="text-left">
-                                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Estimated Total</p>
-                                    <p className="text-3xl font-serif text-brand-brown font-bold">${estimatedTotal.toFixed(2)}*</p>
-                                </div>
-                                <button 
-                                    type="submit" 
-                                    disabled={isSubmitting} 
-                                    className="bg-brand-orange text-white font-bold text-sm sm:text-base px-8 py-3 sm:py-4 rounded shadow-lg hover:bg-brand-orange/90 hover:shadow-xl transition-all disabled:bg-gray-400 disabled:cursor-not-allowed disabled:shadow-none uppercase tracking-widest"
-                                >
-                                    {isSubmitting ? 'Sending Request...' : 'Submit Order'}
-                                </button>
+                    <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-gray-200 p-4 sm:p-6 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-20">
+                        <div className="max-w-5xl mx-auto flex flex-row justify-between items-center gap-4">
+                            <div className="text-left">
+                                <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Estimated Total</p>
+                                <p className="text-3xl font-serif text-brand-brown font-bold">${estimatedTotal.toFixed(2)}*</p>
                             </div>
+                            <button 
+                                type="submit" 
+                                disabled={isSubmitting} 
+                                className="bg-brand-orange text-white font-bold text-sm sm:text-base px-8 py-3 sm:py-4 rounded shadow-lg hover:bg-brand-orange/90 hover:shadow-xl transition-all disabled:bg-gray-400 disabled:cursor-not-allowed disabled:shadow-none uppercase tracking-widest"
+                            >
+                                {isSubmitting ? 'Sending Request...' : 'Submit Order'}
+                            </button>
                         </div>
-                    )}
+                    </div>
                 </form>
-
-                {/* MAIN INLINE RECEIPT (Replaces Button) */}
-                {isSubmitted && lastOrder && (
-                    <InlineReceiptCard order={lastOrder} />
-                )}
 
                 {activePackageBuilder && (
                     <PackageBuilderModal 
