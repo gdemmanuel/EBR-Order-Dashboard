@@ -53,9 +53,9 @@ const formatPhoneNumber = (value: string) => {
 };
 
 // --- Receipt Component ---
-const ReceiptCard = ({ order }: { order: Order }) => {
+const ReceiptCard = ({ order, location }: { order: Order, location: 'top' | 'bottom' }) => {
     return (
-        <div className="bg-white w-full max-w-md rounded-xl shadow-xl border-t-8 border-brand-orange overflow-hidden relative mb-8 mx-auto">
+        <div className={`bg-white w-full max-w-md rounded-xl shadow-xl border-t-8 border-brand-orange overflow-hidden relative ${location === 'top' ? 'mb-8' : 'mt-8'}`}>
             {/* Success Header */}
             <div className="bg-green-50 p-6 text-center border-b border-green-100">
                 <div className="mx-auto bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mb-3 shadow-sm">
@@ -341,40 +341,6 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
             setIsSubmitting(false);
         }
     };
-
-    // --- WALLPAPER SUCCESS VIEW ---
-    if (isSubmitted && lastOrder) {
-        return (
-            <div className="min-h-screen bg-brand-cream w-full flex flex-col items-center py-8 animate-fade-in">
-                {/* 
-                   WALLPAPER STRATEGY:
-                   We render the receipt 3 times vertically.
-                   1. At the very top (for normal browsers)
-                   2. In the middle (for medium scroll)
-                   3. At the bottom (for tall iframes where user is stuck at bottom)
-                   This guarantees visibility without complex scroll logic.
-                */}
-                
-                <ReceiptCard order={lastOrder} />
-                
-                <div className="h-32 w-full flex justify-center items-center opacity-20 font-serif text-brand-brown">
-                    Scroll for more...
-                </div>
-                
-                <ReceiptCard order={lastOrder} />
-                
-                <div className="h-32 w-full flex justify-center items-center opacity-20 font-serif text-brand-brown">
-                    Scroll for more...
-                </div>
-                
-                <ReceiptCard order={lastOrder} />
-                
-                <style>{`
-                    body { overflow-y: auto; }
-                `}</style>
-            </div>
-        );
-    }
     
     const miniPackages = safePricing.packages?.filter(p => p.itemType === 'mini' && p.visible && !p.isSpecial) || [];
     const fullPackages = safePricing.packages?.filter(p => p.itemType === 'full' && p.visible && !p.isSpecial) || [];
@@ -452,7 +418,12 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                     </div>
                 )}
 
-                <form onSubmit={handleSubmit} className="space-y-16">
+                {/* RECEIPT AT TOP (Just in case user scrolled up) */}
+                {isSubmitted && lastOrder && (
+                    <ReceiptCard order={lastOrder} location="top" />
+                )}
+
+                <form onSubmit={handleSubmit} className={`space-y-16 ${isSubmitted ? 'opacity-40 pointer-events-none grayscale transition-opacity duration-1000' : ''}`}>
                     
                     {/* FLAVORS SECTION */}
                     <section>
@@ -749,22 +720,30 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                     </section>
 
                     {/* Sticky Footer Total */}
-                    <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-gray-200 p-4 sm:p-6 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-20">
-                        <div className="max-w-5xl mx-auto flex flex-row justify-between items-center gap-4">
-                            <div className="text-left">
-                                <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Estimated Total</p>
-                                <p className="text-3xl font-serif text-brand-brown font-bold">${estimatedTotal.toFixed(2)}*</p>
+                    {/* ONLY SHOW IF NOT SUBMITTED - Otherwise replaced by receipt inline */}
+                    {!isSubmitted && (
+                        <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-gray-200 p-4 sm:p-6 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-20">
+                            <div className="max-w-5xl mx-auto flex flex-row justify-between items-center gap-4">
+                                <div className="text-left">
+                                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Estimated Total</p>
+                                    <p className="text-3xl font-serif text-brand-brown font-bold">${estimatedTotal.toFixed(2)}*</p>
+                                </div>
+                                <button 
+                                    type="submit" 
+                                    disabled={isSubmitting} 
+                                    className="bg-brand-orange text-white font-bold text-sm sm:text-base px-8 py-3 sm:py-4 rounded shadow-lg hover:bg-brand-orange/90 hover:shadow-xl transition-all disabled:bg-gray-400 disabled:cursor-not-allowed disabled:shadow-none uppercase tracking-widest"
+                                >
+                                    {isSubmitting ? 'Sending Request...' : 'Submit Order'}
+                                </button>
                             </div>
-                            <button 
-                                type="submit" 
-                                disabled={isSubmitting} 
-                                className="bg-brand-orange text-white font-bold text-sm sm:text-base px-8 py-3 sm:py-4 rounded shadow-lg hover:bg-brand-orange/90 hover:shadow-xl transition-all disabled:bg-gray-400 disabled:cursor-not-allowed disabled:shadow-none uppercase tracking-widest"
-                            >
-                                {isSubmitting ? 'Sending Request...' : 'Submit Order'}
-                            </button>
                         </div>
-                    </div>
+                    )}
                 </form>
+
+                {/* RECEIPT AT BOTTOM (Where user clicked submit) */}
+                {isSubmitted && lastOrder && (
+                    <ReceiptCard order={lastOrder} location="bottom" />
+                )}
 
                 {activePackageBuilder && (
                     <PackageBuilderModal 
