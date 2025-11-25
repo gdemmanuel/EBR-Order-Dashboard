@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useLayoutEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { saveOrderToDb, AppSettings } from '../services/dbService';
 import { Order, OrderItem, PaymentStatus, FollowUpStatus, ApprovalStatus, PricingSettings, Flavor, MenuPackage } from '../types';
@@ -119,19 +118,27 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
         }
     }, [safePricing.salsas]);
 
+    // Force scroll to top when submitted
+    useLayoutEffect(() => {
+        if (isSubmitted) {
+            window.scrollTo(0, 0);
+            try {
+                // Try to scroll parent window if same origin (rarely works cross-origin but worth a try)
+                if (window.parent) window.parent.scrollTo(0, 0);
+            } catch (e) {}
+        }
+    }, [isSubmitted]);
+
     // Auto Redirect on Success
     useEffect(() => {
         if (isSubmitted) {
             const timer = setTimeout(() => {
                 const targetUrl = 'https://www.empanadasbyrose.com';
                 try {
-                    if (window.top) {
-                        window.top.location.href = targetUrl;
-                    } else {
-                        window.location.href = targetUrl;
-                    }
+                    // Try standard top navigation
+                    window.open(targetUrl, '_top');
                 } catch (e) {
-                    console.warn("Standard redirect blocked by iframe policy, relying on manual link.", e);
+                    console.warn("Redirect blocked by iframe policy, relying on manual link.", e);
                 }
             }, 3500);
             return () => clearTimeout(timer);
@@ -280,6 +287,9 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
             };
 
             await saveOrderToDb(newOrder);
+            
+            // Attempt scroll before setting state
+            window.scrollTo(0, 0);
             setIsSubmitted(true);
 
         } catch (err: any) {
@@ -291,39 +301,39 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
         }
     };
 
-    // FIXED POSITION SUCCESS VIEW
-    // Using position: fixed guarantees the message covers the iframe viewport
-    // regardless of how tall the document is or where the user scrolled.
+    // SUCCESS VIEW - REPEATED STRATEGY
+    // If we can't force the user to scroll up, we render the message twice.
+    // Once at the top, and once further down, ensuring visibility regardless of scroll position.
     if (isSubmitted) {
-        return (
-            <div className="fixed inset-0 z-[9999] bg-white flex flex-col items-center justify-center p-4 overflow-y-auto text-center animate-fade-in">
-                <div className="max-w-lg w-full bg-white p-8 rounded-xl shadow-2xl border-t-4 border-brand-orange">
-                    <div className="bg-green-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <CheckCircleIcon className="w-10 h-10 text-green-700" />
+        const SuccessCard = () => (
+            <div className="max-w-lg w-full bg-white p-8 rounded-xl shadow-2xl border-t-4 border-brand-orange mx-auto my-10">
+                <div className="bg-green-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <CheckCircleIcon className="w-10 h-10 text-green-700" />
+                </div>
+                <h2 className="text-3xl font-serif text-brand-brown mb-4 text-center">Order Received!</h2>
+                <p className="text-brand-brown/80 mb-8 text-lg font-light text-center">
+                    Thank you, {customerName}. We've received your order. We'll contact you shortly at <strong>{phoneNumber}</strong> to confirm details.
+                </p>
+                
+                <div className="bg-gray-50 p-4 rounded-lg mb-6 border border-gray-200">
+                    <p className="text-sm text-gray-500 font-medium mb-2 text-center">Redirecting...</p>
+                    <div className="w-full bg-gray-200 rounded-full h-1.5">
+                        <div className="bg-brand-orange h-1.5 rounded-full animate-[width_3s_linear_forwards]" style={{width: '0%'}}></div>
                     </div>
-                    <h2 className="text-3xl font-serif text-brand-brown mb-4">Order Received!</h2>
-                    <p className="text-brand-brown/80 mb-8 text-lg font-light">
-                        Thank you, {customerName}. We've received your order. We'll contact you shortly at <strong>{phoneNumber}</strong> to confirm details.
-                    </p>
-                    
-                    <div className="bg-gray-50 p-4 rounded-lg mb-6 border border-gray-200">
-                        <p className="text-sm text-gray-500 font-medium mb-2">Redirecting...</p>
-                        <div className="w-full bg-gray-200 rounded-full h-1.5">
-                            <div className="bg-brand-orange h-1.5 rounded-full animate-[width_3s_linear_forwards]" style={{width: '0%'}}></div>
-                        </div>
-                    </div>
+                </div>
 
-                    {/* Native Anchor Tag for Robust Redirect */}
-                    <a 
-                        href="https://www.empanadasbyrose.com" 
-                        target="_top"
-                        className="block w-full bg-brand-brown text-white font-serif px-8 py-4 rounded hover:bg-brand-brown/90 transition-all uppercase tracking-wider text-sm shadow-md cursor-pointer no-underline mb-4"
-                    >
-                        <div className="flex items-center justify-center gap-2">
-                            <ArrowUturnLeftIcon className="w-5 h-5" /> Return to Website
-                        </div>
-                    </a>
-                    
+                {/* Native Anchor Tag for Robust Redirect */}
+                <a 
+                    href="https://www.empanadasbyrose.com" 
+                    target="_top"
+                    className="block w-full bg-brand-brown text-white font-serif px-8 py-4 rounded hover:bg-brand-brown/90 transition-all uppercase tracking-wider text-sm shadow-md cursor-pointer no-underline mb-4 text-center"
+                >
+                    <div className="flex items-center justify-center gap-2">
+                        <ArrowUturnLeftIcon className="w-5 h-5" /> Return to Website
+                    </div>
+                </a>
+                
+                <div className="text-center">
                     <button 
                         onClick={() => window.location.reload()} 
                         className="text-brand-orange hover:underline text-sm font-medium"
@@ -331,6 +341,24 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                         Place Another Order
                     </button>
                 </div>
+            </div>
+        );
+
+        return (
+            <div className="min-h-screen bg-white flex flex-col items-center animate-fade-in pb-20">
+                {/* Message at Top */}
+                <SuccessCard />
+
+                {/* Duplicate Message further down for embedded users stuck at bottom of iframe */}
+                {isEmbedded && (
+                    <>
+                        <div className="h-[400px] w-full flex items-center justify-center text-gray-300 text-sm italic">
+                            ...
+                        </div>
+                        <SuccessCard />
+                    </>
+                )}
+                
                 <style>{`
                     @keyframes width { from { width: 0%; } to { width: 100%; } }
                 `}</style>
