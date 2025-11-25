@@ -52,27 +52,55 @@ const formatPhoneNumber = (value: string) => {
     return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`;
 };
 
-// Inline Success Component to be used in-place
+// Inline Success Component (The "Safe" Backup)
 const InlineSuccessMessage = ({ customerName, phoneNumber }: { customerName: string, phoneNumber: string }) => (
-    <div className="bg-green-50 border border-green-200 rounded-xl p-6 text-center animate-fade-in shadow-sm">
-        <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-            <CheckCircleIcon className="w-8 h-8 text-green-700" />
+    <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex flex-col sm:flex-row items-center justify-between gap-4 animate-fade-in w-full">
+        <div className="flex items-center gap-3">
+            <CheckCircleIcon className="w-8 h-8 text-green-600 flex-shrink-0" />
+            <div>
+                <h4 className="font-bold text-green-900 text-lg">Order Received!</h4>
+                <p className="text-sm text-green-800">Thanks {customerName.split(' ')[0]}. We'll text you shortly.</p>
+            </div>
         </div>
-        <h2 className="text-2xl font-serif text-brand-brown mb-2">Order Received!</h2>
-        <p className="text-brand-brown/80 mb-6">
-            Thank you, {customerName}. We'll contact you at <strong>{phoneNumber}</strong> shortly.
-        </p>
-        
         <a 
             href="https://www.empanadasbyrose.com" 
             target="_top"
-            className="inline-flex items-center justify-center gap-2 bg-brand-brown text-white font-serif px-6 py-3 rounded hover:bg-brand-brown/90 transition-all uppercase tracking-wider text-sm shadow-md no-underline w-full sm:w-auto"
+            className="bg-green-600 text-white px-6 py-2 rounded-md font-bold hover:bg-green-700 transition-colors text-sm no-underline whitespace-nowrap"
         >
-            <ArrowUturnLeftIcon className="w-4 h-4" /> Return to Website
+            Return to Website
         </a>
+    </div>
+);
+
+// Centered Modal Component (The "Premium" Experience)
+const CenteredSuccessModal = ({ customerName, phoneNumber }: { customerName: string, phoneNumber: string }) => (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 pointer-events-none">
+        {/* Backdrop */}
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm pointer-events-auto"></div>
         
-        <div className="mt-4">
-            <p className="text-xs text-gray-500">Redirecting automatically in a few seconds...</p>
+        {/* Card */}
+        <div className="bg-white rounded-xl shadow-2xl border-t-4 border-brand-orange p-8 max-w-md w-full relative pointer-events-auto animate-fade-in text-center">
+            <div className="bg-green-100 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+                <CheckCircleIcon className="w-10 h-10 text-green-700" />
+            </div>
+            
+            <h2 className="text-3xl font-serif text-brand-brown mb-3">Order Received!</h2>
+            <p className="text-brand-brown/80 mb-8 text-lg leading-relaxed">
+                Thank you, <strong>{customerName}</strong>.<br/>
+                We have received your order and will contact you at <strong>{phoneNumber}</strong> shortly to confirm details.
+            </p>
+            
+            <a 
+                href="https://www.empanadasbyrose.com" 
+                target="_top"
+                className="block w-full bg-brand-brown text-white font-serif px-8 py-4 rounded-lg hover:bg-brand-brown/90 transition-all uppercase tracking-wider text-sm shadow-lg cursor-pointer no-underline flex items-center justify-center gap-2"
+            >
+                <ArrowUturnLeftIcon className="w-5 h-5" /> Return to Website
+            </a>
+            
+            <div className="mt-6 pt-6 border-t border-gray-100">
+                <p className="text-xs text-gray-400">Redirecting automatically in a few seconds...</p>
+            </div>
         </div>
     </div>
 );
@@ -153,7 +181,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                 } catch (e) {
                     console.warn("Redirect blocked by iframe policy, relying on manual link.", e);
                 }
-            }, 4000);
+            }, 4500);
             return () => clearTimeout(timer);
         }
     }, [isSubmitted]);
@@ -368,14 +396,19 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                     </div>
                 )}
 
-                {/* IN-PLACE SUCCESS BANNER (Top) */}
+                {/* IN-PLACE SUCCESS BANNER (Top - Just in case user is scrolled up) */}
                 {isSubmitted && (
-                    <div className="mb-12">
+                    <div className="mb-12 md:hidden">
                         <InlineSuccessMessage customerName={customerName} phoneNumber={phoneNumber} />
                     </div>
                 )}
+                
+                {/* CENTERED SUCCESS MODAL (The Main Confirmation) */}
+                {isSubmitted && (
+                    <CenteredSuccessModal customerName={customerName} phoneNumber={phoneNumber} />
+                )}
 
-                <form onSubmit={handleSubmit} className={`space-y-16 ${isSubmitted ? 'opacity-50 pointer-events-none grayscale' : ''}`}>
+                <form onSubmit={handleSubmit} className={`space-y-16 ${isSubmitted ? 'opacity-50 pointer-events-none grayscale blur-sm' : ''}`}>
                     
                     {/* FLAVORS SECTION */}
                     <section>
@@ -673,23 +706,8 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                     <div className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-gray-200 p-4 sm:p-6 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-20">
                         <div className="max-w-5xl mx-auto">
                             {isSubmitted ? (
-                                /* SUCCESS STATE IN FOOTER - REPLACES BUTTON */
-                                <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex flex-col sm:flex-row items-center justify-between gap-4 animate-fade-in">
-                                    <div className="flex items-center gap-3">
-                                        <CheckCircleIcon className="w-8 h-8 text-green-600" />
-                                        <div>
-                                            <h4 className="font-bold text-green-900 text-lg">Order Received!</h4>
-                                            <p className="text-sm text-green-800">We'll text you shortly.</p>
-                                        </div>
-                                    </div>
-                                    <a 
-                                        href="https://www.empanadasbyrose.com" 
-                                        target="_top"
-                                        className="bg-green-600 text-white px-6 py-2 rounded-md font-bold hover:bg-green-700 transition-colors text-sm no-underline"
-                                    >
-                                        Return to Website
-                                    </a>
-                                </div>
+                                /* SUCCESS STATE IN FOOTER - REPLACES BUTTON (The "Safe" Fallback) */
+                                <InlineSuccessMessage customerName={customerName} phoneNumber={phoneNumber} />
                             ) : (
                                 /* NORMAL SUBMIT BUTTON */
                                 <div className="flex flex-row justify-between items-center gap-4">
