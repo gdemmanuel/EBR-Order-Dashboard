@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { Order, Expense, FollowUpStatus } from '../types';
 import { parseOrderDateTime } from '../utils/dateUtils';
@@ -254,7 +253,12 @@ async function parseObjectsBatch(
             }
         });
         
-        const jsonText = response.text.trim();
+        const jsonText = response.text?.trim() || '';
+        
+        if (!jsonText) {
+             throw new Error("Empty response from Gemini API");
+        }
+
         if (jsonText.length > batchObjects.length * 2000) {
              throw new Error("The AI returned an abnormally large response, which indicates a processing error (e.g., data repetition).");
         }
