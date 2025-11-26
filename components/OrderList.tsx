@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Order, PaymentStatus, FollowUpStatus, ApprovalStatus, AppSettings } from '../types';
-import { TrashIcon, PrinterIcon, MagnifyingGlassIcon, XMarkIcon } from './icons/Icons';
+import { TrashIcon, PrinterIcon, MagnifyingGlassIcon, XMarkIcon, ChevronDownIcon, EyeIcon } from './icons/Icons';
 import { parseOrderDateTime } from '../utils/dateUtils';
 
 interface OrderListProps {
@@ -27,11 +27,11 @@ const StatusBadge = ({ status, approvalStatus, colors }: { status: FollowUpStatu
 
     const bgColor = colors?.[status] || '#f3f4f6'; // Default gray
     
-    // Simple contrast check for text color (not perfect, but works for light bg expectation)
-    const textColor = '#1f2937'; // Default dark gray text
+    // Simple contrast check logic or just default text color
+    const textColor = '#1f2937'; 
     const borderColor = 'rgba(0,0,0,0.05)';
 
-    return <span className="text-xs font-medium px-2.5 py-0.5 rounded border" style={{ backgroundColor: bgColor, color: textColor, borderColor }}>{status}</span>;
+    return <span className="text-xs font-medium px-2.5 py-0.5 rounded border whitespace-nowrap" style={{ backgroundColor: bgColor, color: textColor, borderColor }}>{status}</span>;
 };
 
 export default function OrderList({ 
@@ -130,4 +130,176 @@ export default function OrderList({
                                 <option disabled>──────────</option>
                                 <option value="CANCELLED">Cancelled Orders</option>
                             </select>
-                            <div className="pointer-events-none absolute inset-y
+                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
+                                <ChevronDownIcon className="h-4 w-4" />
+                            </div>
+                        </div>
+                    ) : (
+                        // Legacy filter clearing (if no dropdown)
+                        activeStatusFilter && onClearStatusFilter && (
+                            <div className="flex items-center bg-brand-orange/10 text-brand-orange px-3 py-1 rounded-full text-sm font-medium">
+                                <span>Filter: {activeStatusFilter}</span>
+                                <button onClick={onClearStatusFilter} className="ml-2 hover:text-brand-brown">
+                                    <XMarkIcon className="w-4 h-4" />
+                                </button>
+                            </div>
+                        )
+                    )}
+                </div>
+
+                <div className="flex items-center gap-3 w-full md:w-auto">
+                    {selectedOrderIds.size > 0 && (
+                        <button 
+                            onClick={handleBulkPrint}
+                            className="flex items-center gap-1 bg-gray-100 hover:bg-gray-200 text-gray-800 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border border-gray-300"
+                        >
+                            <PrinterIcon className="w-4 h-4" />
+                            <span>Print ({selectedOrderIds.size})</span>
+                        </button>
+                    )}
+                    
+                    {onSearchChange && (
+                        <div className="relative flex-grow md:flex-grow-0">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <MagnifyingGlassIcon className="h-4 w-4 text-gray-400" />
+                            </div>
+                            <input
+                                type="text"
+                                placeholder="Search orders..."
+                                value={searchTerm || ''}
+                                onChange={(e) => onSearchChange(e.target.value)}
+                                className="block w-full pl-9 rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange sm:text-sm"
+                            />
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-brand-tan/30">
+                    <thead className="bg-gray-50">
+                        <tr>
+                            <th scope="col" className="px-4 py-3 text-left">
+                                <input 
+                                    type="checkbox" 
+                                    className="rounded border-gray-300 text-brand-orange focus:ring-brand-orange"
+                                    checked={orders.length > 0 && selectedOrderIds.size === orders.length}
+                                    onChange={toggleAll}
+                                />
+                            </th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange" onClick={() => handleSort('pickupDateObj')}>
+                                Date {sortConfig.key === 'pickupDateObj' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                            </th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange" onClick={() => handleSort('customerName')}>
+                                Customer {sortConfig.key === 'customerName' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                            </th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Items
+                            </th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange" onClick={() => handleSort('amountCharged')}>
+                                Total {sortConfig.key === 'amountCharged' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                            </th>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange" onClick={() => handleSort('followUpStatus')}>
+                                Status {sortConfig.key === 'followUpStatus' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                            </th>
+                            <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <PrinterIcon className="w-4 h-4 mx-auto" title="Printed Status" />
+                            </th>
+                            <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Action
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-100 text-sm">
+                        {sortedOrders.length === 0 ? (
+                            <tr>
+                                <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
+                                    No orders found.
+                                </td>
+                            </tr>
+                        ) : (
+                            sortedOrders.map((order) => {
+                                const totalItems = order.totalMini + order.totalFullSize;
+                                const itemsSummary = order.items.slice(0, 2).map(i => `${i.quantity} ${i.name}`).join(', ') + (order.items.length > 2 ? '...' : '');
+                                
+                                return (
+                                    <tr key={order.id} className="hover:bg-gray-50 transition-colors group">
+                                        <td className="px-4 py-4 whitespace-nowrap">
+                                            <input 
+                                                type="checkbox" 
+                                                className="rounded border-gray-300 text-brand-orange focus:ring-brand-orange"
+                                                checked={selectedOrderIds.has(order.id)}
+                                                onChange={() => toggleSelection(order.id)}
+                                            />
+                                        </td>
+                                        <td className="px-4 py-4 whitespace-nowrap text-brand-brown">
+                                            <div className="font-medium">{order.pickupDate}</div>
+                                            <div className="text-xs text-gray-500">{order.pickupTime}</div>
+                                        </td>
+                                        <td className="px-4 py-4">
+                                            <div className="font-medium text-brand-brown">{order.customerName}</div>
+                                            <div className="text-xs text-gray-500 truncate max-w-[150px]">{order.contactMethod}</div>
+                                        </td>
+                                        <td className="px-4 py-4">
+                                            <div className="text-brand-brown font-medium">{totalItems} items</div>
+                                            <div className="text-xs text-gray-500 truncate max-w-[200px]" title={order.items.map(i => `${i.quantity} ${i.name}`).join(', ')}>{itemsSummary}</div>
+                                        </td>
+                                        <td className="px-4 py-4 whitespace-nowrap">
+                                            <div className="font-medium text-brand-brown">${order.amountCharged.toFixed(2)}</div>
+                                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                                order.paymentStatus === PaymentStatus.PAID ? 'bg-green-100 text-green-800' : 
+                                                order.paymentStatus === PaymentStatus.OVERDUE ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
+                                            }`}>
+                                                {order.paymentStatus}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-4 whitespace-nowrap">
+                                            <StatusBadge 
+                                                status={order.followUpStatus} 
+                                                approvalStatus={order.approvalStatus} 
+                                                colors={settings?.statusColors}
+                                            />
+                                        </td>
+                                        <td className="px-4 py-4 whitespace-nowrap text-center">
+                                            {order.hasPrinted ? (
+                                                <div className="text-green-600 mx-auto" title="Printed">
+                                                    <PrinterIcon className="w-5 h-5" />
+                                                </div>
+                                            ) : (
+                                                <div className="text-gray-200 mx-auto" title="Not Printed">
+                                                    <PrinterIcon className="w-5 h-5" />
+                                                </div>
+                                            )}
+                                        </td>
+                                        <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                            <div className="flex justify-end gap-2">
+                                                <button 
+                                                    onClick={() => onSelectOrder(order)}
+                                                    className="text-brand-orange hover:text-brand-brown p-1 hover:bg-orange-50 rounded"
+                                                    title="View Details"
+                                                >
+                                                    <EyeIcon className="w-5 h-5" />
+                                                </button>
+                                                {onDelete && (
+                                                    <button 
+                                                        onClick={() => {
+                                                            if(window.confirm('Delete this order permanently?')) onDelete(order.id);
+                                                        }}
+                                                        className="text-gray-400 hover:text-red-600 p-1 hover:bg-red-50 rounded"
+                                                        title="Delete"
+                                                    >
+                                                        <TrashIcon className="w-5 h-5" />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })
+                        )}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+}
