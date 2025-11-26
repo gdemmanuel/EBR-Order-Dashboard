@@ -1,6 +1,6 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { Order, FollowUpStatus, ApprovalStatus, AppSettings } from '../types';
+import { Order, FollowUpStatus, ApprovalStatus, AppSettings, PaymentStatus } from '../types';
 import { generateMessageForOrder } from '../services/geminiService';
 import { subscribeToSettings } from '../services/dbService';
 import { CalendarIcon, ClockIcon, UserIcon, PhoneIcon, MapPinIcon, CurrencyDollarIcon, SparklesIcon, XMarkIcon, PencilIcon, ClipboardDocumentCheckIcon, PaperAirplaneIcon, CreditCardIcon, ArrowTopRightOnSquareIcon, InstagramIcon, ChatBubbleOvalLeftEllipsisIcon, FacebookIcon, CheckCircleIcon, XCircleIcon, TrashIcon, TruckIcon } from './icons/Icons';
@@ -8,12 +8,12 @@ import { CalendarIcon, ClockIcon, UserIcon, PhoneIcon, MapPinIcon, CurrencyDolla
 interface OrderDetailModalProps {
   order: Order;
   onClose: () => void;
-  onUpdateFollowUp: (orderId: string, status: FollowUpStatus) => void;
+  onUpdateFollowUp: (orderId: string, status: FollowUpStatus, updates?: Partial<Order>) => void;
   onEdit: (order: Order) => void;
   onApprove?: (orderId: string) => void;
   onDeny?: (orderId: string) => void;
   onDelete?: (orderId: string) => void;
-  onDeductInventory?: (order: Order) => Promise<void>;
+  onDeductInventory?: (order: Order, updates?: Partial<Order>) => Promise<void>;
 }
 
 const DetailItem: React.FC<{ icon: React.ReactNode; label: string; value: string | number | null | undefined }> = ({ icon, label, value }) => {
@@ -70,19 +70,39 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
     }
   }, [order, settings, localStatus, useAi]);
   
+  const checkPaymentAndGetUpdates = () => {
+      const balance = order.amountCharged - (order.amountCollected || 0);
+      if (balance > 0.01) {
+          if (window.confirm(`This order has a balance of $${balance.toFixed(2)}. Do you want to mark it as PAID?`)) {
+              return {
+                  amountCollected: order.amountCharged,
+                  paymentStatus: PaymentStatus.PAID
+              };
+          }
+      }
+      return {};
+  };
+
   const handleStatusChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
       const newStatus = e.target.value as FollowUpStatus;
       setLocalStatus(newStatus); // Immediate UI update
       
-      // If user is changing status to COMPLETED, ask about inventory
+      let updates: Partial<Order> = {};
+
+      // If user is changing status to COMPLETED
       if (newStatus === FollowUpStatus.COMPLETED && order.followUpStatus !== FollowUpStatus.COMPLETED) {
-          // If inventory handler exists, prompt user
+          
+          // 1. Check Payment
+          updates = checkPaymentAndGetUpdates();
+
+          // 2. Ask about Inventory
           if (onDeductInventory) {
               const shouldDeduct = window.confirm("Do you want to deduct these items from your Inventory?");
               if (shouldDeduct) {
                    setLoadingAction('inventory');
                    try {
-                       await onDeductInventory(order);
+                       // Pass updates (payment info) to inventory handler
+                       await onDeductInventory(order, updates);
                        // onDeductInventory handles the status update to COMPLETED internally in parent
                        return; 
                    } catch (e) {
@@ -95,16 +115,19 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
           }
       }
 
-      onUpdateFollowUp(order.id, newStatus);
+      onUpdateFollowUp(order.id, newStatus, updates);
   };
 
   const handleDeductInventoryClick = async () => {
       if (!onDeductInventory) return;
+      
+      const updates = checkPaymentAndGetUpdates();
+
       if (!window.confirm("This will deduct the items from your inventory and mark the order as Completed. Continue?")) return;
       
       setLoadingAction('inventory');
       try {
-          await onDeductInventory(order);
+          await onDeductInventory(order, updates);
       } catch (e) {
           setError("Failed to update inventory.");
       } finally {
@@ -296,7 +319,7 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
                             <p className="text-sm font-medium text-brand-brown/70">Balance Due</p>
                              {(() => {
                                  const balance = order.amountCharged - (order.amountCollected || 0);
-                                 return balance > 0 ? (
+                                 return balance > 0.01 ? (
                                      <p className="text-base font-bold text-red-600">${balance.toFixed(2)}</p>
                                  ) : (
                                      <p className="text-base text-gray-500 font-medium">Paid</p>

@@ -188,10 +188,10 @@ export default function AdminDashboard({
         if (editingOrder?.id === id) setIsOrderFormOpen(false);
     };
 
-    const handleUpdateStatus = async (id: string, status: FollowUpStatus) => {
+    const handleUpdateStatus = async (id: string, status: FollowUpStatus, updates?: Partial<Order>) => {
         const order = allOrders.find(o => o.id === id);
         if (order) {
-            await saveOrderToDb({ ...order, followUpStatus: status });
+            await saveOrderToDb({ ...order, ...updates, followUpStatus: status });
         }
     };
 
@@ -202,7 +202,7 @@ export default function AdminDashboard({
         await saveOrderToDb({ ...order, approvalStatus: newStatus });
     };
 
-    const handleDeductInventory = async (order: Order) => {
+    const handleDeductInventory = async (order: Order, updates?: Partial<Order>) => {
         const currentInventory = { ...(settings.inventory || {}) };
         
         order.items.forEach(item => {
@@ -221,7 +221,7 @@ export default function AdminDashboard({
         });
 
         await updateSettingsInDb({ inventory: currentInventory });
-        await saveOrderToDb({ ...order, followUpStatus: FollowUpStatus.COMPLETED });
+        await saveOrderToDb({ ...order, ...updates, followUpStatus: FollowUpStatus.COMPLETED });
         setSelectedOrder(null); 
     };
 
