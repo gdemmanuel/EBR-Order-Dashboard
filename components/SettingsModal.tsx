@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { AppSettings, updateSettingsInDb } from '../services/dbService';
 import { PricingSettings, MenuPackage, Flavor, SalsaProduct, PricingTier, Employee, FollowUpStatus } from '../types';
 import { XMarkIcon, PlusIcon, TrashIcon, CheckCircleIcon, CogIcon, PencilIcon, ScaleIcon, CurrencyDollarIcon, ClockIcon, SparklesIcon, CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon, ReceiptIcon, UsersIcon, BriefcaseIcon, DocumentTextIcon, ListBulletIcon, MegaphoneIcon, ChatBubbleOvalLeftEllipsisIcon, SparklesIcon as AppearanceIcon } from './icons/Icons';
@@ -69,8 +69,15 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
         isActive: true
     });
 
-    // Status Colors
+    // Status Colors - Initialize with settings, default to standard object if missing
     const [statusColors, setStatusColors] = useState<Record<string, string>>(settings.statusColors || {});
+
+    // Sync statusColors if settings change externally
+    useEffect(() => {
+        if (settings.statusColors) {
+            setStatusColors(settings.statusColors);
+        }
+    }, [settings.statusColors]);
 
     const [newFlavorName, setNewFlavorName] = useState('');
     const [isSaving, setIsSaving] = useState(false);
@@ -187,7 +194,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                 discoCosts: sanitizedDiscoCosts,
                 expenseCategories,
                 employees: sanitizedEmployees,
-                statusColors
+                statusColors: statusColors // Explicitly passing state
             });
             
             onClose();

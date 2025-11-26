@@ -297,7 +297,8 @@ export default function OrderList({
                         ) : (
                             sortedOrders.map((order) => {
                                 const totalItems = order.totalMini + order.totalFullSize;
-                                const itemsSummary = order.items.slice(0, 2).map(i => `${i.quantity} ${i.name}`).join(', ') + (order.items.length > 2 ? '...' : '');
+                                // Include ALL items in summary, CSS truncate will handle hiding overflow based on width
+                                const itemsSummary = order.items.map(i => `${i.quantity} ${i.name}`).join(', ');
                                 
                                 return (
                                     <tr 
@@ -324,7 +325,7 @@ export default function OrderList({
                                         </td>
                                         <td className="px-4 py-4 overflow-hidden">
                                             <div className="text-brand-brown font-medium truncate">{totalItems} items</div>
-                                            <div className="text-xs text-gray-500 truncate" title={order.items.map(i => `${i.quantity} ${i.name}`).join(', ')}>{itemsSummary}</div>
+                                            <div className="text-xs text-gray-500 truncate" title={itemsSummary}>{itemsSummary}</div>
                                         </td>
                                         <td className="px-4 py-4 whitespace-nowrap overflow-hidden">
                                             <div className="font-medium text-brand-brown">${order.amountCharged.toFixed(2)}</div>
