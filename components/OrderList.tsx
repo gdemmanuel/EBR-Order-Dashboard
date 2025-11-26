@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Order, PaymentStatus, FollowUpStatus, ApprovalStatus, AppSettings } from '../types';
 import { TrashIcon, PrinterIcon, MagnifyingGlassIcon, XMarkIcon, ChevronDownIcon, EyeIcon } from './icons/Icons';
 import { parseOrderDateTime } from '../utils/dateUtils';
@@ -34,6 +34,17 @@ const StatusBadge = ({ status, approvalStatus, colors }: { status: FollowUpStatu
     return <span className="text-xs font-medium px-2.5 py-0.5 rounded border whitespace-nowrap" style={{ backgroundColor: bgColor, color: textColor, borderColor }}>{status}</span>;
 };
 
+const getPaymentStatusBadge = (status: PaymentStatus) => {
+    if (status === PaymentStatus.PAID) {
+        return <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-800 border border-green-200">Paid</span>;
+    }
+    // Pending (Not Paid) and Overdue are both Red
+    const label = status === PaymentStatus.PENDING ? 'Not Paid' : status;
+    return <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-800 border border-red-200 whitespace-nowrap">
+        {label}
+    </span>;
+};
+
 export default function OrderList({ 
     orders, 
     title, 
@@ -50,6 +61,50 @@ export default function OrderList({
 }: OrderListProps) {
     const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
     const [sortConfig, setSortConfig] = useState<{ key: keyof Order | 'pickupDateObj', direction: 'asc' | 'desc' }>({ key: 'pickupDateObj', direction: 'asc' });
+
+    // Column Resizing State
+    const [columnWidths, setColumnWidths] = useState<Record<string, number>>({
+        checkbox: 48,
+        date: 130,
+        customer: 180,
+        items: 280,
+        total: 110,
+        status: 140,
+        printed: 70,
+        action: 90
+    });
+    
+    const resizingRef = useRef<{ startX: number, startWidth: number, columnKey: string } | null>(null);
+
+    const startResize = (e: React.MouseEvent, key: string) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const header = (e.target as HTMLElement).closest('th');
+        if (!header) return;
+        resizingRef.current = {
+            startX: e.clientX,
+            startWidth: columnWidths[key],
+            columnKey: key
+        };
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+        document.body.style.cursor = 'col-resize';
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+        if (!resizingRef.current) return;
+        const { startX, startWidth, columnKey } = resizingRef.current;
+        const diff = e.clientX - startX;
+        const newWidth = Math.max(50, startWidth + diff); // Min width 50px
+        setColumnWidths(prev => ({ ...prev, [columnKey]: newWidth }));
+    };
+
+    const handleMouseUp = () => {
+        resizingRef.current = null;
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+        document.body.style.cursor = '';
+    };
 
     const handleSort = (key: keyof Order | 'pickupDateObj') => {
         let direction: 'asc' | 'desc' = 'asc';
@@ -108,8 +163,8 @@ export default function OrderList({
     };
 
     return (
-        <div className="bg-white border border-brand-tan rounded-lg shadow-sm overflow-visible relative">
-             <div className="p-4 border-b border-brand-tan bg-brand-tan/10 flex flex-col md:flex-row justify-between items-center gap-4">
+        <div className="bg-white border border-brand-tan rounded-lg shadow-sm overflow-visible relative flex flex-col h-full">
+             <div className="p-4 border-b border-brand-tan bg-brand-tan/10 flex flex-col md:flex-row justify-between items-center gap-4 flex-shrink-0">
                 <div className="flex items-center gap-4 flex-wrap w-full md:w-auto">
                     <h2 className="text-xl font-serif text-brand-brown whitespace-nowrap">{title || 'Orders'}</h2>
                     
@@ -175,37 +230,59 @@ export default function OrderList({
                 </div>
             </div>
 
-            <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-brand-tan/30">
+            <div className="overflow-x-auto flex-grow">
+                <table className="divide-y divide-brand-tan/30 table-fixed" style={{ minWidth: '100%' }}>
                     <thead className="bg-gray-50">
                         <tr>
-                            <th scope="col" className="px-4 py-3 text-left">
+                            {/* Checkbox */}
+                            <th scope="col" className="px-4 py-3 text-left relative group" style={{ width: columnWidths.checkbox }}>
                                 <input 
                                     type="checkbox" 
                                     className="rounded border-gray-300 text-brand-orange focus:ring-brand-orange"
                                     checked={orders.length > 0 && selectedOrderIds.size === orders.length}
                                     onChange={toggleAll}
                                 />
+                                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-brand-orange/50 z-10" onMouseDown={(e) => startResize(e, 'checkbox')} />
                             </th>
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange" onClick={() => handleSort('pickupDateObj')}>
-                                Date {sortConfig.key === 'pickupDateObj' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+
+                            {/* Date */}
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange relative group" style={{ width: columnWidths.date }} onClick={() => handleSort('pickupDateObj')}>
+                                <div className="truncate">Date {sortConfig.key === 'pickupDateObj' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+                                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-brand-orange/50 z-10" onMouseDown={(e) => startResize(e, 'date')} onClick={e => e.stopPropagation()} />
                             </th>
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange" onClick={() => handleSort('customerName')}>
-                                Customer {sortConfig.key === 'customerName' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+
+                            {/* Customer */}
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange relative group" style={{ width: columnWidths.customer }} onClick={() => handleSort('customerName')}>
+                                <div className="truncate">Customer {sortConfig.key === 'customerName' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+                                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-brand-orange/50 z-10" onMouseDown={(e) => startResize(e, 'customer')} onClick={e => e.stopPropagation()} />
                             </th>
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Items
+
+                            {/* Items */}
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative group" style={{ width: columnWidths.items }}>
+                                <div className="truncate">Items</div>
+                                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-brand-orange/50 z-10" onMouseDown={(e) => startResize(e, 'items')} />
                             </th>
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange" onClick={() => handleSort('amountCharged')}>
-                                Total {sortConfig.key === 'amountCharged' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+
+                            {/* Total / Payment */}
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange relative group" style={{ width: columnWidths.total }} onClick={() => handleSort('amountCharged')}>
+                                <div className="truncate">Total {sortConfig.key === 'amountCharged' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+                                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-brand-orange/50 z-10" onMouseDown={(e) => startResize(e, 'total')} onClick={e => e.stopPropagation()} />
                             </th>
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange" onClick={() => handleSort('followUpStatus')}>
-                                Status {sortConfig.key === 'followUpStatus' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+
+                            {/* Status */}
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange relative group" style={{ width: columnWidths.status }} onClick={() => handleSort('followUpStatus')}>
+                                <div className="truncate">Status {sortConfig.key === 'followUpStatus' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
+                                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-brand-orange/50 z-10" onMouseDown={(e) => startResize(e, 'status')} onClick={e => e.stopPropagation()} />
                             </th>
-                            <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                <PrinterIcon className="w-4 h-4 mx-auto" title="Printed Status" />
+
+                            {/* Printed */}
+                            <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider relative group" style={{ width: columnWidths.printed }}>
+                                <div className="flex justify-center"><PrinterIcon className="w-4 h-4" title="Printed Status" /></div>
+                                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-brand-orange/50 z-10" onMouseDown={(e) => startResize(e, 'printed')} />
                             </th>
-                            <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+
+                            {/* Action */}
+                            <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider relative" style={{ width: columnWidths.action }}>
                                 Action
                             </th>
                         </tr>
@@ -228,7 +305,7 @@ export default function OrderList({
                                         className="hover:bg-gray-50 transition-colors group cursor-pointer"
                                         onClick={() => onSelectOrder(order)}
                                     >
-                                        <td className="px-4 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                                        <td className="px-4 py-4 whitespace-nowrap overflow-hidden" onClick={(e) => e.stopPropagation()}>
                                             <input 
                                                 type="checkbox" 
                                                 className="rounded border-gray-300 text-brand-orange focus:ring-brand-orange"
@@ -237,46 +314,41 @@ export default function OrderList({
                                                 onClick={(e) => e.stopPropagation()}
                                             />
                                         </td>
-                                        <td className="px-4 py-4 whitespace-nowrap text-brand-brown">
-                                            <div className="font-medium">{order.pickupDate}</div>
-                                            <div className="text-xs text-gray-500">{order.pickupTime}</div>
+                                        <td className="px-4 py-4 whitespace-nowrap overflow-hidden text-brand-brown">
+                                            <div className="font-medium truncate">{order.pickupDate}</div>
+                                            <div className="text-xs text-gray-500 truncate">{order.pickupTime}</div>
                                         </td>
-                                        <td className="px-4 py-4">
-                                            <div className="font-medium text-brand-brown">{order.customerName}</div>
-                                            <div className="text-xs text-gray-500 truncate max-w-[150px]">{order.contactMethod}</div>
+                                        <td className="px-4 py-4 overflow-hidden">
+                                            <div className="font-medium text-brand-brown truncate" title={order.customerName}>{order.customerName}</div>
+                                            <div className="text-xs text-gray-500 truncate" title={order.contactMethod}>{order.contactMethod}</div>
                                         </td>
-                                        <td className="px-4 py-4">
-                                            <div className="text-brand-brown font-medium">{totalItems} items</div>
-                                            <div className="text-xs text-gray-500 truncate max-w-[200px]" title={order.items.map(i => `${i.quantity} ${i.name}`).join(', ')}>{itemsSummary}</div>
+                                        <td className="px-4 py-4 overflow-hidden">
+                                            <div className="text-brand-brown font-medium truncate">{totalItems} items</div>
+                                            <div className="text-xs text-gray-500 truncate" title={order.items.map(i => `${i.quantity} ${i.name}`).join(', ')}>{itemsSummary}</div>
                                         </td>
-                                        <td className="px-4 py-4 whitespace-nowrap">
+                                        <td className="px-4 py-4 whitespace-nowrap overflow-hidden">
                                             <div className="font-medium text-brand-brown">${order.amountCharged.toFixed(2)}</div>
-                                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                                                order.paymentStatus === PaymentStatus.PAID ? 'bg-green-100 text-green-800' : 
-                                                order.paymentStatus === PaymentStatus.OVERDUE ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
-                                            }`}>
-                                                {order.paymentStatus}
-                                            </span>
+                                            {getPaymentStatusBadge(order.paymentStatus)}
                                         </td>
-                                        <td className="px-4 py-4 whitespace-nowrap">
+                                        <td className="px-4 py-4 whitespace-nowrap overflow-hidden">
                                             <StatusBadge 
                                                 status={order.followUpStatus} 
                                                 approvalStatus={order.approvalStatus} 
                                                 colors={settings?.statusColors}
                                             />
                                         </td>
-                                        <td className="px-4 py-4 whitespace-nowrap text-center">
+                                        <td className="px-4 py-4 whitespace-nowrap text-center overflow-hidden">
                                             {order.hasPrinted ? (
                                                 <div className="text-green-600 mx-auto" title="Printed">
-                                                    <PrinterIcon className="w-5 h-5" />
+                                                    <PrinterIcon className="w-5 h-5 mx-auto" />
                                                 </div>
                                             ) : (
                                                 <div className="text-gray-200 mx-auto" title="Not Printed">
-                                                    <PrinterIcon className="w-5 h-5" />
+                                                    <PrinterIcon className="w-5 h-5 mx-auto" />
                                                 </div>
                                             )}
                                         </td>
-                                        <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium" onClick={(e) => e.stopPropagation()}>
+                                        <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium overflow-hidden" onClick={(e) => e.stopPropagation()}>
                                             <div className="flex justify-end gap-2">
                                                 <button 
                                                     onClick={(e) => { e.stopPropagation(); onSelectOrder(order); }}
