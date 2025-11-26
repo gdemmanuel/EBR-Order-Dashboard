@@ -223,13 +223,18 @@ export default function OrderList({
                                 const itemsSummary = order.items.slice(0, 2).map(i => `${i.quantity} ${i.name}`).join(', ') + (order.items.length > 2 ? '...' : '');
                                 
                                 return (
-                                    <tr key={order.id} className="hover:bg-gray-50 transition-colors group">
-                                        <td className="px-4 py-4 whitespace-nowrap">
+                                    <tr 
+                                        key={order.id} 
+                                        className="hover:bg-gray-50 transition-colors group cursor-pointer"
+                                        onClick={() => onSelectOrder(order)}
+                                    >
+                                        <td className="px-4 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                                             <input 
                                                 type="checkbox" 
                                                 className="rounded border-gray-300 text-brand-orange focus:ring-brand-orange"
                                                 checked={selectedOrderIds.has(order.id)}
                                                 onChange={() => toggleSelection(order.id)}
+                                                onClick={(e) => e.stopPropagation()}
                                             />
                                         </td>
                                         <td className="px-4 py-4 whitespace-nowrap text-brand-brown">
@@ -271,10 +276,10 @@ export default function OrderList({
                                                 </div>
                                             )}
                                         </td>
-                                        <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                        <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium" onClick={(e) => e.stopPropagation()}>
                                             <div className="flex justify-end gap-2">
                                                 <button 
-                                                    onClick={() => onSelectOrder(order)}
+                                                    onClick={(e) => { e.stopPropagation(); onSelectOrder(order); }}
                                                     className="text-brand-orange hover:text-brand-brown p-1 hover:bg-orange-50 rounded"
                                                     title="View Details"
                                                 >
@@ -282,7 +287,8 @@ export default function OrderList({
                                                 </button>
                                                 {onDelete && (
                                                     <button 
-                                                        onClick={() => {
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
                                                             if(window.confirm('Delete this order permanently?')) onDelete(order.id);
                                                         }}
                                                         className="text-gray-400 hover:text-red-600 p-1 hover:bg-red-50 rounded"
