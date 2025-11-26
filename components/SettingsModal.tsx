@@ -69,15 +69,17 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
         isActive: true
     });
 
-    // Status Colors - Initialize with settings, default to standard object if missing
-    const [statusColors, setStatusColors] = useState<Record<string, string>>(settings.statusColors || {});
-
-    // Sync statusColors if settings change externally
-    useEffect(() => {
-        if (settings.statusColors) {
-            setStatusColors(settings.statusColors);
-        }
-    }, [settings.statusColors]);
+    // Status Colors - Initialize with settings, ensuring defaults are loaded if missing
+    const [statusColors, setStatusColors] = useState<Record<string, string>>(() => {
+        const defaults = {
+            [FollowUpStatus.NEEDED]: '#fef3c7',
+            [FollowUpStatus.PENDING]: '#eff6ff',
+            [FollowUpStatus.CONFIRMED]: '#dbeafe',
+            [FollowUpStatus.PROCESSING]: '#e0e7ff',
+            [FollowUpStatus.COMPLETED]: '#dcfce7',
+        };
+        return { ...defaults, ...(settings.statusColors || {}) };
+    });
 
     const [newFlavorName, setNewFlavorName] = useState('');
     const [isSaving, setIsSaving] = useState(false);

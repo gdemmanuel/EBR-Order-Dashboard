@@ -45,6 +45,14 @@ const getPaymentStatusBadge = (status: PaymentStatus) => {
     </span>;
 };
 
+const ResizeHandle = ({ onMouseDown, onClick }: { onMouseDown: (e: React.MouseEvent) => void, onClick?: (e: React.MouseEvent) => void }) => (
+    <div 
+        className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-brand-orange/50 z-10 touch-none transition-colors"
+        onMouseDown={onMouseDown}
+        onClick={onClick}
+    />
+);
+
 export default function OrderList({ 
     orders, 
     title, 
@@ -95,7 +103,7 @@ export default function OrderList({
         if (!resizingRef.current) return;
         const { startX, startWidth, columnKey } = resizingRef.current;
         const diff = e.clientX - startX;
-        const newWidth = Math.max(50, startWidth + diff); // Min width 50px
+        const newWidth = Math.max(20, startWidth + diff); // Reduced min width to 20px to allow contracting/truncating
         setColumnWidths(prev => ({ ...prev, [columnKey]: newWidth }));
     };
 
@@ -177,11 +185,11 @@ export default function OrderList({
                                 className="appearance-none w-full sm:w-auto border border-brand-tan hover:border-brand-orange rounded-lg text-sm py-1.5 pl-3 pr-8 focus:ring-brand-orange focus:border-brand-orange bg-white text-brand-brown font-medium cursor-pointer shadow-sm transition-colors"
                             >
                                 <option value="ALL">All Active</option>
-                                <option value={FollowUpStatus.NEEDED}>Follow-up Needed</option>
-                                <option value={FollowUpStatus.PENDING}>Pending</option>
-                                <option value={FollowUpStatus.CONFIRMED}>Confirmed</option>
-                                <option value={FollowUpStatus.PROCESSING}>Processing</option>
-                                <option value={FollowUpStatus.COMPLETED}>Completed</option>
+                                <option value={FollowUpStatus.NEEDED}>{FollowUpStatus.NEEDED}</option>
+                                <option value={FollowUpStatus.PENDING}>{FollowUpStatus.PENDING}</option>
+                                <option value={FollowUpStatus.CONFIRMED}>{FollowUpStatus.CONFIRMED}</option>
+                                <option value={FollowUpStatus.PROCESSING}>{FollowUpStatus.PROCESSING}</option>
+                                <option value={FollowUpStatus.COMPLETED}>{FollowUpStatus.COMPLETED}</option>
                                 <option disabled>──────────</option>
                                 <option value="CANCELLED">Cancelled Orders</option>
                             </select>
@@ -242,48 +250,48 @@ export default function OrderList({
                                     checked={orders.length > 0 && selectedOrderIds.size === orders.length}
                                     onChange={toggleAll}
                                 />
-                                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-brand-orange/50 z-10" onMouseDown={(e) => startResize(e, 'checkbox')} />
+                                <ResizeHandle onMouseDown={(e) => startResize(e, 'checkbox')} />
                             </th>
 
                             {/* Date */}
                             <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange relative group" style={{ width: columnWidths.date }} onClick={() => handleSort('pickupDateObj')}>
                                 <div className="truncate">Date {sortConfig.key === 'pickupDateObj' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
-                                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-brand-orange/50 z-10" onMouseDown={(e) => startResize(e, 'date')} onClick={e => e.stopPropagation()} />
+                                <ResizeHandle onMouseDown={(e) => startResize(e, 'date')} onClick={e => e.stopPropagation()} />
                             </th>
 
                             {/* Customer */}
                             <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange relative group" style={{ width: columnWidths.customer }} onClick={() => handleSort('customerName')}>
                                 <div className="truncate">Customer {sortConfig.key === 'customerName' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
-                                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-brand-orange/50 z-10" onMouseDown={(e) => startResize(e, 'customer')} onClick={e => e.stopPropagation()} />
+                                <ResizeHandle onMouseDown={(e) => startResize(e, 'customer')} onClick={e => e.stopPropagation()} />
                             </th>
 
                             {/* Items */}
                             <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative group" style={{ width: columnWidths.items }}>
                                 <div className="truncate">Items</div>
-                                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-brand-orange/50 z-10" onMouseDown={(e) => startResize(e, 'items')} />
+                                <ResizeHandle onMouseDown={(e) => startResize(e, 'items')} />
                             </th>
 
                             {/* Total / Payment */}
                             <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange relative group" style={{ width: columnWidths.total }} onClick={() => handleSort('amountCharged')}>
                                 <div className="truncate">Total {sortConfig.key === 'amountCharged' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
-                                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-brand-orange/50 z-10" onMouseDown={(e) => startResize(e, 'total')} onClick={e => e.stopPropagation()} />
+                                <ResizeHandle onMouseDown={(e) => startResize(e, 'total')} onClick={e => e.stopPropagation()} />
                             </th>
 
                             {/* Status */}
                             <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange relative group" style={{ width: columnWidths.status }} onClick={() => handleSort('followUpStatus')}>
                                 <div className="truncate">Status {sortConfig.key === 'followUpStatus' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
-                                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-brand-orange/50 z-10" onMouseDown={(e) => startResize(e, 'status')} onClick={e => e.stopPropagation()} />
+                                <ResizeHandle onMouseDown={(e) => startResize(e, 'status')} onClick={e => e.stopPropagation()} />
                             </th>
 
                             {/* Printed */}
                             <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider relative group" style={{ width: columnWidths.printed }}>
                                 <div className="flex justify-center"><PrinterIcon className="w-4 h-4" title="Printed Status" /></div>
-                                <div className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-brand-orange/50 z-10" onMouseDown={(e) => startResize(e, 'printed')} />
+                                <ResizeHandle onMouseDown={(e) => startResize(e, 'printed')} />
                             </th>
 
                             {/* Action */}
                             <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider relative" style={{ width: columnWidths.action }}>
-                                Action
+                                Actions
                             </th>
                         </tr>
                     </thead>
