@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Order, PaymentStatus, FollowUpStatus, ApprovalStatus, AppSettings } from '../types';
 import { TrashIcon, PrinterIcon, MagnifyingGlassIcon, XMarkIcon, ChevronDownIcon, EyeIcon } from './icons/Icons';
 import { parseOrderDateTime } from '../utils/dateUtils';
@@ -45,14 +45,6 @@ const getPaymentStatusBadge = (status: PaymentStatus) => {
     </span>;
 };
 
-const ResizeHandle = ({ onMouseDown, onClick }: { onMouseDown: (e: React.MouseEvent) => void, onClick?: (e: React.MouseEvent) => void }) => (
-    <div 
-        className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-brand-orange/50 z-10 touch-none transition-colors"
-        onMouseDown={onMouseDown}
-        onClick={onClick}
-    />
-);
-
 export default function OrderList({ 
     orders, 
     title, 
@@ -69,50 +61,6 @@ export default function OrderList({
 }: OrderListProps) {
     const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
     const [sortConfig, setSortConfig] = useState<{ key: keyof Order | 'pickupDateObj', direction: 'asc' | 'desc' }>({ key: 'pickupDateObj', direction: 'asc' });
-
-    // Column Resizing State
-    const [columnWidths, setColumnWidths] = useState<Record<string, number>>({
-        checkbox: 48,
-        date: 130,
-        customer: 180,
-        items: 280,
-        total: 110,
-        status: 140,
-        printed: 70,
-        action: 90
-    });
-    
-    const resizingRef = useRef<{ startX: number, startWidth: number, columnKey: string } | null>(null);
-
-    const startResize = (e: React.MouseEvent, key: string) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const header = (e.target as HTMLElement).closest('th');
-        if (!header) return;
-        resizingRef.current = {
-            startX: e.clientX,
-            startWidth: columnWidths[key],
-            columnKey: key
-        };
-        document.addEventListener('mousemove', handleMouseMove);
-        document.addEventListener('mouseup', handleMouseUp);
-        document.body.style.cursor = 'col-resize';
-    };
-
-    const handleMouseMove = (e: MouseEvent) => {
-        if (!resizingRef.current) return;
-        const { startX, startWidth, columnKey } = resizingRef.current;
-        const diff = e.clientX - startX;
-        const newWidth = Math.max(20, startWidth + diff); // Allow columns to shrink to 20px
-        setColumnWidths(prev => ({ ...prev, [columnKey]: newWidth }));
-    };
-
-    const handleMouseUp = () => {
-        resizingRef.current = null;
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
-        document.body.style.cursor = '';
-    };
 
     const handleSort = (key: keyof Order | 'pickupDateObj') => {
         let direction: 'asc' | 'desc' = 'asc';
@@ -239,58 +187,51 @@ export default function OrderList({
             </div>
 
             <div className="overflow-x-auto flex-grow">
-                <table className="divide-y divide-brand-tan/30 table-fixed" style={{ minWidth: '100%' }}>
+                <table className="min-w-full divide-y divide-brand-tan/30">
                     <thead className="bg-gray-50">
                         <tr>
                             {/* Checkbox */}
-                            <th scope="col" className="px-4 py-3 text-left relative group" style={{ width: columnWidths.checkbox }}>
+                            <th scope="col" className="px-4 py-3 text-left w-12">
                                 <input 
                                     type="checkbox" 
                                     className="rounded border-gray-300 text-brand-orange focus:ring-brand-orange"
                                     checked={orders.length > 0 && selectedOrderIds.size === orders.length}
                                     onChange={toggleAll}
                                 />
-                                <ResizeHandle onMouseDown={(e) => startResize(e, 'checkbox')} />
                             </th>
 
                             {/* Date */}
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange relative group" style={{ width: columnWidths.date }} onClick={() => handleSort('pickupDateObj')}>
-                                <div className="truncate">Date {sortConfig.key === 'pickupDateObj' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
-                                <ResizeHandle onMouseDown={(e) => startResize(e, 'date')} onClick={e => e.stopPropagation()} />
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange" onClick={() => handleSort('pickupDateObj')}>
+                                Date {sortConfig.key === 'pickupDateObj' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                             </th>
 
                             {/* Customer */}
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange relative group" style={{ width: columnWidths.customer }} onClick={() => handleSort('customerName')}>
-                                <div className="truncate">Customer {sortConfig.key === 'customerName' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
-                                <ResizeHandle onMouseDown={(e) => startResize(e, 'customer')} onClick={e => e.stopPropagation()} />
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange" onClick={() => handleSort('customerName')}>
+                                Customer {sortConfig.key === 'customerName' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                             </th>
 
                             {/* Items */}
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative group" style={{ width: columnWidths.items }}>
-                                <div className="truncate">Items</div>
-                                <ResizeHandle onMouseDown={(e) => startResize(e, 'items')} />
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Items
                             </th>
 
                             {/* Total / Payment */}
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange relative group" style={{ width: columnWidths.total }} onClick={() => handleSort('amountCharged')}>
-                                <div className="truncate">Total {sortConfig.key === 'amountCharged' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
-                                <ResizeHandle onMouseDown={(e) => startResize(e, 'total')} onClick={e => e.stopPropagation()} />
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange" onClick={() => handleSort('amountCharged')}>
+                                Total {sortConfig.key === 'amountCharged' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                             </th>
 
                             {/* Status */}
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange relative group" style={{ width: columnWidths.status }} onClick={() => handleSort('followUpStatus')}>
-                                <div className="truncate">Status {sortConfig.key === 'followUpStatus' && (sortConfig.direction === 'asc' ? '↑' : '↓')}</div>
-                                <ResizeHandle onMouseDown={(e) => startResize(e, 'status')} onClick={e => e.stopPropagation()} />
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange" onClick={() => handleSort('followUpStatus')}>
+                                Status {sortConfig.key === 'followUpStatus' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                             </th>
 
                             {/* Printed */}
-                            <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider relative group" style={{ width: columnWidths.printed }}>
-                                <div className="flex justify-center"><PrinterIcon className="w-4 h-4" title="Printed Status" /></div>
-                                <ResizeHandle onMouseDown={(e) => startResize(e, 'printed')} />
+                            <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <PrinterIcon className="w-4 h-4 mx-auto" title="Printed Status" />
                             </th>
 
                             {/* Action */}
-                            <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider relative" style={{ width: columnWidths.action }}>
+                            <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 Actions
                             </th>
                         </tr>
@@ -305,7 +246,6 @@ export default function OrderList({
                         ) : (
                             sortedOrders.map((order) => {
                                 const totalItems = order.totalMini + order.totalFullSize;
-                                // Include ALL items in summary, CSS truncate will handle hiding overflow based on width
                                 const itemsSummary = order.items.map(i => `${i.quantity} ${i.name}`).join(', ');
                                 
                                 return (
@@ -314,7 +254,7 @@ export default function OrderList({
                                         className="hover:bg-gray-50 transition-colors group cursor-pointer"
                                         onClick={() => onSelectOrder(order)}
                                     >
-                                        <td className="px-4 py-4 whitespace-nowrap overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                                        <td className="px-4 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                                             <input 
                                                 type="checkbox" 
                                                 className="rounded border-gray-300 text-brand-orange focus:ring-brand-orange"
@@ -323,30 +263,30 @@ export default function OrderList({
                                                 onClick={(e) => e.stopPropagation()}
                                             />
                                         </td>
-                                        <td className="px-4 py-4 whitespace-nowrap overflow-hidden text-brand-brown">
-                                            <div className="font-medium truncate">{order.pickupDate}</div>
-                                            <div className="text-xs text-gray-500 truncate">{order.pickupTime}</div>
+                                        <td className="px-4 py-4 whitespace-nowrap text-brand-brown">
+                                            <div className="font-medium">{order.pickupDate}</div>
+                                            <div className="text-xs text-gray-500">{order.pickupTime}</div>
                                         </td>
-                                        <td className="px-4 py-4 overflow-hidden">
-                                            <div className="font-medium text-brand-brown truncate" title={order.customerName}>{order.customerName}</div>
-                                            <div className="text-xs text-gray-500 truncate" title={order.contactMethod}>{order.contactMethod}</div>
+                                        <td className="px-4 py-4 whitespace-nowrap">
+                                            <div className="font-medium text-brand-brown" title={order.customerName}>{order.customerName}</div>
+                                            <div className="text-xs text-gray-500" title={order.contactMethod}>{order.contactMethod}</div>
                                         </td>
-                                        <td className="px-4 py-4 overflow-hidden">
-                                            <div className="text-brand-brown font-medium truncate">{totalItems} items</div>
-                                            <div className="text-xs text-gray-500 truncate" title={itemsSummary}>{itemsSummary}</div>
+                                        <td className="px-4 py-4">
+                                            <div className="text-brand-brown font-medium whitespace-nowrap">{totalItems} items</div>
+                                            <div className="text-xs text-gray-500">{itemsSummary}</div>
                                         </td>
-                                        <td className="px-4 py-4 whitespace-nowrap overflow-hidden">
+                                        <td className="px-4 py-4 whitespace-nowrap">
                                             <div className="font-medium text-brand-brown">${order.amountCharged.toFixed(2)}</div>
                                             {getPaymentStatusBadge(order.paymentStatus)}
                                         </td>
-                                        <td className="px-4 py-4 whitespace-nowrap overflow-hidden">
+                                        <td className="px-4 py-4 whitespace-nowrap">
                                             <StatusBadge 
                                                 status={order.followUpStatus} 
                                                 approvalStatus={order.approvalStatus} 
                                                 colors={settings?.statusColors}
                                             />
                                         </td>
-                                        <td className="px-4 py-4 whitespace-nowrap text-center overflow-hidden">
+                                        <td className="px-4 py-4 whitespace-nowrap text-center">
                                             {order.hasPrinted ? (
                                                 <div className="text-green-600 mx-auto" title="Printed">
                                                     <PrinterIcon className="w-5 h-5 mx-auto" />
@@ -357,7 +297,7 @@ export default function OrderList({
                                                 </div>
                                             )}
                                         </td>
-                                        <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium overflow-hidden" onClick={(e) => e.stopPropagation()}>
+                                        <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium" onClick={(e) => e.stopPropagation()}>
                                             <div className="flex justify-end gap-2">
                                                 <button 
                                                     onClick={(e) => { e.stopPropagation(); onSelectOrder(order); }}
