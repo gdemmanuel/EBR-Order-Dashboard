@@ -135,24 +135,38 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
         let filteredShifts = shifts;
 
         if (dateRange.start) {
-            const start = new Date(dateRange.start);
-            start.setHours(0,0,0,0);
+            // Use explicit YMD parsing to create a local date object for comparison
+            const [y, m, d] = dateRange.start.split('-').map(Number);
+            const start = new Date(y, m - 1, d, 0,0,0,0);
+            
             filteredOrders = filteredOrders.filter(o => parseOrderDateTime(o) >= start);
-            filteredExpenses = filteredExpenses.filter(e => new Date(e.date) >= start);
+            
+            filteredExpenses = filteredExpenses.filter(e => {
+                const [ey, em, ed] = e.date.split('-').map(Number);
+                return new Date(ey, em - 1, ed) >= start;
+            });
+            
             filteredShifts = filteredShifts.filter(s => {
-                const [y, m, d] = s.date.split('-').map(Number);
-                return new Date(y, m - 1, d) >= start;
+                const [sy, sm, sd] = s.date.split('-').map(Number);
+                return new Date(sy, sm - 1, sd) >= start;
             });
         }
         
         if (dateRange.end) {
-            const end = new Date(dateRange.end);
-            end.setHours(23,59,59,999);
+            // Use explicit YMD parsing to create a local date object for comparison (End of Day)
+            const [y, m, d] = dateRange.end.split('-').map(Number);
+            const end = new Date(y, m - 1, d, 23, 59, 59, 999);
+            
             filteredOrders = filteredOrders.filter(o => parseOrderDateTime(o) <= end);
-            filteredExpenses = filteredExpenses.filter(e => new Date(e.date) <= end);
+            
+            filteredExpenses = filteredExpenses.filter(e => {
+                const [ey, em, ed] = e.date.split('-').map(Number);
+                return new Date(ey, em - 1, ed) <= end;
+            });
+            
             filteredShifts = filteredShifts.filter(s => {
-                const [y, m, d] = s.date.split('-').map(Number);
-                return new Date(y, m - 1, d) <= end;
+                const [sy, sm, sd] = s.date.split('-').map(Number);
+                return new Date(sy, sm - 1, sd) <= end;
             });
         }
 

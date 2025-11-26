@@ -107,13 +107,15 @@ export default function AdminDashboard({
     const dateFilteredDashboardOrders = useMemo(() => {
         let result = activeOrders;
         if (dateRange.start) {
-            const start = new Date(dateRange.start);
-            start.setHours(0, 0, 0, 0);
+            // Explicitly parse YYYY-MM-DD to local time components to avoid UTC offsets
+            const [y, m, d] = dateRange.start.split('-').map(Number);
+            const start = new Date(y, m - 1, d, 0, 0, 0, 0);
             result = result.filter(o => parseOrderDateTime(o) >= start);
         }
         if (dateRange.end) {
-            const end = new Date(dateRange.end);
-            end.setHours(23, 59, 59, 999);
+            // Explicitly parse YYYY-MM-DD to local time components
+            const [y, m, d] = dateRange.end.split('-').map(Number);
+            const end = new Date(y, m - 1, d, 23, 59, 59, 999);
             result = result.filter(o => parseOrderDateTime(o) <= end);
         }
         return result;
@@ -136,13 +138,13 @@ export default function AdminDashboard({
 
         // Date Range Filter
         if (dateRange.start) {
-            const start = new Date(dateRange.start);
-            start.setHours(0, 0, 0, 0);
+            const [y, m, d] = dateRange.start.split('-').map(Number);
+            const start = new Date(y, m - 1, d, 0, 0, 0, 0);
             result = result.filter(o => parseOrderDateTime(o) >= start);
         }
         if (dateRange.end) {
-            const end = new Date(dateRange.end);
-            end.setHours(23, 59, 59, 999);
+            const [y, m, d] = dateRange.end.split('-').map(Number);
+            const end = new Date(y, m - 1, d, 23, 59, 59, 999);
             result = result.filter(o => parseOrderDateTime(o) <= end);
         }
 
