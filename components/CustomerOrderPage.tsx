@@ -1,6 +1,5 @@
 
 import React, { useState, useEffect, useMemo, useLayoutEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { saveOrderToDb, AppSettings } from '../services/dbService';
 import { Order, OrderItem, PaymentStatus, FollowUpStatus, ApprovalStatus, PricingSettings, Flavor, MenuPackage } from '../types';
 import { CheckCircleIcon, StarIcon, ClockIcon, ChevronDownIcon, MegaphoneIcon, ShoppingBagIcon, ArrowUturnLeftIcon, TrashIcon } from './icons/Icons';
@@ -121,8 +120,7 @@ const InlineReceiptCard = ({ order }: { order: Order }) => {
 };
 
 export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFlavors, pricing, scheduling, busySlots = [], motd }: CustomerOrderPageProps) {
-    const [searchParams] = useSearchParams();
-    const isEmbedded = searchParams.get('embed') === 'true';
+    const isEmbedded = new URLSearchParams(window.location.search).get('embed') === 'true';
 
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);

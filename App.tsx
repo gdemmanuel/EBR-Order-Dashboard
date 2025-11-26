@@ -1,6 +1,5 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import firebase from 'firebase/compat/app';
 
 import { Order, ApprovalStatus, PricingSettings, Flavor, Employee } from './types';
@@ -13,10 +12,32 @@ import CustomerOrderPage from './components/CustomerOrderPage';
 import LoginPage from './components/LoginPage';
 import { normalizeDateStr } from './utils/dateUtils';
 
+// Simple internal navigation helper to avoid react-router-dom dependency issues
+const Navigate = ({ to, replace }: { to: string; replace?: boolean }) => {
+  useEffect(() => {
+    if (replace) {
+      window.history.replaceState({}, '', to);
+    } else {
+      window.history.pushState({}, '', to);
+    }
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  }, [to, replace]);
+  return null;
+};
+
 export default function App() {
   // Auth State
   const [user, setUser] = useState<firebase.User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+
+  // Routing State
+  const [currentPath, setCurrentPath] = useState(window.location.pathname);
+
+  useEffect(() => {
+      const onLocationChange = () => setCurrentPath(window.location.pathname);
+      window.addEventListener('popstate', onLocationChange);
+      return () => window.removeEventListener('popstate', onLocationChange);
+  }, []);
 
   // Shared App State
   const [orders, setOrders] = useState<Order[]>([]);
@@ -54,6 +75,7 @@ export default function App() {
   const [inventory, setInventory] = useState<Record<string, { mini: number; full: number }>>({});
   const [expenseCategories, setExpenseCategories] = useState<string[]>(['Packaging', 'Marketing', 'Rent', 'Utilities', 'Equipment', 'Other']);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [statusColors, setStatusColors] = useState<Record<string, string>>({});
   
   const [dbError, setDbError] = useState<string | null>(null);
   const [isMigrating, setIsMigrating] = useState(false);
@@ -186,6 +208,7 @@ export default function App() {
         if (settings.inventory) setInventory(settings.inventory);
         if (settings.expenseCategories) setExpenseCategories(settings.expenseCategories);
         if (settings.employees) setEmployees(settings.employees);
+        if (settings.statusColors) setStatusColors(settings.statusColors);
 
     }, (error) => {
         console.warn("Could not load settings:", error.message);
@@ -239,52 +262,40 @@ export default function App() {
       discoCosts,
       inventory,
       expenseCategories,
-      employees
+      employees,
+      statusColors
   };
 
   return (
-    <Router>
-        <Routes>
-            <Route 
-                path="/order" 
-                element={
-                    <CustomerOrderPage 
-                        empanadaFlavors={empanadaFlavors} 
-                        fullSizeEmpanadaFlavors={fullSizeEmpanadaFlavors} 
-                        pricing={pricing}
-                        scheduling={scheduling}
-                        busySlots={busySlots}
-                        motd={motd}
-                    />
-                } 
+    <>
+        {currentPath === '/order' ? (
+            <CustomerOrderPage 
+                empanadaFlavors={empanadaFlavors} 
+                fullSizeEmpanadaFlavors={fullSizeEmpanadaFlavors} 
+                pricing={pricing}
+                scheduling={scheduling}
+                busySlots={busySlots}
+                motd={motd}
             />
-
-            <Route 
-                path="/login" 
-                element={!user ? <LoginPage /> : <Navigate to="/" replace />} 
-            />
-
-            <Route 
-                path="/*" 
-                element={
-                    user ? (
-                        <AdminDashboard 
-                            user={user}
-                            orders={orders}
-                            empanadaFlavors={empanadaFlavors}
-                            fullSizeEmpanadaFlavors={fullSizeEmpanadaFlavors}
-                            importedSignatures={importedSignatures}
-                            sheetUrl={sheetUrl}
-                            pricing={pricing || { mini: { basePrice: 1.75 }, full: { basePrice: 3.00 }, packages: [], salsas: [], salsaSmall: 2, salsaLarge: 4 }}
-                            prepSettings={prepSettings}
-                            settings={fullSettings}
-                        />
-                    ) : (
-                        <Navigate to="/login" replace />
-                    )
-                } 
-            />
-        </Routes>
+        ) : currentPath === '/login' ? (
+            !user ? <LoginPage /> : <Navigate to="/" replace />
+        ) : (
+            user ? (
+                <AdminDashboard 
+                    user={user}
+                    orders={orders}
+                    empanadaFlavors={empanadaFlavors}
+                    fullSizeEmpanadaFlavors={fullSizeEmpanadaFlavors}
+                    importedSignatures={importedSignatures}
+                    sheetUrl={sheetUrl}
+                    pricing={pricing || { mini: { basePrice: 1.75 }, full: { basePrice: 3.00 }, packages: [], salsas: [], salsaSmall: 2, salsaLarge: 4 }}
+                    prepSettings={prepSettings}
+                    settings={fullSettings}
+                />
+            ) : (
+                <Navigate to="/login" replace />
+            )
+        )}
 
         {dbError && user && (
             <div className="fixed bottom-4 right-4 bg-red-500 text-white px-6 py-4 rounded-lg shadow-xl z-50 max-w-md">
@@ -292,6 +303,6 @@ export default function App() {
                 <p className="text-sm">{dbError}</p>
             </div>
         )}
-    </Router>
+    </>
   );
 }
