@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { Order, PaymentStatus, FollowUpStatus, ApprovalStatus, AppSettings } from '../types';
 import { TrashIcon, PrinterIcon, MagnifyingGlassIcon, XMarkIcon, ChevronDownIcon, EyeIcon } from './icons/Icons';
 import { parseOrderDateTime } from '../utils/dateUtils';
@@ -103,7 +103,7 @@ export default function OrderList({
         if (!resizingRef.current) return;
         const { startX, startWidth, columnKey } = resizingRef.current;
         const diff = e.clientX - startX;
-        const newWidth = Math.max(20, startWidth + diff); // Reduced min width to 20px to allow contracting/truncating
+        const newWidth = Math.max(20, startWidth + diff); // Allow columns to shrink to 20px
         setColumnWidths(prev => ({ ...prev, [columnKey]: newWidth }));
     };
 
@@ -198,7 +198,7 @@ export default function OrderList({
                             </div>
                         </div>
                     ) : (
-                        // Legacy filter clearing (if no dropdown)
+                        // Legacy filter clearing
                         activeStatusFilter && onClearStatusFilter && (
                             <div className="flex items-center bg-brand-orange/10 text-brand-orange px-3 py-1 rounded-full text-sm font-medium">
                                 <span>Filter: {activeStatusFilter}</span>

@@ -69,7 +69,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
         isActive: true
     });
 
-    // Status Colors - Initialize with settings, ensuring defaults are loaded if missing
+    // Status Colors - Initialize with defaults if missing, merge with settings
     const [statusColors, setStatusColors] = useState<Record<string, string>>(() => {
         const defaults = {
             [FollowUpStatus.NEEDED]: '#fef3c7',
@@ -196,7 +196,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                 discoCosts: sanitizedDiscoCosts,
                 expenseCategories,
                 employees: sanitizedEmployees,
-                statusColors: statusColors // Explicitly passing state
+                statusColors: statusColors
             });
             
             onClose();
