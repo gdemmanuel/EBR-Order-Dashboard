@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Order, OrderItem, ContactMethod, PaymentStatus, FollowUpStatus, ApprovalStatus, PricingSettings, Flavor, MenuPackage } from '../types';
 import { TrashIcon, PlusIcon, XMarkIcon, ShoppingBagIcon, CogIcon, ArrowUturnLeftIcon, ClockIcon, UserIcon } from './icons/Icons';
@@ -100,7 +101,7 @@ const ItemInputSection: React.FC<{
                                 />
                             )}
                         </div>
-                        <input type="number" min="1" value={item.quantity} onChange={e => onItemChange(index, 'quantity', e.target.value)} className="block w-full sm:w-24 rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm bg-white text-brand-brown" />
+                        <input type="number" min="1" value={item.quantity === 0 ? '' : item.quantity} onChange={e => onItemChange(index, 'quantity', e.target.value)} className="block w-full sm:w-24 rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm bg-white text-brand-brown" />
                         <button type="button" onClick={() => onRemoveItem(index)} className="text-red-500 hover:text-red-700 p-1 self-center">
                             <TrashIcon className="w-5 h-5" />
                         </button>
@@ -790,7 +791,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                                 <input 
                                     type="number" 
                                     step="0.01" 
-                                    value={amountCharged} 
+                                    value={amountCharged === 0 ? '' : amountCharged} // Prevent leading zero
                                     onChange={(e) => {
                                         setAmountCharged(e.target.value);
                                         setIsAutoPrice(false);
@@ -811,7 +812,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                         {/* ... Rest of the form remains same ... */}
                         <div>
                             <label className="block text-sm font-medium text-brand-brown/90">Amount Collected ($)</label>
-                            <input type="number" step="0.01" min="0" value={amountCollected} onChange={e => setAmountCollected(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown" />
+                            <input type="number" step="0.01" min="0" value={amountCollected === 0 ? '' : amountCollected} onChange={e => setAmountCollected(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown" />
                         </div>
                         <div>
                            <label className="block text-sm font-medium text-brand-brown/90">Payment Method</label>
@@ -846,7 +847,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-brand-brown/90">Delivery Fee ($)</label>
-                                    <input type="number" step="1" min="0" value={deliveryFee} onChange={e => {setDeliveryFee(e.target.value); markDirty();}} required={deliveryRequired} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown" />
+                                    <input type="number" step="1" min="0" value={deliveryFee === 0 ? '' : deliveryFee} onChange={e => {setDeliveryFee(e.target.value); markDirty();}} required={deliveryRequired} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown" />
                                 </div>
                             </div>
                         )}
@@ -903,7 +904,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                                         {salsa.checked && (
                                             <div className="flex items-center gap-2 animate-fade-in flex-grow sm:flex-grow-0">
                                                 <label htmlFor={`salsa-qty-${index}`} className="text-sm">Qty:</label>
-                                                <input type="number" id={`salsa-qty-${index}`} min="1" value={salsa.quantity} onChange={e => handleSalsaChange(index, 'quantity', e.target.value)} className="block w-20 rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm bg-white text-brand-brown" />
+                                                <input type="number" id={`salsa-qty-${index}`} min="1" value={salsa.quantity === 0 ? '' : salsa.quantity} onChange={e => handleSalsaChange(index, 'quantity', e.target.value)} className="block w-20 rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm bg-white text-brand-brown" />
                                             </div>
                                         )}
                                     </div>

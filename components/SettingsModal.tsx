@@ -1,8 +1,8 @@
 
 import React, { useState, useMemo } from 'react';
 import { AppSettings, updateSettingsInDb } from '../services/dbService';
-import { PricingSettings, MenuPackage, Flavor, SalsaProduct, PricingTier, Employee } from '../types';
-import { XMarkIcon, PlusIcon, TrashIcon, CheckCircleIcon, CogIcon, PencilIcon, ScaleIcon, CurrencyDollarIcon, ClockIcon, SparklesIcon, CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon, ReceiptIcon, UsersIcon, BriefcaseIcon, DocumentTextIcon, ListBulletIcon, MegaphoneIcon, ChatBubbleOvalLeftEllipsisIcon } from './icons/Icons';
+import { PricingSettings, MenuPackage, Flavor, SalsaProduct, PricingTier, Employee, FollowUpStatus } from '../types';
+import { XMarkIcon, PlusIcon, TrashIcon, CheckCircleIcon, CogIcon, PencilIcon, ScaleIcon, CurrencyDollarIcon, ClockIcon, SparklesIcon, CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon, ReceiptIcon, UsersIcon, BriefcaseIcon, DocumentTextIcon, ListBulletIcon, MegaphoneIcon, ChatBubbleOvalLeftEllipsisIcon, SparklesIcon as AppearanceIcon } from './icons/Icons';
 import { SUGGESTED_DESCRIPTIONS } from '../data/mockData';
 
 interface SettingsModalProps {
@@ -11,7 +11,7 @@ interface SettingsModalProps {
 }
 
 export default function SettingsModal({ settings, onClose }: SettingsModalProps) {
-    const [activeTab, setActiveTab] = useState<'general' | 'templates' | 'menu' | 'pricing' | 'prep' | 'costs' | 'scheduling' | 'expenses' | 'employees'>('general');
+    const [activeTab, setActiveTab] = useState<'general' | 'appearance' | 'templates' | 'menu' | 'pricing' | 'prep' | 'costs' | 'scheduling' | 'expenses' | 'employees'>('general');
     
     // Local state for editing
     const [motd, setMotd] = useState(settings.motd || '');
@@ -68,6 +68,9 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
         productionRates: { mini: 40, full: 25 },
         isActive: true
     });
+
+    // NEW: Status Colors
+    const [statusColors, setStatusColors] = useState<Record<string, string>>(settings.statusColors || {});
 
     const [newFlavorName, setNewFlavorName] = useState('');
     const [isSaving, setIsSaving] = useState(false);
@@ -183,7 +186,8 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                 materialCosts: sanitizedMaterialCosts,
                 discoCosts: sanitizedDiscoCosts,
                 expenseCategories,
-                employees: sanitizedEmployees
+                employees: sanitizedEmployees,
+                statusColors
             });
             
             onClose();
@@ -272,6 +276,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
 
     const tabs = [
         { id: 'general', label: 'General', icon: <MegaphoneIcon className="w-4 h-4" /> },
+        { id: 'appearance', label: 'Appearance', icon: <AppearanceIcon className="w-4 h-4" /> },
         { id: 'templates', label: 'Templates', icon: <ChatBubbleOvalLeftEllipsisIcon className="w-4 h-4" /> },
         { id: 'menu', label: 'Menu Items', icon: <ListBulletIcon className="w-4 h-4" /> },
         { id: 'pricing', label: 'Pricing', icon: <CurrencyDollarIcon className="w-4 h-4" /> },
@@ -312,6 +317,32 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                     <h3 className="font-bold text-brand-brown mb-4 flex items-center gap-2"><MegaphoneIcon className="w-5 h-5" /> Message of the Day (MOTD)</h3>
                                     <p className="text-sm text-gray-500 mb-4">This message will appear as a scrolling banner at the top of the Customer Order page.</p>
                                     <textarea rows={3} value={motd} onChange={(e) => setMotd(e.target.value)} placeholder="e.g., We will be closed for the holidays..." className="w-full rounded-md border-gray-300 shadow-sm focus:ring-brand-orange focus:border-brand-orange text-sm"/>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'appearance' && (
+                            <div className="max-w-2xl mx-auto space-y-6">
+                                <div className="bg-white p-6 rounded-lg border border-gray-200">
+                                    <h3 className="font-bold text-brand-brown mb-4 flex items-center gap-2"><AppearanceIcon className="w-5 h-5" /> Status Badges</h3>
+                                    <p className="text-sm text-gray-500 mb-4">Customize the background color for order statuses.</p>
+                                    
+                                    <div className="space-y-3">
+                                        {Object.values(FollowUpStatus).map(status => (
+                                            <div key={status} className="flex items-center justify-between p-2 border-b border-gray-100 last:border-0">
+                                                <span className="text-sm font-medium text-gray-700">{status}</span>
+                                                <div className="flex items-center gap-3">
+                                                    <input 
+                                                        type="color" 
+                                                        value={statusColors[status] || '#f3f4f6'} 
+                                                        onChange={(e) => setStatusColors({...statusColors, [status]: e.target.value})}
+                                                        className="h-8 w-12 p-0 border border-gray-300 rounded cursor-pointer"
+                                                    />
+                                                    <div className="text-xs font-mono text-gray-400 w-16">{statusColors[status] || '#f3f4f6'}</div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -381,7 +412,6 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                             </div>
                         )}
 
-                        {/* ... (pricing, scheduling, employees, prep, costs, expenses tabs mostly unchanged) ... */}
                         {activeTab === 'pricing' && (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl">
                                 <div className="bg-gray-50 p-4 rounded-lg border border-gray-200"><h3 className="font-bold text-brand-brown mb-4">Mini Empanada Base Price</h3><div className="flex items-center gap-2 mb-6"><span className="text-gray-600">$</span><input type="number" step="0.01" value={pricing.mini.basePrice} onChange={(e) => setPricing({...pricing, mini: {...pricing.mini, basePrice: parseFloat(e.target.value)||0}})} className="w-24 rounded-md border-gray-300"/><span className="text-sm text-gray-500">per unit</span></div><h4 className="font-semibold text-sm text-gray-700 mb-2">Volume Discounts</h4><div className="flex gap-2 mb-2"><input type="number" placeholder="Min Qty" value={newTier.type === 'mini' ? newTier.minQty : ''} onChange={(e) => setNewTier({...newTier, type: 'mini', minQty: e.target.value})} className="w-24 text-sm rounded border-gray-300"/><input type="number" step="0.01" placeholder="Price" value={newTier.type === 'mini' ? newTier.price : ''} onChange={(e) => setNewTier({...newTier, type: 'mini', price: e.target.value})} className="w-24 text-sm rounded border-gray-300"/><button onClick={addTier} className="text-xs bg-brand-brown text-white px-2 rounded">Add</button></div><ul className="text-sm space-y-1">{pricing.mini.tiers?.map(t => (<li key={t.minQuantity} className="flex justify-between bg-white p-2 rounded border border-gray-200"><span>{t.minQuantity}+ items: <strong>${t.price.toFixed(2)}</strong> ea</span><button onClick={() => removeTier('mini', t.minQuantity)} className="text-red-500"><XMarkIcon className="w-4 h-4"/></button></li>))}</ul></div>
@@ -389,7 +419,6 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                             </div>
                         )}
                         
-                        {/* For brevity, other tabs (scheduling, employees, prep, costs, expenses) are condensed but functional as per previous logic */}
                         {activeTab === 'scheduling' && (
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-full">
                                 <div className="space-y-6">

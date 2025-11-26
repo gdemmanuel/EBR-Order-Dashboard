@@ -11,7 +11,7 @@ import {
     writeBatch
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
-import { Order, ApprovalStatus, PricingSettings, Flavor, Expense, AppSettings, WorkShift } from "../types";
+import { Order, ApprovalStatus, PricingSettings, Flavor, Expense, AppSettings, WorkShift, FollowUpStatus } from "../types";
 import { initialEmpanadaFlavors, initialFullSizeEmpanadaFlavors } from "../data/mockData";
 
 // Collection References
@@ -68,7 +68,14 @@ const DEFAULT_SETTINGS: AppSettings = {
     discoCosts: { mini: 0.10, full: 0.15 },
     inventory: {},
     expenseCategories: ['Packaging', 'Marketing', 'Rent', 'Utilities', 'Equipment', 'Ingredients', 'Other'],
-    employees: []
+    employees: [],
+    statusColors: {
+        [FollowUpStatus.NEEDED]: '#fef3c7', // amber-100
+        [FollowUpStatus.PENDING]: '#eff6ff', // blue-50
+        [FollowUpStatus.CONFIRMED]: '#dbeafe', // blue-100
+        [FollowUpStatus.PROCESSING]: '#e0e7ff', // indigo-100
+        [FollowUpStatus.COMPLETED]: '#dcfce7', // green-100
+    }
 };
 
 // --- Real-time Subscriptions ---
@@ -166,7 +173,8 @@ export const subscribeToSettings = (
                 scheduling: { ...DEFAULT_SETTINGS.scheduling, ...(data.scheduling || {}) },
                 messageTemplates: { ...DEFAULT_SETTINGS.messageTemplates, ...(data.messageTemplates || {}) },
                 expenseCategories: data.expenseCategories || DEFAULT_SETTINGS.expenseCategories,
-                employees: data.employees || DEFAULT_SETTINGS.employees
+                employees: data.employees || DEFAULT_SETTINGS.employees,
+                statusColors: { ...DEFAULT_SETTINGS.statusColors, ...(data.statusColors || {}) }
             };
             onUpdate(mergedSettings);
         } else {

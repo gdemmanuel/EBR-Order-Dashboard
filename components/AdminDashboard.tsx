@@ -61,7 +61,17 @@ export default function AdminDashboard({
     // Filter State
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<FollowUpStatus | null>(null);
-    const [dateRange, setDateRange] = useState<{ start?: string; end?: string }>({});
+    
+    // Initialize Date Range to TODAY by default
+    const [dateRange, setDateRange] = useState<{ start?: string; end?: string }>(() => {
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        const todayStr = `${year}-${month}-${day}`;
+        return { start: todayStr };
+    });
+    
     const [viewingCancelled, setViewingCancelled] = useState(false);
 
     // Modal State
@@ -245,55 +255,94 @@ export default function AdminDashboard({
         <div className="min-h-screen bg-brand-cream flex flex-col">
             <Header user={user} variant="admin" />
             
-            {/* Sub Navigation / Toolbar */}
+            {/* Improved Toolbar */}
             <div className="bg-white shadow-sm border-b border-brand-tan/50 sticky top-0 z-20">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex justify-between items-center h-16 overflow-x-auto">
-                        <div className="flex space-x-4">
+                    {/* Top Row: View Switchers & Main Actions */}
+                    <div className="flex flex-col md:flex-row md:items-center justify-between py-3 gap-4">
+                        
+                        {/* View Switcher */}
+                        <div className="flex space-x-2 bg-gray-100 p-1 rounded-lg self-start md:self-center">
                             <button 
                                 onClick={() => setView('dashboard')}
-                                className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${view === 'dashboard' ? 'bg-brand-orange text-white' : 'text-brand-brown hover:bg-brand-tan/20'}`}
+                                className={`flex items-center px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${view === 'dashboard' ? 'bg-white shadow-sm text-brand-orange' : 'text-gray-600 hover:text-brand-brown'}`}
                             >
-                                <ChartPieIcon className="w-5 h-5 mr-2" /> Dashboard
+                                <ChartPieIcon className="w-4 h-4 mr-2" /> Dashboard
                             </button>
                             <button 
                                 onClick={() => setView('list')}
-                                className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${view === 'list' ? 'bg-brand-orange text-white' : 'text-brand-brown hover:bg-brand-tan/20'}`}
+                                className={`flex items-center px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${view === 'list' ? 'bg-white shadow-sm text-brand-orange' : 'text-gray-600 hover:text-brand-brown'}`}
                             >
-                                <ListBulletIcon className="w-5 h-5 mr-2" /> Orders
+                                <ListBulletIcon className="w-4 h-4 mr-2" /> Orders
                             </button>
                             <button 
                                 onClick={() => setView('calendar')}
-                                className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${view === 'calendar' ? 'bg-brand-orange text-white' : 'text-brand-brown hover:bg-brand-tan/20'}`}
+                                className={`flex items-center px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${view === 'calendar' ? 'bg-white shadow-sm text-brand-orange' : 'text-gray-600 hover:text-brand-brown'}`}
                             >
-                                <CalendarDaysIcon className="w-5 h-5 mr-2" /> Calendar
+                                <CalendarDaysIcon className="w-4 h-4 mr-2" /> Calendar
                             </button>
                             <button 
                                 onClick={() => setView('reports')}
-                                className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${view === 'reports' ? 'bg-brand-orange text-white' : 'text-brand-brown hover:bg-brand-tan/20'}`}
+                                className={`flex items-center px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${view === 'reports' ? 'bg-white shadow-sm text-brand-orange' : 'text-gray-600 hover:text-brand-brown'}`}
                             >
-                                <PresentationChartBarIcon className="w-5 h-5 mr-2" /> Reports
+                                <PresentationChartBarIcon className="w-4 h-4 mr-2" /> Reports
                             </button>
                         </div>
-                        
-                        <div className="flex space-x-2">
-                            <button onClick={() => setIsOrderFormOpen(true)} className="p-2 text-brand-brown hover:text-brand-orange hover:bg-brand-tan/20 rounded-full" title="Add Order">
-                                <PlusIcon className="w-6 h-6" />
+
+                        {/* Expanded Action Bar - Big Widgets */}
+                        <div className="grid grid-cols-3 sm:flex sm:space-x-3 gap-2 w-full md:w-auto">
+                            <button 
+                                onClick={() => setIsOrderFormOpen(true)} 
+                                className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-3 py-2 bg-brand-orange/10 hover:bg-brand-orange hover:text-white text-brand-brown rounded-lg transition-all group"
+                                title="Add Order"
+                            >
+                                <PlusIcon className="w-5 h-5 sm:w-4 sm:h-4" /> 
+                                <span className="text-xs sm:text-sm font-bold">New Order</span>
                             </button>
-                            <button onClick={() => setIsPrepListOpen(true)} className="p-2 text-brand-brown hover:text-brand-orange hover:bg-brand-tan/20 rounded-full" title="Prep List">
-                                <ScaleIcon className="w-6 h-6" />
+                            
+                            <button 
+                                onClick={() => setIsPrepListOpen(true)} 
+                                className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-3 py-2 bg-white border border-brand-tan hover:border-brand-orange hover:text-brand-orange text-brand-brown rounded-lg transition-all"
+                                title="Prep List"
+                            >
+                                <ScaleIcon className="w-5 h-5 sm:w-4 sm:h-4" />
+                                <span className="text-xs sm:text-sm font-medium">Prep List</span>
                             </button>
-                            <button onClick={() => setIsExpenseOpen(true)} className="p-2 text-brand-brown hover:text-brand-orange hover:bg-brand-tan/20 rounded-full" title="Expenses">
-                                <CurrencyDollarIcon className="w-6 h-6" />
+                            
+                            <button 
+                                onClick={() => setIsExpenseOpen(true)} 
+                                className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-3 py-2 bg-white border border-brand-tan hover:border-brand-orange hover:text-brand-orange text-brand-brown rounded-lg transition-all"
+                                title="Expenses"
+                            >
+                                <CurrencyDollarIcon className="w-5 h-5 sm:w-4 sm:h-4" />
+                                <span className="text-xs sm:text-sm font-medium">Expenses</span>
                             </button>
-                            <button onClick={() => setIsShiftLogOpen(true)} className="p-2 text-brand-brown hover:text-brand-orange hover:bg-brand-tan/20 rounded-full" title="Log Shift">
-                                <ClockIcon className="w-6 h-6" />
+                            
+                            <button 
+                                onClick={() => setIsShiftLogOpen(true)} 
+                                className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-3 py-2 bg-white border border-brand-tan hover:border-brand-orange hover:text-brand-orange text-brand-brown rounded-lg transition-all"
+                                title="Log Shift"
+                            >
+                                <ClockIcon className="w-5 h-5 sm:w-4 sm:h-4" />
+                                <span className="text-xs sm:text-sm font-medium">Log Shift</span>
                             </button>
-                            <button onClick={() => setIsImportOpen(true)} className="p-2 text-brand-brown hover:text-brand-orange hover:bg-brand-tan/20 rounded-full" title="Import Orders">
-                                <DocumentArrowDownIcon className="w-6 h-6" />
+                            
+                            <button 
+                                onClick={() => setIsImportOpen(true)} 
+                                className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-3 py-2 bg-white border border-brand-tan hover:border-brand-orange hover:text-brand-orange text-brand-brown rounded-lg transition-all"
+                                title="Import Orders"
+                            >
+                                <DocumentArrowDownIcon className="w-5 h-5 sm:w-4 sm:h-4" />
+                                <span className="text-xs sm:text-sm font-medium">Import</span>
                             </button>
-                            <button onClick={() => setIsSettingsOpen(true)} className="p-2 text-brand-brown hover:text-brand-orange hover:bg-brand-tan/20 rounded-full" title="Settings">
-                                <CogIcon className="w-6 h-6" />
+                            
+                            <button 
+                                onClick={() => setIsSettingsOpen(true)} 
+                                className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-all"
+                                title="Settings"
+                            >
+                                <CogIcon className="w-5 h-5 sm:w-4 sm:h-4" />
+                                <span className="text-xs sm:text-sm font-medium">Config</span>
                             </button>
                         </div>
                     </div>
@@ -369,6 +418,7 @@ export default function AdminDashboard({
                                 setStatusFilter(val as FollowUpStatus);
                             }
                         }}
+                        settings={settings}
                     />
                 )}
 

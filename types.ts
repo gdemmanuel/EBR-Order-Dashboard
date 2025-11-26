@@ -178,4 +178,5 @@ export interface AppSettings {
     inventory: Record<string, { mini: number; full: number }>;
     expenseCategories: string[];
     employees: Employee[];
+    statusColors?: Record<string, string>; // Custom hex codes for statuses
 }

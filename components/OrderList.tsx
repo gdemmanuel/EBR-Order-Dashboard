@@ -1,7 +1,7 @@
 
-import React, { useState, useMemo } from 'react';
-import { Order, PaymentStatus, FollowUpStatus, ApprovalStatus } from '../types';
-import { TrashIcon, PrinterIcon, MagnifyingGlassIcon, XMarkIcon } from './icons/Icons';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Order, PaymentStatus, FollowUpStatus, ApprovalStatus, AppSettings } from '../types';
+import { TrashIcon, PrinterIcon, MagnifyingGlassIcon, XMarkIcon, CogIcon } from './icons/Icons';
 import { parseOrderDateTime } from '../utils/dateUtils';
 
 interface OrderListProps {
@@ -16,28 +16,32 @@ interface OrderListProps {
     onClearStatusFilter?: () => void;
     currentFilter?: string;
     onFilterChange?: (filter: string) => void;
+    settings?: AppSettings; // Added settings to access colors
 }
 
-// Helper to render status badges cleanly
-const StatusBadge = ({ status, approvalStatus }: { status: FollowUpStatus, approvalStatus: ApprovalStatus }) => {
+// Helper to render status badges with configured colors
+const StatusBadge = ({ status, approvalStatus, colors }: { status: FollowUpStatus, approvalStatus: ApprovalStatus, colors?: Record<string, string> }) => {
     if (approvalStatus === ApprovalStatus.CANCELLED) {
-        return <span className="bg-red-100 text-red-800 text-xs font-medium px-2.5 py-0.5 rounded border border-red-200">Cancelled</span>;
+        return <span className="text-xs font-medium px-2.5 py-0.5 rounded border" style={{ backgroundColor: '#fee2e2', color: '#991b1b', borderColor: '#fecaca' }}>Cancelled</span>;
     }
 
-    switch (status) {
-        case FollowUpStatus.NEEDED:
-            return <span className="bg-amber-100 text-amber-800 text-xs font-medium px-2.5 py-0.5 rounded border border-amber-200">Follow-up</span>;
-        case FollowUpStatus.PENDING:
-            return <span className="bg-blue-50 text-blue-600 text-xs font-medium px-2.5 py-0.5 rounded border border-blue-100">Pending</span>;
-        case FollowUpStatus.CONFIRMED:
-            return <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded border border-blue-200">Confirmed</span>;
-        case FollowUpStatus.PROCESSING:
-            return <span className="bg-indigo-100 text-indigo-800 text-xs font-medium px-2.5 py-0.5 rounded border border-indigo-200">Processing</span>;
-        case FollowUpStatus.COMPLETED:
-            return <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded border border-green-200">Done</span>;
-        default:
-            return <span className="bg-gray-100 text-gray-600 text-xs font-medium px-2.5 py-0.5 rounded border border-gray-200">{status || 'Unknown'}</span>;
-    }
+    const bgColor = colors?.[status] || '#f3f4f6'; // Default gray
+    
+    // Simple contrast check for text color (not perfect, but works for light bg expectation)
+    const textColor = '#1f2937'; // Default dark gray text
+    const borderColor = 'rgba(0,0,0,0.05)';
+
+    return <span className="text-xs font-medium px-2.5 py-0.5 rounded border" style={{ backgroundColor: bgColor, color: textColor, borderColor }}>{status}</span>;
+};
+
+// Default column widths
+const DEFAULT_WIDTHS = {
+    date: '15%',
+    customer: '20%',
+    items: '30%',
+    total: '10%',
+    status: '15%',
+    actions: '10%'
 };
 
 export default function OrderList({ 
@@ -51,10 +55,28 @@ export default function OrderList({
     activeStatusFilter, 
     onClearStatusFilter,
     currentFilter,
-    onFilterChange
+    onFilterChange,
+    settings
 }: OrderListProps) {
     const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
     const [sortConfig, setSortConfig] = useState<{ key: keyof Order | 'pickupDateObj', direction: 'asc' | 'desc' }>({ key: 'pickupDateObj', direction: 'asc' });
+    
+    // Column Width Config
+    const [showColConfig, setShowColConfig] = useState(false);
+    const [colWidths, setColWidths] = useState(DEFAULT_WIDTHS);
+
+    useEffect(() => {
+        const savedWidths = localStorage.getItem('orderListColWidths');
+        if (savedWidths) {
+            try { setColWidths(JSON.parse(savedWidths)); } catch (e) {}
+        }
+    }, []);
+
+    const updateColWidth = (key: keyof typeof DEFAULT_WIDTHS, val: string) => {
+        const newWidths = { ...colWidths, [key]: val };
+        setColWidths(newWidths);
+        localStorage.setItem('orderListColWidths', JSON.stringify(newWidths));
+    };
 
     const handleSort = (key: keyof Order | 'pickupDateObj') => {
         let direction: 'asc' | 'desc' = 'asc';
@@ -113,7 +135,7 @@ export default function OrderList({
     };
 
     return (
-        <div className="bg-white border border-brand-tan rounded-lg shadow-sm overflow-hidden">
+        <div className="bg-white border border-brand-tan rounded-lg shadow-sm overflow-visible relative">
              <div className="p-4 border-b border-brand-tan bg-brand-tan/10 flex flex-col md:flex-row justify-between items-center gap-4">
                 <div className="flex items-center gap-4 flex-wrap w-full md:w-auto">
                     <h2 className="text-xl font-serif text-brand-brown whitespace-nowrap">{title || 'Orders'}</h2>
@@ -177,13 +199,46 @@ export default function OrderList({
                             Print ({selectedOrderIds.size})
                         </button>
                     )}
+                    
+                    {/* Column Config Button */}
+                    <div className="relative">
+                        <button 
+                            onClick={() => setShowColConfig(!showColConfig)}
+                            className="p-2 text-gray-500 hover:text-brand-orange hover:bg-gray-100 rounded-full transition-colors"
+                            title="Configure Columns"
+                        >
+                            <CogIcon className="w-5 h-5" />
+                        </button>
+                        {showColConfig && (
+                            <>
+                                <div className="fixed inset-0 z-10" onClick={() => setShowColConfig(false)}></div>
+                                <div className="absolute right-0 top-full mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-xl z-20 p-4">
+                                    <h4 className="text-sm font-bold text-brand-brown mb-3 border-b pb-2">Column Widths</h4>
+                                    <div className="space-y-2">
+                                        {Object.entries(colWidths).map(([key, val]) => (
+                                            <div key={key} className="flex items-center justify-between">
+                                                <label className="text-xs font-medium text-gray-600 capitalize">{key}</label>
+                                                <input 
+                                                    type="text" 
+                                                    value={val} 
+                                                    onChange={(e) => updateColWidth(key as any, e.target.value)}
+                                                    className="w-20 text-xs border border-gray-300 rounded px-2 py-1"
+                                                />
+                                            </div>
+                                        ))}
+                                        <div className="pt-2 text-[10px] text-gray-400 italic">Use % or px (e.g. 20% or 150px)</div>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </div>
                 </div>
             </div>
             <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left">
                     <thead className="text-xs text-brand-brown uppercase bg-brand-tan/20">
                         <tr>
-                            <th scope="col" className="p-4">
+                            <th scope="col" className="p-4 w-10">
                                 <div className="flex items-center">
                                     <input type="checkbox" checked={selectedOrderIds.size === orders.length && orders.length > 0} onChange={toggleAll} className="w-4 h-4 text-brand-orange bg-gray-100 border-gray-300 rounded focus:ring-brand-orange" />
                                 </div>
@@ -191,22 +246,22 @@ export default function OrderList({
                             <th scope="col" className="px-4 py-3 w-10 text-center" title="Printed Status">
                                 <PrinterIcon className="w-4 h-4 mx-auto" />
                             </th>
-                            <th scope="col" className="px-6 py-3 cursor-pointer hover:text-brand-orange" onClick={() => handleSort('pickupDateObj')}>
+                            <th scope="col" className="px-6 py-3 cursor-pointer hover:text-brand-orange" style={{ width: colWidths.date }} onClick={() => handleSort('pickupDateObj')}>
                                 Date/Time
                             </th>
-                            <th scope="col" className="px-6 py-3 cursor-pointer hover:text-brand-orange" onClick={() => handleSort('customerName')}>
+                            <th scope="col" className="px-6 py-3 cursor-pointer hover:text-brand-orange" style={{ width: colWidths.customer }} onClick={() => handleSort('customerName')}>
                                 Customer
                             </th>
-                            <th scope="col" className="px-6 py-3">
+                            <th scope="col" className="px-6 py-3" style={{ width: colWidths.items }}>
                                 Items
                             </th>
-                            <th scope="col" className="px-6 py-3 cursor-pointer hover:text-brand-orange" onClick={() => handleSort('amountCharged')}>
+                            <th scope="col" className="px-6 py-3 cursor-pointer hover:text-brand-orange" style={{ width: colWidths.total }} onClick={() => handleSort('amountCharged')}>
                                 Total
                             </th>
-                            <th scope="col" className="px-6 py-3">
+                            <th scope="col" className="px-6 py-3" style={{ width: colWidths.status }}>
                                 Status
                             </th>
-                            <th scope="col" className="px-6 py-3 text-right">
+                            <th scope="col" className="px-6 py-3 text-right" style={{ width: colWidths.actions }}>
                                 Actions
                             </th>
                         </tr>
@@ -250,7 +305,7 @@ export default function OrderList({
                                         {order.deliveryRequired && <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded">DELIVERY</span>}
                                     </td>
                                     <td className="px-6 py-4">
-                                        <div className="max-w-xs truncate">
+                                        <div className="truncate">
                                             {order.items.map(i => `${i.quantity} ${i.name}`).join(', ')}
                                         </div>
                                     </td>
@@ -263,7 +318,7 @@ export default function OrderList({
                                         )}
                                     </td>
                                     <td className="px-6 py-4">
-                                        <StatusBadge status={order.followUpStatus} approvalStatus={order.approvalStatus} />
+                                        <StatusBadge status={order.followUpStatus} approvalStatus={order.approvalStatus} colors={settings?.statusColors} />
                                     </td>
                                     <td className="px-6 py-4 text-right">
                                         {onDelete && (
