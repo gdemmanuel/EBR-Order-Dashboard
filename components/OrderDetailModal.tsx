@@ -30,16 +30,25 @@ const DetailItem: React.FC<{ icon: React.ReactNode; label: string; value: string
 };
 
 export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onEdit, onApprove, onDeny, onDelete, onDeductInventory }: OrderDetailModalProps) {
+  // Local state for status to ensure immediate UI update
+  const [localStatus, setLocalStatus] = useState<FollowUpStatus>(order.followUpStatus);
+  
   const [generatedMessage, setGeneratedMessage] = useState<string>('');
   const [loadingAction, setLoadingAction] = useState<'message' | 'inventory' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copiedState, setCopiedState] = useState<'instagram' | 'facebook' | null>(null);
   const [settings, setSettings] = useState<AppSettings | null>(null);
+  const [useAi, setUseAi] = useState(false);
 
   useEffect(() => {
       const unsubscribe = subscribeToSettings((s) => setSettings(s));
       return () => unsubscribe();
   }, []);
+
+  // Sync local status if prop changes from external source
+  useEffect(() => {
+      setLocalStatus(order.followUpStatus);
+  }, [order.followUpStatus]);
 
   const mapsUrl = order.deliveryAddress ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.deliveryAddress)}` : '#';
 
@@ -48,8 +57,10 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
     setError(null);
     setGeneratedMessage('');
     try {
-      // Pass custom templates if available
-      const message = await generateMessageForOrder(order, settings?.messageTemplates);
+      // Pass custom templates if available, and useAi flag
+      // Note: we use localStatus here so message reflects the currently selected dropdown value
+      const tempOrder = { ...order, followUpStatus: localStatus };
+      const message = await generateMessageForOrder(tempOrder, settings?.messageTemplates, useAi);
       setGeneratedMessage(message);
     } catch (err) {
       setError('Failed to generate message. Please check your API key and try again.');
@@ -57,10 +68,11 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
     } finally {
       setLoadingAction(null);
     }
-  }, [order, settings]);
+  }, [order, settings, localStatus, useAi]);
   
   const handleStatusChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
       const newStatus = e.target.value as FollowUpStatus;
+      setLocalStatus(newStatus); // Immediate UI update
       
       // If user is changing status to COMPLETED, ask about inventory
       if (newStatus === FollowUpStatus.COMPLETED && order.followUpStatus !== FollowUpStatus.COMPLETED) {
@@ -342,20 +354,38 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
               <div className="flex flex-col sm:flex-row gap-4 items-end border-t border-gray-200 pt-4">
                 <div className="flex-grow">
                   <label htmlFor="followUpStatus" className="block text-sm font-medium text-brand-brown/90 mb-1">Status</label>
-                  <select id="followUpStatus" value={order.followUpStatus} onChange={handleStatusChange} className="w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown">
-                    {Object.values(FollowUpStatus).map(status => (
-                      <option key={status} value={status}>{status}</option>
-                    ))}
+                  <select 
+                    id="followUpStatus" 
+                    value={localStatus} 
+                    onChange={handleStatusChange} 
+                    className="w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown"
+                  >
+                    <option value={FollowUpStatus.NEEDED}>{FollowUpStatus.NEEDED}</option>
+                    <option value={FollowUpStatus.PENDING}>{FollowUpStatus.PENDING}</option>
+                    <option value={FollowUpStatus.CONFIRMED}>{FollowUpStatus.CONFIRMED}</option>
+                    <option value={FollowUpStatus.PROCESSING}>{FollowUpStatus.PROCESSING}</option>
+                    <option value={FollowUpStatus.COMPLETED}>{FollowUpStatus.COMPLETED}</option>
                   </select>
                 </div>
-                <div className="flex-grow w-full sm:w-auto">
+                <div className="flex-grow w-full sm:w-auto flex flex-col gap-2">
+                   <div className="flex justify-end">
+                       <label className="flex items-center text-xs text-gray-600 cursor-pointer select-none">
+                           <input 
+                                type="checkbox" 
+                                checked={useAi} 
+                                onChange={(e) => setUseAi(e.target.checked)} 
+                                className="mr-1.5 rounded text-brand-orange focus:ring-brand-orange border-gray-300"
+                           />
+                           Use AI Generation (Ignore Template)
+                       </label>
+                   </div>
                    <button
                     onClick={handleGenerateMessage}
                     disabled={loadingAction === 'message'}
                     className="w-full flex items-center justify-center gap-2 bg-brand-orange text-white font-semibold px-4 py-2 rounded-lg shadow-md hover:bg-opacity-90 transition-colors duration-200 disabled:bg-brand-orange/50"
                   >
                     <SparklesIcon className="w-5 h-5" />
-                    {loadingAction === 'message' ? 'Generating...' : `Draft "${order.followUpStatus}" Message`}
+                    {loadingAction === 'message' ? 'Generating...' : `Draft "${localStatus}" Message`}
                   </button>
                 </div>
               </div>

@@ -60,6 +60,7 @@ const DEFAULT_SETTINGS: AppSettings = {
         followUpNeeded: "Hi {firstName}! This is Rose from Empanadas by Rose. Thank you for placing an order. Please confirm your order for {deliveryType} on {date} at {time} as follows:\n{totals}\n{items}",
         pendingConfirmation: "Perfect! The total is ${total}. Cash on {deliveryType}, please. I'll see you on {date} at {time}.\nThank you for your order!",
         confirmed: "Your order is confirmed! See you on {date} at {time}. Total: ${total}. Address: {deliveryAddress}.",
+        processing: "Hi {firstName}! Just wanted to let you know we've started preparing your order for {date}. We'll see you soon!",
         completed: "Thank you for your order, {firstName}! We hope you enjoy the empanadas."
     },
     laborWage: 15.00,

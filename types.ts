@@ -11,6 +11,7 @@ export enum FollowUpStatus {
   NEEDED = 'Follow-up Needed',
   PENDING = 'Pending',
   CONFIRMED = 'Confirmed',
+  PROCESSING = 'Processing',
   COMPLETED = 'Completed',
 }
 
@@ -53,6 +54,7 @@ export interface Order {
   paymentStatus: PaymentStatus;
   specialInstructions: string | null;
   approvalStatus: ApprovalStatus;
+  hasPrinted?: boolean; // Track if ticket has been printed
 }
 
 export interface Expense {
@@ -167,6 +169,7 @@ export interface AppSettings {
         followUpNeeded: string;
         pendingConfirmation: string;
         confirmed?: string;
+        processing?: string; // New status template
         completed?: string;
     };
     laborWage: number; // Global default

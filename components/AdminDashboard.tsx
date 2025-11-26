@@ -220,9 +220,23 @@ export default function AdminDashboard({
         setView('print');
     };
 
+    const markOrdersPrinted = async () => {
+        // Only update orders that aren't already marked as printed to avoid unnecessary writes
+        const toUpdate = ordersToPrint.filter(o => !o.hasPrinted).map(o => ({ ...o, hasPrinted: true }));
+        if (toUpdate.length > 0) {
+            await saveOrdersBatch(toUpdate);
+        }
+    };
+
     // Render
     if (view === 'print') {
-        return <PrintPreviewPage orders={ordersToPrint} onExit={() => setView('list')} />;
+        return (
+            <PrintPreviewPage 
+                orders={ordersToPrint} 
+                onExit={() => setView('list')} 
+                onMarkAsPrinted={markOrdersPrinted}
+            />
+        );
     }
 
     return (

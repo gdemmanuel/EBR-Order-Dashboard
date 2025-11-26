@@ -25,7 +25,7 @@ const getApiKey = () => {
 
 const ai = new GoogleGenAI({ apiKey: getApiKey() });
 
-export async function generateMessageForOrder(order: Order, templates?: { followUpNeeded?: string; pendingConfirmation?: string; confirmed?: string; completed?: string; }): Promise<string> {
+export async function generateMessageForOrder(order: Order, templates?: { followUpNeeded?: string; pendingConfirmation?: string; confirmed?: string; processing?: string; completed?: string; }, useAi: boolean = false): Promise<string> {
     const status = order.followUpStatus;
     const firstName = order.customerName.split(' ')[0];
     const deliveryType = order.deliveryRequired ? 'delivery' : 'pick up';
@@ -42,6 +42,7 @@ export async function generateMessageForOrder(order: Order, templates?: { follow
         console.warn("Date parsing error", e);
     }
 
+    // Helper to populate templates
     const replacePlaceholders = (template: string) => {
         let itemsText = "";
         if (order.totalMini > 0 && order.totalFullSize === 0) {
@@ -66,40 +67,45 @@ export async function generateMessageForOrder(order: Order, templates?: { follow
             .replace(/{items}|{{items}}/g, itemsList);
     };
 
-    // Check configurable templates first
-    if (status === FollowUpStatus.NEEDED && templates?.followUpNeeded) {
-        return replacePlaceholders(templates.followUpNeeded);
-    }
-    if (status === FollowUpStatus.PENDING && templates?.pendingConfirmation) {
-        return replacePlaceholders(templates.pendingConfirmation);
-    }
-    if (status === FollowUpStatus.CONFIRMED && templates?.confirmed) {
-        return replacePlaceholders(templates.confirmed);
-    }
-    if (status === FollowUpStatus.COMPLETED && templates?.completed) {
-        return replacePlaceholders(templates.completed);
-    }
-
-    // Fallbacks for default statuses if no template provided
-    if (status === FollowUpStatus.NEEDED) {
-        let totalsText = "";
-        if (order.totalMini > 0 && order.totalFullSize === 0) {
-            totalsText = `${order.totalMini} total mini empanadas`;
-        } else if (order.totalFullSize > 0 && order.totalMini === 0) {
-            totalsText = `${order.totalFullSize} total full-size empanadas`;
-        } else {
-            totalsText = `${order.totalMini} mini and ${order.totalFullSize} full-size empanadas`;
+    // If NOT using AI, check configurable templates first
+    if (!useAi) {
+        if (status === FollowUpStatus.NEEDED && templates?.followUpNeeded) {
+            return replacePlaceholders(templates.followUpNeeded);
         }
-        const itemsList = order.items.map(item => `${item.quantity} ${item.name}`).join('\n');
-        return `Hi ${firstName}! This is Rose from Empanadas by Rose. Thank you for placing an order. Please confirm your order for ${deliveryType} on ${dateString} at ${order.pickupTime} as follows:\n${totalsText}\n${itemsList}`;
-    }
+        if (status === FollowUpStatus.PENDING && templates?.pendingConfirmation) {
+            return replacePlaceholders(templates.pendingConfirmation);
+        }
+        if (status === FollowUpStatus.CONFIRMED && templates?.confirmed) {
+            return replacePlaceholders(templates.confirmed);
+        }
+        if (status === FollowUpStatus.PROCESSING && templates?.processing) {
+            return replacePlaceholders(templates.processing);
+        }
+        if (status === FollowUpStatus.COMPLETED && templates?.completed) {
+            return replacePlaceholders(templates.completed);
+        }
 
-    if (status === FollowUpStatus.PENDING) {
-        return `Perfect! The total is $${order.amountCharged.toFixed(2)}. Cash on ${deliveryType}, please. I'll see you on ${dateString} at ${order.pickupTime}.
+        // Fallbacks for default statuses if no template provided and no AI requested
+        if (status === FollowUpStatus.NEEDED) {
+            let totalsText = "";
+            if (order.totalMini > 0 && order.totalFullSize === 0) {
+                totalsText = `${order.totalMini} total mini empanadas`;
+            } else if (order.totalFullSize > 0 && order.totalMini === 0) {
+                totalsText = `${order.totalFullSize} total full-size empanadas`;
+            } else {
+                totalsText = `${order.totalMini} mini and ${order.totalFullSize} full-size empanadas`;
+            }
+            const itemsList = order.items.map(item => `${item.quantity} ${item.name}`).join('\n');
+            return `Hi ${firstName}! This is Rose from Empanadas by Rose. Thank you for placing an order. Please confirm your order for ${deliveryType} on ${dateString} at ${order.pickupTime} as follows:\n${totalsText}\n${itemsList}`;
+        }
+
+        if (status === FollowUpStatus.PENDING) {
+            return `Perfect! The total is $${order.amountCharged.toFixed(2)}. Cash on ${deliveryType}, please. I'll see you on ${dateString} at ${order.pickupTime}.
 Thank you for your order!`;
+        }
     }
 
-    // Fallback to AI for unknown or un-templated statuses
+    // AI GENERATION (Fallback or Explicit Request)
     const model = 'gemini-2.5-flash';
     const prompt = `
     You are Rose, the owner of "Empanadas by Rose". Write a short, friendly text message to a customer named ${firstName}.
@@ -111,6 +117,7 @@ Thank you for your order!`;
     
     Instructions:
     - If status is 'Confirmed', confirm that everything is set.
+    - If status is 'Processing', tell them you have started preparing their order.
     - If status is 'Completed', thank them for their business and hope they enjoyed the food.
     - Keep it brief and professional but warm.
     - Do not include subject lines.

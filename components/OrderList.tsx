@@ -31,6 +31,8 @@ const StatusBadge = ({ status, approvalStatus }: { status: FollowUpStatus, appro
             return <span className="bg-blue-50 text-blue-600 text-xs font-medium px-2.5 py-0.5 rounded border border-blue-100">Pending</span>;
         case FollowUpStatus.CONFIRMED:
             return <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded border border-blue-200">Confirmed</span>;
+        case FollowUpStatus.PROCESSING:
+            return <span className="bg-indigo-100 text-indigo-800 text-xs font-medium px-2.5 py-0.5 rounded border border-indigo-200">Processing</span>;
         case FollowUpStatus.COMPLETED:
             return <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded border border-green-200">Done</span>;
         default:
@@ -128,6 +130,7 @@ export default function OrderList({
                                 <option value={FollowUpStatus.NEEDED}>Follow-up Needed</option>
                                 <option value={FollowUpStatus.PENDING}>Pending</option>
                                 <option value={FollowUpStatus.CONFIRMED}>Confirmed</option>
+                                <option value={FollowUpStatus.PROCESSING}>Processing</option>
                                 <option value={FollowUpStatus.COMPLETED}>Completed</option>
                                 <option disabled>──────────</option>
                                 <option value="CANCELLED">Cancelled Orders</option>
@@ -185,6 +188,9 @@ export default function OrderList({
                                     <input type="checkbox" checked={selectedOrderIds.size === orders.length && orders.length > 0} onChange={toggleAll} className="w-4 h-4 text-brand-orange bg-gray-100 border-gray-300 rounded focus:ring-brand-orange" />
                                 </div>
                             </th>
+                            <th scope="col" className="px-4 py-3 w-10 text-center" title="Printed Status">
+                                <PrinterIcon className="w-4 h-4 mx-auto" />
+                            </th>
                             <th scope="col" className="px-6 py-3 cursor-pointer hover:text-brand-orange" onClick={() => handleSort('pickupDateObj')}>
                                 Date/Time
                             </th>
@@ -208,7 +214,7 @@ export default function OrderList({
                     <tbody>
                         {sortedOrders.length === 0 ? (
                             <tr>
-                                <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
+                                <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
                                     {searchTerm ? 'No orders found matching your search.' : 'No orders found.'}
                                 </td>
                             </tr>
@@ -223,6 +229,17 @@ export default function OrderList({
                                         <div className="flex items-center">
                                             <input type="checkbox" checked={selectedOrderIds.has(order.id)} onChange={() => toggleSelection(order.id)} className="w-4 h-4 text-brand-orange bg-gray-100 border-gray-300 rounded focus:ring-brand-orange" />
                                         </div>
+                                    </td>
+                                    <td className="px-4 py-4 text-center">
+                                        {order.hasPrinted ? (
+                                            <div className="flex justify-center" title="Printed">
+                                                <PrinterIcon className="w-5 h-5 text-green-600" />
+                                            </div>
+                                        ) : (
+                                            <div className="flex justify-center" title="Not Printed">
+                                                <PrinterIcon className="w-5 h-5 text-gray-300" />
+                                            </div>
+                                        )}
                                     </td>
                                     <td className="px-6 py-4 font-medium text-brand-brown whitespace-nowrap">
                                         {order.pickupDate}

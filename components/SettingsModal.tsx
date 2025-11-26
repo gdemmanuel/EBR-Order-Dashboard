@@ -23,6 +23,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
         followUpNeeded: "Hi {firstName}! This is Rose from Empanadas by Rose. Thank you for placing an order. Please confirm your order for {deliveryType} on {date} at {time} as follows:\n{totals}\n{items}",
         pendingConfirmation: "Perfect! The total is ${total}. Cash on {deliveryType}, please. I'll see you on {date} at {time}.\nThank you for your order!",
         confirmed: "Your order is confirmed! See you on {date} at {time}. Total: ${total}. Address: {deliveryAddress}.",
+        processing: "Hi {firstName}! Just wanted to let you know we've started preparing your order for {date}. We'll see you soon!",
         completed: "Thank you for your order, {firstName}! We hope you enjoy the empanadas."
     });
 
@@ -333,6 +334,10 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                         <div>
                                             <label className="block text-sm font-bold text-brand-brown/90 mb-1">Confirmed (Approved)</label>
                                             <textarea rows={4} value={templates.confirmed || ''} onChange={(e) => setTemplates({...templates, confirmed: e.target.value})} className="w-full rounded-md border-gray-300 shadow-sm focus:ring-brand-orange focus:border-brand-orange text-sm font-mono" placeholder="Your order is confirmed..."/>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-bold text-brand-brown/90 mb-1">Processing</label>
+                                            <textarea rows={4} value={templates.processing || ''} onChange={(e) => setTemplates({...templates, processing: e.target.value})} className="w-full rounded-md border-gray-300 shadow-sm focus:ring-brand-orange focus:border-brand-orange text-sm font-mono" placeholder="We are starting your order..."/>
                                         </div>
                                         <div>
                                             <label className="block text-sm font-bold text-brand-brown/90 mb-1">Completed</label>
