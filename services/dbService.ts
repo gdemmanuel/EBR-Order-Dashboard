@@ -8,7 +8,8 @@ import {
     query, 
     where, 
     getDocs,
-    writeBatch
+    writeBatch,
+    FirestoreError
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { Order, ApprovalStatus, PricingSettings, Flavor, Expense, AppSettings, WorkShift, FollowUpStatus } from "../types";
@@ -83,7 +84,7 @@ const DEFAULT_SETTINGS: AppSettings = {
 export const subscribeToOrders = (
     onUpdate: (orders: Order[]) => void,
     status: ApprovalStatus = ApprovalStatus.APPROVED,
-    onError?: (error: Error) => void
+    onError?: (error: FirestoreError) => void
 ) => {
     const q = query(collection(db, ORDERS_COLLECTION));
     return onSnapshot(q, (snapshot) => {
@@ -95,7 +96,7 @@ export const subscribeToOrders = (
 
 export const subscribeToExpenses = (
     onUpdate: (expenses: Expense[]) => void,
-    onError?: (error: Error) => void
+    onError?: (error: FirestoreError) => void
 ) => {
     // Fetch all expenses, but filter OUT 'Labor' items so they don't duplicate in the expense list
     // (We handle them separately in subscribeToShifts)
@@ -114,7 +115,7 @@ export const subscribeToExpenses = (
 
 export const subscribeToShifts = (
     onUpdate: (shifts: WorkShift[]) => void,
-    onError?: (error: Error) => void
+    onError?: (error: FirestoreError) => void
 ) => {
     // Fetch 'Labor' expenses and convert them back to WorkShift objects
     const q = query(collection(db, EXPENSES_COLLECTION), where("category", "==", "Labor"));
@@ -159,7 +160,7 @@ export const subscribeToShifts = (
 
 export const subscribeToSettings = (
     onUpdate: (settings: AppSettings) => void,
-    onError?: (error: Error) => void
+    onError?: (error: FirestoreError) => void
 ) => {
     return onSnapshot(doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC), (docSnap) => {
         if (docSnap.exists()) {

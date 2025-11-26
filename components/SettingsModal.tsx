@@ -56,11 +56,11 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
     const [materialCosts, setMaterialCosts] = useState<Record<string, number>>(settings.materialCosts || {});
     const [discoCosts, setDiscoCosts] = useState<{mini: number, full: number}>(settings.discoCosts || {mini: 0.1, full: 0.15});
     
-    // NEW: Expense Categories
+    // Expense Categories
     const [expenseCategories, setExpenseCategories] = useState<string[]>(settings.expenseCategories || []);
     const [newCategory, setNewCategory] = useState('');
 
-    // NEW: Employees
+    // Employees
     const [employees, setEmployees] = useState<Employee[]>(settings.employees || []);
     const [newEmployee, setNewEmployee] = useState<Partial<Employee>>({
         name: '',
@@ -69,7 +69,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
         isActive: true
     });
 
-    // NEW: Status Colors
+    // Status Colors
     const [statusColors, setStatusColors] = useState<Record<string, string>>(settings.statusColors || {});
 
     const [newFlavorName, setNewFlavorName] = useState('');
@@ -102,7 +102,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
         setSaveError(null);
         
         try {
-            // Sanitize Prep Settings to prevent NaN
+            // Sanitize Prep Settings
             const sanitizedPrepSettings = {
                 ...prepSettings,
                 fullSizeMultiplier: Number(prepSettings.fullSizeMultiplier) || 0,
@@ -199,7 +199,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
         }
     };
 
-    // ... (helper functions remain unchanged) ...
+    // Helper functions
     const addFlavor = () => { if (newFlavorName.trim()) { setEmpanadaFlavors([...empanadaFlavors, { name: newFlavorName.trim(), visible: true, isSpecial: false }]); setNewFlavorName(''); } };
     const autoFillDescriptions = () => { setEmpanadaFlavors(empanadaFlavors.map(f => (!f.description ? { ...f, description: SUGGESTED_DESCRIPTIONS[f.name] || undefined } : f))); alert('Descriptions populated! Save to apply.'); };
     const toggleFlavorVisibility = (i: number) => { const u = [...empanadaFlavors]; u[i].visible = !u[i].visible; setEmpanadaFlavors(u); };
@@ -270,7 +270,21 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
     const addCategory = () => { if (newCategory.trim() && !expenseCategories.includes(newCategory.trim())) { setExpenseCategories([...expenseCategories, newCategory.trim()]); setNewCategory(''); } };
     const removeCategory = (cat: string) => { setExpenseCategories(expenseCategories.filter(c => c !== cat)); };
     
-    const addEmployee = () => { if (!newEmployee.name || newEmployee.hourlyWage === undefined) return; const employee: Employee = { id: Date.now().toString(), name: newEmployee.name, hourlyWage: newEmployee.hourlyWage, productionRates: { mini: newEmployee.productionRates?.mini ?? 40, full: newEmployee.productionRates?.full ?? 25 }, isActive: newEmployee.isActive ?? true }; setEmployees([...employees, employee]); setNewEmployee({ name: '', hourlyWage: 15, productionRates: { mini: 40, full: 25 }, isActive: true }); };
+    const addEmployee = () => { 
+        if (!newEmployee.name || newEmployee.hourlyWage === undefined) return; 
+        const employee: Employee = { 
+            id: Date.now().toString(), 
+            name: newEmployee.name, 
+            hourlyWage: newEmployee.hourlyWage, 
+            productionRates: { 
+                mini: newEmployee.productionRates?.mini ?? 40, 
+                full: newEmployee.productionRates?.full ?? 25 
+            }, 
+            isActive: newEmployee.isActive ?? true 
+        }; 
+        setEmployees([...employees, employee]); 
+        setNewEmployee({ name: '', hourlyWage: 15, productionRates: { mini: 40, full: 25 }, isActive: true }); 
+    };
     const removeEmployee = (id: string) => { setEmployees(employees.filter(e => e.id !== id)); };
     const updateEmployee = (id: string, field: keyof Employee | 'productionRates.mini' | 'productionRates.full', value: any) => { setEmployees(employees.map(e => { if (e.id !== id) return e; if (field === 'productionRates.mini') { const currentRates = e.productionRates || { mini: 0, full: 0 }; return { ...e, productionRates: { ...currentRates, mini: parseFloat(value) || 0 } }; } else if (field === 'productionRates.full') { const currentRates = e.productionRates || { mini: 0, full: 0 }; return { ...e, productionRates: { ...currentRates, full: parseFloat(value) || 0 } }; } else { return { ...e, [field]: value }; } })); };
 
@@ -429,7 +443,137 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                             </div>
                         )}
                         
-                        {activeTab === 'employees' && (<div className="max-w-4xl mx-auto space-y-6"><div className="bg-gray-50 p-6 rounded-lg border border-gray-200"><h3 className="font-bold text-brand-brown mb-4">Add New Employee</h3><div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end"><div className="md:col-span-2"><label className="block text-xs font-bold text-gray-500 mb-1">Name</label><input type="text" value={newEmployee.name} onChange={e => setNewEmployee({...newEmployee, name: e.target.value})} className="w-full rounded-md border-gray-300 text-sm"/></div><div><label className="block text-xs font-bold text-gray-500 mb-1">Wage ($)</label><input type="number" step="0.01" value={newEmployee.hourlyWage} onChange={e => setNewEmployee({...newEmployee, hourlyWage: parseFloat(e.target.value)})} className="w-full rounded-md border-gray-300 text-sm"/></div><button onClick={addEmployee} disabled={!newEmployee.name} className="bg-brand-orange text-white px-4 py-2 rounded-md text-sm font-bold">Add</button></div></div><div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden"><table className="min-w-full divide-y divide-gray-200"><thead className="bg-gray-50"><tr><th className="px-6 py-3 text-left text-xs font-bold text-gray-500">Name</th><th className="px-6 py-3 text-left text-xs font-bold text-gray-500">Wage</th><th className="px-6 py-3 text-right"></th></tr></thead><tbody className="bg-white divide-y divide-gray-200">{employees.map(emp => (<tr key={emp.id}><td className="px-6 py-4 text-sm">{emp.name}</td><td className="px-6 py-4 text-sm">${emp.hourlyWage}</td><td className="px-6 py-4 text-right"><button onClick={() => removeEmployee(emp.id)} className="text-red-600"><TrashIcon className="w-5 h-5"/></button></td></tr>))}</tbody></table></div></div>)}
+                        {activeTab === 'employees' && (
+                            <div className="max-w-5xl mx-auto space-y-6">
+                                <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+                                    <h3 className="font-bold text-brand-brown mb-4">Add New Employee</h3>
+                                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4 items-end">
+                                        <div className="col-span-2 md:col-span-1">
+                                            <label className="block text-xs font-bold text-gray-500 mb-1">Name</label>
+                                            <input 
+                                                type="text" 
+                                                value={newEmployee.name} 
+                                                onChange={e => setNewEmployee({...newEmployee, name: e.target.value})} 
+                                                className="w-full rounded-md border-gray-300 text-sm"
+                                                placeholder="Employee Name"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 mb-1">Wage ($/hr)</label>
+                                            <input 
+                                                type="number" step="0.50" 
+                                                value={newEmployee.hourlyWage} 
+                                                onChange={e => setNewEmployee({...newEmployee, hourlyWage: parseFloat(e.target.value)})} 
+                                                className="w-full rounded-md border-gray-300 text-sm"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 mb-1">Mini / Hr</label>
+                                            <input 
+                                                type="number" 
+                                                value={newEmployee.productionRates?.mini} 
+                                                onChange={e => setNewEmployee({
+                                                    ...newEmployee, 
+                                                    productionRates: { 
+                                                        ...newEmployee.productionRates!, 
+                                                        mini: parseFloat(e.target.value) 
+                                                    }
+                                                })} 
+                                                className="w-full rounded-md border-gray-300 text-sm"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 mb-1">Full / Hr</label>
+                                            <input 
+                                                type="number" 
+                                                value={newEmployee.productionRates?.full} 
+                                                onChange={e => setNewEmployee({
+                                                    ...newEmployee, 
+                                                    productionRates: { 
+                                                        ...newEmployee.productionRates!, 
+                                                        full: parseFloat(e.target.value) 
+                                                    }
+                                                })} 
+                                                className="w-full rounded-md border-gray-300 text-sm"
+                                            />
+                                        </div>
+                                        <button 
+                                            onClick={addEmployee} 
+                                            disabled={!newEmployee.name} 
+                                            className="bg-brand-orange text-white px-4 py-2 rounded-md text-sm font-bold hover:bg-opacity-90 transition-colors disabled:opacity-50 h-10"
+                                        >
+                                            Add
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+                                    <div className="overflow-x-auto">
+                                        <table className="min-w-full divide-y divide-gray-200">
+                                            <thead className="bg-gray-50">
+                                                <tr>
+                                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Name</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Wage ($)</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Mini Rate (qty/hr)</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Full Rate (qty/hr)</th>
+                                                    <th className="px-6 py-3 text-right"></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="bg-white divide-y divide-gray-200">
+                                                {employees.map(emp => (
+                                                    <tr key={emp.id} className="hover:bg-gray-50">
+                                                        <td className="px-6 py-3">
+                                                            <input 
+                                                                type="text" 
+                                                                value={emp.name} 
+                                                                onChange={(e) => updateEmployee(emp.id, 'name', e.target.value)}
+                                                                className="block w-full border-gray-300 rounded-md text-sm shadow-sm focus:ring-brand-orange focus:border-brand-orange"
+                                                            />
+                                                        </td>
+                                                        <td className="px-6 py-3">
+                                                            <input 
+                                                                type="number" step="0.50"
+                                                                value={emp.hourlyWage} 
+                                                                onChange={(e) => updateEmployee(emp.id, 'hourlyWage', parseFloat(e.target.value))}
+                                                                className="block w-24 border-gray-300 rounded-md text-sm shadow-sm focus:ring-brand-orange focus:border-brand-orange"
+                                                            />
+                                                        </td>
+                                                        <td className="px-6 py-3">
+                                                            <input 
+                                                                type="number" 
+                                                                value={emp.productionRates?.mini ?? 0} 
+                                                                onChange={(e) => updateEmployee(emp.id, 'productionRates.mini', e.target.value)}
+                                                                className="block w-24 border-gray-300 rounded-md text-sm shadow-sm focus:ring-brand-orange focus:border-brand-orange"
+                                                            />
+                                                        </td>
+                                                        <td className="px-6 py-3">
+                                                            <input 
+                                                                type="number" 
+                                                                value={emp.productionRates?.full ?? 0} 
+                                                                onChange={(e) => updateEmployee(emp.id, 'productionRates.full', e.target.value)}
+                                                                className="block w-24 border-gray-300 rounded-md text-sm shadow-sm focus:ring-brand-orange focus:border-brand-orange"
+                                                            />
+                                                        </td>
+                                                        <td className="px-6 py-3 text-right">
+                                                            <button onClick={() => removeEmployee(emp.id)} className="text-gray-400 hover:text-red-600 transition-colors p-2 rounded hover:bg-red-50">
+                                                                <TrashIcon className="w-5 h-5"/>
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                                {employees.length === 0 && (
+                                                    <tr>
+                                                        <td colSpan={5} className="px-6 py-8 text-center text-gray-500 text-sm">
+                                                            No employees added yet.
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                         {activeTab === 'prep' && (<div className="max-w-4xl space-y-8"><div className="bg-gray-50 p-6 rounded-lg border border-gray-200"><h3 className="font-bold text-brand-brown mb-4">Config</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div><label className="block text-sm font-medium">Full Size Multiplier</label><input type="number" step="0.1" value={prepSettings.fullSizeMultiplier} onChange={(e) => setPrepSettings({...prepSettings, fullSizeMultiplier: parseFloat(e.target.value)||0})} className="w-full rounded border-gray-300"/></div><div><label className="block text-sm font-medium">Discos per Mini</label><input type="number" value={prepSettings.discosPer?.mini ?? 1} onChange={(e) => setPrepSettings({...prepSettings, discosPer: {...prepSettings.discosPer, mini: parseInt(e.target.value)||1}})} className="w-full rounded border-gray-300"/></div></div></div><div className="bg-gray-50 p-6 rounded-lg border border-gray-200"><h3 className="font-bold text-brand-brown mb-4">Filling Req (lbs/20)</h3><div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">{empanadaFlavors.map(f => (<div key={f.name}><label className="block text-xs font-bold text-gray-500 mb-1 truncate">{f.name}</label><input type="number" step="0.1" value={prepSettings.lbsPer20[f.name] || 0} onChange={(e) => updateLbsPer20(f.name, e.target.value)} className="w-full rounded border-gray-300 text-sm"/></div>))}</div></div></div>)}
                         {activeTab === 'costs' && (<div className="max-w-4xl space-y-8"><div className="bg-gray-50 p-6 rounded-lg border border-gray-200"><h3 className="font-bold text-brand-brown mb-4">Unit Costs</h3><div className="grid grid-cols-1 md:grid-cols-2 gap-6"><div><label className="block text-sm font-medium">Mini Disco Cost</label><input type="number" step="0.01" value={discoCosts.mini} onChange={(e) => setDiscoCosts({...discoCosts, mini: parseFloat(e.target.value)||0})} className="w-full rounded border-gray-300"/></div><div><label className="block text-sm font-medium">Full Disco Cost</label><input type="number" step="0.01" value={discoCosts.full} onChange={(e) => setDiscoCosts({...discoCosts, full: parseFloat(e.target.value)||0})} className="w-full rounded border-gray-300"/></div></div></div><div className="bg-gray-50 p-6 rounded-lg border border-gray-200"><h3 className="font-bold text-brand-brown mb-4">Material Costs ($/lb)</h3><div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">{empanadaFlavors.map(f => (<div key={f.name}><label className="block text-xs font-bold text-gray-500 mb-1 truncate">{f.name}</label><input type="number" step="0.01" value={materialCosts[f.name] || 0} onChange={(e) => updateMaterialCost(f.name, e.target.value)} className="w-full rounded border-gray-300 text-sm"/></div>))}</div></div></div>)}
                         {activeTab === 'expenses' && (<div className="max-w-2xl mx-auto bg-gray-50 p-6 rounded-lg border border-gray-200"><h3 className="font-bold text-brand-brown mb-4">Expense Categories</h3><div className="flex gap-2 mb-6"><input type="text" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} placeholder="New Category" className="flex-grow rounded-md border-gray-300 text-sm"/><button onClick={addCategory} className="bg-brand-orange text-white px-4 rounded-md">Add</button></div><div className="bg-white rounded border border-gray-200 overflow-hidden">{expenseCategories.map((cat) => (<div key={cat} className="flex justify-between items-center p-3 border-b border-gray-100 hover:bg-gray-50"><span className="text-gray-800 font-medium">{cat}</span><button onClick={() => removeCategory(cat)} className="text-gray-400 hover:text-red-500"><XMarkIcon className="w-4 h-4" /></button></div>))}</div></div>)}

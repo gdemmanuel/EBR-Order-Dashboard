@@ -19,13 +19,12 @@ import SettingsModal from './SettingsModal';
 import PrepListModal from './PrepListModal';
 import ExpenseModal from './ExpenseModal';
 import ShiftLogModal from './ShiftLogModal';
-import ImportOrderModal from './ImportOrderModal';
 import PrintPreviewPage from './PrintPreviewPage';
 
 import { 
     ChartPieIcon, ListBulletIcon, CalendarDaysIcon, PresentationChartBarIcon, 
     PlusIcon, CogIcon, ScaleIcon, CurrencyDollarIcon, 
-    ClockIcon, DocumentArrowDownIcon 
+    ClockIcon
 } from './icons/Icons';
 
 interface AdminDashboardProps {
@@ -82,7 +81,6 @@ export default function AdminDashboard({
     const [isPrepListOpen, setIsPrepListOpen] = useState(false);
     const [isExpenseOpen, setIsExpenseOpen] = useState(false);
     const [isShiftLogOpen, setIsShiftLogOpen] = useState(false);
-    const [isImportOpen, setIsImportOpen] = useState(false);
     
     // Printing State
     const [ordersToPrint, setOrdersToPrint] = useState<Order[]>([]);
@@ -328,15 +326,6 @@ export default function AdminDashboard({
                             </button>
                             
                             <button 
-                                onClick={() => setIsImportOpen(true)} 
-                                className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-3 py-2 bg-white border border-brand-tan hover:border-brand-orange hover:text-brand-orange text-brand-brown rounded-lg transition-all"
-                                title="Import Orders"
-                            >
-                                <DocumentArrowDownIcon className="w-5 h-5 sm:w-4 sm:h-4" />
-                                <span className="text-xs sm:text-sm font-medium">Import</span>
-                            </button>
-                            
-                            <button 
                                 onClick={() => setIsSettingsOpen(true)} 
                                 className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-all"
                                 title="Settings"
@@ -519,20 +508,6 @@ export default function AdminDashboard({
                     employees={settings.employees || []}
                     onClose={() => setIsShiftLogOpen(false)}
                     onSave={saveShiftToDb}
-                />
-            )}
-
-            {isImportOpen && (
-                <ImportOrderModal 
-                    onClose={() => setIsImportOpen(false)}
-                    onOrdersImported={async (newOrders, newSignatures) => {
-                        await saveOrdersBatch(newOrders as Order[]);
-                        await updateSettingsInDb({ 
-                            importedSignatures: [...Array.from(importedSignatures), ...newSignatures]
-                        });
-                    }}
-                    onUpdateSheetUrl={(url) => updateSettingsInDb({ sheetUrl: url })}
-                    existingSignatures={importedSignatures}
                 />
             )}
         </div>
