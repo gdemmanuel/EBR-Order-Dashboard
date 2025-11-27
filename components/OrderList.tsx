@@ -1,11 +1,7 @@
 
-<change>
-<file>components/OrderList.tsx</file>
-<description>Remove separate delivery icon column and view details action button; update colspan for empty state.</description>
-<content><![CDATA[
 import React, { useState, useMemo } from 'react';
 import { Order, PaymentStatus, FollowUpStatus, ApprovalStatus, AppSettings } from '../types';
-import { TrashIcon, PrinterIcon, MagnifyingGlassIcon, XMarkIcon, ChevronDownIcon, EyeIcon, TruckIcon } from './icons/Icons';
+import { TrashIcon, PrinterIcon, MagnifyingGlassIcon, XMarkIcon, ChevronDownIcon } from './icons/Icons';
 import { parseOrderDateTime } from '../utils/dateUtils';
 
 interface OrderListProps {
@@ -273,11 +269,6 @@ export default function OrderList({
                                         </td>
                                         <td className="px-4 py-4 whitespace-nowrap">
                                             <div className="font-medium text-brand-brown" title={order.customerName}>{order.customerName}</div>
-                                            {order.deliveryRequired && (
-                                                <div className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded mt-1 border border-blue-100">
-                                                    <TruckIcon className="w-3 h-3" /> Delivery
-                                                </div>
-                                            )}
                                             <div className="text-xs text-gray-500 mt-0.5" title={order.contactMethod}>{order.contactMethod}</div>
                                         </td>
                                         <td className="px-4 py-4">
@@ -332,5 +323,3 @@ export default function OrderList({
         </div>
     );
 }
-]]></content>
-</change>
