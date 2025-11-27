@@ -650,6 +650,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
 
         const finalContactMethod = contactMethod === 'Other' ? (customContactMethod.trim() || 'Other') : contactMethod;
         
+        // Calculate Supply Cost based on current settings and snapshot it
         const calculatedCost = calculateSupplyCost(allItems, settings);
 
         const orderData = {
@@ -660,7 +661,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
             contactMethod: finalContactMethod,
             items: allItems,
             amountCharged: Number(amountCharged),
-            totalCost: calculatedCost, 
+            totalCost: calculatedCost, // Snapshot cost
             totalFullSize: finalTotalFull,
             totalMini: finalTotalMini,
             deliveryRequired,
