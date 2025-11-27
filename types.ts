@@ -142,11 +142,18 @@ export interface WorkShift {
     notes?: string;
 }
 
+export interface IngredientPriceEntry {
+    date: string; // YYYY-MM-DD
+    price: number;
+    sourceExpenseId?: string;
+}
+
 export interface Ingredient {
     id: string;
     name: string;
-    cost: number; // Cost per unit
+    cost: number; // Current/Latest cost per unit
     unit: string; // e.g. lbs, oz, ct
+    priceHistory?: IngredientPriceEntry[];
 }
 
 export interface RecipeIngredient {

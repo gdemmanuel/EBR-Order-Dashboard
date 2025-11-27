@@ -238,22 +238,27 @@ export default function AdminDashboard({
         }
     };
 
-    // Handle updating ingredient cost from Expense Modal
-    const handleSaveExpense = async (expense: Expense) => {
-        await saveExpenseToDb(expense);
-        
-        // If this expense is linked to an ingredient (via unitName match or specialized ID logic if implemented)
-        // We can update the ingredient cost in settings.
-        // The ExpenseModal handles the UI selection, but here we need to ensure settings update.
-        // Actually, ExpenseModal can't update settings directly without a callback.
-        // Let's modify ExpenseModal to accept an onUpdateIngredient callback.
-    };
-
-    const handleUpdateIngredientCost = async (ingredientId: string, newCost: number) => {
+    const handleUpdateIngredientCost = async (ingredientId: string, newCost: number, effectiveDate: string) => {
         const currentIngredients = settings.ingredients || [];
-        const updatedIngredients = currentIngredients.map(ing => 
-            ing.id === ingredientId ? { ...ing, cost: newCost } : ing
-        );
+        const updatedIngredients = currentIngredients.map(ing => {
+            if (ing.id === ingredientId) {
+                const existingHistory = ing.priceHistory || [];
+                // Add new history entry
+                const newHistory = [
+                    ...existingHistory,
+                    { date: effectiveDate, price: newCost }
+                ];
+                // Keep history sorted by date descending for easier lookup
+                newHistory.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+                return { 
+                    ...ing, 
+                    cost: newCost, // Always update current cost
+                    priceHistory: newHistory
+                };
+            }
+            return ing;
+        });
         await updateSettingsInDb({ ingredients: updatedIngredients });
     };
 

@@ -1,5 +1,5 @@
 
-import { OrderItem, PricingSettings, MenuPackage, Flavor, PricingTier } from '../types';
+import { OrderItem, PricingSettings, MenuPackage, Flavor, PricingTier, Ingredient } from '../types';
 import { AppSettings } from '../services/dbService';
 
 /**
@@ -89,11 +89,35 @@ export const calculateOrderTotal = (
 };
 
 /**
+ * Helper to find the price of an ingredient effective on a specific date.
+ */
+const getHistoricalIngredientPrice = (ingredient: Ingredient, date?: Date): number => {
+    if (!date || !ingredient.priceHistory || ingredient.priceHistory.length === 0) {
+        return ingredient.cost;
+    }
+
+    // Sort history descending by date
+    const sortedHistory = [...ingredient.priceHistory].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    
+    // Find the first entry that is on or before the target date
+    const effectiveEntry = sortedHistory.find(entry => {
+        // Create date objects for comparison at midnight to ignore time
+        const entryDate = new Date(entry.date + 'T00:00:00');
+        const targetDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+        return entryDate <= targetDate;
+    });
+
+    return effectiveEntry ? effectiveEntry.price : ingredient.cost;
+};
+
+/**
  * Calculates the Supply Cost (Expense) for an order based on material definitions.
+ * Accepts an optional date to calculate historical costs accurately.
  */
 export const calculateSupplyCost = (
     items: OrderItem[], 
-    settings: AppSettings
+    settings: AppSettings,
+    date?: Date
 ): number => {
     let totalCost = 0;
     const salsas = settings.pricing.salsas || [];
@@ -125,8 +149,9 @@ export const calculateSupplyCost = (
                 const ingredient = settings.ingredients?.find(ing => ing.id === ri.ingredientId);
                 // Only add cost if ingredient exists (prevents errors on deleted ingredients)
                 if (ingredient) {
+                    const priceToUse = getHistoricalIngredientPrice(ingredient, date);
                     const amountNeeded = (item.quantity / 20) * ri.amountFor20Minis * fullMultiplier;
-                    totalCost += amountNeeded * ingredient.cost;
+                    totalCost += amountNeeded * priceToUse;
                 }
             });
         } else {

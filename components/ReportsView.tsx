@@ -2,7 +2,7 @@
 import React, { useMemo, useState } from 'react';
 import { Order, Expense, AppSettings, WorkShift } from '../types';
 import { calculateSupplyCost } from '../utils/pricingUtils';
-import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { parseOrderDateTime } from '../utils/dateUtils';
 import { TrashIcon, CurrencyDollarIcon, ShoppingBagIcon, UsersIcon, PresentationChartBarIcon, ChartPieIcon, ClockIcon, XMarkIcon, ListBulletIcon } from './icons/Icons';
 
@@ -127,6 +127,7 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
         type: 'orders' | 'expenses' | 'shifts' | 'mixed';
         items: any[];
     } | null>(null);
+    const [selectedIngredientId, setSelectedIngredientId] = useState<string>('');
 
     const filteredData = useMemo(() => {
         let filteredOrders = orders;
@@ -168,8 +169,8 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
         
         // Updated logic: Use stored 'totalCost' if available, else fallback to live calculation
         const estimatedMaterialUsage = orders.reduce((sum, o) => {
-            // Use snapshot if exists (order.totalCost), otherwise calculate current cost
-            const cost = o.totalCost !== undefined ? o.totalCost : calculateSupplyCost(o.items, settings);
+            // Use snapshot if exists (order.totalCost), otherwise calculate current cost based on order date
+            const cost = o.totalCost !== undefined ? o.totalCost : calculateSupplyCost(o.items, settings, parseOrderDateTime(o));
             return sum + cost;
         }, 0);
         
@@ -196,6 +197,20 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
     const SortHeader = ({ label, skey }: { label: string, skey: SortKey }) => ( <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 hover:text-brand-orange transition-colors select-none" onClick={() => handleSort(skey)} > <div className="flex items-center gap-1"> {label} {sortConfig.key === skey && ( <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span> )} </div> </th> );
     const expenseBreakdownData = useMemo(() => { const categoryMap = new Map<string, number>(); filteredData.expenses.forEach(e => { const cost = e.totalCost || 0; categoryMap.set(e.category, (categoryMap.get(e.category) || 0) + cost); }); const laborCost = filteredData.shifts.reduce((sum, s) => sum + (s.totalPay || 0), 0); if (laborCost > 0) { categoryMap.set('Employee Labor', (categoryMap.get('Employee Labor') || 0) + laborCost); } const data: {name: string, value: number}[] = []; categoryMap.forEach((val, key) => { data.push({ name: key, value: val }); }); return data.filter(d => d.value > 0); }, [filteredData]);
     const pnlChartData = useMemo(() => { const monthlyData = new Map<string, { revenue: number, expense: number }>(); filteredData.orders.forEach(o => { const d = parseOrderDateTime(o); if (isNaN(d.getTime())) return; const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; const current = monthlyData.get(key) || { revenue: 0, expense: 0 }; current.revenue += o.amountCharged; monthlyData.set(key, current); }); filteredData.expenses.forEach(e => { const key = e.date.substring(0, 7); const current = monthlyData.get(key) || { revenue: 0, expense: 0 }; current.expense += (e.totalCost || 0); monthlyData.set(key, current); }); filteredData.shifts.forEach(s => { const key = s.date.substring(0, 7); const current = monthlyData.get(key) || { revenue: 0, expense: 0 }; current.expense += (s.totalPay || 0); monthlyData.set(key, current); }); return Array.from(monthlyData.entries()).sort((a,b) => a[0].localeCompare(b[0])).map(([key, val]) => { const [y, m] = key.split('-'); const label = new Date(parseInt(y), parseInt(m)-1).toLocaleDateString('en-US', { month: 'short', year: '2-digit' }); return { name: label, Revenue: val.revenue, Expenses: val.expense, Profit: val.revenue - val.expense, rawDate: key }; }); }, [filteredData]);
+
+    // --- Ingredient Trend Logic ---
+    const ingredientTrendData = useMemo(() => {
+        if (!selectedIngredientId || !settings.ingredients) return [];
+        const ing = settings.ingredients.find(i => i.id === selectedIngredientId);
+        if (!ing || !ing.priceHistory) return [];
+
+        const history = [...ing.priceHistory].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        
+        return history.map(entry => ({
+            date: entry.date,
+            price: entry.price
+        }));
+    }, [selectedIngredientId, settings.ingredients]);
 
     return (
         <div className="space-y-6">
@@ -249,13 +264,12 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
                         <div>
                             <h4 className="font-bold text-blue-800 text-sm uppercase">Theoretical Supply Cost</h4>
-                            <p className="text-xs text-blue-600">Calculated from ingredient recipes at time of order. This cost is excluded from Net Profit above as it's a COGS estimate, but tracked here for pricing analysis.</p>
+                            <p className="text-xs text-blue-600">Calculated from historical ingredient prices at time of order. This cost is excluded from Net Profit above as it's a COGS estimate, but tracked here for pricing analysis.</p>
                         </div>
                         <p className="text-2xl font-bold text-blue-900">${financials.estimatedMaterialUsage.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
                     </div>
 
-                    {/* Charts & Tables unchanged ... */}
-                    {/* ... (Rest of the component content remains the same) ... */}
+                    {/* Charts & Tables */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         <div className="bg-white p-6 rounded-lg border border-brand-tan shadow-sm">
                             <div className="flex justify-between items-center mb-4">
@@ -350,7 +364,6 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
                 </div>
             )}
 
-            {/* ... (Labor and Operations Tabs unchanged) ... */}
             {/* LABOR TAB */}
             {activeTab === 'labor' && (
                 <div className="space-y-8 animate-fade-in">
@@ -462,6 +475,51 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>
+                    </div>
+
+                    {/* NEW: Ingredient Price Trend Chart */}
+                    <div className="bg-white p-6 rounded-lg border border-brand-tan shadow-sm">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+                            <div>
+                                <h3 className="text-lg font-semibold text-brand-brown">Ingredient Price Trends</h3>
+                                <p className="text-xs text-gray-500">Track how your costs have changed over time.</p>
+                            </div>
+                            <select 
+                                value={selectedIngredientId} 
+                                onChange={(e) => setSelectedIngredientId(e.target.value)}
+                                className="border border-gray-300 rounded-md text-sm py-1.5 pl-3 pr-8 focus:ring-brand-orange focus:border-brand-orange"
+                            >
+                                <option value="" disabled>Select Ingredient...</option>
+                                {settings.ingredients?.map(ing => (
+                                    <option key={ing.id} value={ing.id}>{ing.name} ({ing.unit})</option>
+                                ))}
+                            </select>
+                        </div>
+                        
+                        {selectedIngredientId ? (
+                            ingredientTrendData.length > 0 ? (
+                                <div className="h-[300px] w-full">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <LineChart data={ingredientTrendData} margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                            <XAxis dataKey="date" tick={{fontSize: 12}} />
+                                            <YAxis domain={['auto', 'auto']} tick={{fontSize: 12}} tickFormatter={(val) => `$${val}`} />
+                                            <Tooltip formatter={(val: number) => [`$${val.toFixed(2)}`, 'Unit Price']} labelStyle={{color: '#333'}} />
+                                            <Legend />
+                                            <Line type="monotone" dataKey="price" name="Price per Unit" stroke="#8884d8" strokeWidth={2} dot={{r: 4}} activeDot={{r: 6}} />
+                                        </LineChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            ) : (
+                                <div className="h-[200px] flex items-center justify-center bg-gray-50 rounded border border-dashed border-gray-200 text-gray-400">
+                                    No price history found for this ingredient.
+                                </div>
+                            )
+                        ) : (
+                            <div className="h-[200px] flex items-center justify-center bg-gray-50 rounded border border-dashed border-gray-200 text-gray-400">
+                                Please select an ingredient to view trends.
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

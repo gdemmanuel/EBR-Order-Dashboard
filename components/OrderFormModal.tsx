@@ -7,7 +7,7 @@ import { calculateOrderTotal, calculateSupplyCost } from '../utils/pricingUtils'
 import { SalsaSize } from '../config';
 import PackageBuilderModal from './PackageBuilderModal';
 import { AppSettings } from '../services/dbService';
-import { generateTimeSlots, normalizeDateStr } from '../utils/dateUtils';
+import { generateTimeSlots, normalizeDateStr, parseOrderDateTime } from '../utils/dateUtils';
 
 interface OrderFormModalProps {
     order?: Order;
@@ -547,8 +547,10 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
 
         const finalContactMethod = contactMethod === 'Other' ? (customContactMethod.trim() || 'Other') : contactMethod;
         
-        // Calculate and Snapshot Supply Cost
-        const snapshotCost = calculateSupplyCost(allItems, settings);
+        // Calculate and Snapshot Supply Cost using the specific Pickup Date
+        // This ensures the cost is based on historical ingredient prices at that time.
+        const orderDateObj = pickupDate ? new Date(`${pickupDate}T00:00:00`) : new Date();
+        const snapshotCost = calculateSupplyCost(allItems, settings, orderDateObj);
 
         const orderData = {
             customerName,

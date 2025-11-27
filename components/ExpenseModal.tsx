@@ -10,7 +10,7 @@ interface ExpenseModalProps {
     onClose: () => void;
     onSave: (expense: Expense) => Promise<void>;
     onDelete: (id: string) => Promise<void>;
-    onUpdateIngredientCost?: (id: string, newCost: number) => Promise<void>;
+    onUpdateIngredientCost?: (id: string, newCost: number, date: string) => Promise<void>;
 }
 
 type SortKey = 'date' | 'category' | 'vendor' | 'item' | 'totalCost';
@@ -82,7 +82,8 @@ export default function ExpenseModal({ expenses, categories, ingredients = [], o
 
             // Update Ingredient Cost if Linked
             if (showIngredientLink && linkedIngredientId && onUpdateIngredientCost) {
-                await onUpdateIngredientCost(linkedIngredientId, calculatedUnitCost);
+                // Pass the expense date as the effective date for the new price
+                await onUpdateIngredientCost(linkedIngredientId, calculatedUnitCost, date);
             }
 
             setSaveSuccess(true);
