@@ -206,15 +206,13 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
         setPrepSettings({ ...prepSettings, recipes: { ...currentRecipes, [flavor]: updatedList } });
     };
 
-    // ... (Other helpers unchanged) ...
-    const autoFillDescriptions = () => {}; 
+    // ... (Other helpers) ...
     const toggleFlavorVisibility = (i:number) => {const u=[...empanadaFlavors];u[i].visible=!u[i].visible;setEmpanadaFlavors(u)};
     const toggleFlavorSpecial = (i:number) => {const u=[...empanadaFlavors];u[i].isSpecial=!u[i].isSpecial;setEmpanadaFlavors(u)};
     const updateFlavorDescription = (i:number,v:string) => {const u=[...empanadaFlavors];u[i].description=v;setEmpanadaFlavors(u)};
     const updateFlavorName = (i:number,v:string) => {const u=[...empanadaFlavors];u[i].name=v;setEmpanadaFlavors(u)};
     const updateFlavorSurcharge = (i:number,v:string) => {const u=[...empanadaFlavors];u[i].surcharge=parseFloat(v);setEmpanadaFlavors(u)};
     const removeFlavor = (i:number) => {setEmpanadaFlavors(empanadaFlavors.filter((_,idx)=>idx!==i))};
-    const updateMaterialCost = (f: string, v: string) => { setMaterialCosts({...materialCosts, [f]: parseFloat(v)||0}); };
     const addCategory = () => { if (newCategory.trim() && !expenseCategories.includes(newCategory.trim())) { setExpenseCategories([...expenseCategories, newCategory.trim()]); setNewCategory(''); } };
     const removeCategory = (cat: string) => { setExpenseCategories(expenseCategories.filter(c => c !== cat)); };
     const handleEditPackageClick = (pkg: MenuPackage) => { setPackageForm({ ...pkg, increment: pkg.increment || 1 }); setEditingPackageId(pkg.id); };
@@ -225,8 +223,6 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
     const removeSalsa = (id: string) => { setPricing({...pricing, salsas: pricing.salsas.filter(s => s.id !== id)}); };
     const updateSalsaPrice = (id: string, p: string) => { setPricing({...pricing, salsas: pricing.salsas.map(s => s.id === id ? {...s, price: parseFloat(p)||0} : s)}); };
     const toggleSalsaVisibility = (id: string) => { setPricing({...pricing, salsas: pricing.salsas.map(s => s.id === id ? {...s, visible: !s.visible} : s)}); };
-    const addTier = () => { const minQ = parseInt(newTier.minQty); const p = parseFloat(newTier.price); if (!minQ || isNaN(p)) return; const currentTiers = pricing[newTier.type].tiers || []; const updated = [...currentTiers.filter(t => t.minQuantity !== minQ), { minQuantity: minQ, price: p }]; updated.sort((a,b) => a.minQuantity - b.minQuantity); setPricing({ ...pricing, [newTier.type]: { ...pricing[newTier.type], tiers: updated } }); setNewTier({ ...newTier, minQty: '', price: '' }); };
-    const removeTier = (type: 'mini'|'full', minQty: number) => { setPricing({ ...pricing, [type]: { ...pricing[type], tiers: (pricing[type].tiers || []).filter(t => t.minQuantity !== minQty) } }); };
     const toggleClosedDay = (dayIndex: number) => { const current = scheduling.closedDays || []; if (current.includes(dayIndex)) { setScheduling({ ...scheduling, closedDays: current.filter(d => d !== dayIndex) }); } else { setScheduling({ ...scheduling, closedDays: [...current, dayIndex].sort() }); } };
     const handleDateClick = (dateStr: string) => { setSelectedDate(dateStr); };
     const updateDateOverride = (dateStr: string, type: 'default' | 'closed' | 'full' | 'custom', start?: string, end?: string) => { const newOverrides = { ...(scheduling.dateOverrides || {}) }; if (type === 'default') delete newOverrides[dateStr]; else if (type === 'closed') newOverrides[dateStr] = { isClosed: true }; else if (type === 'full') newOverrides[dateStr] = { isClosed: false, isFull: true }; else if (type === 'custom') newOverrides[dateStr] = { isClosed: false, customHours: { start: start || scheduling.startTime, end: end || scheduling.endTime } }; setScheduling({ ...scheduling, dateOverrides: newOverrides }); };
@@ -275,8 +271,262 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
 
                     <div className="flex-grow overflow-y-auto p-4 md:p-8 bg-white">
                         
-                        {/* ... Other tabs content ... */}
+                        {/* 1. General Tab */}
+                        {activeTab === 'general' && (
+                            <div className="max-w-2xl mx-auto space-y-6">
+                                <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+                                    <h3 className="font-bold text-brand-brown mb-4">Message of the Day</h3>
+                                    <p className="text-sm text-gray-500 mb-2">This message scrolls at the top of the customer order page.</p>
+                                    <input type="text" value={motd} onChange={(e) => setMotd(e.target.value)} className="w-full rounded-md border-gray-300" placeholder="e.g. Sold out of Beef for today!" />
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 2. Appearance Tab */}
+                        {activeTab === 'appearance' && (
+                            <div className="max-w-2xl mx-auto space-y-6">
+                                <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+                                    <h3 className="font-bold text-brand-brown mb-4">Status Colors</h3>
+                                    <div className="space-y-3">
+                                        {Object.values(FollowUpStatus).map(status => (
+                                            <div key={status} className="flex items-center justify-between">
+                                                <span className="text-sm font-medium text-gray-700">{status}</span>
+                                                <div className="flex items-center gap-2">
+                                                    <input 
+                                                        type="color" 
+                                                        value={statusColors[status] || '#ffffff'} 
+                                                        onChange={(e) => setStatusColors({...statusColors, [status]: e.target.value})}
+                                                        className="h-8 w-14 rounded border border-gray-300 cursor-pointer"
+                                                    />
+                                                    <span className="text-xs text-gray-500 font-mono">{statusColors[status]}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 3. Templates Tab */}
+                        {activeTab === 'templates' && (
+                            <div className="max-w-4xl mx-auto space-y-6">
+                                <div className="bg-blue-50 p-4 rounded-lg text-sm text-blue-800 mb-6">
+                                    <strong>Available Placeholders:</strong> {`{firstName}, {name}, {date}, {time}, {deliveryType}, {deliveryAddress}, {total}, {totals}, {items}`}
+                                </div>
+                                {Object.entries({
+                                    followUpNeeded: 'Follow-Up Needed',
+                                    pendingConfirmation: 'Pending Confirmation',
+                                    confirmed: 'Confirmed',
+                                    processing: 'Processing',
+                                    completed: 'Completed'
+                                }).map(([key, label]) => (
+                                    <div key={key} className="bg-white p-4 rounded-lg border border-brand-tan shadow-sm">
+                                        <label className="block text-sm font-bold text-brand-brown mb-2">{label} Message</label>
+                                        <textarea 
+                                            value={(templates as any)[key] || ''}
+                                            onChange={(e) => setTemplates({...templates, [key]: e.target.value})}
+                                            rows={4}
+                                            className="w-full rounded-md border-gray-300 text-sm focus:border-brand-orange focus:ring-brand-orange"
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* 4. Menu Items Tab */}
+                        {activeTab === 'menu' && (
+                            <div className="max-w-5xl mx-auto space-y-8">
+                                <div className="bg-white p-6 rounded-lg border border-brand-tan shadow-sm">
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h3 className="font-bold text-xl text-brand-brown">Flavor Management</h3>
+                                        <div className="flex gap-2">
+                                            <input 
+                                                type="text" 
+                                                value={newFlavorName} 
+                                                onChange={(e) => setNewFlavorName(e.target.value)} 
+                                                placeholder="New Flavor Name" 
+                                                className="rounded-md border-gray-300 text-sm"
+                                            />
+                                            <button onClick={addFlavor} className="bg-brand-orange text-white px-4 py-2 rounded-md text-sm font-bold hover:bg-opacity-90">Add</button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="space-y-4">
+                                        {empanadaFlavors.map((flavor, index) => (
+                                            <div key={index} className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                                                <div className="flex-grow space-y-2 w-full">
+                                                    <div className="flex items-center gap-2">
+                                                        <input 
+                                                            type="text" 
+                                                            value={flavor.name} 
+                                                            onChange={(e) => updateFlavorName(index, e.target.value)} 
+                                                            className="font-bold text-brand-brown bg-transparent border-none p-0 focus:ring-0 w-full sm:w-auto"
+                                                        />
+                                                        {flavor.isSpecial && <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-bold uppercase">Special</span>}
+                                                    </div>
+                                                    <input 
+                                                        type="text" 
+                                                        value={flavor.description || ''} 
+                                                        onChange={(e) => updateFlavorDescription(index, e.target.value)} 
+                                                        placeholder="Description (ingredients, taste profile...)" 
+                                                        className="w-full text-xs text-gray-600 border-gray-300 rounded-md bg-white h-8"
+                                                    />
+                                                </div>
+                                                
+                                                <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
+                                                    <div className="flex items-center gap-1" title="Extra cost per unit">
+                                                        <span className="text-xs text-gray-500 font-bold">+$</span>
+                                                        <input 
+                                                            type="number" 
+                                                            step="0.01" 
+                                                            value={flavor.surcharge || 0} 
+                                                            onChange={(e) => updateFlavorSurcharge(index, e.target.value)} 
+                                                            className="w-16 h-8 text-sm border-gray-300 rounded-md text-right"
+                                                        />
+                                                    </div>
+                                                    
+                                                    <button 
+                                                        onClick={() => toggleFlavorSpecial(index)} 
+                                                        className={`p-2 rounded-full transition-colors ${flavor.isSpecial ? 'bg-purple-100 text-purple-600' : 'bg-gray-200 text-gray-400'}`}
+                                                        title="Toggle Special/Seasonal"
+                                                    >
+                                                        <SparklesIcon className="w-4 h-4" />
+                                                    </button>
+                                                    
+                                                    <button 
+                                                        onClick={() => toggleFlavorVisibility(index)} 
+                                                        className={`p-2 rounded-full transition-colors ${flavor.visible ? 'bg-green-100 text-green-600' : 'bg-gray-200 text-gray-400'}`}
+                                                        title="Toggle Visibility"
+                                                    >
+                                                        <CheckCircleIcon className="w-4 h-4" />
+                                                    </button>
+                                                    
+                                                    <button onClick={() => removeFlavor(index)} className="text-red-400 hover:text-red-600 p-2">
+                                                        <TrashIcon className="w-4 h-4" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 5. Pricing Tab */}
+                        {activeTab === 'pricing' && (
+                            <div className="max-w-5xl mx-auto space-y-8">
+                                {/* Base Prices */}
+                                <div className="bg-white p-6 rounded-lg border border-brand-tan shadow-sm">
+                                    <h3 className="font-bold text-brand-brown mb-4">Base Prices</h3>
+                                    <div className="grid grid-cols-2 gap-6">
+                                        <div>
+                                            <label className="block text-sm font-medium mb-1">Mini Base Price</label>
+                                            <div className="relative">
+                                                <span className="absolute left-3 top-2 text-gray-500">$</span>
+                                                <input 
+                                                    type="number" 
+                                                    step="0.01" 
+                                                    value={pricing.mini.basePrice} 
+                                                    onChange={(e) => setPricing({...pricing, mini: {...pricing.mini, basePrice: parseFloat(e.target.value)}})} 
+                                                    className="w-full pl-6 rounded-md border-gray-300"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium mb-1">Full-Size Base Price</label>
+                                            <div className="relative">
+                                                <span className="absolute left-3 top-2 text-gray-500">$</span>
+                                                <input 
+                                                    type="number" 
+                                                    step="0.01" 
+                                                    value={pricing.full.basePrice} 
+                                                    onChange={(e) => setPricing({...pricing, full: {...pricing.full, basePrice: parseFloat(e.target.value)}})} 
+                                                    className="w-full pl-6 rounded-md border-gray-300"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Packages */}
+                                <div className="bg-white p-6 rounded-lg border border-brand-tan shadow-sm">
+                                    <h3 className="font-bold text-brand-brown mb-4">Package Deals</h3>
+                                    
+                                    {/* Package Form */}
+                                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-6">
+                                        <h4 className="text-sm font-bold text-gray-700 mb-3">{editingPackageId ? 'Edit Package' : 'Add New Package'}</h4>
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                                            <input type="text" placeholder="Package Name" value={packageForm.name} onChange={(e) => setPackageForm({...packageForm, name: e.target.value})} className="rounded-md border-gray-300 text-sm md:col-span-2" />
+                                            <select value={packageForm.itemType} onChange={(e) => setPackageForm({...packageForm, itemType: e.target.value as any})} className="rounded-md border-gray-300 text-sm">
+                                                <option value="mini">Mini</option>
+                                                <option value="full">Full-Size</option>
+                                            </select>
+                                            <div className="relative"><span className="absolute left-2 top-2 text-gray-500 text-xs">$</span><input type="number" placeholder="Price" value={packageForm.price} onChange={(e) => setPackageForm({...packageForm, price: parseFloat(e.target.value)})} className="pl-5 w-full rounded-md border-gray-300 text-sm" /></div>
+                                        </div>
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                                            <input type="number" placeholder="Qty Items" value={packageForm.quantity} onChange={(e) => setPackageForm({...packageForm, quantity: parseInt(e.target.value)})} className="rounded-md border-gray-300 text-sm" />
+                                            <input type="number" placeholder="Max Flavors" value={packageForm.maxFlavors} onChange={(e) => setPackageForm({...packageForm, maxFlavors: parseInt(e.target.value)})} className="rounded-md border-gray-300 text-sm" />
+                                            <input type="number" placeholder="Increment (e.g. 1)" value={packageForm.increment || ''} onChange={(e) => setPackageForm({...packageForm, increment: parseInt(e.target.value)})} className="rounded-md border-gray-300 text-sm" />
+                                            <label className="flex items-center gap-2 text-sm bg-white border border-gray-300 rounded px-2"><input type="checkbox" checked={packageForm.isSpecial} onChange={(e) => setPackageForm({...packageForm, isSpecial: e.target.checked})} /> Is Special?</label>
+                                        </div>
+                                        <input type="text" placeholder="Description (optional)" value={packageForm.description} onChange={(e) => setPackageForm({...packageForm, description: e.target.value})} className="w-full rounded-md border-gray-300 text-sm mb-3" />
+                                        <div className="flex justify-end gap-2">
+                                            {editingPackageId && <button onClick={() => { setEditingPackageId(null); setPackageForm({ itemType: 'mini', quantity: 12, price: 20, maxFlavors: 4, increment: 1, visible: true, isSpecial: false, name: '', description: '' }); }} className="text-gray-500 text-sm underline">Cancel</button>}
+                                            <button onClick={handleAddOrUpdatePackage} className="bg-brand-orange text-white px-4 py-1.5 rounded-md text-sm font-bold">{editingPackageId ? 'Update' : 'Add'}</button>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {(pricing.packages || []).map(pkg => (
+                                            <div key={pkg.id} className={`p-4 rounded-lg border relative group ${pkg.visible ? 'bg-white border-gray-200' : 'bg-gray-100 border-gray-200 opacity-70'}`}>
+                                                <div className="flex justify-between items-start">
+                                                    <div>
+                                                        <h5 className="font-bold text-brand-brown">{pkg.name}</h5>
+                                                        <p className="text-xs text-gray-500">{pkg.quantity} {pkg.itemType} empanadas • ${pkg.price}</p>
+                                                        <p className="text-xs text-gray-400">Max {pkg.maxFlavors} flavors • Step {pkg.increment || 1}</p>
+                                                        {pkg.isSpecial && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-bold uppercase mt-1 inline-block">Special</span>}
+                                                    </div>
+                                                    <div className="flex gap-2">
+                                                        <button onClick={() => togglePackageVisibility(pkg.id)} className="text-gray-400 hover:text-blue-600"><CheckCircleIcon className={`w-4 h-4 ${pkg.visible ? 'text-green-500' : 'text-gray-300'}`} /></button>
+                                                        <button onClick={() => handleEditPackageClick(pkg)} className="text-gray-400 hover:text-brand-orange"><PencilIcon className="w-4 h-4" /></button>
+                                                        <button onClick={() => removePackage(pkg.id)} className="text-gray-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Salsas */}
+                                <div className="bg-white p-6 rounded-lg border border-brand-tan shadow-sm">
+                                    <h3 className="font-bold text-brand-brown mb-4">Salsas & Extras</h3>
+                                    <div className="flex gap-2 mb-4">
+                                        <input type="text" placeholder="Name (e.g. Salsa Verde)" value={newSalsaName} onChange={(e) => setNewSalsaName(e.target.value)} className="flex-grow rounded-md border-gray-300 text-sm" />
+                                        <input type="number" placeholder="Price" value={newSalsaPrice} onChange={(e) => setNewSalsaPrice(e.target.value)} className="w-24 rounded-md border-gray-300 text-sm" />
+                                        <button onClick={addSalsa} className="bg-brand-orange text-white px-4 py-2 rounded-md text-sm font-bold">Add</button>
+                                    </div>
+                                    <div className="space-y-2">
+                                        {(pricing.salsas || []).map(salsa => (
+                                            <div key={salsa.id} className="flex justify-between items-center p-3 bg-gray-50 rounded border border-gray-200">
+                                                <span className="font-medium text-brand-brown">{salsa.name}</span>
+                                                <div className="flex items-center gap-3">
+                                                    <input 
+                                                        type="number" 
+                                                        value={salsa.price} 
+                                                        onChange={(e) => updateSalsaPrice(salsa.id, e.target.value)} 
+                                                        className="w-20 text-sm border-gray-300 rounded p-1 text-right"
+                                                    />
+                                                    <button onClick={() => toggleSalsaVisibility(salsa.id)} className={`p-1 rounded-full ${salsa.visible ? 'text-green-500' : 'text-gray-300'}`}><CheckCircleIcon className="w-4 h-4" /></button>
+                                                    <button onClick={() => removeSalsa(salsa.id)} className="text-red-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                         
+                        {/* 6. Recipes Tab */}
                         {activeTab === 'recipes' && (
                             <div className="max-w-5xl mx-auto space-y-8">
                                 {/* Master Ingredient List */}
@@ -500,12 +750,155 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                 </div>
                             </div>
                         )}
-                        
-                        {activeTab === 'general' && (
-                            <div className="max-w-2xl mx-auto space-y-6">
-                                <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                                    <h3 className="font-bold text-brand-brown mb-4">Message of the Day</h3>
-                                    <input type="text" value={motd} onChange={(e) => setMotd(e.target.value)} className="w-full rounded-md border-gray-300" />
+
+                        {/* 10. Scheduling Tab */}
+                        {activeTab === 'scheduling' && (
+                            <div className="max-w-4xl mx-auto space-y-8">
+                                <div className="bg-white p-6 rounded-lg border border-brand-tan shadow-sm">
+                                    <div className="flex items-center justify-between mb-6">
+                                        <h3 className="font-bold text-brand-brown">General Availability</h3>
+                                        <div className="flex items-center gap-2">
+                                            <label className="text-sm font-medium text-gray-700">Enable Scheduling</label>
+                                            <input 
+                                                type="checkbox" 
+                                                checked={scheduling.enabled} 
+                                                onChange={(e) => setScheduling({...scheduling, enabled: e.target.checked})}
+                                                className="h-5 w-5 text-brand-orange border-gray-300 rounded focus:ring-brand-orange"
+                                            />
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Start Time</label>
+                                            <input type="time" value={scheduling.startTime} onChange={(e) => setScheduling({...scheduling, startTime: e.target.value})} className="w-full rounded-md border-gray-300" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">End Time</label>
+                                            <input type="time" value={scheduling.endTime} onChange={(e) => setScheduling({...scheduling, endTime: e.target.value})} className="w-full rounded-md border-gray-300" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Slot Interval (min)</label>
+                                            <select value={scheduling.intervalMinutes} onChange={(e) => setScheduling({...scheduling, intervalMinutes: parseInt(e.target.value)})} className="w-full rounded-md border-gray-300">
+                                                <option value="15">15 Minutes</option>
+                                                <option value="30">30 Minutes</option>
+                                                <option value="60">60 Minutes</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div className="mb-6">
+                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Regular Closed Days</label>
+                                        <div className="flex flex-wrap gap-2">
+                                            {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, idx) => (
+                                                <button
+                                                    key={day}
+                                                    onClick={() => toggleClosedDay(idx)}
+                                                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${scheduling.closedDays?.includes(idx) ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'}`}
+                                                >
+                                                    {day}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Date Overrides */}
+                                <div className="bg-white p-6 rounded-lg border border-brand-tan shadow-sm">
+                                    <h3 className="font-bold text-brand-brown mb-4">Specific Date Overrides</h3>
+                                    <div className="flex flex-col md:flex-row gap-6">
+                                        {/* Mini Calendar */}
+                                        <div className="w-full md:w-80 flex-shrink-0">
+                                            <div className="flex justify-between items-center mb-2 px-2">
+                                                <button onClick={handlePrevMonth}><ChevronLeftIcon className="w-5 h-5 text-gray-500"/></button>
+                                                <span className="font-bold text-brand-brown">{calendarViewDate.toLocaleString('default', { month: 'long', year: 'numeric' })}</span>
+                                                <button onClick={handleNextMonth}><ChevronRightIcon className="w-5 h-5 text-gray-500"/></button>
+                                            </div>
+                                            <div className="grid grid-cols-7 text-center text-xs gap-1">
+                                                {['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => <div key={d} className="font-bold text-gray-400 py-1">{d}</div>)}
+                                                {calendarGrid.map((date, idx) => {
+                                                    if (!date) return <div key={idx}></div>;
+                                                    const dateStr = date.toISOString().split('T')[0];
+                                                    const isSelected = selectedDate === dateStr;
+                                                    const override = scheduling.dateOverrides?.[dateStr];
+                                                    let bgClass = "bg-gray-50 hover:bg-gray-100";
+                                                    if (override?.isClosed) bgClass = "bg-red-100 text-red-700 border border-red-200";
+                                                    else if (override?.isFull) bgClass = "bg-yellow-100 text-yellow-700 border border-yellow-200";
+                                                    else if (override?.customHours) bgClass = "bg-blue-100 text-blue-700 border border-blue-200";
+                                                    
+                                                    if (isSelected) bgClass = "bg-brand-brown text-white ring-2 ring-brand-orange";
+
+                                                    return (
+                                                        <button 
+                                                            key={idx} 
+                                                            onClick={() => handleDateClick(dateStr)}
+                                                            className={`p-2 rounded transition-all text-sm ${bgClass}`}
+                                                        >
+                                                            {date.getDate()}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+
+                                        {/* Date Details Panel */}
+                                        <div className="flex-grow bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                            {selectedDate ? (
+                                                <>
+                                                    <h4 className="font-bold text-lg text-brand-brown mb-4">Settings for {new Date(selectedDate + 'T00:00:00').toLocaleDateString()}</h4>
+                                                    <div className="space-y-3">
+                                                        <div className="flex items-center gap-3">
+                                                            <input type="radio" id="opt-default" name="date-opt" 
+                                                                checked={!scheduling.dateOverrides?.[selectedDate]} 
+                                                                onChange={() => updateDateOverride(selectedDate, 'default')} 
+                                                            />
+                                                            <label htmlFor="opt-default" className="text-sm font-medium text-gray-700">Standard Schedule</label>
+                                                        </div>
+                                                        <div className="flex items-center gap-3">
+                                                            <input type="radio" id="opt-closed" name="date-opt" 
+                                                                checked={scheduling.dateOverrides?.[selectedDate]?.isClosed === true} 
+                                                                onChange={() => updateDateOverride(selectedDate, 'closed')} 
+                                                            />
+                                                            <label htmlFor="opt-closed" className="text-sm font-medium text-red-700">Closed (No Orders)</label>
+                                                        </div>
+                                                        <div className="flex items-center gap-3">
+                                                            <input type="radio" id="opt-full" name="date-opt" 
+                                                                checked={scheduling.dateOverrides?.[selectedDate]?.isFull === true} 
+                                                                onChange={() => updateDateOverride(selectedDate, 'full')} 
+                                                            />
+                                                            <label htmlFor="opt-full" className="text-sm font-medium text-yellow-700">Fully Booked (Mark as Busy)</label>
+                                                        </div>
+                                                        <div className="flex items-center gap-3">
+                                                            <input type="radio" id="opt-custom" name="date-opt" 
+                                                                checked={!!scheduling.dateOverrides?.[selectedDate]?.customHours} 
+                                                                onChange={() => updateDateOverride(selectedDate, 'custom')} 
+                                                            />
+                                                            <label htmlFor="opt-custom" className="text-sm font-medium text-blue-700">Custom Hours</label>
+                                                        </div>
+                                                        
+                                                        {scheduling.dateOverrides?.[selectedDate]?.customHours && (
+                                                            <div className="ml-7 grid grid-cols-2 gap-2 mt-2">
+                                                                <input 
+                                                                    type="time" 
+                                                                    value={scheduling.dateOverrides[selectedDate].customHours?.start || scheduling.startTime} 
+                                                                    onChange={(e) => updateDateOverride(selectedDate, 'custom', e.target.value, scheduling.dateOverrides?.[selectedDate]?.customHours?.end)}
+                                                                    className="rounded border-gray-300 text-sm"
+                                                                />
+                                                                <input 
+                                                                    type="time" 
+                                                                    value={scheduling.dateOverrides[selectedDate].customHours?.end || scheduling.endTime} 
+                                                                    onChange={(e) => updateDateOverride(selectedDate, 'custom', scheduling.dateOverrides?.[selectedDate]?.customHours?.start, e.target.value)}
+                                                                    className="rounded border-gray-300 text-sm"
+                                                                />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <div className="h-full flex items-center justify-center text-gray-400 italic">Select a date to configure overrides.</div>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         )}
