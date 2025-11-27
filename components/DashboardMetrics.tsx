@@ -54,6 +54,9 @@ const getStartOfWeek = (d: Date) => {
 export default function DashboardMetrics({ stats, orders, allOrders, empanadaFlavors, fullSizeEmpanadaFlavors, onFilterStatus, pendingCount, cancelledCount }: DashboardMetricsProps) {
     const miniFlavorsSet = useMemo(() => new Set(empanadaFlavors), [empanadaFlavors]);
     
+    // We no longer strictly rely on fullSizeEmpanadaFlavors set for the chart to ensure 
+    // custom flavors (which get "Full " prepended) show up correctly.
+
     const popularMiniProductsData = useMemo(() => {
         const productCounts = new Map<string, number>();
         orders.forEach(order => {
@@ -71,11 +74,21 @@ export default function DashboardMetrics({ stats, orders, allOrders, empanadaFla
 
     const popularFullSizeProductsData = useMemo(() => {
         const productCounts = new Map<string, number>();
+        const knownFullFlavors = new Set(fullSizeEmpanadaFlavors);
+
         orders.forEach(order => {
             order.items.forEach(item => {
-                // Robust check: any item starting with "Full " is counted as full size
-                if (item.name.startsWith('Full ')) {
-                    const cleanName = item.name.replace('Full ', '');
+                const name = item.name.trim();
+                
+                // Case 1: Item name explicitly starts with "Full " (e.g., "Full Beef")
+                if (name.startsWith('Full ')) {
+                    const cleanName = name.replace('Full ', '').trim();
+                    productCounts.set(cleanName, (productCounts.get(cleanName) || 0) + item.quantity);
+                } 
+                // Case 2: Item name is in the configured list of full-size flavors
+                else if (knownFullFlavors.has(name)) {
+                    // Clean it up just in case the list name also has "Full " prefix
+                    const cleanName = name.startsWith('Full ') ? name.replace('Full ', '').trim() : name;
                     productCounts.set(cleanName, (productCounts.get(cleanName) || 0) + item.quantity);
                 }
             });
@@ -84,7 +97,7 @@ export default function DashboardMetrics({ stats, orders, allOrders, empanadaFla
         return Array.from(productCounts.entries())
             .map(([name, count]) => ({ name, count }))
             .sort((a, b) => b.count - a.count);
-    }, [orders]);
+    }, [orders, fullSizeEmpanadaFlavors]);
     
     const weeklySalesData = useMemo(() => {
         const weeklyTotals = new Map<string, { mini: number; full: number }>();
@@ -163,53 +176,65 @@ export default function DashboardMetrics({ stats, orders, allOrders, empanadaFla
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <div className="bg-white p-6 rounded-lg border border-brand-tan">
                     <h3 className="text-lg font-semibold text-brand-brown mb-4">Mini Empanadas Sold</h3>
-                    <ResponsiveContainer width="100%" height={miniChartHeight}>
-                        <BarChart 
-                            layout="vertical" 
-                            data={popularMiniProductsData} 
-                            margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
-                        >
-                            <CartesianGrid strokeDasharray="3 3" horizontal={false} vertical={true} />
-                            <XAxis type="number" tick={{ fontSize: 12, fill: '#3c2f2f' }} />
-                            <YAxis 
-                                dataKey="name" 
-                                type="category" 
-                                width={130} 
-                                tick={{ fontSize: 12, fill: '#3c2f2f' }} 
-                                interval={0}
-                            />
-                            <Tooltip cursor={{fill: 'transparent'}} contentStyle={{ background: 'white', border: '1px solid #ddd', borderRadius: '0.5rem' }} />
-                            <Legend wrapperStyle={{fontSize: "14px"}}/>
-                            <Bar dataKey="count" fill="#c8441c" name="Quantity Sold" radius={[0, 4, 4, 0]} barSize={24}>
-                                <LabelList dataKey="count" position="right" fill="#3c2f2f" fontSize={12} />
-                            </Bar>
-                        </BarChart>
-                    </ResponsiveContainer>
+                    {popularMiniProductsData.length > 0 ? (
+                        <ResponsiveContainer width="100%" height={miniChartHeight}>
+                            <BarChart 
+                                layout="vertical" 
+                                data={popularMiniProductsData} 
+                                margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
+                            >
+                                <CartesianGrid strokeDasharray="3 3" horizontal={false} vertical={true} />
+                                <XAxis type="number" tick={{ fontSize: 12, fill: '#3c2f2f' }} />
+                                <YAxis 
+                                    dataKey="name" 
+                                    type="category" 
+                                    width={130} 
+                                    tick={{ fontSize: 12, fill: '#3c2f2f' }} 
+                                    interval={0}
+                                />
+                                <Tooltip cursor={{fill: 'transparent'}} contentStyle={{ background: 'white', border: '1px solid #ddd', borderRadius: '0.5rem' }} />
+                                <Legend wrapperStyle={{fontSize: "14px"}}/>
+                                <Bar dataKey="count" fill="#c8441c" name="Quantity Sold" radius={[0, 4, 4, 0]} barSize={24}>
+                                    <LabelList dataKey="count" position="right" fill="#3c2f2f" fontSize={12} />
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    ) : (
+                        <div className="flex items-center justify-center h-40 text-gray-400 italic border border-dashed border-gray-200 rounded">
+                            No mini empanada sales in this period.
+                        </div>
+                    )}
                 </div>
                 <div className="bg-white p-6 rounded-lg border border-brand-tan">
                     <h3 className="text-lg font-semibold text-brand-brown mb-4">Full-Size Empanadas Sold</h3>
-                    <ResponsiveContainer width="100%" height={fullChartHeight}>
-                        <BarChart 
-                            layout="vertical" 
-                            data={popularFullSizeProductsData} 
-                            margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
-                        >
-                            <CartesianGrid strokeDasharray="3 3" horizontal={false} vertical={true} />
-                            <XAxis type="number" tick={{ fontSize: 12, fill: '#3c2f2f' }} />
-                            <YAxis 
-                                dataKey="name" 
-                                type="category" 
-                                width={130} 
-                                tick={{ fontSize: 12, fill: '#3c2f2f' }} 
-                                interval={0}
-                            />
-                            <Tooltip cursor={{fill: 'transparent'}} contentStyle={{ background: 'white', border: '1px solid #ddd', borderRadius: '0.5rem' }} />
-                            <Legend wrapperStyle={{fontSize: "14px"}}/>
-                            <Bar dataKey="count" fill="#e25e31" name="Quantity Sold" radius={[0, 4, 4, 0]} barSize={24}>
-                                <LabelList dataKey="count" position="right" fill="#3c2f2f" fontSize={12} />
-                            </Bar>
-                        </BarChart>
-                    </ResponsiveContainer>
+                    {popularFullSizeProductsData.length > 0 ? (
+                        <ResponsiveContainer width="100%" height={fullChartHeight}>
+                            <BarChart 
+                                layout="vertical" 
+                                data={popularFullSizeProductsData} 
+                                margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
+                            >
+                                <CartesianGrid strokeDasharray="3 3" horizontal={false} vertical={true} />
+                                <XAxis type="number" tick={{ fontSize: 12, fill: '#3c2f2f' }} />
+                                <YAxis 
+                                    dataKey="name" 
+                                    type="category" 
+                                    width={130} 
+                                    tick={{ fontSize: 12, fill: '#3c2f2f' }} 
+                                    interval={0}
+                                />
+                                <Tooltip cursor={{fill: 'transparent'}} contentStyle={{ background: 'white', border: '1px solid #ddd', borderRadius: '0.5rem' }} />
+                                <Legend wrapperStyle={{fontSize: "14px"}}/>
+                                <Bar dataKey="count" fill="#e25e31" name="Quantity Sold" radius={[0, 4, 4, 0]} barSize={24}>
+                                    <LabelList dataKey="count" position="right" fill="#3c2f2f" fontSize={12} />
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    ) : (
+                        <div className="flex items-center justify-center h-40 text-gray-400 italic border border-dashed border-gray-200 rounded">
+                            No full-size empanada sales in this period.
+                        </div>
+                    )}
                 </div>
             </div>
             
