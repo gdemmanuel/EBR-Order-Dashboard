@@ -45,8 +45,6 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
         let totalFullOrdered = 0;
 
         orders.forEach(order => {
-            // IMPORTANT: Ignore orders that are already completed/picked up for prep calculation.
-            // If the order is completed, it shouldn't contribute to "Need to Make" anymore.
             if (order.followUpStatus === FollowUpStatus.COMPLETED) return;
 
             order.items.forEach(item => {
@@ -71,13 +69,14 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
             ...settings.empanadaFlavors.map(f => f.name)
         ])).sort();
 
-        let totalEstimatedCost = 0; // Supply Cost
-        
+        let totalEstimatedCost = 0; // Supply Cost (Ingredients + Discos)
+        const ingredientAggregates = new Map<string, number>(); // Ingredient ID -> Total Amount needed
+
         // Disco Multipliers & Pack Sizes
         const miniDiscosPer = settings.prepSettings?.discosPer?.mini ?? 1;
         const fullDiscosPer = settings.prepSettings?.discosPer?.full ?? 1;
-        const miniPackSize = settings.prepSettings?.discoPackSize?.mini || 10; // Default safe value
-        const fullPackSize = settings.prepSettings?.discoPackSize?.full || 10; // Default safe value
+        const miniPackSize = settings.prepSettings?.discoPackSize?.mini || 10;
+        const fullPackSize = settings.prepSettings?.discoPackSize?.full || 10;
 
         const rows = allFlavors.map(flavor => {
             const miniOrd = miniCounts[flavor] || 0;
@@ -89,17 +88,46 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
             const miniToMake = Math.max(0, miniOrd - stock.mini);
             const fullToMake = Math.max(0, fullOrd - stock.full);
 
-            // Calculate Meat Requirements based on "To Make"
-            const lbsPer20 = settings.prepSettings?.lbsPer20[flavor] || 0;
-            const fullMultiplier = settings.prepSettings?.fullSizeMultiplier || 2.0;
+            // --- INGREDIENT CALCULATION (New Recipe Logic) ---
+            const recipes = settings.prepSettings?.recipes || {};
+            const flavorIngredients = recipes[flavor] || [];
+            
+            let fillingCost = 0;
 
-            const miniLbs = (miniToMake / 20) * lbsPer20;
-            const fullLbs = (fullToMake / 20) * lbsPer20 * fullMultiplier;
-            const totalLbs = miniLbs + fullLbs;
+            // If we have a detailed recipe, use it
+            if (flavorIngredients.length > 0) {
+                flavorIngredients.forEach(ing => {
+                    const ingredientDef = settings.ingredients?.find(i => i.id === ing.ingredientId);
+                    if (ingredientDef) {
+                        // Logic: Amount per 20 minis
+                        // Mini Total Amount = (MiniToMake / 20) * AmountFor20
+                        // Full Total Amount = (FullToMake / 20) * AmountFor20 * FullSizeMultiplier
+                        const fullMultiplier = settings.prepSettings.fullSizeMultiplier || 2.0;
+                        
+                        const miniAmount = (miniToMake / 20) * ing.amountFor20Minis;
+                        const fullAmount = (fullToMake / 20) * ing.amountFor20Minis * fullMultiplier;
+                        const totalAmount = miniAmount + fullAmount;
 
-            // Calculate Costs
-            const costPerLb = settings.materialCosts[flavor] || 0;
-            const fillingCost = totalLbs * costPerLb;
+                        // Aggregate for Total Ingredients View
+                        const currentAgg = ingredientAggregates.get(ing.ingredientId) || 0;
+                        ingredientAggregates.set(ing.ingredientId, currentAgg + totalAmount);
+
+                        // Add to cost
+                        fillingCost += totalAmount * ingredientDef.cost;
+                    }
+                });
+            } else {
+                // --- FALLBACK TO LEGACY LBS/20 LOGIC ---
+                const lbsPer20 = settings.prepSettings?.lbsPer20[flavor] || 0;
+                const fullMultiplier = settings.prepSettings?.fullSizeMultiplier || 2.0;
+                const miniLbs = (miniToMake / 20) * lbsPer20;
+                const fullLbs = (fullToMake / 20) * lbsPer20 * fullMultiplier;
+                const totalLbs = miniLbs + fullLbs;
+                
+                // Use old cost map
+                const costPerLb = settings.materialCosts[flavor] || 0;
+                fillingCost += totalLbs * costPerLb;
+            }
             
             const miniDiscoCost = miniToMake * miniDiscosPer * (settings.discoCosts?.mini || 0);
             const fullDiscoCost = fullToMake * fullDiscosPer * (settings.discoCosts?.full || 0);
@@ -107,7 +135,6 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
             const rowCost = fillingCost + miniDiscoCost + fullDiscoCost;
             totalEstimatedCost += rowCost;
 
-            // Only return rows that have action (order, stock, or making)
             if (miniOrd === 0 && fullOrd === 0 && stock.mini === 0 && stock.full === 0) return null;
 
             return {
@@ -118,13 +145,11 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
                 fullOrd,
                 fullStock: stock.full,
                 fullToMake,
-                lbsPer20,
-                totalLbs,
                 rowCost
             };
         }).filter(Boolean) as any[];
 
-        // Calculate Disco Totals (To Make)
+        // Calculate Disco Totals
         const totalMiniToMake = rows.reduce((acc, r) => acc + r.miniToMake, 0);
         const totalFullToMake = rows.reduce((acc, r) => acc + r.fullToMake, 0);
         
@@ -132,7 +157,6 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
         const totalFullDiscosNeeded = totalFullToMake * fullDiscosPer;
         const totalDiscosNeeded = totalMiniDiscosNeeded + totalFullDiscosNeeded;
 
-        // Calculate Packages Needed
         const miniPacksNeeded = Math.ceil(totalMiniDiscosNeeded / miniPackSize);
         const fullPacksNeeded = Math.ceil(totalFullDiscosNeeded / fullPackSize);
 
@@ -147,6 +171,17 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
         const totalLaborCost = totalHours * hourlyWage;
 
         const totalBatchCost = totalEstimatedCost + totalLaborCost;
+
+        // Resolve Ingredient Aggregates to View Models
+        const ingredientList = Array.from(ingredientAggregates.entries()).map(([id, amount]) => {
+            const def = settings.ingredients?.find(i => i.id === id);
+            return {
+                name: def?.name || 'Unknown Ingredient',
+                amount,
+                unit: def?.unit || 'units',
+                cost: amount * (def?.cost || 0)
+            };
+        }).sort((a, b) => b.cost - a.cost);
 
         return {
             rows,
@@ -166,7 +201,8 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
             hourlyWage,
             totalHours,
             totalLaborCost,
-            totalBatchCost
+            totalBatchCost,
+            ingredientList
         };
 
     }, [orders, settings, inventory]);
@@ -245,7 +281,7 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
                                 <CurrencyDollarIcon className="w-6 h-6 text-green-600" />
                                 <p className="text-2xl font-bold text-green-900">${prepData.totalEstimatedCost.toFixed(2)}</p>
                             </div>
-                            <p className="text-[10px] text-green-700 leading-tight">Includes meat, fillings, and disco costs for production.</p>
+                            <p className="text-[10px] text-green-700 leading-tight">Includes meat, ingredients, and disco costs.</p>
                         </div>
 
                         {/* 3. Labor Cost */}
@@ -269,6 +305,24 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
                         </div>
                     </section>
 
+                    {/* Ingredient Breakdown (New Section) */}
+                    {prepData.ingredientList.length > 0 && (
+                        <section className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                            <h4 className="font-bold text-orange-900 mb-3">Ingredient Requirements (Aggregated)</h4>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                                {prepData.ingredientList.map((ing, idx) => (
+                                    <div key={idx} className="bg-white p-2 rounded shadow-sm border border-orange-100">
+                                        <span className="block text-xs font-bold text-gray-700 mb-1 truncate" title={ing.name}>{ing.name}</span>
+                                        <div className="flex justify-between items-end">
+                                            <span className="text-lg font-bold text-brand-orange leading-none">{ing.amount.toFixed(1)}</span>
+                                            <span className="text-xs text-gray-500">{ing.unit}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
+                    )}
+
                     {/* Main Table */}
                     <section>
                         <div className="overflow-x-auto border rounded-lg shadow-sm">
@@ -287,9 +341,7 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
                                         <th className="px-2 py-3 text-center bg-purple-50/50 w-20">Full<br/>Stock</th>
                                         <th className="px-2 py-3 text-center bg-purple-100/50 font-bold text-purple-900 border-r border-purple-100">Full<br/>Make</th>
                                         
-                                        {/* Material Columns */}
-                                        <th className="px-3 py-3 text-right text-gray-600">Rate<br/>(lbs/20)</th>
-                                        <th className="px-3 py-3 text-right font-bold text-brand-orange">Material<br/>Needed</th>
+                                        {/* Cost Column */}
                                         <th className="px-3 py-3 text-right text-green-700">Supply<br/>Cost</th>
                                     </tr>
                                 </thead>
@@ -303,15 +355,6 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
                                         <td className="px-2 py-3 text-center text-gray-500">-</td>
                                         <td className="px-2 py-3 text-center text-gray-500">-</td>
                                         <td className="px-2 py-3 text-center text-purple-900 bg-purple-50">{prepData.totalFullToMake}</td>
-                                        <td className="px-3 py-3 text-right text-gray-400">-</td>
-                                        <td className="px-3 py-3 text-right font-bold text-gray-800">
-                                            <div className="flex flex-col items-end">
-                                                <span>{prepData.totalDiscosNeeded} units</span>
-                                                <span className="text-[10px] font-normal text-gray-500">
-                                                    ({prepData.miniPacksNeeded} mini pks / {prepData.fullPacksNeeded} full pks)
-                                                </span>
-                                            </div>
-                                        </td>
                                         <td className="px-3 py-3 text-right text-green-700">
                                             ${((prepData.totalMiniDiscosNeeded * (settings.discoCosts?.mini||0)) + (prepData.totalFullDiscosNeeded * (settings.discoCosts?.full||0))).toFixed(2)}
                                         </td>
@@ -345,13 +388,6 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
                                             </td>
                                             <td className="px-2 py-2 text-center font-bold text-purple-700 bg-purple-50/30 border-r border-gray-100">{row.fullToMake}</td>
 
-                                            {/* Materials */}
-                                            <td className="px-3 py-2 text-right text-gray-500 text-xs">
-                                                {row.lbsPer20 > 0 ? row.lbsPer20.toFixed(2) : '-'}
-                                            </td>
-                                            <td className="px-3 py-2 text-right font-bold text-brand-orange">
-                                                {row.totalLbs > 0 ? `${row.totalLbs.toFixed(2)} lbs` : '-'}
-                                            </td>
                                             <td className="px-3 py-2 text-right text-green-700 font-medium">
                                                 {row.rowCost > 0 ? `$${row.rowCost.toFixed(2)}` : '-'}
                                             </td>

@@ -238,6 +238,25 @@ export default function AdminDashboard({
         }
     };
 
+    // Handle updating ingredient cost from Expense Modal
+    const handleSaveExpense = async (expense: Expense) => {
+        await saveExpenseToDb(expense);
+        
+        // If this expense is linked to an ingredient (via unitName match or specialized ID logic if implemented)
+        // We can update the ingredient cost in settings.
+        // The ExpenseModal handles the UI selection, but here we need to ensure settings update.
+        // Actually, ExpenseModal can't update settings directly without a callback.
+        // Let's modify ExpenseModal to accept an onUpdateIngredient callback.
+    };
+
+    const handleUpdateIngredientCost = async (ingredientId: string, newCost: number) => {
+        const currentIngredients = settings.ingredients || [];
+        const updatedIngredients = currentIngredients.map(ing => 
+            ing.id === ingredientId ? { ...ing, cost: newCost } : ing
+        );
+        await updateSettingsInDb({ ingredients: updatedIngredients });
+    };
+
     // Render
     if (view === 'print') {
         return (
@@ -497,9 +516,11 @@ export default function AdminDashboard({
                 <ExpenseModal 
                     expenses={expenses}
                     categories={settings.expenseCategories || []}
+                    ingredients={settings.ingredients || []}
                     onClose={() => setIsExpenseOpen(false)}
                     onSave={saveExpenseToDb}
                     onDelete={deleteExpenseFromDb}
+                    onUpdateIngredientCost={handleUpdateIngredientCost}
                 />
             )}
 

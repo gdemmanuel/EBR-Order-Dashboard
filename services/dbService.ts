@@ -41,8 +41,10 @@ const DEFAULT_SETTINGS: AppSettings = {
             { id: 'salsa-rosada-lg', name: 'Salsa Rosada (8oz)', price: 4.00, visible: true },
         ]
     },
+    ingredients: [],
     prepSettings: {
         lbsPer20: {},
+        recipes: {},
         fullSizeMultiplier: 2.0,
         discosPer: { mini: 1, full: 1 },
         discoPackSize: { mini: 10, full: 10 },
@@ -71,11 +73,11 @@ const DEFAULT_SETTINGS: AppSettings = {
     expenseCategories: ['Packaging', 'Marketing', 'Rent', 'Utilities', 'Equipment', 'Ingredients', 'Other'],
     employees: [],
     statusColors: {
-        [FollowUpStatus.NEEDED]: '#fef3c7', // amber-100
-        [FollowUpStatus.PENDING]: '#eff6ff', // blue-50
-        [FollowUpStatus.CONFIRMED]: '#dbeafe', // blue-100
-        [FollowUpStatus.PROCESSING]: '#e0e7ff', // indigo-100
-        [FollowUpStatus.COMPLETED]: '#dcfce7', // green-100
+        [FollowUpStatus.NEEDED]: '#fef3c7',
+        [FollowUpStatus.PENDING]: '#eff6ff',
+        [FollowUpStatus.CONFIRMED]: '#dbeafe',
+        [FollowUpStatus.PROCESSING]: '#e0e7ff',
+        [FollowUpStatus.COMPLETED]: '#dcfce7',
     }
 };
 
@@ -98,8 +100,6 @@ export const subscribeToExpenses = (
     onUpdate: (expenses: Expense[]) => void,
     onError?: (error: FirestoreError) => void
 ) => {
-    // Fetch all expenses, but filter OUT 'Labor' items so they don't duplicate in the expense list
-    // (We handle them separately in subscribeToShifts)
     const q = query(collection(db, EXPENSES_COLLECTION));
     return onSnapshot(q, (snapshot) => {
         const expenses: Expense[] = [];
@@ -117,19 +117,17 @@ export const subscribeToShifts = (
     onUpdate: (shifts: WorkShift[]) => void,
     onError?: (error: FirestoreError) => void
 ) => {
-    // Fetch 'Labor' expenses and convert them back to WorkShift objects
     const q = query(collection(db, EXPENSES_COLLECTION), where("category", "==", "Labor"));
     return onSnapshot(q, (snapshot) => {
         const shifts: WorkShift[] = [];
         snapshot.forEach((doc) => {
             const data = doc.data() as Expense;
             try {
-                // Parse the metadata stored in description
                 const meta = data.description ? JSON.parse(data.description) : {};
                 shifts.push({
                     id: data.id,
                     employeeId: meta.employeeId || '',
-                    employeeName: data.vendor, // We store employee name in vendor field
+                    employeeName: data.vendor,
                     date: data.date,
                     startTime: meta.startTime || '00:00',
                     endTime: meta.endTime || '00:00',
@@ -139,7 +137,6 @@ export const subscribeToShifts = (
                     notes: meta.notes || ''
                 });
             } catch (e) {
-                // Fallback if description is not valid JSON
                  shifts.push({
                     id: data.id,
                     employeeId: '',
@@ -175,7 +172,8 @@ export const subscribeToSettings = (
                 messageTemplates: { ...DEFAULT_SETTINGS.messageTemplates, ...(data.messageTemplates || {}) },
                 expenseCategories: data.expenseCategories || DEFAULT_SETTINGS.expenseCategories,
                 employees: data.employees || DEFAULT_SETTINGS.employees,
-                statusColors: { ...DEFAULT_SETTINGS.statusColors, ...(data.statusColors || {}) }
+                statusColors: { ...DEFAULT_SETTINGS.statusColors, ...(data.statusColors || {}) },
+                ingredients: data.ingredients || DEFAULT_SETTINGS.ingredients,
             };
             onUpdate(mergedSettings);
         } else {
@@ -210,7 +208,6 @@ export const deleteExpenseFromDb = async (expenseId: string) => {
 };
 
 export const saveShiftToDb = async (shift: WorkShift) => {
-    // Convert Shift to Expense format to avoid new collection permissions
     const metaData = JSON.stringify({
         startTime: shift.startTime,
         endTime: shift.endTime,
@@ -235,7 +232,6 @@ export const saveShiftToDb = async (shift: WorkShift) => {
 };
 
 export const deleteShiftFromDb = async (shiftId: string) => {
-    // Shifts are stored in expenses collection now
     await deleteDoc(doc(db, EXPENSES_COLLECTION, shiftId));
 };
 

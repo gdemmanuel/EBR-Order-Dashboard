@@ -1,19 +1,21 @@
 
 import React, { useState, useMemo } from 'react';
-import { Expense } from '../types';
+import { Expense, Ingredient } from '../types';
 import { XMarkIcon, PlusIcon, TrashIcon, CalendarIcon, CurrencyDollarIcon, DocumentTextIcon, ListBulletIcon } from './icons/Icons';
 
 interface ExpenseModalProps {
     expenses: Expense[];
     categories: string[];
+    ingredients?: Ingredient[];
     onClose: () => void;
     onSave: (expense: Expense) => Promise<void>;
     onDelete: (id: string) => Promise<void>;
+    onUpdateIngredientCost?: (id: string, newCost: number) => Promise<void>;
 }
 
 type SortKey = 'date' | 'category' | 'vendor' | 'item' | 'totalCost';
 
-export default function ExpenseModal({ expenses, categories, onClose, onSave, onDelete }: ExpenseModalProps) {
+export default function ExpenseModal({ expenses, categories, ingredients = [], onClose, onSave, onDelete, onUpdateIngredientCost }: ExpenseModalProps) {
     const [activeTab, setActiveTab] = useState<'add' | 'list'>('add');
     
     // Form State
@@ -22,9 +24,10 @@ export default function ExpenseModal({ expenses, categories, onClose, onSave, on
     const [vendor, setVendor] = useState('');
     const [item, setItem] = useState('');
     const [unitName, setUnitName] = useState('');
-    const [inputTotalCost, setInputTotalCost] = useState(''); // Changed from pricePerUnit to Total
+    const [inputTotalCost, setInputTotalCost] = useState('');
     const [quantity, setQuantity] = useState('');
-    const [description, setDescription] = useState(''); 
+    const [description, setDescription] = useState('');
+    const [linkedIngredientId, setLinkedIngredientId] = useState<string>('');
     
     const [isSaving, setIsSaving] = useState(false);
     const [saveSuccess, setSaveSuccess] = useState(false);
@@ -37,6 +40,16 @@ export default function ExpenseModal({ expenses, categories, onClose, onSave, on
     const totalCostVal = parseFloat(inputTotalCost) || 0;
     const qtyVal = parseFloat(quantity) || 0;
     const calculatedUnitCost = qtyVal > 0 ? (totalCostVal / qtyVal) : 0;
+
+    // Auto-fill from linked ingredient
+    const handleLinkIngredient = (ingId: string) => {
+        setLinkedIngredientId(ingId);
+        const ing = ingredients.find(i => i.id === ingId);
+        if (ing) {
+            setItem(ing.name);
+            setUnitName(ing.unit);
+        }
+    };
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -57,24 +70,32 @@ export default function ExpenseModal({ expenses, categories, onClose, onSave, on
                 vendor,
                 item,
                 unitName: unitName || 'units', 
-                pricePerUnit: calculatedUnitCost, // Calculated automatically
+                pricePerUnit: calculatedUnitCost,
                 quantity: qtyVal,
                 totalCost: totalCostVal,
                 description: description || '' 
             };
             
             await onSave(newExpense);
+
+            // Update Ingredient Cost if Linked
+            if (linkedIngredientId && onUpdateIngredientCost && category === 'Ingredients') {
+                await onUpdateIngredientCost(linkedIngredientId, calculatedUnitCost);
+            }
+
             setSaveSuccess(true);
             
+            // Reset form but keep date/vendor for convenience
             setItem('');
             setInputTotalCost('');
             setQuantity('');
             setDescription('');
+            setLinkedIngredientId('');
             
             setTimeout(() => {
                  setSaveSuccess(false);
                  setActiveTab('list');
-            }, 1000);
+            }, 1500);
             
         } catch (error: any) {
             console.error("Failed to save expense", error);
@@ -104,13 +125,10 @@ export default function ExpenseModal({ expenses, categories, onClose, onSave, on
         sortableItems.sort((a, b) => {
             let aVal: any = a[sortConfig.key];
             let bVal: any = b[sortConfig.key];
-
-            // Handle numeric sorts
             if (sortConfig.key === 'totalCost') {
                 aVal = a.totalCost || 0;
                 bVal = b.totalCost || 0;
             }
-
             if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
             if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
             return 0;
@@ -143,21 +161,11 @@ export default function ExpenseModal({ expenses, categories, onClose, onSave, on
                 </header>
 
                 <div className="flex border-b border-gray-200">
-                    <button 
-                        className={`flex-1 py-3 text-sm font-medium ${activeTab === 'add' ? 'text-brand-orange border-b-2 border-brand-orange' : 'text-gray-500 hover:bg-gray-50'}`}
-                        onClick={() => setActiveTab('add')}
-                    >
-                        <div className="flex items-center justify-center gap-2">
-                            <PlusIcon className="w-4 h-4" /> Add Entry
-                        </div>
+                    <button className={`flex-1 py-3 text-sm font-medium ${activeTab === 'add' ? 'text-brand-orange border-b-2 border-brand-orange' : 'text-gray-500 hover:bg-gray-50'}`} onClick={() => setActiveTab('add')}>
+                        <div className="flex items-center justify-center gap-2"><PlusIcon className="w-4 h-4" /> Add Entry</div>
                     </button>
-                    <button 
-                        className={`flex-1 py-3 text-sm font-medium ${activeTab === 'list' ? 'text-brand-orange border-b-2 border-brand-orange' : 'text-gray-500 hover:bg-gray-50'}`}
-                        onClick={() => setActiveTab('list')}
-                    >
-                        <div className="flex items-center justify-center gap-2">
-                            <ListBulletIcon className="w-4 h-4" /> History ({expenses.length})
-                        </div>
+                    <button className={`flex-1 py-3 text-sm font-medium ${activeTab === 'list' ? 'text-brand-orange border-b-2 border-brand-orange' : 'text-gray-500 hover:bg-gray-50'}`} onClick={() => setActiveTab('list')}>
+                        <div className="flex items-center justify-center gap-2"><ListBulletIcon className="w-4 h-4" /> History ({expenses.length})</div>
                     </button>
                 </div>
 
@@ -167,7 +175,7 @@ export default function ExpenseModal({ expenses, categories, onClose, onSave, on
                             <form onSubmit={handleSave} className="space-y-4">
                                 {saveSuccess && (
                                     <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-2 rounded relative mb-4 text-sm flex justify-between items-center">
-                                        <span className="font-bold">Item Saved Successfully!</span>
+                                        <span className="font-bold">Saved & Updated Cost!</span>
                                         <button type="button" onClick={() => setActiveTab('list')} className="underline font-semibold hover:text-green-900">View List</button>
                                     </div>
                                 )}
@@ -193,6 +201,22 @@ export default function ExpenseModal({ expenses, categories, onClose, onSave, on
                                         </select>
                                     </div>
                                 </div>
+
+                                {category === 'Ingredients' && ingredients.length > 0 && (
+                                    <div className="bg-blue-50 p-3 rounded border border-blue-200">
+                                        <label className="block text-xs font-bold text-blue-800 mb-1">Link to Ingredient (Updates Recipe Cost)</label>
+                                        <select 
+                                            value={linkedIngredientId} 
+                                            onChange={e => handleLinkIngredient(e.target.value)} 
+                                            className="block w-full rounded-md border-blue-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+                                        >
+                                            <option value="">-- Select Ingredient --</option>
+                                            {ingredients.map(ing => (
+                                                <option key={ing.id} value={ing.id}>{ing.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
@@ -244,6 +268,7 @@ export default function ExpenseModal({ expenses, categories, onClose, onSave, on
                         </div>
                     )}
 
+                    {/* List View (Unchanged) */}
                     {activeTab === 'list' && (
                         <div className="overflow-hidden bg-white border border-gray-200 rounded-lg shadow-sm">
                             {expenses.length === 0 ? (
@@ -264,34 +289,12 @@ export default function ExpenseModal({ expenses, categories, onClose, onSave, on
                                         <tbody className="bg-white divide-y divide-gray-200 text-sm">
                                             {sortedExpenses.map((expense) => (
                                                 <tr key={expense.id} className="hover:bg-gray-50 transition-colors">
-                                                    <td className="px-4 py-3 whitespace-nowrap text-gray-900 font-medium">
-                                                        {expense.date}
-                                                    </td>
-                                                    <td className="px-4 py-3 whitespace-nowrap text-gray-700">
-                                                        {expense.vendor}
-                                                    </td>
-                                                    <td className="px-4 py-3 whitespace-nowrap">
-                                                        <span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">
-                                                            {expense.category}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-4 py-3 text-gray-600">
-                                                        <div className="font-medium">{expense.item}</div>
-                                                        <div className="text-xs text-gray-500 flex items-center gap-1">
-                                                            <span>${(expense.pricePerUnit || 0).toFixed(2)} / {expense.unitName}</span>
-                                                            <span className="text-gray-300">|</span>
-                                                            <span>Qty: {expense.quantity}</span>
-                                                        </div>
-                                                        {expense.description && <div className="text-xs text-gray-400 italic">{expense.description}</div>}
-                                                    </td>
-                                                    <td className="px-4 py-3 whitespace-nowrap font-bold text-red-600">
-                                                        ${(expense.totalCost || 0).toFixed(2)}
-                                                    </td>
-                                                    <td className="px-4 py-3 whitespace-nowrap text-right">
-                                                        <button onClick={() => handleDelete(expense.id)} className="text-gray-400 hover:text-red-500 transition-colors">
-                                                            <TrashIcon className="w-4 h-4" />
-                                                        </button>
-                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-gray-900 font-medium">{expense.date}</td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-gray-700">{expense.vendor}</td>
+                                                    <td className="px-4 py-3 whitespace-nowrap"><span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">{expense.category}</span></td>
+                                                    <td className="px-4 py-3 text-gray-600"><div className="font-medium">{expense.item}</div><div className="text-xs text-gray-500 flex items-center gap-1"><span>${(expense.pricePerUnit || 0).toFixed(2)} / {expense.unitName}</span><span className="text-gray-300">|</span><span>Qty: {expense.quantity}</span></div>{expense.description && <div className="text-xs text-gray-400 italic">{expense.description}</div>}</td>
+                                                    <td className="px-4 py-3 whitespace-nowrap font-bold text-red-600">${(expense.totalCost || 0).toFixed(2)}</td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-right"><button onClick={() => handleDelete(expense.id)} className="text-gray-400 hover:text-red-500 transition-colors"><TrashIcon className="w-4 h-4" /></button></td>
                                                 </tr>
                                             ))}
                                         </tbody>

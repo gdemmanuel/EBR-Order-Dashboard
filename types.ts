@@ -142,6 +142,18 @@ export interface WorkShift {
     notes?: string;
 }
 
+export interface Ingredient {
+    id: string;
+    name: string;
+    cost: number; // Cost per unit
+    unit: string; // e.g. lbs, oz, ct
+}
+
+export interface RecipeIngredient {
+    ingredientId: string;
+    amountFor20Minis: number;
+}
+
 export interface AppSettings {
     motd: string; // Message of the Day
     empanadaFlavors: Flavor[];
@@ -149,8 +161,10 @@ export interface AppSettings {
     sheetUrl: string;
     importedSignatures: string[];
     pricing: PricingSettings;
+    ingredients?: Ingredient[]; // Master list of ingredients
     prepSettings: {
-        lbsPer20: Record<string, number>; 
+        lbsPer20: Record<string, number>; // Legacy: simple weight per 20
+        recipes?: Record<string, RecipeIngredient[]>; // New: Detailed recipes
         fullSizeMultiplier: number; 
         discosPer: { mini: number; full: number; };
         discoPackSize: { mini: number; full: number; };
@@ -169,14 +183,14 @@ export interface AppSettings {
         followUpNeeded: string;
         pendingConfirmation: string;
         confirmed?: string;
-        processing?: string; // New status template
+        processing?: string;
         completed?: string;
     };
     laborWage: number; // Global default
-    materialCosts: Record<string, number>; 
+    materialCosts: Record<string, number>; // Legacy: cost per lb
     discoCosts: { mini: number; full: number; };
     inventory: Record<string, { mini: number; full: number }>;
     expenseCategories: string[];
     employees: Employee[];
-    statusColors?: Record<string, string>; // Custom hex codes for statuses
+    statusColors?: Record<string, string>;
 }
