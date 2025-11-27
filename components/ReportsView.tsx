@@ -212,6 +212,19 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
         }));
     }, [selectedIngredientId, settings.ingredients]);
 
+    const trendStats = useMemo(() => {
+        if (ingredientTrendData.length < 2) return null;
+        const latest = ingredientTrendData[ingredientTrendData.length - 1];
+        const previous = ingredientTrendData[ingredientTrendData.length - 2];
+        const diff = latest.price - previous.price;
+        const percent = previous.price > 0 ? (diff / previous.price) * 100 : 0;
+        return { 
+            diff, 
+            percent, 
+            currentPrice: latest.price 
+        };
+    }, [ingredientTrendData]);
+
     return (
         <div className="space-y-6">
             {/* Sub-Tabs Navigation */}
@@ -483,6 +496,15 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
                             <div>
                                 <h3 className="text-lg font-semibold text-brand-brown">Ingredient Price Trends</h3>
                                 <p className="text-xs text-gray-500">Track how your costs have changed over time.</p>
+                                {trendStats && (
+                                    <div className="mt-2 flex items-baseline gap-3">
+                                        <span className="text-2xl font-bold text-brand-brown">${trendStats.currentPrice.toFixed(2)}</span>
+                                        <div className={`flex items-center text-sm font-medium ${trendStats.diff > 0 ? 'text-red-600' : trendStats.diff < 0 ? 'text-green-600' : 'text-gray-500'}`}>
+                                            <span>{trendStats.diff > 0 ? '↑' : trendStats.diff < 0 ? '↓' : ''} {Math.abs(trendStats.percent).toFixed(1)}%</span>
+                                            <span className="text-gray-400 text-xs font-normal ml-1">since last change</span>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                             <select 
                                 value={selectedIngredientId} 
