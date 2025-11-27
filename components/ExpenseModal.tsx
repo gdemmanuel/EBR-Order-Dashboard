@@ -27,6 +27,8 @@ export default function ExpenseModal({ expenses, categories, ingredients = [], o
     const [inputTotalCost, setInputTotalCost] = useState('');
     const [quantity, setQuantity] = useState('');
     const [description, setDescription] = useState('');
+    
+    const [showIngredientLink, setShowIngredientLink] = useState(false);
     const [linkedIngredientId, setLinkedIngredientId] = useState<string>('');
     
     const [isSaving, setIsSaving] = useState(false);
@@ -79,7 +81,7 @@ export default function ExpenseModal({ expenses, categories, ingredients = [], o
             await onSave(newExpense);
 
             // Update Ingredient Cost if Linked
-            if (linkedIngredientId && onUpdateIngredientCost && category === 'Ingredients') {
+            if (showIngredientLink && linkedIngredientId && onUpdateIngredientCost) {
                 await onUpdateIngredientCost(linkedIngredientId, calculatedUnitCost);
             }
 
@@ -91,6 +93,7 @@ export default function ExpenseModal({ expenses, categories, ingredients = [], o
             setQuantity('');
             setDescription('');
             setLinkedIngredientId('');
+            setShowIngredientLink(false);
             
             setTimeout(() => {
                  setSaveSuccess(false);
@@ -202,19 +205,33 @@ export default function ExpenseModal({ expenses, categories, ingredients = [], o
                                     </div>
                                 </div>
 
-                                {category === 'Ingredients' && ingredients.length > 0 && (
+                                {ingredients.length > 0 && (
                                     <div className="bg-blue-50 p-3 rounded border border-blue-200">
-                                        <label className="block text-xs font-bold text-blue-800 mb-1">Link to Ingredient (Updates Recipe Cost)</label>
-                                        <select 
-                                            value={linkedIngredientId} 
-                                            onChange={e => handleLinkIngredient(e.target.value)} 
-                                            className="block w-full rounded-md border-blue-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
-                                        >
-                                            <option value="">-- Select Ingredient --</option>
-                                            {ingredients.map(ing => (
-                                                <option key={ing.id} value={ing.id}>{ing.name}</option>
-                                            ))}
-                                        </select>
+                                        <div className="flex items-center mb-2">
+                                            <input 
+                                                type="checkbox" 
+                                                id="linkIngredient"
+                                                checked={showIngredientLink}
+                                                onChange={e => setShowIngredientLink(e.target.checked)}
+                                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                            />
+                                            <label htmlFor="linkIngredient" className="ml-2 block text-xs font-bold text-blue-800">
+                                                Link to Ingredient Cost?
+                                            </label>
+                                        </div>
+                                        
+                                        {showIngredientLink && (
+                                            <select 
+                                                value={linkedIngredientId} 
+                                                onChange={e => handleLinkIngredient(e.target.value)} 
+                                                className="block w-full rounded-md border-blue-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+                                            >
+                                                <option value="">-- Select Ingredient --</option>
+                                                {ingredients.map(ing => (
+                                                    <option key={ing.id} value={ing.id}>{ing.name}</option>
+                                                ))}
+                                            </select>
+                                        )}
                                     </div>
                                 )}
 

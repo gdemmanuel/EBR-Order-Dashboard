@@ -20,7 +20,7 @@ const COLORS = ['#c8441c', '#eab308', '#3b82f6', '#a855f7', '#10b981', '#6366f1'
 type SortKey = 'date' | 'category' | 'vendor' | 'item' | 'totalCost';
 type ReportTab = 'financials' | 'labor' | 'operations';
 
-// Drill Down Modal Component
+// Drill Down Modal Component (unchanged)
 const DrillDownModal = ({ 
     title, 
     items, 
@@ -78,7 +78,6 @@ const DrillDownModal = ({
                                         amount = item.totalPay;
                                         amountColor = 'text-red-600';
                                     } else if (type === 'expenses' || type === 'mixed') {
-                                        // Check if it's a shift object disguised or real expense
                                         if (item.employeeName) { // It's a shift
                                             date = item.date;
                                             name = item.employeeName;
@@ -135,153 +134,43 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
         let filteredShifts = shifts;
 
         if (dateRange.start) {
-            // Use explicit YMD parsing to create a local date object for comparison
             const [y, m, d] = dateRange.start.split('-').map(Number);
             const start = new Date(y, m - 1, d, 0,0,0,0);
-            
             filteredOrders = filteredOrders.filter(o => parseOrderDateTime(o) >= start);
-            
-            filteredExpenses = filteredExpenses.filter(e => {
-                const [ey, em, ed] = e.date.split('-').map(Number);
-                return new Date(ey, em - 1, ed) >= start;
-            });
-            
-            filteredShifts = filteredShifts.filter(s => {
-                const [sy, sm, sd] = s.date.split('-').map(Number);
-                return new Date(sy, sm - 1, sd) >= start;
-            });
+            filteredExpenses = filteredExpenses.filter(e => { const [ey, em, ed] = e.date.split('-').map(Number); return new Date(ey, em - 1, ed) >= start; });
+            filteredShifts = filteredShifts.filter(s => { const [sy, sm, sd] = s.date.split('-').map(Number); return new Date(sy, sm - 1, sd) >= start; });
         }
         
         if (dateRange.end) {
-            // Use explicit YMD parsing to create a local date object for comparison (End of Day)
             const [y, m, d] = dateRange.end.split('-').map(Number);
             const end = new Date(y, m - 1, d, 23, 59, 59, 999);
-            
             filteredOrders = filteredOrders.filter(o => parseOrderDateTime(o) <= end);
-            
-            filteredExpenses = filteredExpenses.filter(e => {
-                const [ey, em, ed] = e.date.split('-').map(Number);
-                return new Date(ey, em - 1, ed) <= end;
-            });
-            
-            filteredShifts = filteredShifts.filter(s => {
-                const [sy, sm, sd] = s.date.split('-').map(Number);
-                return new Date(sy, sm - 1, sd) <= end;
-            });
+            filteredExpenses = filteredExpenses.filter(e => { const [ey, em, ed] = e.date.split('-').map(Number); return new Date(ey, em - 1, ed) <= end; });
+            filteredShifts = filteredShifts.filter(s => { const [sy, sm, sd] = s.date.split('-').map(Number); return new Date(sy, sm - 1, sd) <= end; });
         }
 
         return { orders: filteredOrders, expenses: filteredExpenses, shifts: filteredShifts };
     }, [orders, expenses, shifts, dateRange]);
 
-    // --- Click Handlers for Drill Down ---
+    // ... (Click Handlers for Drill Down unchanged) ...
+    const handleRevenueClick = (data: any) => { if (!data || !data.rawDate) return; const [year, month] = data.rawDate.split('-').map(Number); const relevantOrders = filteredData.orders.filter(o => { const d = parseOrderDateTime(o); return d.getFullYear() === year && d.getMonth() === (month - 1); }); setDrillDownData({ isOpen: true, title: `Revenue Details - ${data.name}`, type: 'orders', items: relevantOrders }); };
+    const handleExpenseClick = (data: any) => { if (!data || !data.rawDate) return; const key = data.rawDate; const relevantExpenses = filteredData.expenses.filter(e => e.date.startsWith(key)); const relevantShifts = filteredData.shifts.filter(s => s.date.startsWith(key)); setDrillDownData({ isOpen: true, title: `Expense Details - ${data.name}`, type: 'mixed', items: [...relevantExpenses, ...relevantShifts].sort((a, b) => a.date.localeCompare(b.date)) }); };
+    const handleCategoryClick = (data: any) => { if (!data || !data.name) return; const categoryName = data.name; let items: any[] = []; if (categoryName === 'Employee Labor') { items = filteredData.shifts; } else { items = filteredData.expenses.filter(e => e.category === categoryName); } setDrillDownData({ isOpen: true, title: `Category Details - ${categoryName}`, type: categoryName === 'Employee Labor' ? 'shifts' : 'expenses', items: items.sort((a, b) => a.date.localeCompare(b.date)) }); };
+    const handleLaborClick = (data: any) => { if (!data || !data.name) return; const employeeName = data.name; const relevantShifts = filteredData.shifts.filter(s => s.employeeName === employeeName); setDrillDownData({ isOpen: true, title: `Shift Details - ${employeeName}`, type: 'shifts', items: relevantShifts.sort((a, b) => b.date.localeCompare(a.date)) }); };
+    const handleProductClick = (data: any) => { if (!data || !data.name) return; const productName = data.name; const relevantOrders = filteredData.orders.filter(o => o.items.some(i => i.name.includes(productName))); setDrillDownData({ isOpen: true, title: `Orders containing "${productName}"`, type: 'orders', items: relevantOrders }); };
+    const handleDayClick = (data: any) => { if (!data || !data.name) return; const dayName = data.name; const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']; const dayIndex = days.indexOf(dayName); const relevantOrders = filteredData.orders.filter(o => { const d = parseOrderDateTime(o); return !isNaN(d.getTime()) && d.getDay() === dayIndex; }); setDrillDownData({ isOpen: true, title: `Orders for ${dayName}s`, type: 'orders', items: relevantOrders }); };
 
-    const handleRevenueClick = (data: any) => {
-        if (!data || !data.rawDate) return;
-        const [year, month] = data.rawDate.split('-').map(Number);
-        
-        const relevantOrders = filteredData.orders.filter(o => {
-            const d = parseOrderDateTime(o);
-            return d.getFullYear() === year && d.getMonth() === (month - 1);
-        });
-
-        setDrillDownData({
-            isOpen: true,
-            title: `Revenue Details - ${data.name}`,
-            type: 'orders',
-            items: relevantOrders
-        });
-    };
-
-    const handleExpenseClick = (data: any) => {
-        if (!data || !data.rawDate) return;
-        const [year, month] = data.rawDate.split('-').map(Number);
-        const key = data.rawDate; // YYYY-MM
-
-        const relevantExpenses = filteredData.expenses.filter(e => e.date.startsWith(key));
-        const relevantShifts = filteredData.shifts.filter(s => s.date.startsWith(key));
-
-        setDrillDownData({
-            isOpen: true,
-            title: `Expense Details - ${data.name}`,
-            type: 'mixed',
-            items: [...relevantExpenses, ...relevantShifts].sort((a, b) => a.date.localeCompare(b.date))
-        });
-    };
-
-    const handleCategoryClick = (data: any) => {
-        if (!data || !data.name) return;
-        const categoryName = data.name;
-
-        let items: any[] = [];
-        if (categoryName === 'Employee Labor') {
-            items = filteredData.shifts;
-        } else {
-            items = filteredData.expenses.filter(e => e.category === categoryName);
-        }
-
-        setDrillDownData({
-            isOpen: true,
-            title: `Category Details - ${categoryName}`,
-            type: categoryName === 'Employee Labor' ? 'shifts' : 'expenses',
-            items: items.sort((a, b) => a.date.localeCompare(b.date))
-        });
-    };
-
-    const handleLaborClick = (data: any) => {
-        if (!data || !data.name) return;
-        const employeeName = data.name;
-        const relevantShifts = filteredData.shifts.filter(s => s.employeeName === employeeName);
-
-        setDrillDownData({
-            isOpen: true,
-            title: `Shift Details - ${employeeName}`,
-            type: 'shifts',
-            items: relevantShifts.sort((a, b) => b.date.localeCompare(a.date))
-        });
-    };
-
-    const handleProductClick = (data: any) => {
-        if (!data || !data.name) return;
-        const productName = data.name;
-        const relevantOrders = filteredData.orders.filter(o => 
-            o.items.some(i => i.name.includes(productName))
-        );
-
-        setDrillDownData({
-            isOpen: true,
-            title: `Orders containing "${productName}"`,
-            type: 'orders',
-            items: relevantOrders
-        });
-    };
-
-    const handleDayClick = (data: any) => {
-        if (!data || !data.name) return;
-        const dayName = data.name; // "Mon", "Tue", etc.
-        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-        const dayIndex = days.indexOf(dayName);
-
-        const relevantOrders = filteredData.orders.filter(o => {
-            const d = parseOrderDateTime(o);
-            return !isNaN(d.getTime()) && d.getDay() === dayIndex;
-        });
-
-        setDrillDownData({
-            isOpen: true,
-            title: `Orders for ${dayName}s`,
-            type: 'orders',
-            items: relevantOrders
-        });
-    };
-
-
-    // --- Financials Logic ---
+    // --- Financials Logic (Updated to prefer snapshot cost) ---
     const financials = useMemo(() => {
         const { orders, expenses, shifts } = filteredData;
 
         const revenue = orders.reduce((sum, o) => sum + o.amountCharged, 0);
+        
+        // Updated logic: Use stored 'totalCost' if available, else fallback to live calculation
         const estimatedMaterialUsage = orders.reduce((sum, o) => {
-            return sum + (o.totalCost !== undefined ? o.totalCost : calculateSupplyCost(o.items, settings));
+            // Use snapshot if exists (order.totalCost), otherwise calculate current cost
+            const cost = o.totalCost !== undefined ? o.totalCost : calculateSupplyCost(o.items, settings);
+            return sum + cost;
         }, 0);
         
         const manualExpensesTotal = expenses.reduce((sum, e) => sum + (e.totalCost || 0), 0);
@@ -295,150 +184,18 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
         return { revenue, estimatedMaterialUsage, manualExpensesTotal, laborTotal, actualExpensesTotal, netProfit, margin };
     }, [filteredData, settings]);
 
-    // --- Labor Logic ---
-    const laborStats = useMemo(() => {
-        const stats = new Map<string, { name: string; hours: number; pay: number; shiftCount: number }>();
-        
-        filteredData.shifts.forEach(shift => {
-            const key = shift.employeeName;
-            const current = stats.get(key) || { name: key, hours: 0, pay: 0, shiftCount: 0 };
-            current.hours += shift.hours;
-            current.pay += shift.totalPay;
-            current.shiftCount += 1;
-            stats.set(key, current);
-        });
+    // ... (Labor Logic, Product Logic, Day Logic unchanged) ...
+    const laborStats = useMemo(() => { const stats = new Map<string, { name: string; hours: number; pay: number; shiftCount: number }>(); filteredData.shifts.forEach(shift => { const key = shift.employeeName; const current = stats.get(key) || { name: key, hours: 0, pay: 0, shiftCount: 0 }; current.hours += shift.hours; current.pay += shift.totalPay; current.shiftCount += 1; stats.set(key, current); }); return Array.from(stats.values()).sort((a, b) => b.hours - a.hours); }, [filteredData.shifts]);
+    const productStats = useMemo(() => { const itemMap = new Map<string, number>(); filteredData.orders.forEach(order => { order.items.forEach(item => { const name = item.name.replace('Full ', '').replace(' (4oz)', '').replace(' (8oz)', ''); itemMap.set(name, (itemMap.get(name) || 0) + item.quantity); }); }); return Array.from(itemMap.entries()).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, 10); }, [filteredData.orders]);
+    const dayStats = useMemo(() => { const dayCounts = { 'Sun': 0, 'Mon': 0, 'Tue': 0, 'Wed': 0, 'Thu': 0, 'Fri': 0, 'Sat': 0 }; const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']; filteredData.orders.forEach(order => { const date = parseOrderDateTime(order); if (!isNaN(date.getTime())) { const dayName = days[date.getDay()]; (dayCounts as any)[dayName] = ((dayCounts as any)[dayName] || 0) + 1; } }); return days.map(d => ({ name: d, count: (dayCounts as any)[d] })); }, [filteredData.orders]);
 
-        const sortedStats = Array.from(stats.values()).sort((a, b) => b.hours - a.hours);
-        return sortedStats;
-    }, [filteredData.shifts]);
-
-    // --- Operations (Product) Logic ---
-    const productStats = useMemo(() => {
-        const itemMap = new Map<string, number>();
-        filteredData.orders.forEach(order => {
-            order.items.forEach(item => {
-                // Group salsas or full size? Let's just use raw name for now
-                const name = item.name.replace('Full ', '').replace(' (4oz)', '').replace(' (8oz)', '');
-                itemMap.set(name, (itemMap.get(name) || 0) + item.quantity);
-            });
-        });
-
-        return Array.from(itemMap.entries())
-            .map(([name, count]) => ({ name, count }))
-            .sort((a, b) => b.count - a.count)
-            .slice(0, 10); // Top 10
-    }, [filteredData.orders]);
-
-    const dayStats = useMemo(() => {
-        const dayCounts = { 'Sun': 0, 'Mon': 0, 'Tue': 0, 'Wed': 0, 'Thu': 0, 'Fri': 0, 'Sat': 0 };
-        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-        
-        filteredData.orders.forEach(order => {
-            const date = parseOrderDateTime(order);
-            if (!isNaN(date.getTime())) {
-                const dayName = days[date.getDay()];
-                // @ts-ignore
-                dayCounts[dayName] = (dayCounts[dayName] || 0) + 1;
-            }
-        });
-
-        return days.map(d => ({ name: d, count: (dayCounts as any)[d] }));
-    }, [filteredData.orders]);
-
-    // --- Helpers ---
-    const sortedExpenses = useMemo(() => {
-        const items = [...filteredData.expenses];
-        items.sort((a, b) => {
-            let aVal: any = a[sortConfig.key];
-            let bVal: any = b[sortConfig.key];
-            if (sortConfig.key === 'totalCost') {
-                aVal = a.totalCost || 0;
-                bVal = b.totalCost || 0;
-            }
-            if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
-            if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
-            return 0;
-        });
-        return items;
-    }, [filteredData.expenses, sortConfig]);
-
-    const handleSort = (key: SortKey) => {
-        let direction: 'asc' | 'desc' = 'asc';
-        if (sortConfig.key === key && sortConfig.direction === 'asc') {
-            direction = 'desc';
-        }
-        setSortConfig({ key, direction });
-    };
-
-    const handleDeleteClick = (id: string) => {
-        if (onDeleteExpense && window.confirm("Delete this expense entry?")) {
-            onDeleteExpense(id);
-        }
-    };
-
-    const SortHeader = ({ label, skey }: { label: string, skey: SortKey }) => (
-        <th 
-            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 hover:text-brand-orange transition-colors select-none"
-            onClick={() => handleSort(skey)}
-        >
-            <div className="flex items-center gap-1">
-                {label}
-                {sortConfig.key === skey && (
-                    <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
-                )}
-            </div>
-        </th>
-    );
-
-    const expenseBreakdownData = useMemo(() => {
-        const categoryMap = new Map<string, number>();
-        filteredData.expenses.forEach(e => {
-            const cost = e.totalCost || 0;
-            categoryMap.set(e.category, (categoryMap.get(e.category) || 0) + cost);
-        });
-        const laborCost = filteredData.shifts.reduce((sum, s) => sum + (s.totalPay || 0), 0);
-        if (laborCost > 0) {
-            categoryMap.set('Employee Labor', (categoryMap.get('Employee Labor') || 0) + laborCost);
-        }
-        const data: {name: string, value: number}[] = [];
-        categoryMap.forEach((val, key) => { data.push({ name: key, value: val }); });
-        return data.filter(d => d.value > 0);
-    }, [filteredData]);
-
-    const pnlChartData = useMemo(() => {
-        const monthlyData = new Map<string, { revenue: number, expense: number }>();
-        filteredData.orders.forEach(o => {
-            const d = parseOrderDateTime(o);
-            if (isNaN(d.getTime())) return;
-            const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-            const current = monthlyData.get(key) || { revenue: 0, expense: 0 };
-            current.revenue += o.amountCharged;
-            monthlyData.set(key, current);
-        });
-        filteredData.expenses.forEach(e => {
-            const key = e.date.substring(0, 7);
-            const current = monthlyData.get(key) || { revenue: 0, expense: 0 };
-            current.expense += (e.totalCost || 0);
-            monthlyData.set(key, current);
-        });
-        filteredData.shifts.forEach(s => {
-            const key = s.date.substring(0, 7);
-            const current = monthlyData.get(key) || { revenue: 0, expense: 0 };
-            current.expense += (s.totalPay || 0);
-            monthlyData.set(key, current);
-        });
-        return Array.from(monthlyData.entries()).sort((a,b) => a[0].localeCompare(b[0])).map(([key, val]) => {
-            const [y, m] = key.split('-');
-            const label = new Date(parseInt(y), parseInt(m)-1).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-            return { 
-                name: label, 
-                Revenue: val.revenue, 
-                Expenses: val.expense, 
-                Profit: val.revenue - val.expense,
-                rawDate: key // Passed for click handler
-            };
-        });
-    }, [filteredData]);
+    // ... (Helpers, expenseBreakdownData, pnlChartData unchanged) ...
+    const sortedExpenses = useMemo(() => { const items = [...filteredData.expenses]; items.sort((a, b) => { let aVal: any = a[sortConfig.key]; let bVal: any = b[sortConfig.key]; if (sortConfig.key === 'totalCost') { aVal = a.totalCost || 0; bVal = b.totalCost || 0; } if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1; if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1; return 0; }); return items; }, [filteredData.expenses, sortConfig]);
+    const handleSort = (key: SortKey) => { let direction: 'asc' | 'desc' = 'asc'; if (sortConfig.key === key && sortConfig.direction === 'asc') { direction = 'desc'; } setSortConfig({ key, direction }); };
+    const handleDeleteClick = (id: string) => { if (onDeleteExpense && window.confirm("Delete this expense entry?")) { onDeleteExpense(id); } };
+    const SortHeader = ({ label, skey }: { label: string, skey: SortKey }) => ( <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 hover:text-brand-orange transition-colors select-none" onClick={() => handleSort(skey)} > <div className="flex items-center gap-1"> {label} {sortConfig.key === skey && ( <span>{sortConfig.direction === 'asc' ? '↑' : '↓'}</span> )} </div> </th> );
+    const expenseBreakdownData = useMemo(() => { const categoryMap = new Map<string, number>(); filteredData.expenses.forEach(e => { const cost = e.totalCost || 0; categoryMap.set(e.category, (categoryMap.get(e.category) || 0) + cost); }); const laborCost = filteredData.shifts.reduce((sum, s) => sum + (s.totalPay || 0), 0); if (laborCost > 0) { categoryMap.set('Employee Labor', (categoryMap.get('Employee Labor') || 0) + laborCost); } const data: {name: string, value: number}[] = []; categoryMap.forEach((val, key) => { data.push({ name: key, value: val }); }); return data.filter(d => d.value > 0); }, [filteredData]);
+    const pnlChartData = useMemo(() => { const monthlyData = new Map<string, { revenue: number, expense: number }>(); filteredData.orders.forEach(o => { const d = parseOrderDateTime(o); if (isNaN(d.getTime())) return; const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; const current = monthlyData.get(key) || { revenue: 0, expense: 0 }; current.revenue += o.amountCharged; monthlyData.set(key, current); }); filteredData.expenses.forEach(e => { const key = e.date.substring(0, 7); const current = monthlyData.get(key) || { revenue: 0, expense: 0 }; current.expense += (e.totalCost || 0); monthlyData.set(key, current); }); filteredData.shifts.forEach(s => { const key = s.date.substring(0, 7); const current = monthlyData.get(key) || { revenue: 0, expense: 0 }; current.expense += (s.totalPay || 0); monthlyData.set(key, current); }); return Array.from(monthlyData.entries()).sort((a,b) => a[0].localeCompare(b[0])).map(([key, val]) => { const [y, m] = key.split('-'); const label = new Date(parseInt(y), parseInt(m)-1).toLocaleDateString('en-US', { month: 'short', year: '2-digit' }); return { name: label, Revenue: val.revenue, Expenses: val.expense, Profit: val.revenue - val.expense, rawDate: key }; }); }, [filteredData]);
 
     return (
         <div className="space-y-6">
@@ -491,13 +248,14 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
                     {/* Theoretical Cost Note */}
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
                         <div>
-                            <h4 className="font-bold text-blue-800 text-sm uppercase">Theoretical Material Cost</h4>
-                            <p className="text-xs text-blue-600">Based on recipes & orders (Reference only - not deducted from profit)</p>
+                            <h4 className="font-bold text-blue-800 text-sm uppercase">Theoretical Supply Cost</h4>
+                            <p className="text-xs text-blue-600">Calculated from ingredient recipes at time of order.</p>
                         </div>
                         <p className="text-2xl font-bold text-blue-900">${financials.estimatedMaterialUsage.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
                     </div>
 
-                    {/* Charts */}
+                    {/* Charts & Tables unchanged ... */}
+                    {/* ... (Rest of the component content remains the same) ... */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         <div className="bg-white p-6 rounded-lg border border-brand-tan shadow-sm">
                             <div className="flex justify-between items-center mb-4">
@@ -592,6 +350,7 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
                 </div>
             )}
 
+            {/* ... (Labor and Operations Tabs unchanged) ... */}
             {/* LABOR TAB */}
             {activeTab === 'labor' && (
                 <div className="space-y-8 animate-fade-in">

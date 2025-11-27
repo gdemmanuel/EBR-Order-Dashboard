@@ -123,6 +123,7 @@ export const calculateSupplyCost = (
             // Amount Needed = (ItemQty / 20) * AmountFor20 * FullMultiplier
             flavorRecipe.forEach(ri => {
                 const ingredient = settings.ingredients?.find(ing => ing.id === ri.ingredientId);
+                // Only add cost if ingredient exists (prevents errors on deleted ingredients)
                 if (ingredient) {
                     const amountNeeded = (item.quantity / 20) * ri.amountFor20Minis * fullMultiplier;
                     totalCost += amountNeeded * ingredient.cost;
