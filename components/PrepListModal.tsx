@@ -135,8 +135,6 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
             const rowCost = fillingCost + miniDiscoCost + fullDiscoCost;
             totalEstimatedCost += rowCost;
 
-            if (miniOrd === 0 && fullOrd === 0 && stock.mini === 0 && stock.full === 0) return null;
-
             return {
                 flavor,
                 miniOrd,
