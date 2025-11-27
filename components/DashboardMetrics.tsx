@@ -1,3 +1,8 @@
+
+<change>
+<file>components/DashboardMetrics.tsx</file>
+<description>Update popularFullSizeProductsData to identify full-size items by prefix instead of exact flavor list matching, ensuring custom flavors appear in charts.</description>
+<content><![CDATA[
 import React, { useMemo } from 'react';
 import { Order, FollowUpStatus } from '../types';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList } from 'recharts';
@@ -52,7 +57,9 @@ const getStartOfWeek = (d: Date) => {
 
 export default function DashboardMetrics({ stats, orders, allOrders, empanadaFlavors, fullSizeEmpanadaFlavors, onFilterStatus, pendingCount, cancelledCount }: DashboardMetricsProps) {
     const miniFlavorsSet = useMemo(() => new Set(empanadaFlavors), [empanadaFlavors]);
-    const fullSizeFlavorsSet = useMemo(() => new Set(fullSizeEmpanadaFlavors), [fullSizeEmpanadaFlavors]);
+    
+    // We no longer strictly rely on fullSizeEmpanadaFlavors set for the chart to ensure 
+    // custom flavors (which get "Full " prepended) show up correctly.
 
     const popularMiniProductsData = useMemo(() => {
         const productCounts = new Map<string, number>();
@@ -73,7 +80,8 @@ export default function DashboardMetrics({ stats, orders, allOrders, empanadaFla
         const productCounts = new Map<string, number>();
         orders.forEach(order => {
             order.items.forEach(item => {
-                if (fullSizeFlavorsSet.has(item.name)) {
+                // Robust check: any item starting with "Full " is counted
+                if (item.name.startsWith('Full ')) {
                     const cleanName = item.name.replace('Full ', '');
                     productCounts.set(cleanName, (productCounts.get(cleanName) || 0) + item.quantity);
                 }
@@ -83,7 +91,7 @@ export default function DashboardMetrics({ stats, orders, allOrders, empanadaFla
         return Array.from(productCounts.entries())
             .map(([name, count]) => ({ name, count }))
             .sort((a, b) => b.count - a.count);
-    }, [orders, fullSizeFlavorsSet]);
+    }, [orders]);
     
     const weeklySalesData = useMemo(() => {
         const weeklyTotals = new Map<string, { mini: number; full: number }>();
@@ -237,3 +245,5 @@ export default function DashboardMetrics({ stats, orders, allOrders, empanadaFla
         </div>
     );
 }
+]]></content>
+</change>

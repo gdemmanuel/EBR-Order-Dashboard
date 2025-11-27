@@ -1,4 +1,8 @@
 
+<change>
+<file>components/OrderList.tsx</file>
+<description>Remove separate delivery icon column and view details action button; update colspan for empty state.</description>
+<content><![CDATA[
 import React, { useState, useMemo } from 'react';
 import { Order, PaymentStatus, FollowUpStatus, ApprovalStatus, AppSettings } from '../types';
 import { TrashIcon, PrinterIcon, MagnifyingGlassIcon, XMarkIcon, ChevronDownIcon, EyeIcon, TruckIcon } from './icons/Icons';
@@ -225,11 +229,6 @@ export default function OrderList({
                                 Status {sortConfig.key === 'followUpStatus' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                             </th>
 
-                            {/* Delivery Icon Column */}
-                            <th scope="col" className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                <TruckIcon className="w-4 h-4 mx-auto" title="Delivery" />
-                            </th>
-
                             {/* Printed */}
                             <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 <PrinterIcon className="w-4 h-4 mx-auto" title="Printed Status" />
@@ -244,7 +243,7 @@ export default function OrderList({
                     <tbody className="bg-white divide-y divide-gray-100 text-sm">
                         {sortedOrders.length === 0 ? (
                             <tr>
-                                <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
+                                <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
                                     No orders found.
                                 </td>
                             </tr>
@@ -296,13 +295,6 @@ export default function OrderList({
                                                 colors={settings?.statusColors}
                                             />
                                         </td>
-                                        <td className="px-2 py-4 whitespace-nowrap text-center">
-                                            {order.deliveryRequired && (
-                                                <div className="text-blue-500 mx-auto" title="Delivery Required">
-                                                    <TruckIcon className="w-5 h-5 mx-auto" />
-                                                </div>
-                                            )}
-                                        </td>
                                         <td className="px-4 py-4 whitespace-nowrap text-center">
                                             {order.hasPrinted ? (
                                                 <div className="text-green-600 mx-auto" title="Printed">
@@ -316,13 +308,6 @@ export default function OrderList({
                                         </td>
                                         <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium" onClick={(e) => e.stopPropagation()}>
                                             <div className="flex justify-end gap-2">
-                                                <button 
-                                                    onClick={(e) => { e.stopPropagation(); onSelectOrder(order); }}
-                                                    className="text-brand-orange hover:text-brand-brown p-1 hover:bg-orange-50 rounded"
-                                                    title="View Details"
-                                                >
-                                                    <EyeIcon className="w-5 h-5" />
-                                                </button>
                                                 {onDelete && (
                                                     <button 
                                                         onClick={(e) => {
@@ -347,3 +332,5 @@ export default function OrderList({
         </div>
     );
 }
+]]></content>
+</change>
