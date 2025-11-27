@@ -63,11 +63,23 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
             });
         });
 
+        // Sort: Regular flavors first, then Special flavors. Within groups, alphabetical.
         const allFlavors = Array.from(new Set([
             ...Object.keys(miniCounts),
             ...Object.keys(fullCounts),
             ...settings.empanadaFlavors.map(f => f.name)
-        ])).sort();
+        ])).sort((a, b) => {
+            const defA = settings.empanadaFlavors.find(f => f.name === a);
+            const defB = settings.empanadaFlavors.find(f => f.name === b);
+            
+            const isSpecialA = defA?.isSpecial || false;
+            const isSpecialB = defB?.isSpecial || false;
+
+            if (isSpecialA !== isSpecialB) {
+                return isSpecialA ? 1 : -1; // Regular (false) before Special (true)
+            }
+            return a.localeCompare(b);
+        });
 
         let totalEstimatedCost = 0; // Supply Cost (Ingredients + Discos)
         const ingredientAggregates = new Map<string, number>(); // Ingredient ID -> Total Amount needed
@@ -360,7 +372,10 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
 
                                     {prepData.rows.map((row) => (
                                         <tr key={row.flavor} className="hover:bg-gray-50">
-                                            <td className="px-3 py-2 font-medium text-gray-900 sticky left-0 bg-white">{row.flavor}</td>
+                                            <td className="px-3 py-2 font-medium text-gray-900 sticky left-0 bg-white">
+                                                {row.flavor}
+                                                {/* Optional: Add marker for Special flavors? The sort puts them at bottom now. */}
+                                            </td>
                                             
                                             {/* Mini */}
                                             <td className="px-2 py-2 text-center border-l border-gray-100">{row.miniOrd}</td>
