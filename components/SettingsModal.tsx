@@ -118,7 +118,8 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                 }
             }));
 
-            const sanitizedIngredients = ingredients.map(i => ({
+            // Ensure ingredients are an array and numbers are numbers
+            const sanitizedIngredients = (Array.isArray(ingredients) ? ingredients : []).map(i => ({
                 ...i,
                 cost: Number(i.cost) || 0
             }));
@@ -158,7 +159,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
     const addIngredient = () => {
         if (!newIngredient.name || !newIngredient.unit) return;
         const ing: Ingredient = {
-            id: 'ing-' + Date.now() + Math.floor(Math.random() * 1000), // More robust ID
+            id: 'ing-' + Date.now() + '-' + Math.floor(Math.random() * 1000), // Unique ID
             name: newIngredient.name,
             cost: Number(newIngredient.cost) || 0,
             unit: newIngredient.unit
@@ -274,8 +275,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
 
                     <div className="flex-grow overflow-y-auto p-4 md:p-8 bg-white">
                         
-                        {/* ... Other tabs content hidden for brevity, see previous implementations ... */}
-                        {/* Only focusing on Recipe tab updates */}
+                        {/* ... Other tabs content ... */}
                         
                         {activeTab === 'recipes' && (
                             <div className="max-w-5xl mx-auto space-y-8">
@@ -501,12 +501,8 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                             </div>
                         )}
                         
-                        {/* ... Other tabs ... */}
                         {activeTab === 'general' && (
                             <div className="max-w-2xl mx-auto space-y-6">
-                                {/* Just rendering a placeholder to keep valid XML structure if previous tabs were here. 
-                                    In real application this would be the existing content. 
-                                */}
                                 <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                                     <h3 className="font-bold text-brand-brown mb-4">Message of the Day</h3>
                                     <input type="text" value={motd} onChange={(e) => setMotd(e.target.value)} className="w-full rounded-md border-gray-300" />

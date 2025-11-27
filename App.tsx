@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import firebase from 'firebase/compat/app';
 
-import { Order, ApprovalStatus, PricingSettings, Flavor, Employee } from './types';
+import { Order, ApprovalStatus, PricingSettings, Flavor, Employee, Ingredient } from './types';
 import { subscribeToOrders, subscribeToSettings, AppSettings, migrateLocalDataToFirestore } from './services/dbService';
 import { subscribeToAuth } from './services/authService';
 import { initialEmpanadaFlavors, initialFullSizeEmpanadaFlavors } from './data/mockData';
@@ -51,6 +51,7 @@ export default function App() {
   // Extended Settings State
   const [prepSettings, setPrepSettings] = useState<AppSettings['prepSettings']>({ 
       lbsPer20: {}, 
+      recipes: {},
       fullSizeMultiplier: 2.0,
       discosPer: { mini: 1, full: 1 },
       discoPackSize: { mini: 10, full: 10 },
@@ -67,15 +68,19 @@ export default function App() {
   });
   const [messageTemplates, setMessageTemplates] = useState<AppSettings['messageTemplates']>({
       followUpNeeded: "Hi {firstName}! This is Rose from Empanadas by Rose. Thank you for placing an order. Please confirm your order for {deliveryType} on {date} at {time} as follows:\n{totals}\n{items}",
-      pendingConfirmation: "Perfect! The total is ${total}. Cash on {deliveryType}, please. I'll see you on {date} at {time}.\nThank you for your order!"
+      pendingConfirmation: "Perfect! The total is ${total}. Cash on {deliveryType}, please. I'll see you on {date} at {time}.\nThank you for your order!",
+      confirmed: "Your order is confirmed! See you on {date} at {time}. Total: ${total}. Address: {deliveryAddress}.",
+      processing: "Hi {firstName}! Just wanted to let you know we've started preparing your order for {date}. We'll see you soon!",
+      completed: "Thank you for your order, {firstName}! We hope you enjoy the empanadas."
   });
   const [laborWage, setLaborWage] = useState<number>(15.00);
   const [materialCosts, setMaterialCosts] = useState<Record<string, number>>({});
   const [discoCosts, setDiscoCosts] = useState<{mini: number, full: number}>({mini: 0.10, full: 0.15});
   const [inventory, setInventory] = useState<Record<string, { mini: number; full: number }>>({});
-  const [expenseCategories, setExpenseCategories] = useState<string[]>(['Packaging', 'Marketing', 'Rent', 'Utilities', 'Equipment', 'Other']);
+  const [expenseCategories, setExpenseCategories] = useState<string[]>(['Packaging', 'Marketing', 'Rent', 'Utilities', 'Equipment', 'Ingredients', 'Other']);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [statusColors, setStatusColors] = useState<Record<string, string>>({});
+  const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   
   const [dbError, setDbError] = useState<string | null>(null);
   const [isMigrating, setIsMigrating] = useState(false);
@@ -162,18 +167,22 @@ export default function App() {
                   sheetUrl: localStorage.getItem('sheetUrl') || '',
                   importedSignatures: JSON.parse(localStorage.getItem('importedSignatures') || '[]'),
                   pricing: { mini: { basePrice: 1.75 }, full: { basePrice: 3.00 }, packages: [], salsas: [], salsaSmall: 2.00, salsaLarge: 4.00 },
-                  prepSettings: { lbsPer20: {}, fullSizeMultiplier: 2.0, discosPer: { mini: 1, full: 1 }, discoPackSize: { mini: 10, full: 10 }, productionRates: { mini: 40, full: 25 } },
+                  prepSettings: { lbsPer20: {}, recipes: {}, fullSizeMultiplier: 2.0, discosPer: { mini: 1, full: 1 }, discoPackSize: { mini: 10, full: 10 }, productionRates: { mini: 40, full: 25 } },
                   scheduling: { enabled: true, intervalMinutes: 15, startTime: "09:00", endTime: "17:00", blockedDates: [], closedDays: [], dateOverrides: {} },
                   messageTemplates: {
                       followUpNeeded: "Hi {firstName}! This is Rose from Empanadas by Rose. Thank you for placing an order. Please confirm your order for {deliveryType} on {date} at {time} as follows:\n{totals}\n{items}",
-                      pendingConfirmation: "Perfect! The total is ${total}. Cash on {deliveryType}, please. I'll see you on {date} at {time}.\nThank you for your order!"
+                      pendingConfirmation: "Perfect! The total is ${total}. Cash on {deliveryType}, please. I'll see you on {date} at {time}.\nThank you for your order!",
+                      confirmed: "Your order is confirmed! See you on {date} at {time}. Total: ${total}. Address: {deliveryAddress}.",
+                      processing: "Hi {firstName}! Just wanted to let you know we've started preparing your order for {date}. We'll see you soon!",
+                      completed: "Thank you for your order, {firstName}! We hope you enjoy the empanadas."
                   },
                   laborWage: 15.00,
                   materialCosts: {},
                   discoCosts: { mini: 0.10, full: 0.15 },
                   inventory: {},
-                  expenseCategories: ['Packaging', 'Marketing', 'Rent', 'Utilities', 'Equipment', 'Other'],
-                  employees: []
+                  expenseCategories: ['Packaging', 'Marketing', 'Rent', 'Utilities', 'Equipment', 'Ingredients', 'Other'],
+                  employees: [],
+                  ingredients: []
               };
 
               await migrateLocalDataToFirestore(localOrders, localPending, localSettings);
@@ -209,6 +218,7 @@ export default function App() {
         if (settings.expenseCategories) setExpenseCategories(settings.expenseCategories);
         if (settings.employees) setEmployees(settings.employees);
         if (settings.statusColors) setStatusColors(settings.statusColors);
+        if (settings.ingredients) setIngredients(settings.ingredients);
 
     }, (error) => {
         console.warn("Could not load settings:", error.message);
@@ -263,7 +273,8 @@ export default function App() {
       inventory,
       expenseCategories,
       employees,
-      statusColors
+      statusColors,
+      ingredients
   };
 
   return (

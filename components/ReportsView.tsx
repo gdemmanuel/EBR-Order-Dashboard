@@ -249,7 +249,7 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
                         <div>
                             <h4 className="font-bold text-blue-800 text-sm uppercase">Theoretical Supply Cost</h4>
-                            <p className="text-xs text-blue-600">Calculated from ingredient recipes at time of order.</p>
+                            <p className="text-xs text-blue-600">Calculated from ingredient recipes at time of order. This cost is excluded from Net Profit above as it's a COGS estimate, but tracked here for pricing analysis.</p>
                         </div>
                         <p className="text-2xl font-bold text-blue-900">${financials.estimatedMaterialUsage.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</p>
                     </div>
