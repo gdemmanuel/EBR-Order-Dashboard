@@ -22,7 +22,7 @@ export default function ExpenseModal({ expenses, categories, onClose, onSave, on
     const [vendor, setVendor] = useState('');
     const [item, setItem] = useState('');
     const [unitName, setUnitName] = useState('');
-    const [pricePerUnit, setPricePerUnit] = useState('');
+    const [inputTotalCost, setInputTotalCost] = useState(''); // Changed from pricePerUnit to Total
     const [quantity, setQuantity] = useState('');
     const [description, setDescription] = useState(''); 
     
@@ -33,8 +33,10 @@ export default function ExpenseModal({ expenses, categories, onClose, onSave, on
     // Sorting State
     const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' }>({ key: 'date', direction: 'desc' });
 
-    // Derived Total
-    const calculatedTotal = (parseFloat(pricePerUnit) || 0) * (parseFloat(quantity) || 0);
+    // Derived Unit Price
+    const totalCostVal = parseFloat(inputTotalCost) || 0;
+    const qtyVal = parseFloat(quantity) || 0;
+    const calculatedUnitCost = qtyVal > 0 ? (totalCostVal / qtyVal) : 0;
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -43,8 +45,8 @@ export default function ExpenseModal({ expenses, categories, onClose, onSave, on
 
         if (!vendor.trim()) { setValidationError("Vendor Name is required."); return; }
         if (!item.trim()) { setValidationError("Item Name is required."); return; }
-        if (!pricePerUnit || parseFloat(pricePerUnit) <= 0) { setValidationError("Price is required."); return; }
-        if (!quantity || parseFloat(quantity) <= 0) { setValidationError("Quantity is required."); return; }
+        if (totalCostVal <= 0) { setValidationError("Total Cost is required."); return; }
+        if (qtyVal <= 0) { setValidationError("Quantity is required."); return; }
 
         setIsSaving(true);
         try {
@@ -54,10 +56,10 @@ export default function ExpenseModal({ expenses, categories, onClose, onSave, on
                 category,
                 vendor,
                 item,
-                unitName: unitName || '', 
-                pricePerUnit: parseFloat(pricePerUnit),
-                quantity: parseFloat(quantity),
-                totalCost: calculatedTotal,
+                unitName: unitName || 'units', 
+                pricePerUnit: calculatedUnitCost, // Calculated automatically
+                quantity: qtyVal,
+                totalCost: totalCostVal,
                 description: description || '' 
             };
             
@@ -65,7 +67,7 @@ export default function ExpenseModal({ expenses, categories, onClose, onSave, on
             setSaveSuccess(true);
             
             setItem('');
-            setPricePerUnit('');
+            setInputTotalCost('');
             setQuantity('');
             setDescription('');
             
@@ -206,22 +208,24 @@ export default function ExpenseModal({ expenses, categories, onClose, onSave, on
                                 <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-3">
                                     <div className="grid grid-cols-3 gap-3">
                                         <div>
-                                            <label className="block text-xs font-bold text-gray-700 mb-1">Price ($) <span className="text-red-500">*</span></label>
-                                            <input type="number" step="0.01" required value={pricePerUnit} onChange={e => setPricePerUnit(e.target.value)} placeholder="0.00" className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-gray-700 mb-1">Unit</label>
-                                            <input type="text" value={unitName} onChange={e => setUnitName(e.target.value)} placeholder="lbs, box" className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
+                                            <label className="block text-xs font-bold text-gray-700 mb-1">Total Cost ($) <span className="text-red-500">*</span></label>
+                                            <input type="number" step="0.01" required value={inputTotalCost} onChange={e => setInputTotalCost(e.target.value)} placeholder="0.00" className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
                                         </div>
                                         <div>
                                             <label className="block text-xs font-bold text-gray-700 mb-1">Qty <span className="text-red-500">*</span></label>
                                             <input type="number" step="0.01" required value={quantity} onChange={e => setQuantity(e.target.value)} placeholder="1" className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
                                         </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-gray-700 mb-1">Unit</label>
+                                            <input type="text" value={unitName} onChange={e => setUnitName(e.target.value)} placeholder="lbs, box" className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
+                                        </div>
                                     </div>
                                     
                                     <div className="flex justify-between items-center pt-2 border-t border-gray-200">
-                                        <span className="text-sm font-bold text-gray-600">Total Item Cost:</span>
-                                        <span className="text-xl font-bold text-brand-orange">${calculatedTotal.toFixed(2)}</span>
+                                        <span className="text-sm font-bold text-gray-600">Calculated Unit Price:</span>
+                                        <span className="text-xl font-bold text-brand-orange">
+                                            ${calculatedUnitCost.toFixed(2)} <span className="text-xs font-normal text-gray-500">/ {unitName || 'unit'}</span>
+                                        </span>
                                     </div>
                                 </div>
                                 
@@ -252,7 +256,7 @@ export default function ExpenseModal({ expenses, categories, onClose, onSave, on
                                                 <SortHeader label="Date" skey="date" />
                                                 <SortHeader label="Vendor" skey="vendor" />
                                                 <SortHeader label="Category" skey="category" />
-                                                <SortHeader label="Item / Details" skey="item" />
+                                                <SortHeader label="Details" skey="item" />
                                                 <SortHeader label="Cost" skey="totalCost" />
                                                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
                                             </tr>
@@ -273,8 +277,10 @@ export default function ExpenseModal({ expenses, categories, onClose, onSave, on
                                                     </td>
                                                     <td className="px-4 py-3 text-gray-600">
                                                         <div className="font-medium">{expense.item}</div>
-                                                        <div className="text-xs text-gray-400">
-                                                            {expense.quantity} {expense.unitName} @ ${expense.pricePerUnit}
+                                                        <div className="text-xs text-gray-500 flex items-center gap-1">
+                                                            <span>${(expense.pricePerUnit || 0).toFixed(2)} / {expense.unitName}</span>
+                                                            <span className="text-gray-300">|</span>
+                                                            <span>Qty: {expense.quantity}</span>
                                                         </div>
                                                         {expense.description && <div className="text-xs text-gray-400 italic">{expense.description}</div>}
                                                     </td>
