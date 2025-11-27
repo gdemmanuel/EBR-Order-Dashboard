@@ -36,6 +36,17 @@ interface DynamicSalsaState {
     quantity: number | string;
 }
 
+const formatPhoneNumber = (value: string) => {
+    if (!value) return value;
+    const phoneNumber = value.replace(/[^\d]/g, '');
+    const phoneNumberLength = phoneNumber.length;
+    if (phoneNumberLength < 4) return phoneNumber;
+    if (phoneNumberLength < 7) {
+      return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3)}`;
+    }
+    return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`;
+};
+
 const ItemInputSection: React.FC<{
     title: string;
     items: FormOrderItem[];
@@ -133,7 +144,8 @@ const formatTimeToHHMM = (timeStr: string | undefined): string => {
 };
 const formatDateToYYYYMMDD = (dateStr: string | undefined): string => {
     if (!dateStr) return '';
-    const parts = dateStr.split('/');
+    // Normalize delimiters
+    const parts = dateStr.replace(/-/g, '/').split('/');
     if (parts.length !== 3) return '';
     const [month, day, year] = parts;
     return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -247,6 +259,11 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         }
         
         setShowCustomerSuggestions(false);
+    };
+
+    const handlePhoneNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const formatted = formatPhoneNumber(e.target.value);
+        setPhoneNumber(formatted);
     };
 
     // Initialize Salsas from pricing settings
@@ -618,7 +635,8 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         const finalTotalFull = allItems.filter(i => i.name.startsWith('Full ')).reduce((s, i) => s + i.quantity, 0);
         const finalTotalMini = allItems.filter(i => !i.name.startsWith('Full ') && !pricing.salsas.some(s => i.name.includes(s.name))).reduce((s, i) => s + i.quantity, 0);
 
-        const formattedDate = pickupDate ? `${pickupDate.split('-')[1]}/${pickupDate.split('-')[2]}/${pickupDate.split('-')[0]}` : '';
+        // Format Date with dashes: MM-DD-YYYY
+        const formattedDate = pickupDate ? `${pickupDate.split('-')[1]}-${pickupDate.split('-')[2]}-${pickupDate.split('-')[0]}` : '';
 
         let formattedTime = '';
         if (pickupTime) {
@@ -696,7 +714,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-brand-brown/90">Phone Number</label>
-                            <input type="tel" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown" />
+                            <input type="tel" value={phoneNumber} onChange={handlePhoneNumberChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown" />
                         </div>
                         <div>
                            <label className="block text-sm font-medium text-brand-brown/90">Contact Method</label>
@@ -879,7 +897,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                         <ItemInputSection 
                             title="Party Platters & Specials"
                             items={specialItems}
-                            flavors={specialFlavors}
+                            flavors={empanadaFlavors} // Use ALL flavors to ensure platter items (even standard ones) show up
                             onItemChange={(index, field, value) => handleItemChange('special', index, field, value)}
                             onAddItem={() => addItem('special')}
                             onRemoveItem={(index) => removeItem('special', index)}

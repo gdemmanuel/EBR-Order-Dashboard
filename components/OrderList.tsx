@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Order, PaymentStatus, FollowUpStatus, ApprovalStatus, AppSettings } from '../types';
-import { TrashIcon, PrinterIcon, MagnifyingGlassIcon, XMarkIcon, ChevronDownIcon, EyeIcon } from './icons/Icons';
+import { TrashIcon, PrinterIcon, MagnifyingGlassIcon, XMarkIcon, ChevronDownIcon, EyeIcon, TruckIcon } from './icons/Icons';
 import { parseOrderDateTime } from '../utils/dateUtils';
 
 interface OrderListProps {
@@ -225,6 +225,11 @@ export default function OrderList({
                                 Status {sortConfig.key === 'followUpStatus' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                             </th>
 
+                            {/* Delivery Icon Column */}
+                            <th scope="col" className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                <TruckIcon className="w-4 h-4 mx-auto" title="Delivery" />
+                            </th>
+
                             {/* Printed */}
                             <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                                 <PrinterIcon className="w-4 h-4 mx-auto" title="Printed Status" />
@@ -239,7 +244,7 @@ export default function OrderList({
                     <tbody className="bg-white divide-y divide-gray-100 text-sm">
                         {sortedOrders.length === 0 ? (
                             <tr>
-                                <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
+                                <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
                                     No orders found.
                                 </td>
                             </tr>
@@ -285,6 +290,13 @@ export default function OrderList({
                                                 approvalStatus={order.approvalStatus} 
                                                 colors={settings?.statusColors}
                                             />
+                                        </td>
+                                        <td className="px-2 py-4 whitespace-nowrap text-center">
+                                            {order.deliveryRequired && (
+                                                <div className="text-blue-500 mx-auto" title="Delivery Required">
+                                                    <TruckIcon className="w-5 h-5 mx-auto" />
+                                                </div>
+                                            )}
                                         </td>
                                         <td className="px-4 py-4 whitespace-nowrap text-center">
                                             {order.hasPrinted ? (
