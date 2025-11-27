@@ -20,7 +20,7 @@ const COLORS = ['#c8441c', '#eab308', '#3b82f6', '#a855f7', '#10b981', '#6366f1'
 type SortKey = 'date' | 'category' | 'vendor' | 'item' | 'totalCost';
 type ReportTab = 'financials' | 'labor' | 'operations';
 
-// Drill Down Modal Component (unchanged)
+// Drill Down Modal Component
 const DrillDownModal = ({ 
     title, 
     items, 
@@ -118,6 +118,29 @@ const DrillDownModal = ({
     );
 };
 
+// Custom Tooltip for Trend Chart
+const CustomTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+        const data = payload[0].payload;
+        return (
+            <div className="bg-white p-3 border border-gray-200 shadow-lg rounded-lg">
+                <p className="font-bold text-gray-700 text-sm mb-1">{label}</p>
+                <p className="text-brand-brown font-bold">
+                    ${data.price.toFixed(2)} <span className="text-xs font-normal text-gray-500">/ unit</span>
+                </p>
+                {!data.isStart && (
+                    <div className={`text-xs font-medium mt-1 ${data.changeDiff > 0 ? 'text-red-600' : data.changeDiff < 0 ? 'text-green-600' : 'text-gray-500'}`}>
+                        {data.changeDiff > 0 ? '↑' : data.changeDiff < 0 ? '↓' : ''} {Math.abs(data.changePercent).toFixed(1)}% 
+                        <span className="text-gray-400 font-normal"> ({data.changeDiff > 0 ? '+' : ''}{data.changeDiff.toFixed(2)})</span>
+                    </div>
+                )}
+                {data.isStart && <p className="text-xs text-gray-400 mt-1">Initial Entry</p>}
+            </div>
+        );
+    }
+    return null;
+};
+
 export default function ReportsView({ orders, expenses, shifts = [], settings, dateRange, onDeleteExpense }: ReportsViewProps) {
     const [activeTab, setActiveTab] = useState<ReportTab>('financials');
     const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' }>({ key: 'date', direction: 'desc' });
@@ -153,7 +176,7 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
         return { orders: filteredOrders, expenses: filteredExpenses, shifts: filteredShifts };
     }, [orders, expenses, shifts, dateRange]);
 
-    // ... (Click Handlers for Drill Down unchanged) ...
+    // ... (Click Handlers for Drill Down) ...
     const handleRevenueClick = (data: any) => { if (!data || !data.rawDate) return; const [year, month] = data.rawDate.split('-').map(Number); const relevantOrders = filteredData.orders.filter(o => { const d = parseOrderDateTime(o); return d.getFullYear() === year && d.getMonth() === (month - 1); }); setDrillDownData({ isOpen: true, title: `Revenue Details - ${data.name}`, type: 'orders', items: relevantOrders }); };
     const handleExpenseClick = (data: any) => { if (!data || !data.rawDate) return; const key = data.rawDate; const relevantExpenses = filteredData.expenses.filter(e => e.date.startsWith(key)); const relevantShifts = filteredData.shifts.filter(s => s.date.startsWith(key)); setDrillDownData({ isOpen: true, title: `Expense Details - ${data.name}`, type: 'mixed', items: [...relevantExpenses, ...relevantShifts].sort((a, b) => a.date.localeCompare(b.date)) }); };
     const handleCategoryClick = (data: any) => { if (!data || !data.name) return; const categoryName = data.name; let items: any[] = []; if (categoryName === 'Employee Labor') { items = filteredData.shifts; } else { items = filteredData.expenses.filter(e => e.category === categoryName); } setDrillDownData({ isOpen: true, title: `Category Details - ${categoryName}`, type: categoryName === 'Employee Labor' ? 'shifts' : 'expenses', items: items.sort((a, b) => a.date.localeCompare(b.date)) }); };
@@ -161,7 +184,7 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
     const handleProductClick = (data: any) => { if (!data || !data.name) return; const productName = data.name; const relevantOrders = filteredData.orders.filter(o => o.items.some(i => i.name.includes(productName))); setDrillDownData({ isOpen: true, title: `Orders containing "${productName}"`, type: 'orders', items: relevantOrders }); };
     const handleDayClick = (data: any) => { if (!data || !data.name) return; const dayName = data.name; const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']; const dayIndex = days.indexOf(dayName); const relevantOrders = filteredData.orders.filter(o => { const d = parseOrderDateTime(o); return !isNaN(d.getTime()) && d.getDay() === dayIndex; }); setDrillDownData({ isOpen: true, title: `Orders for ${dayName}s`, type: 'orders', items: relevantOrders }); };
 
-    // --- Financials Logic (Updated to prefer snapshot cost) ---
+    // --- Financials Logic ---
     const financials = useMemo(() => {
         const { orders, expenses, shifts } = filteredData;
 
@@ -169,7 +192,6 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
         
         // Updated logic: Use stored 'totalCost' if available, else fallback to live calculation
         const estimatedMaterialUsage = orders.reduce((sum, o) => {
-            // Use snapshot if exists (order.totalCost), otherwise calculate current cost based on order date
             const cost = o.totalCost !== undefined ? o.totalCost : calculateSupplyCost(o.items, settings, parseOrderDateTime(o));
             return sum + cost;
         }, 0);
@@ -206,10 +228,25 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
 
         const history = [...ing.priceHistory].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
         
-        return history.map(entry => ({
-            date: entry.date,
-            price: entry.price
-        }));
+        return history.map((entry, index) => {
+            let changePercent = 0;
+            let changeDiff = 0;
+            if (index > 0) {
+                const prev = history[index - 1];
+                changeDiff = entry.price - prev.price;
+                if (prev.price !== 0) {
+                    changePercent = (changeDiff / prev.price) * 100;
+                }
+            }
+            
+            return {
+                date: entry.date,
+                price: entry.price,
+                changePercent,
+                changeDiff,
+                isStart: index === 0
+            };
+        });
     }, [selectedIngredientId, settings.ingredients]);
 
     const trendStats = useMemo(() => {
@@ -526,7 +563,7 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
                                             <CartesianGrid strokeDasharray="3 3" vertical={false} />
                                             <XAxis dataKey="date" tick={{fontSize: 12}} />
                                             <YAxis domain={['auto', 'auto']} tick={{fontSize: 12}} tickFormatter={(val) => `$${val}`} />
-                                            <Tooltip formatter={(val: number) => [`$${val.toFixed(2)}`, 'Unit Price']} labelStyle={{color: '#333'}} />
+                                            <Tooltip content={<CustomTooltip />} />
                                             <Legend />
                                             <Line type="monotone" dataKey="price" name="Price per Unit" stroke="#8884d8" strokeWidth={2} dot={{r: 4}} activeDot={{r: 6}} />
                                         </LineChart>
