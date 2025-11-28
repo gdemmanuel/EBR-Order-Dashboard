@@ -1,7 +1,7 @@
 
 <change>
     <file>components/CustomerOrderPage.tsx</file>
-    <description>Overwrite file with valid TypeScript code to remove syntax errors, tighten UI spacing, and ensure correct cart scrolling and special instructions logic.</description>
+    <description>Overwrite file with clean TypeScript code to fix build error, and tighten Extras section UI.</description>
     <content><![CDATA[
 import React, { useState, useMemo, useEffect } from 'react';
 import { Order, Flavor, PricingSettings, AppSettings, ContactMethod, PaymentStatus, FollowUpStatus, ApprovalStatus, OrderItem, MenuPackage } from '../types';
@@ -743,27 +743,27 @@ export default function CustomerOrderPage({
                     </section>
                 )}
 
-                {/* 3. Extras & Salsas */}
+                {/* 3. Extras & Salsas - TIGHTER */}
                 {!activePackageBuilder && availableSalsas.length > 0 && (
-                    <section className="bg-white p-6 md:p-8 rounded-xl shadow-sm border border-brand-tan">
-                        <div className="flex items-center gap-3 mb-6">
-                            <div className="bg-brand-orange/10 text-brand-orange p-2 rounded-lg">
-                                <PlusIcon className="w-6 h-6" />
+                    <section className="bg-white p-3 rounded-xl shadow-sm border border-brand-tan">
+                        <div className="flex items-center gap-2 mb-2">
+                            <div className="bg-brand-orange/10 text-brand-orange p-1.5 rounded-lg">
+                                <PlusIcon className="w-4 h-4" />
                             </div>
-                            <h2 className="text-2xl font-serif text-brand-brown">Extras</h2>
+                            <h2 className="text-lg font-serif text-brand-brown">Extras</h2>
                         </div>
                         <div className="divide-y divide-gray-100">
                             {availableSalsas.map(salsa => (
-                                <div key={salsa.id} className="flex items-center justify-between py-4 first:pt-0 last:pb-0">
+                                <div key={salsa.id} className="flex items-center justify-between py-1.5 first:pt-0 last:pb-0">
                                     <div className="pr-4">
-                                        <p className="font-serif font-bold text-brand-brown text-lg">{salsa.name}</p>
-                                        {salsa.description && <p className="text-sm text-gray-500 mt-1 font-light italic">{salsa.description}</p>}
-                                        <p className="text-sm text-brand-orange font-bold mt-1">${salsa.price.toFixed(2)}</p>
+                                        <p className="font-serif font-bold text-brand-brown text-sm">{salsa.name}</p>
+                                        {salsa.description && <p className="text-[10px] text-gray-500 mt-0.5 font-light italic">{salsa.description}</p>}
+                                        <p className="text-[10px] text-brand-orange font-bold mt-0.5">${salsa.price.toFixed(2)}</p>
                                     </div>
-                                    <div className="flex items-center gap-3 bg-gray-50 p-1.5 rounded-lg border border-gray-100">
-                                        <button onClick={() => updateSalsaCart(salsa.name, -1)} className="w-8 h-8 bg-white rounded-md flex items-center justify-center text-gray-500 hover:text-brand-brown shadow-sm border border-gray-200 transition-colors"><MinusIcon className="w-3 h-3"/></button>
-                                        <span className="w-8 text-center font-bold text-brand-brown">{cartSalsas[salsa.name] || 0}</span>
-                                        <button onClick={() => updateSalsaCart(salsa.name, 1)} className="w-8 h-8 bg-brand-brown text-white rounded-md flex items-center justify-center hover:bg-brand-orange shadow-sm transition-colors"><PlusIcon className="w-3 h-3"/></button>
+                                    <div className="flex items-center gap-2 bg-gray-50 p-1 rounded-lg border border-gray-100">
+                                        <button onClick={() => updateSalsaCart(salsa.name, -1)} className="w-6 h-6 bg-white rounded-md flex items-center justify-center text-gray-500 hover:text-brand-brown shadow-sm border border-gray-200 transition-colors"><MinusIcon className="w-2.5 h-2.5"/></button>
+                                        <span className="w-5 text-center font-bold text-brand-brown text-xs">{cartSalsas[salsa.name] || 0}</span>
+                                        <button onClick={() => updateSalsaCart(salsa.name, 1)} className="w-6 h-6 bg-brand-brown text-white rounded-md flex items-center justify-center hover:bg-brand-orange shadow-sm transition-colors"><PlusIcon className="w-2.5 h-2.5"/></button>
                                     </div>
                                 </div>
                             ))}
