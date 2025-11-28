@@ -1,8 +1,4 @@
 
-<change>
-    <file>components/CustomerOrderPage.tsx</file>
-    <description>Overwrite file with clean code to remove XML syntax errors, tighten UI spacing, and fix special instructions logic.</description>
-    <content><![CDATA[
 import React, { useState, useMemo, useEffect } from 'react';
 import { Order, Flavor, PricingSettings, AppSettings, ContactMethod, PaymentStatus, FollowUpStatus, ApprovalStatus, OrderItem, MenuPackage } from '../types';
 import { saveOrderToDb } from '../services/dbService';
@@ -971,5 +967,3 @@ export default function CustomerOrderPage({
         </div>
     );
 }
-]]></content>
-</change>
