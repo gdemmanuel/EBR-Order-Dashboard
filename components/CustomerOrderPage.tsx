@@ -1,7 +1,7 @@
 
 <change>
     <file>components/CustomerOrderPage.tsx</file>
-    <description>Fix syntax error by removing XML tags, remove auto-generated package notes from special instructions, and tighten UI spacing.</description>
+    <description>Remove XML tags from file content, tighten UI spacing further, and ensure package details are not auto-appended to special instructions.</description>
     <content><![CDATA[
 import React, { useState, useMemo, useEffect } from 'react';
 import { Order, Flavor, PricingSettings, AppSettings, ContactMethod, PaymentStatus, FollowUpStatus, ApprovalStatus, OrderItem, MenuPackage } from '../types';
@@ -52,51 +52,51 @@ interface SelectedPackage {
 // Component for rendering a package card with "Empanadas by Rose" style
 const PackageCard = ({ pkg, onClick }: { pkg: MenuPackage; onClick: () => void }) => (
     <div 
-        className="group relative bg-white border border-brand-tan rounded-xl p-6 hover:shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between h-full overflow-hidden hover:border-brand-orange/30" 
+        className="group relative bg-white border border-brand-tan rounded-xl p-4 hover:shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between h-full overflow-hidden hover:border-brand-orange/30" 
         onClick={onClick}
     >
         {/* Subtle top accent */}
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-brand-tan via-brand-orange/50 to-brand-tan opacity-0 group-hover:opacity-100 transition-opacity" />
         
         <div>
-            <div className="flex justify-between items-start mb-3 gap-2">
-                <h3 className="font-serif font-bold text-xl text-brand-brown group-hover:text-brand-orange transition-colors leading-tight">
+            <div className="flex justify-between items-start mb-2 gap-2">
+                <h3 className="font-serif font-bold text-lg text-brand-brown group-hover:text-brand-orange transition-colors leading-tight">
                     {pkg.name}
                 </h3>
-                <span className="font-sans font-bold text-lg text-brand-orange whitespace-nowrap">
+                <span className="font-sans font-bold text-base text-brand-orange whitespace-nowrap">
                     ${pkg.price}
                 </span>
             </div>
-            <p className="text-sm text-gray-600 mb-6 font-light leading-relaxed">
+            <p className="text-xs text-gray-600 mb-4 font-light leading-relaxed">
                 {pkg.description || `${pkg.quantity} items of your choice.`}
             </p>
         </div>
         
-        <button type="button" className="w-full py-3 bg-brand-brown text-brand-cream text-sm font-bold uppercase tracking-widest rounded hover:bg-brand-orange transition-colors mt-auto flex items-center justify-center gap-2 shadow-sm group-hover:shadow-md">
+        <button type="button" className="w-full py-2 bg-brand-brown text-brand-cream text-xs font-bold uppercase tracking-widest rounded hover:bg-brand-orange transition-colors mt-auto flex items-center justify-center gap-2 shadow-sm group-hover:shadow-md">
             <span>Customize</span>
-            <PlusIcon className="w-4 h-4" /> 
+            <PlusIcon className="w-3 h-3" /> 
         </button>
     </div>
 );
 
 // Component for Flavor Card
 const FlavorCard = ({ flavor }: { flavor: Flavor }) => (
-    <div className="flex flex-col p-4 bg-white border border-brand-tan/40 rounded-lg shadow-sm hover:shadow-md transition-shadow h-full">
+    <div className="flex flex-col p-3 bg-white border border-brand-tan/40 rounded-lg shadow-sm hover:shadow-md transition-shadow h-full">
         <div className="flex items-start justify-between gap-2">
-            <span className="font-serif font-bold text-brand-brown text-lg leading-tight">{flavor.name}</span>
+            <span className="font-serif font-bold text-brand-brown text-base leading-tight">{flavor.name}</span>
             {flavor.isSpecial && (
-                <span className="flex-shrink-0 text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-bold uppercase tracking-wide border border-purple-200">
+                <span className="flex-shrink-0 text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wide border border-purple-200">
                     Special
                 </span>
             )}
         </div>
         {flavor.description && (
-            <span className="text-xs text-gray-500 mt-2 leading-relaxed font-light">
+            <span className="text-[10px] text-gray-500 mt-1 leading-relaxed font-light">
                 {flavor.description}
             </span>
         )}
         {flavor.surcharge ? (
-            <span className="text-[10px] text-brand-orange font-bold mt-auto pt-2 self-start uppercase tracking-wider">
+            <span className="text-[10px] text-brand-orange font-bold mt-auto pt-1 self-start uppercase tracking-wider">
                 +{formatPrice(flavor.surcharge)} Extra
             </span>
         ) : null}
@@ -363,9 +363,7 @@ export default function CustomerOrderPage({
             const formattedTime = pickupTime; 
             const formattedDate = normalizeDateStr(pickupDate);
 
-            // NOTE: Package details are NOT appended to special instructions as requested.
-            // The customer only sees what they typed.
-
+            // Package details are NOT appended to special instructions; only user notes.
             const newOrder: Order = {
                 id: Date.now().toString(),
                 customerName,
