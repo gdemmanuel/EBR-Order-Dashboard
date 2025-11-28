@@ -7,7 +7,8 @@ import { generateTimeSlots, normalizeDateStr } from '../utils/dateUtils';
 import { getAddressSuggestions } from '../services/geminiService';
 import { 
     ShoppingBagIcon, CalendarIcon, UserIcon, PhoneIcon, CheckCircleIcon, 
-    ExclamationCircleIcon, PlusIcon, MinusIcon, TrashIcon
+    ExclamationCircleIcon, PlusIcon, MinusIcon, TrashIcon, ChevronDownIcon,
+    SparklesIcon, ListBulletIcon
 } from './icons/Icons';
 import PackageBuilderModal from './PackageBuilderModal';
 
@@ -54,16 +55,18 @@ export default function CustomerOrderPage({
     const [error, setError] = useState<string | null>(null);
 
     const [activePackageBuilder, setActivePackageBuilder] = useState<MenuPackage | null>(null);
+    const [showSpecialtyMenu, setShowSpecialtyMenu] = useState(false);
 
     // --- Derived Data ---
     
-    const availableFlavors = useMemo(() => {
-        return empanadaFlavors.filter(f => f.visible);
+    // Split flavors for the Menu View
+    const { regularFlavors, specialFlavors } = useMemo(() => {
+        const visible = empanadaFlavors.filter(f => f.visible);
+        return {
+            regularFlavors: visible.filter(f => !f.isSpecial),
+            specialFlavors: visible.filter(f => f.isSpecial)
+        };
     }, [empanadaFlavors]);
-
-    const availableFullFlavors = useMemo(() => {
-        return fullSizeEmpanadaFlavors.filter(f => f.visible);
-    }, [fullSizeEmpanadaFlavors]);
 
     const availablePackages = useMemo(() => {
         return (pricing?.packages || []).filter(p => p.visible);
@@ -259,7 +262,101 @@ export default function CustomerOrderPage({
 
             <main className="max-w-3xl mx-auto p-4 space-y-6 pb-24">
                 
-                {/* 1. Contact Info */}
+                {/* 1. Menu & Flavors (Informational Only) */}
+                <section className="bg-white p-6 rounded-xl shadow-sm border border-brand-tan">
+                    <h2 className="text-lg font-bold text-brand-brown mb-4 flex items-center gap-2">
+                        <ListBulletIcon className="w-5 h-5" /> Our Flavors
+                    </h2>
+                    
+                    {/* Regular Flavors */}
+                    <div className="mb-6">
+                        <h3 className="font-serif text-lg text-brand-brown mb-3 border-b border-brand-tan pb-1">Classic Flavors</h3>
+                        <div className="grid grid-cols-1 gap-3">
+                            {regularFlavors.map(flavor => (
+                                <div key={flavor.name} className="flex flex-col">
+                                    <span className="font-bold text-brand-brown text-base">{flavor.name}</span>
+                                    {flavor.description && <span className="text-sm text-gray-500">{flavor.description}</span>}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Specialty Flavors - Collapsible */}
+                    {specialFlavors.length > 0 && (
+                        <div>
+                            <button 
+                                onClick={() => setShowSpecialtyMenu(!showSpecialtyMenu)}
+                                className="w-full flex items-center justify-between bg-purple-50 p-3 rounded-lg border border-purple-100 hover:bg-purple-100 transition-colors"
+                            >
+                                <span className="font-bold text-purple-900 flex items-center gap-2">
+                                    <SparklesIcon className="w-4 h-4" /> Specialty Flavors
+                                </span>
+                                <ChevronDownIcon className={`w-5 h-5 text-purple-700 transform transition-transform ${showSpecialtyMenu ? 'rotate-180' : ''}`} />
+                            </button>
+                            
+                            {showSpecialtyMenu && (
+                                <div className="mt-3 grid grid-cols-1 gap-3 px-2 animate-fade-in">
+                                    {specialFlavors.map(flavor => (
+                                        <div key={flavor.name} className="flex flex-col border-b border-gray-50 pb-2 last:border-0">
+                                            <span className="font-bold text-brand-brown text-base">{flavor.name}</span>
+                                            {flavor.description && <span className="text-sm text-gray-500">{flavor.description}</span>}
+                                            {flavor.surcharge ? <span className="text-xs text-orange-600 font-medium">Extra charge may apply</span> : null}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </section>
+
+                {/* 2. Packages (Ordering Mechanism) */}
+                {availablePackages.length > 0 && (
+                    <section className="bg-white p-6 rounded-xl shadow-sm border border-brand-tan">
+                        <h2 className="text-lg font-bold text-brand-brown mb-6 flex items-center gap-2">
+                            <ShoppingBagIcon className="w-5 h-5" /> Select a Package
+                        </h2>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {availablePackages.map(pkg => (
+                                <div key={pkg.id} className="border border-brand-tan rounded-lg p-4 hover:shadow-md transition-shadow bg-brand-cream/20 cursor-pointer flex flex-col justify-between" onClick={() => setActivePackageBuilder(pkg)}>
+                                    <div>
+                                        <div className="flex justify-between items-start mb-2">
+                                            <h3 className="font-bold text-brand-brown">{pkg.name}</h3>
+                                            <span className="bg-white border border-brand-tan px-2 py-1 rounded text-sm font-bold text-brand-orange">${pkg.price}</span>
+                                        </div>
+                                        <p className="text-xs text-gray-600 mb-3">{pkg.description || `${pkg.quantity} items of your choice.`}</p>
+                                    </div>
+                                    <button className="w-full py-2 bg-brand-orange text-white text-sm font-bold rounded-lg hover:bg-opacity-90 transition-colors mt-2">Customize Order</button>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+                )}
+
+                {/* 3. Extras & Salsas */}
+                {availableSalsas.length > 0 && (
+                    <section className="bg-white p-6 rounded-xl shadow-sm border border-brand-tan">
+                        <h2 className="text-lg font-bold text-brand-brown mb-6 flex items-center gap-2">
+                            <PlusIcon className="w-5 h-5" /> Extras & Salsas
+                        </h2>
+                        <div className="space-y-3">
+                            {availableSalsas.map(salsa => (
+                                <div key={salsa.id} className="flex items-center justify-between">
+                                    <div>
+                                        <p className="font-medium text-gray-800">{salsa.name}</p>
+                                        <p className="text-xs text-brand-orange font-bold">${salsa.price.toFixed(2)}</p>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <button onClick={() => updateCart(salsa.name, -1)} className="w-7 h-7 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-200 transition-colors"><MinusIcon className="w-3 h-3"/></button>
+                                        <span className="w-6 text-center text-sm font-bold">{cart[salsa.name] || 0}</span>
+                                        <button onClick={() => updateCart(salsa.name, 1)} className="w-7 h-7 bg-brand-orange text-white rounded-full flex items-center justify-center hover:bg-opacity-90 transition-colors"><PlusIcon className="w-3 h-3"/></button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+                )}
+
+                {/* 4. Contact Info */}
                 <section className="bg-white p-6 rounded-xl shadow-sm border border-brand-tan">
                     <h2 className="text-lg font-bold text-brand-brown mb-4 flex items-center gap-2">
                         <UserIcon className="w-5 h-5" /> Contact Information
@@ -280,7 +377,7 @@ export default function CustomerOrderPage({
                     </div>
                 </section>
 
-                {/* 2. Date & Time */}
+                {/* 5. Date & Time */}
                 <section className="bg-white p-6 rounded-xl shadow-sm border border-brand-tan">
                     <h2 className="text-lg font-bold text-brand-brown mb-4 flex items-center gap-2">
                         <CalendarIcon className="w-5 h-5" /> Pickup / Delivery Time
@@ -348,109 +445,7 @@ export default function CustomerOrderPage({
                     </div>
                 </section>
 
-                {/* 3. Menu Selection */}
-                <section className="bg-white p-6 rounded-xl shadow-sm border border-brand-tan">
-                    <h2 className="text-lg font-bold text-brand-brown mb-6 flex items-center gap-2">
-                        <ShoppingBagIcon className="w-5 h-5" /> Build Your Order
-                    </h2>
-                    
-                    {/* Mini Empanadas */}
-                    <div className="mb-8">
-                        <div className="flex justify-between items-end border-b border-brand-tan pb-2 mb-4">
-                            <h3 className="font-serif text-xl text-brand-brown">Mini Empanadas</h3>
-                            <span className="text-sm font-medium text-gray-500">
-                                {pricing?.mini?.basePrice ? `$${pricing.mini.basePrice.toFixed(2)} ea` : ''}
-                            </span>
-                        </div>
-                        <div className="space-y-4">
-                            {availableFlavors.map(flavor => (
-                                <div key={flavor.name} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
-                                    <div className="flex-grow pr-4">
-                                        <p className="font-bold text-brand-brown text-base">{flavor.name} {flavor.isSpecial && <span className="text-[10px] align-top bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full ml-1">SPECIAL</span>}</p>
-                                        {flavor.description && <p className="text-xs text-gray-500 mt-0.5">{flavor.description}</p>}
-                                        {flavor.surcharge ? <p className="text-xs text-orange-600 font-bold mt-0.5">+${flavor.surcharge.toFixed(2)}</p> : null}
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <button onClick={() => updateCart(flavor.name, -1)} className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-200 transition-colors"><MinusIcon className="w-4 h-4"/></button>
-                                        <span className="w-6 text-center font-bold text-lg">{cart[flavor.name] || 0}</span>
-                                        <button onClick={() => updateCart(flavor.name, 1)} className="w-8 h-8 bg-brand-orange text-white rounded-full flex items-center justify-center hover:bg-opacity-90 transition-colors"><PlusIcon className="w-4 h-4"/></button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Full-Size Empanadas */}
-                    <div className="mb-8">
-                        <div className="flex justify-between items-end border-b border-brand-tan pb-2 mb-4">
-                            <h3 className="font-serif text-xl text-brand-brown">Full-Size Empanadas</h3>
-                            <span className="text-sm font-medium text-gray-500">
-                                {pricing?.full?.basePrice ? `$${pricing.full.basePrice.toFixed(2)} ea` : ''}
-                            </span>
-                        </div>
-                        <div className="space-y-4">
-                            {availableFullFlavors.map(flavor => (
-                                <div key={flavor.name} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
-                                    <div className="flex-grow pr-4">
-                                        <p className="font-bold text-brand-brown text-base">{flavor.name.replace('Full ', '')}</p>
-                                        {flavor.description && <p className="text-xs text-gray-500 mt-0.5">{flavor.description}</p>}
-                                        {flavor.surcharge ? <p className="text-xs text-orange-600 font-bold mt-0.5">+${flavor.surcharge.toFixed(2)}</p> : null}
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <button onClick={() => updateCart(flavor.name, -1)} className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-200 transition-colors"><MinusIcon className="w-4 h-4"/></button>
-                                        <span className="w-6 text-center font-bold text-lg">{cart[flavor.name] || 0}</span>
-                                        <button onClick={() => updateCart(flavor.name, 1)} className="w-8 h-8 bg-brand-orange text-white rounded-full flex items-center justify-center hover:bg-opacity-90 transition-colors"><PlusIcon className="w-4 h-4"/></button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Packages */}
-                    {availablePackages.length > 0 && (
-                        <div className="mb-8">
-                            <h3 className="font-serif text-xl text-brand-brown mb-4 border-b border-brand-tan pb-2">Packages & Deals</h3>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                {availablePackages.map(pkg => (
-                                    <div key={pkg.id} className="border border-brand-tan rounded-lg p-4 hover:shadow-md transition-shadow bg-brand-cream/20 cursor-pointer flex flex-col justify-between" onClick={() => setActivePackageBuilder(pkg)}>
-                                        <div>
-                                            <div className="flex justify-between items-start mb-2">
-                                                <h3 className="font-bold text-brand-brown">{pkg.name}</h3>
-                                                <span className="bg-white border border-brand-tan px-2 py-1 rounded text-sm font-bold text-brand-orange">${pkg.price}</span>
-                                            </div>
-                                            <p className="text-xs text-gray-600 mb-3">{pkg.description || `${pkg.quantity} items of your choice.`}</p>
-                                        </div>
-                                        <button className="w-full py-2 bg-brand-orange text-white text-sm font-bold rounded-lg hover:bg-opacity-90 transition-colors mt-2">Customize Package</button>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                    
-                    {/* Salsas */}
-                    {availableSalsas.length > 0 && (
-                        <div className="pt-6 border-t border-dashed border-gray-300">
-                            <h3 className="font-bold text-brand-brown mb-4 text-lg">Extras & Salsas</h3>
-                            <div className="space-y-3">
-                                {availableSalsas.map(salsa => (
-                                    <div key={salsa.id} className="flex items-center justify-between">
-                                        <div>
-                                            <p className="font-medium text-gray-800">{salsa.name}</p>
-                                            <p className="text-xs text-brand-orange font-bold">${salsa.price.toFixed(2)}</p>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            <button onClick={() => updateCart(salsa.name, -1)} className="w-7 h-7 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-200 transition-colors"><MinusIcon className="w-3 h-3"/></button>
-                                            <span className="w-6 text-center text-sm font-bold">{cart[salsa.name] || 0}</span>
-                                            <button onClick={() => updateCart(salsa.name, 1)} className="w-7 h-7 bg-brand-orange text-white rounded-full flex items-center justify-center hover:bg-opacity-90 transition-colors"><PlusIcon className="w-3 h-3"/></button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                </section>
-
-                {/* 4. Special Instructions */}
+                {/* 6. Special Instructions */}
                 <section className="bg-white p-6 rounded-xl shadow-sm border border-brand-tan">
                     <label className="block text-sm font-bold text-brand-brown mb-2">Special Instructions / Allergies</label>
                     <textarea 
