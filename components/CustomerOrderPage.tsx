@@ -1,18 +1,13 @@
 
-<change>
-    <file>components/CustomerOrderPage.tsx</file>
-    <description>Make Your Selection section visual pop out more with better shadows, borders, and footer styling.</description>
-    <content><![CDATA[
 import React, { useState, useMemo, useEffect } from 'react';
 import { Order, Flavor, PricingSettings, AppSettings, ContactMethod, PaymentStatus, FollowUpStatus, ApprovalStatus, OrderItem, MenuPackage } from '../types';
 import { saveOrderToDb } from '../services/dbService';
-import { calculateOrderTotal } from '../utils/pricingUtils';
 import { generateTimeSlots, normalizeDateStr } from '../utils/dateUtils';
 import { getAddressSuggestions } from '../services/geminiService';
 import { 
     ShoppingBagIcon, CalendarIcon, UserIcon, CheckCircleIcon, 
     ExclamationCircleIcon, PlusIcon, MinusIcon, ChevronDownIcon,
-    SparklesIcon, ListBulletIcon, PencilIcon
+    SparklesIcon, ListBulletIcon, PencilIcon, TrashIcon
 } from './icons/Icons';
 import PackageBuilderModal from './PackageBuilderModal';
 
@@ -39,6 +34,16 @@ const formatPhoneNumber = (value: string) => {
     }
     return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`;
 };
+
+// Internal type for a selected package in the cart
+interface SelectedPackage {
+    internalId: string; // Unique ID for this specific instance in the cart
+    pkgId: string;
+    name: string;
+    basePrice: number;
+    totalPrice: number; // base + surcharges
+    items: { name: string; quantity: number }[];
+}
 
 // Component for rendering a package card with "Empanadas by Rose" style
 const PackageCard = ({ pkg, onClick }: { pkg: MenuPackage; onClick: () => void }) => (
@@ -116,8 +121,9 @@ export default function CustomerOrderPage({
     
     const [specialInstructions, setSpecialInstructions] = useState('');
     
-    // Cart: Key is item name
-    const [cart, setCart] = useState<Record<string, number>>({});
+    // Cart State: Split into explicit Packages and Salsas (Extras)
+    const [cartPackages, setCartPackages] = useState<SelectedPackage[]>([]);
+    const [cartSalsas, setCartSalsas] = useState<Record<string, number>>({});
     
     const [isReviewing, setIsReviewing] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -185,23 +191,41 @@ export default function CustomerOrderPage({
 
     // Totals Calculation
     const { finalItems, totalMini, totalFull, estimatedTotal } = useMemo(() => {
-        const items: OrderItem[] = Object.entries(cart).map(([name, quantity]) => ({ name, quantity }));
-        
-        if (!pricing) return { finalItems: [], totalMini: 0, totalFull: 0, estimatedTotal: 0 };
+        // Flatten Packages into Items
+        const flatItems: OrderItem[] = [];
+        let runningTotal = 0;
 
-        const total = calculateOrderTotal(
-            items, 
-            0, // Delivery fee is calculated later by admin
-            pricing,
-            empanadaFlavors,
-            fullSizeEmpanadaFlavors
-        );
+        // Process Packages
+        cartPackages.forEach(pkg => {
+            runningTotal += pkg.totalPrice;
+            pkg.items.forEach(pkgItem => {
+                // Check if this flavor already exists in flatItems to merge counts (good for database compactness)
+                const existing = flatItems.find(i => i.name === pkgItem.name);
+                if (existing) {
+                    existing.quantity += pkgItem.quantity;
+                } else {
+                    flatItems.push({ name: pkgItem.name, quantity: pkgItem.quantity });
+                }
+            });
+        });
 
-        const miniCount = items.filter(i => !i.name.startsWith('Full ') && !pricing.salsas?.some(s => s.name === i.name)).reduce((sum, i) => sum + i.quantity, 0);
-        const fullCount = items.filter(i => i.name.startsWith('Full ')).reduce((sum, i) => sum + i.quantity, 0);
+        // Process Salsas
+        Object.entries(cartSalsas).forEach(([name, quantity]) => {
+            if (quantity > 0) {
+                flatItems.push({ name, quantity });
+                const salsaDef = pricing?.salsas?.find(s => s.name === name);
+                if (salsaDef) {
+                    runningTotal += quantity * salsaDef.price;
+                }
+            }
+        });
 
-        return { finalItems: items, totalMini: miniCount, totalFull: fullCount, estimatedTotal: total };
-    }, [cart, pricing, empanadaFlavors, fullSizeEmpanadaFlavors]);
+        // Counts
+        const miniCount = flatItems.filter(i => !i.name.startsWith('Full ') && !pricing?.salsas?.some(s => s.name === i.name)).reduce((sum, i) => sum + i.quantity, 0);
+        const fullCount = flatItems.filter(i => i.name.startsWith('Full ')).reduce((sum, i) => sum + i.quantity, 0);
+
+        return { finalItems: flatItems, totalMini: miniCount, totalFull: fullCount, estimatedTotal: runningTotal };
+    }, [cartPackages, cartSalsas, pricing]);
 
     // --- Handlers ---
 
@@ -210,8 +234,8 @@ export default function CustomerOrderPage({
         setPhoneNumber(formatted);
     };
 
-    const updateCart = (name: string, delta: number) => {
-        setCart(prev => {
+    const updateSalsaCart = (name: string, delta: number) => {
+        setCartSalsas(prev => {
             const current = prev[name] || 0;
             const next = Math.max(0, current + delta);
             const newCart = { ...prev, [name]: next };
@@ -221,19 +245,52 @@ export default function CustomerOrderPage({
     };
 
     const handlePackageConfirm = (items: { name: string; quantity: number }[]) => {
-        setCart(prev => {
-            const newCart = { ...prev };
-            items.forEach(item => {
-                newCart[item.name] = (newCart[item.name] || 0) + item.quantity;
-            });
-            return newCart;
+        if (!activePackageBuilder) return;
+
+        // Calculate Surcharges
+        let surchargeTotal = 0;
+        const normalizedItems = items.map(item => {
+            // Check for Full Size naming convention
+            let flavorName = item.name;
+            const isFullSizePackage = activePackageBuilder.itemType === 'full' && !activePackageBuilder.isSpecial;
+            const isSpecialFlavor = specialFlavors.some(f => f.name === item.name); // Don't prepend Full to Specials if they are already unique
+            
+            // Standardize name for "Full" if needed
+            if (isFullSizePackage && !item.name.startsWith('Full ') && !isSpecialFlavor) {
+                flavorName = `Full ${item.name}`;
+            }
+
+            // Find surcharge info
+            // We check both the raw name and the display name
+            const flavorDef = [...empanadaFlavors, ...fullSizeEmpanadaFlavors].find(f => f.name === item.name || f.name === flavorName);
+            if (flavorDef && flavorDef.surcharge) {
+                surchargeTotal += (item.quantity * flavorDef.surcharge);
+            }
+
+            return { name: flavorName, quantity: item.quantity };
         });
+
+        const newPackage: SelectedPackage = {
+            internalId: Date.now().toString() + Math.random().toString().slice(2, 6),
+            pkgId: activePackageBuilder.id,
+            name: activePackageBuilder.name,
+            basePrice: activePackageBuilder.price,
+            totalPrice: activePackageBuilder.price + surchargeTotal,
+            items: normalizedItems
+        };
+
+        setCartPackages(prev => [...prev, newPackage]);
         setActivePackageBuilder(null);
+        
         // Scroll back to order section
         const section = document.getElementById('order-section');
         if (section) {
             section.scrollIntoView({ behavior: 'smooth' });
         }
+    };
+
+    const removePackageFromCart = (internalId: string) => {
+        setCartPackages(prev => prev.filter(p => p.internalId !== internalId));
     };
 
     const handleAddressChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -274,7 +331,7 @@ export default function CustomerOrderPage({
             return;
         }
 
-        if (finalItems.length === 0) {
+        if (cartPackages.length === 0 && Object.keys(cartSalsas).length === 0) {
             setError("Please add items to your order.");
             window.scrollTo(0,0);
             return;
@@ -302,6 +359,19 @@ export default function CustomerOrderPage({
             const formattedTime = pickupTime; 
             const formattedDate = normalizeDateStr(pickupDate);
 
+            // Construct Package Summary for Admin Notes
+            const packageSummary = cartPackages.map(p => {
+                const flavorSummary = p.items.map(i => {
+                    const shortName = i.name.replace('Full ', '');
+                    return `${i.quantity} ${shortName}`;
+                }).join(', ');
+                return `• ${p.name}: [${flavorSummary}]`;
+            }).join('\n');
+
+            const fullNotes = specialInstructions 
+                ? `${specialInstructions}\n\n--- Package Details ---\n${packageSummary}`
+                : (packageSummary ? `--- Package Details ---\n${packageSummary}` : '');
+
             const newOrder: Order = {
                 id: Date.now().toString(),
                 customerName,
@@ -320,7 +390,7 @@ export default function CustomerOrderPage({
                 paymentStatus: PaymentStatus.PENDING,
                 paymentMethod: null,
                 followUpStatus: FollowUpStatus.NEEDED,
-                specialInstructions: specialInstructions || null,
+                specialInstructions: fullNotes || null,
                 approvalStatus: ApprovalStatus.PENDING
             };
 
@@ -451,12 +521,26 @@ export default function CustomerOrderPage({
                             <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Order Items</h3>
                             <div className="bg-brand-cream rounded-lg p-4 border border-brand-tan/50">
                                 <ul className="space-y-3">
-                                    {finalItems.map((item, idx) => (
-                                        <li key={idx} className="flex justify-between items-center text-sm">
-                                            <span className="font-medium text-brand-brown">{item.name}</span>
-                                            <div className="flex items-center gap-4">
-                                                <span className="text-gray-500">Qty: {item.quantity}</span>
+                                    {cartPackages.map((pkg, idx) => (
+                                        <li key={pkg.internalId} className="border-b border-brand-tan/30 last:border-0 pb-2 last:pb-0">
+                                            <div className="flex justify-between font-medium text-brand-brown">
+                                                <span>{pkg.name}</span>
+                                                <span>{formatPrice(pkg.totalPrice)}</span>
                                             </div>
+                                            <ul className="pl-4 mt-1 space-y-0.5">
+                                                {pkg.items.map((item, i) => (
+                                                    <li key={i} className="text-xs text-gray-600 flex justify-between">
+                                                        <span>{item.name.replace('Full ', '')}</span>
+                                                        <span>x {item.quantity}</span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </li>
+                                    ))}
+                                    {Object.entries(cartSalsas).map(([name, quantity]) => (
+                                        <li key={name} className="flex justify-between items-center text-sm pt-2">
+                                            <span className="font-medium text-brand-brown">{name}</span>
+                                            <span className="text-gray-500">Qty: {quantity}</span>
                                         </li>
                                     ))}
                                 </ul>
@@ -516,7 +600,7 @@ export default function CustomerOrderPage({
                         <h1 className="text-2xl font-serif text-brand-brown font-bold tracking-tight">Empanadas by Rose</h1>
                     </div>
                     
-                    {Object.keys(cart).length > 0 && (
+                    {(cartPackages.length > 0 || Object.keys(cartSalsas).length > 0) && (
                         <div 
                             className="flex items-center gap-3 animate-fade-in cursor-pointer group" 
                             onClick={(e) => handleReview(e)}
@@ -528,7 +612,7 @@ export default function CustomerOrderPage({
                             </div>
                             <div className="bg-brand-orange text-white px-3 py-2 rounded-lg shadow-sm flex items-center gap-2 group-hover:bg-opacity-90 transition-all">
                                 <ShoppingBagIcon className="w-5 h-5" />
-                                <span className="font-bold">{Object.values(cart).reduce((a, b) => a + b, 0)}</span>
+                                <span className="font-bold">{cartPackages.length + Object.values(cartSalsas).reduce((a,b)=>a+b, 0)}</span>
                             </div>
                         </div>
                     )}
@@ -677,9 +761,9 @@ export default function CustomerOrderPage({
                                         <p className="text-sm text-brand-orange font-bold mt-1">${salsa.price.toFixed(2)}</p>
                                     </div>
                                     <div className="flex items-center gap-3 bg-gray-50 p-1.5 rounded-lg border border-gray-100">
-                                        <button onClick={() => updateCart(salsa.name, -1)} className="w-8 h-8 bg-white rounded-md flex items-center justify-center text-gray-500 hover:text-brand-brown shadow-sm border border-gray-200 transition-colors"><MinusIcon className="w-3 h-3"/></button>
-                                        <span className="w-8 text-center font-bold text-brand-brown">{cart[salsa.name] || 0}</span>
-                                        <button onClick={() => updateCart(salsa.name, 1)} className="w-8 h-8 bg-brand-brown text-white rounded-md flex items-center justify-center hover:bg-brand-orange shadow-sm transition-colors"><PlusIcon className="w-3 h-3"/></button>
+                                        <button onClick={() => updateSalsaCart(salsa.name, -1)} className="w-8 h-8 bg-white rounded-md flex items-center justify-center text-gray-500 hover:text-brand-brown shadow-sm border border-gray-200 transition-colors"><MinusIcon className="w-3 h-3"/></button>
+                                        <span className="w-8 text-center font-bold text-brand-brown">{cartSalsas[salsa.name] || 0}</span>
+                                        <button onClick={() => updateSalsaCart(salsa.name, 1)} className="w-8 h-8 bg-brand-brown text-white rounded-md flex items-center justify-center hover:bg-brand-orange shadow-sm transition-colors"><PlusIcon className="w-3 h-3"/></button>
                                     </div>
                                 </div>
                             ))}
@@ -687,49 +771,83 @@ export default function CustomerOrderPage({
                     </section>
                 )}
 
-                {/* 3.5. Order Summary (New) */}
-                {!activePackageBuilder && finalItems.length > 0 && (
-                    <section className="bg-white p-6 md:p-8 rounded-xl shadow-2xl border-2 border-brand-orange/20 relative overflow-hidden animate-fade-in ring-4 ring-brand-orange/5">
-                        {/* Decorative background accent */}
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-brand-orange/5 rounded-full -mr-16 -mt-16 z-0 pointer-events-none"></div>
-
-                        <div className="flex items-center gap-3 mb-6 relative z-10">
+                {/* 3.5. Order Summary (Refactored) */}
+                {!activePackageBuilder && (cartPackages.length > 0 || Object.keys(cartSalsas).length > 0) && (
+                    <section className="bg-white rounded-xl shadow-2xl border-4 border-brand-orange/30 relative overflow-hidden animate-fade-in ring-4 ring-brand-orange/10 transform transition-all duration-300">
+                        {/* Distinct Header */}
+                        <div className="bg-brand-orange/10 p-6 border-b border-brand-orange/20 flex items-center gap-3 relative z-10">
                             <div className="bg-brand-orange text-white p-3 rounded-full shadow-lg">
                                 <ListBulletIcon className="w-6 h-6" />
                             </div>
                             <h2 className="text-3xl font-serif text-brand-brown font-bold">Your Selection</h2>
                         </div>
                         
-                        <div className="divide-y divide-gray-100 mb-6 relative z-10">
-                            {finalItems.map((item, idx) => (
-                                <div key={idx} className="flex items-center justify-between py-4 first:pt-0">
-                                    <span className="font-medium text-brand-brown text-xl">{item.name}</span>
-                                    <div className="flex items-center gap-4">
-                                        <div className="flex items-center gap-3 bg-brand-tan/30 p-1.5 rounded-xl border border-brand-tan/50">
+                        <div className="p-6 md:p-8 relative z-10">
+                            {/* Packages List */}
+                            <div className="space-y-6 mb-6">
+                                {cartPackages.map((pkg) => (
+                                    <div key={pkg.internalId} className="bg-gray-50 rounded-lg p-4 border border-gray-200 shadow-sm relative group">
+                                        <div className="flex justify-between items-start mb-2">
+                                            <div>
+                                                <h4 className="font-serif font-bold text-brand-brown text-lg">{pkg.name}</h4>
+                                                <span className="text-sm font-bold text-brand-orange">{formatPrice(pkg.totalPrice)}</span>
+                                            </div>
                                             <button 
-                                                onClick={() => updateCart(item.name, -1)} 
-                                                className="w-10 h-10 flex items-center justify-center text-gray-600 hover:text-red-500 bg-white hover:bg-red-50 rounded-lg shadow-sm transition-all"
-                                                type="button"
+                                                onClick={() => removePackageFromCart(pkg.internalId)} 
+                                                className="text-gray-400 hover:text-red-500 p-2 hover:bg-red-50 rounded-full transition-colors"
+                                                title="Remove Package"
                                             >
-                                                <MinusIcon className="w-4 h-4"/>
-                                            </button>
-                                            <span className="font-bold text-brand-brown w-8 text-center text-lg">{item.quantity}</span>
-                                            <button 
-                                                onClick={() => updateCart(item.name, 1)} 
-                                                className="w-10 h-10 flex items-center justify-center text-gray-600 hover:text-green-600 bg-white hover:bg-green-50 rounded-lg shadow-sm transition-all"
-                                                type="button"
-                                            >
-                                                <PlusIcon className="w-4 h-4"/>
+                                                <TrashIcon className="w-5 h-5" />
                                             </button>
                                         </div>
+                                        <div className="text-sm text-gray-600 bg-white p-3 rounded border border-gray-100">
+                                            <ul className="grid grid-cols-2 gap-x-4 gap-y-1">
+                                                {pkg.items.map((item, idx) => (
+                                                    <li key={idx} className="flex justify-between border-b border-gray-50 last:border-0 py-1">
+                                                        <span>{item.name.replace('Full ', '')}</span>
+                                                        <span className="font-bold">x {item.quantity}</span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Salsas List */}
+                            {Object.keys(cartSalsas).length > 0 && (
+                                <div className="border-t-2 border-dashed border-gray-200 pt-4 mb-6">
+                                    <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-3">Extras</h4>
+                                    <div className="space-y-3">
+                                        {Object.entries(cartSalsas).map(([name, quantity]) => (
+                                            <div key={name} className="flex items-center justify-between bg-brand-tan/20 p-3 rounded-lg border border-brand-tan/50">
+                                                <span className="font-medium text-brand-brown">{name}</span>
+                                                <div className="flex items-center gap-3">
+                                                    <button 
+                                                        onClick={() => updateSalsaCart(name, -1)} 
+                                                        className="w-8 h-8 flex items-center justify-center bg-white border border-gray-300 rounded text-gray-600 hover:bg-gray-50"
+                                                    >
+                                                        <MinusIcon className="w-3 h-3"/>
+                                                    </button>
+                                                    <span className="font-bold text-brand-brown w-6 text-center">{quantity}</span>
+                                                    <button 
+                                                        onClick={() => updateSalsaCart(name, 1)} 
+                                                        className="w-8 h-8 flex items-center justify-center bg-white border border-gray-300 rounded text-brand-orange hover:bg-orange-50"
+                                                    >
+                                                        <PlusIcon className="w-3 h-3"/>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
-                            ))}
-                        </div>
-                        
-                        <div className="flex justify-between items-center pt-6 border-t-2 border-brand-tan/30 relative z-10 bg-brand-orange/5 -mx-6 md:-mx-8 -mb-6 md:-mb-8 p-6 md:p-8 mt-4">
-                            <span className="text-brand-brown/70 font-bold uppercase tracking-widest text-sm">Estimated Total</span>
-                            <span className="text-4xl font-serif font-bold text-brand-orange drop-shadow-sm">{formatPrice(estimatedTotal)}</span>
+                            )}
+                            
+                            {/* Total Footer */}
+                            <div className="flex justify-between items-center pt-6 border-t-2 border-brand-brown/10 mt-4 bg-brand-orange/5 -mx-6 -mb-6 md:-mx-8 md:-mb-8 p-6 md:p-8">
+                                <span className="text-brand-brown/70 font-bold uppercase tracking-widest text-sm">Estimated Total</span>
+                                <span className="text-4xl font-serif font-bold text-brand-orange drop-shadow-sm">{formatPrice(estimatedTotal)}</span>
+                            </div>
                         </div>
                     </section>
                 )}
@@ -861,5 +979,3 @@ export default function CustomerOrderPage({
         </div>
     );
 }
-]]></content>
-</change>
