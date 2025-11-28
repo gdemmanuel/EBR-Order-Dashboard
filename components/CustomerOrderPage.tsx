@@ -345,7 +345,7 @@ export default function CustomerOrderPage({
                     <h2 className="text-4xl font-serif text-brand-brown mb-4">Order Received!</h2>
                     <p className="text-gray-600 mb-8 font-light">
                         Thank you, <strong className="text-brand-brown font-semibold">{lastOrder.customerName}</strong>! Your order has been placed.
-                        <br/>We will contact you shortly to confirm details.
+                        <br/>We will contact you within 24 hours to confirm order.
                     </p>
                     <div className="bg-brand-cream p-6 rounded-lg mb-8 text-left border border-brand-tan/50 shadow-sm">
                         <div className="flex justify-between items-center mb-2">

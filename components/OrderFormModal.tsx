@@ -22,7 +22,6 @@ interface OrderFormModalProps {
     existingOrders?: Order[]; // Needed for smart slot calc
 }
 
-// ... (Rest of the file imports and interfaces unchanged) ...
 // Local state type to allow empty string for quantity and other number inputs
 interface FormOrderItem {
     name: string;
@@ -60,7 +59,6 @@ const ItemInputSection: React.FC<{
     onAddPackage: (pkg: MenuPackage) => void;
     bgColor?: string;
 }> = ({ title, items, flavors, onItemChange, onAddItem, onRemoveItem, itemType, availablePackages, onAddPackage, bgColor = "bg-white" }) => {
-    // ... (ItemInputSection logic unchanged) ...
     const otherOption = itemType === 'mini' ? 'Other' : 'Full Other';
     const [isPackageMenuOpen, setIsPackageMenuOpen] = useState(false);
 
@@ -96,7 +94,8 @@ const ItemInputSection: React.FC<{
                     </div>
                 )}
             </div>
-            <div className="space-y-3 max-h-40 overflow-y-auto pr-2 border-l-4 border-brand-tan/60 pl-3">
+            {/* REMOVED max-h-40 and overflow-y-auto to prevent nested scrollbars */}
+            <div className="space-y-3 pr-2 border-l-4 border-brand-tan/60 pl-3">
                 {items.map((item, index) => (
                     <div key={index} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 animate-fade-in">
                         <div className="flex-grow w-full">
@@ -129,7 +128,6 @@ const ItemInputSection: React.FC<{
     );
 };
 
-// ... (Helper formatters, getLocalTodayDate unchanged) ...
 const formatTimeToHHMM = (timeStr: string | undefined): string => {
     if (!timeStr) return '';
     let tempTimeStr = timeStr.split('-')[0].trim().toLowerCase();
@@ -145,7 +143,6 @@ const formatTimeToHHMM = (timeStr: string | undefined): string => {
     return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 };
 
-// FIX: Updated to handle YYYY-MM-DD correctly so it doesn't break input[type=date]
 const formatDateToYYYYMMDD = (dateStr: string | undefined): string => {
     if (!dateStr) return '';
     
@@ -168,7 +165,6 @@ const getLocalTodayDate = () => {
 };
 
 export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors, fullSizeEmpanadaFlavors, onAddNewFlavor, onDelete, pricing, settings, existingOrders = [] }: OrderFormModalProps) {
-    // ... (State definitions unchanged) ...
     const [customerName, setCustomerName] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
     const [pickupDate, setPickupDate] = useState('');
@@ -215,7 +211,6 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         [pricing.salsas]
     );
 
-    // ... (Rest of component logic unchanged up to handleSubmit) ...
     const uniqueCustomers = useMemo(() => {
         const customers = new Map<string, {name: string, phone: string | null, method: string, address: string | null}>();
         existingOrders.forEach(o => {

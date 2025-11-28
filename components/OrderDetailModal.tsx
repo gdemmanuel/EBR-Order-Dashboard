@@ -291,7 +291,8 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
             {/* Items Ordered */}
             <div>
               <h3 className="text-lg font-semibold text-brand-brown/90 mb-2">Items Ordered</h3>
-              <div className="max-h-40 overflow-y-auto bg-brand-tan/30 p-3 rounded-lg border border-brand-tan">
+              {/* REMOVED max-h-40 and overflow-y-auto to prevent nested scrollbars */}
+              <div className="bg-brand-tan/30 p-3 rounded-lg border border-brand-tan">
                   <ul className="divide-y divide-brand-tan">
                       {order.items.map((item, index) => (
                       <li key={index} className="flex justify-between py-2 text-sm">
