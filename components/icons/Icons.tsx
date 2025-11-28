@@ -333,3 +333,17 @@ export const EyeIcon = ({ title, ...props }: IconProps) => (
     <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
   </svg>
 );
+
+export const MinusIcon = ({ title, ...props }: IconProps) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+    {title && <title>{title}</title>}
+    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12h-15" />
+  </svg>
+);
+
+export const ExclamationCircleIcon = ({ title, ...props }: IconProps) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+    {title && <title>{title}</title>}
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+  </svg>
+);

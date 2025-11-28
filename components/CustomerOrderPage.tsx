@@ -1,279 +1,159 @@
 
-import React, { useState, useEffect, useMemo, useLayoutEffect } from 'react';
-import { saveOrderToDb, AppSettings } from '../services/dbService';
-import { Order, OrderItem, PaymentStatus, FollowUpStatus, ApprovalStatus, PricingSettings, Flavor, MenuPackage } from '../types';
-import { CheckCircleIcon, StarIcon, ClockIcon, ChevronDownIcon, MegaphoneIcon, ShoppingBagIcon, ArrowUturnLeftIcon, TrashIcon } from './icons/Icons';
-import Header from './Header';
-import PackageBuilderModal from './PackageBuilderModal';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Order, Flavor, PricingSettings, AppSettings, ContactMethod, PaymentStatus, FollowUpStatus, ApprovalStatus, OrderItem, MenuPackage } from '../types';
+import { saveOrderToDb } from '../services/dbService';
+import { calculateOrderTotal } from '../utils/pricingUtils';
 import { generateTimeSlots, normalizeDateStr } from '../utils/dateUtils';
+import { getAddressSuggestions } from '../services/geminiService';
+import { 
+    ShoppingBagIcon, CalendarIcon, UserIcon, PhoneIcon, CheckCircleIcon, 
+    ExclamationCircleIcon, PlusIcon, MinusIcon, TrashIcon
+} from './icons/Icons';
+import PackageBuilderModal from './PackageBuilderModal';
 
 interface CustomerOrderPageProps {
     empanadaFlavors: Flavor[];
     fullSizeEmpanadaFlavors: Flavor[];
     pricing?: PricingSettings;
-    scheduling?: AppSettings['scheduling'];
-    busySlots?: { date: string; time: string }[];
-    motd?: string;
+    scheduling: AppSettings['scheduling'];
+    busySlots: { date: string; time: string }[];
+    motd: string;
 }
 
-interface CartPackage {
-    id: string; 
-    packageId: string;
-    name: string;
-    price: number;
-    items: { name: string; quantity: number }[];
-}
+// Helper for formatting currency
+const formatPrice = (price: number) => `$${price.toFixed(2)}`;
 
-interface DynamicSalsaState {
-    id: string;
-    name: string;
-    price: number;
-    checked: boolean;
-    quantity: number;
-}
-
-// Helper for local date min attribute
-const getLocalMinDate = () => {
-    const d = new Date();
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-};
-
-const formatPhoneNumber = (value: string) => {
-    if (!value) return value;
-    const phoneNumber = value.replace(/[^\d]/g, '');
-    const phoneNumberLength = phoneNumber.length;
-    if (phoneNumberLength < 4) return phoneNumber;
-    if (phoneNumberLength < 7) {
-      return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3)}`;
-    }
-    return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`;
-};
-
-// --- Inline Receipt Component ---
-// Added 'pointer-events-auto' to ensure clicks work even if parent container is disabled
-const InlineReceiptCard = ({ order }: { order: Order }) => {
-    return (
-        <div className="bg-white w-full rounded-xl shadow-xl border-t-8 border-brand-orange overflow-hidden relative animate-fade-in my-4 pointer-events-auto z-50">
-            {/* Success Header */}
-            <div className="bg-green-50 p-6 text-center border-b border-green-100">
-                <div className="mx-auto bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mb-3 shadow-sm">
-                    <CheckCircleIcon className="w-8 h-8 text-green-600" />
-                </div>
-                <h2 className="text-2xl font-serif text-brand-brown mb-1">Order Received!</h2>
-                <p className="text-sm text-brand-brown/70">
-                    Thank you, <strong>{order.customerName.split(' ')[0]}</strong>.
-                </p>
-                <p className="text-xs text-gray-500 mt-1">We'll contact you at {order.phoneNumber} shortly.</p>
-            </div>
-
-            {/* Receipt Details */}
-            <div className="p-5 space-y-4">
-                <div className="flex justify-between items-center text-sm border-b border-dashed border-gray-200 pb-3">
-                    <span className="text-gray-500 font-medium">Pickup Time</span>
-                    <span className="font-bold text-brand-brown">{order.pickupDate} @ {order.pickupTime}</span>
-                </div>
-
-                <div className="space-y-2">
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Order Summary</p>
-                    <div className="max-h-48 overflow-y-auto pr-2 space-y-2 custom-scrollbar">
-                        {order.items.map((item, idx) => (
-                            <div key={idx} className="flex justify-between text-sm items-start">
-                                <span className="text-gray-700 font-medium">{item.name}</span>
-                                <span className="text-gray-500 whitespace-nowrap ml-4">x {item.quantity}</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-                <div className="border-t border-gray-200 pt-3 flex justify-between items-end">
-                    <span className="font-bold text-brand-brown text-lg">Total</span>
-                    <div className="text-right">
-                        <span className="text-2xl font-serif font-bold text-brand-orange">${order.amountCharged.toFixed(2)}</span>
-                        {order.deliveryRequired && <p className="text-[10px] text-gray-400 uppercase">Includes Delivery</p>}
-                    </div>
-                </div>
-            </div>
-
-            {/* Action */}
-            <div className="p-5 bg-gray-50 border-t border-gray-100">
-                <a 
-                    href="https://www.empanadasbyrose.com" 
-                    target="_top"
-                    className="block w-full bg-brand-brown text-white font-serif py-3 rounded-lg text-center hover:bg-brand-brown/90 transition-all uppercase tracking-wider text-sm font-bold shadow-md no-underline flex items-center justify-center gap-2 cursor-pointer pointer-events-auto"
-                >
-                    <ArrowUturnLeftIcon className="w-4 h-4" /> Return to Website
-                </a>
-                <div className="mt-3 text-center">
-                        <button 
-                        onClick={() => window.location.reload()} 
-                        className="text-brand-orange hover:underline text-xs font-medium cursor-pointer pointer-events-auto"
-                    >
-                        Place Another Order
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFlavors, pricing, scheduling, busySlots = [], motd }: CustomerOrderPageProps) {
-    const isEmbedded = new URLSearchParams(window.location.search).get('embed') === 'true';
-
-    const [isSubmitted, setIsSubmitted] = useState(false);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [lastOrder, setLastOrder] = useState<Order | null>(null);
-
-    // Customer Info
+export default function CustomerOrderPage({
+    empanadaFlavors,
+    fullSizeEmpanadaFlavors,
+    pricing,
+    scheduling,
+    busySlots,
+    motd
+}: CustomerOrderPageProps) {
+    // --- State ---
     const [customerName, setCustomerName] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
-    const [email, setEmail] = useState('');
+    const [email, setEmail] = useState(''); // Optional for contact method
+    
+    const [deliveryRequired, setDeliveryRequired] = useState(false);
+    const [deliveryAddress, setDeliveryAddress] = useState('');
+    const [addressSuggestions, setAddressSuggestions] = useState<string[]>([]);
+    
     const [pickupDate, setPickupDate] = useState('');
     const [pickupTime, setPickupTime] = useState('');
     
-    // Order State
-    const [cartPackages, setCartPackages] = useState<CartPackage[]>([]);
-    const [salsaItems, setSalsaItems] = useState<DynamicSalsaState[]>([]);
-
-    // Delivery
-    const [deliveryRequired, setDeliveryRequired] = useState(false);
-    const [deliveryAddress, setDeliveryAddress] = useState('');
-    
-    // Other
     const [specialInstructions, setSpecialInstructions] = useState('');
-    const [estimatedTotal, setEstimatedTotal] = useState(0);
+    
+    // Cart: Key is item name (or unique ID if needed)
+    const [cart, setCart] = useState<Record<string, number>>({});
+    
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isSubmitted, setIsSubmitted] = useState(false);
+    const [lastOrder, setLastOrder] = useState<Order | null>(null);
+    const [error, setError] = useState<string | null>(null);
 
-    // Modal State for Package Builder
     const [activePackageBuilder, setActivePackageBuilder] = useState<MenuPackage | null>(null);
+    const [activeCategory, setActiveCategory] = useState<'mini' | 'full' | 'packages'>('mini');
 
-    // UI State for Sections
-    const [isSpecialtyOpen, setIsSpecialtyOpen] = useState(false);
-    const [sectionsState, setSectionsState] = useState({
-        mini: true,
-        full: true,
-        platters: true
-    });
+    // --- Derived Data ---
+    
+    const availableFlavors = useMemo(() => {
+        return empanadaFlavors.filter(f => f.visible);
+    }, [empanadaFlavors]);
 
-    const toggleSection = (key: 'mini' | 'full' | 'platters') => {
-        setSectionsState(prev => ({ ...prev, [key]: !prev[key] }));
-    };
+    const availableFullFlavors = useMemo(() => {
+        return fullSizeEmpanadaFlavors.filter(f => f.visible);
+    }, [fullSizeEmpanadaFlavors]);
 
-    // Safe pricing fallback
-    const safePricing = pricing || {
-        mini: { basePrice: 1.75 },
-        full: { basePrice: 3.00 },
-        packages: [],
-        salsas: []
-    };
+    const availablePackages = useMemo(() => {
+        return (pricing?.packages || []).filter(p => p.visible);
+    }, [pricing]);
 
-    // Initialize salsas
-    useEffect(() => {
-        if (safePricing.salsas && safePricing.salsas.length > 0) {
-            const initialSalsas = safePricing.salsas
-                .filter(s => s.visible)
-                .map(s => ({
-                    id: s.id,
-                    name: s.name,
-                    price: s.price,
-                    checked: false,
-                    quantity: 1
-                }));
-            setSalsaItems(initialSalsas);
-        }
-    }, [safePricing.salsas]);
+    const availableSalsas = useMemo(() => {
+        return (pricing?.salsas || []).filter(s => s.visible);
+    }, [pricing]);
 
-    // Phone Number Handler
-    const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const formatted = formatPhoneNumber(e.target.value);
-        setPhoneNumber(formatted);
-    };
-
-    // --- Scheduling Status Logic ---
-    const dateStatus = useMemo(() => {
-        if (!pickupDate || !scheduling || !scheduling.enabled) return { isClosed: false, isFull: false };
-        const normalizedDate = normalizeDateStr(pickupDate);
-        const override = scheduling.dateOverrides?.[normalizedDate];
+    // Time Slots Logic
+    const timeSlots = useMemo(() => {
+        if (!pickupDate || !scheduling?.enabled) return [];
         
-        // Check blocked dates / closed days
-        const [y, m, d] = normalizedDate.split('-').map(Number);
-        const dayOfWeek = new Date(y, m - 1, d).getDay();
+        const dateStr = normalizeDateStr(pickupDate);
+        const override = scheduling.dateOverrides?.[dateStr];
         
-        const isClosed = override?.isClosed || 
-                         (!override && scheduling.blockedDates.includes(normalizedDate)) || 
-                         (!override && scheduling.closedDays?.includes(dayOfWeek));
-                         
-        const isFull = scheduling.dateOverrides?.[normalizedDate]?.isFull || false;
-
-        return { isClosed, isFull };
-    }, [pickupDate, scheduling]);
-
-    // --- Available Time Slots Logic ---
-    const availableTimeSlots = useMemo(() => {
-        if (!pickupDate || !scheduling || !scheduling.enabled) return [];
-
-        const normalizedDate = normalizeDateStr(pickupDate); 
-        
-        // ** NEW: If Closed/Limited, allow a flexible slot **
-        if (dateStatus.isClosed) {
-            return ["Flexible / TBD"];
-        }
-
-        const override = scheduling.dateOverrides?.[normalizedDate];
-        
-        if (override) {
-            // isClosed handled above
-            if (override.customHours) {
-                const slots = generateTimeSlots(normalizedDate, override.customHours.start, override.customHours.end, scheduling.intervalMinutes);
-                const todaysBusyTimes = new Set(busySlots.filter(slot => slot.date === normalizedDate).map(slot => slot.time));
-                return slots.filter(time => !todaysBusyTimes.has(time));
-            }
-        }
+        if (override?.isClosed) return [];
+        if (override?.isFull) return [];
 
         const start = override?.customHours?.start || scheduling.startTime;
         const end = override?.customHours?.end || scheduling.endTime;
-        const slots = generateTimeSlots(normalizedDate, start, end, scheduling.intervalMinutes);
-        const todaysBusyTimes = new Set(busySlots.filter(slot => slot.date === normalizedDate).map(slot => slot.time));
+        
+        const allSlots = generateTimeSlots(dateStr, start, end, scheduling.intervalMinutes);
+        
+        // Filter out busy slots
+        const busyForDate = busySlots
+            .filter(s => s.date === dateStr)
+            .map(s => s.time);
+            
+        return allSlots.filter(t => !busyForDate.includes(t));
+    }, [pickupDate, scheduling, busySlots]);
 
-        return slots.filter(time => !todaysBusyTimes.has(time));
-    }, [pickupDate, scheduling, busySlots, dateStatus.isClosed]);
+    // Totals Calculation
+    const { finalItems, totalMini, totalFull, estimatedTotal } = useMemo(() => {
+        const items: OrderItem[] = Object.entries(cart).map(([name, quantity]) => ({ name, quantity }));
+        
+        if (!pricing) return { finalItems: [], totalMini: 0, totalFull: 0, estimatedTotal: 0 };
 
-    // --- Calculate Estimated Total ---
-    useEffect(() => {
-        const packagesTotal = cartPackages.reduce((sum, p) => sum + p.price, 0);
-        let surchargeTotal = 0;
-        let packageSalsaTotal = 0;
+        const total = calculateOrderTotal(
+            items, 
+            0, // Delivery fee is TBD/calculated by admin usually
+            pricing,
+            empanadaFlavors,
+            fullSizeEmpanadaFlavors
+        );
 
-        cartPackages.forEach(pkg => {
-            pkg.items.forEach(item => {
-                const miniFlavor = empanadaFlavors.find(f => f.name === item.name);
-                if (miniFlavor && miniFlavor.surcharge) surchargeTotal += (item.quantity * miniFlavor.surcharge);
-                const fullFlavor = fullSizeEmpanadaFlavors.find(f => f.name === item.name);
-                if (fullFlavor && fullFlavor.surcharge) surchargeTotal += (item.quantity * fullFlavor.surcharge);
-                
-                const salsaProduct = safePricing.salsas.find(s => s.name === item.name);
-                if (salsaProduct) packageSalsaTotal += (item.quantity * salsaProduct.price);
-            });
+        const miniCount = items.filter(i => !i.name.startsWith('Full ') && !pricing.salsas?.some(s => s.name === i.name)).reduce((sum, i) => sum + i.quantity, 0);
+        const fullCount = items.filter(i => i.name.startsWith('Full ')).reduce((sum, i) => sum + i.quantity, 0);
+
+        return { finalItems: items, totalMini: miniCount, totalFull: fullCount, estimatedTotal: total };
+    }, [cart, pricing, empanadaFlavors, fullSizeEmpanadaFlavors]);
+
+    // --- Handlers ---
+
+    const updateCart = (name: string, delta: number) => {
+        setCart(prev => {
+            const current = prev[name] || 0;
+            const next = Math.max(0, current + delta);
+            const newCart = { ...prev, [name]: next };
+            if (next === 0) delete newCart[name];
+            return newCart;
         });
-
-        const globalSalsaTotal = salsaItems.filter(s => s.checked).reduce((sum, s) => sum + (s.quantity * s.price), 0);
-        setEstimatedTotal(packagesTotal + globalSalsaTotal + surchargeTotal + packageSalsaTotal);
-    }, [cartPackages, salsaItems, safePricing, empanadaFlavors, fullSizeEmpanadaFlavors]);
-
-    // --- Package Builder Logic ---
-    const openPackageBuilder = (pkg: MenuPackage) => { setActivePackageBuilder(pkg); };
-    
-    const handlePackageConfirm = (items: { name: string; quantity: number }[]) => { 
-        if (!activePackageBuilder) return; 
-        const newCartItem: CartPackage = { id: Date.now().toString(), packageId: activePackageBuilder.id, name: activePackageBuilder.name, price: activePackageBuilder.price, items: items }; 
-        setCartPackages([...cartPackages, newCartItem]); 
-        setActivePackageBuilder(null); 
     };
-    
-    const removeCartPackage = (id: string) => { setCartPackages(cartPackages.filter(p => p.id !== id)); };
-    const handleSalsaChange = (index: number, field: keyof DynamicSalsaState, value: any) => { const newSalsaItems = [...salsaItems]; newSalsaItems[index] = { ...newSalsaItems[index], [field]: value }; setSalsaItems(newSalsaItems); };
+
+    const handlePackageConfirm = (items: { name: string; quantity: number }[]) => {
+        setCart(prev => {
+            const newCart = { ...prev };
+            items.forEach(item => {
+                newCart[item.name] = (newCart[item.name] || 0) + item.quantity;
+            });
+            return newCart;
+        });
+        setActivePackageBuilder(null);
+    };
+
+    const handleAddressChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value;
+        setDeliveryAddress(val);
+        if (val.length > 5) {
+            try {
+                const suggestions = await getAddressSuggestions(val, null);
+                setAddressSuggestions(suggestions);
+            } catch (e) {
+                // ignore
+            }
+        } else {
+            setAddressSuggestions([]);
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -281,51 +161,14 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
         setIsSubmitting(true);
 
         try {
-            const allEmpanadas: OrderItem[] = [];
-            cartPackages.forEach(pkg => {
-                const pkgDef = safePricing.packages?.find(def => def.id === pkg.packageId);
-                const isFullPackage = pkgDef?.itemType === 'full';
-                pkg.items.forEach(item => {
-                    let finalName = item.name;
-                    const isSalsa = safePricing.salsas.some(s => s.name === item.name);
-                    if (isFullPackage && !finalName.startsWith('Full ') && !isSalsa) finalName = `Full ${finalName}`;
-                    
-                    const existing = allEmpanadas.find(i => i.name === finalName);
-                    if (existing) existing.quantity += item.quantity; else allEmpanadas.push({ ...item, name: finalName });
-                });
-            });
-
-            const salsaOrderItems: OrderItem[] = salsaItems.filter(s => s.checked && s.quantity > 0).map(salsa => ({ name: salsa.name, quantity: salsa.quantity }));
-            const finalItems = [...allEmpanadas, ...salsaOrderItems];
-
-            if (finalItems.length === 0) throw new Error("Please add at least one package or item to your order.");
-
-            // ** MODIFIED VALIDATION **
-            // If dateStatus.isClosed, we ALLOW submission (inquiry), but ensure time isn't blocked otherwise.
-            if (scheduling?.enabled && pickupTime && !dateStatus.isClosed) {
-                const normalizedDate = normalizeDateStr(pickupDate);
-                const override = scheduling.dateOverrides?.[normalizedDate];
-                const [y, m, d] = normalizedDate.split('-').map(Number);
-                const dayOfWeek = new Date(y, m - 1, d).getDay();
-                // This logic is partially redundant due to dateStatus but kept for safety on open days
-                const isClosed = override?.isClosed || (!override && scheduling.blockedDates.includes(normalizedDate)) || (!override && scheduling.closedDays?.includes(dayOfWeek));
-
-                if (isClosed) throw new Error("Sorry, this date is unavailable. Please select another date.");
-                if (busySlots.some(s => s.date === normalizedDate && s.time === pickupTime)) throw new Error("Sorry, that time slot was just taken. Please select another time.");
-            }
-
-            const formattedDate = pickupDate ? `${pickupDate.split('-')[1]}/${pickupDate.split('-')[2]}/${pickupDate.split('-')[0]}` : '';
-            let formattedTime = pickupTime;
-            if (pickupTime && !pickupTime.includes('M') && pickupTime.includes(':')) {
-                 const [h, m] = pickupTime.split(':');
-                 const hour = parseInt(h);
-                 const ampm = hour >= 12 ? 'PM' : 'AM';
-                 const hour12 = hour % 12 || 12;
-                 formattedTime = `${hour12}:${m} ${ampm}`;
-            }
-
-            const totalMini = cartPackages.filter(p => safePricing.packages?.find(def => def.id === p.packageId)?.itemType === 'mini').reduce((sum, p) => sum + (safePricing.packages?.find(def => def.id === p.packageId)?.quantity || 0), 0);
-            const totalFull = cartPackages.filter(p => safePricing.packages?.find(def => def.id === p.packageId)?.itemType === 'full').reduce((sum, p) => sum + (safePricing.packages?.find(def => def.id === p.packageId)?.quantity || 0), 0);
+            if (finalItems.length === 0) throw new Error("Please add items to your order.");
+            if (!pickupDate) throw new Error("Please select a pickup date.");
+            if (!pickupTime) throw new Error("Please select a pickup time.");
+            
+            // Format time if needed, ensuring standard format
+            const formattedTime = pickupTime; 
+            // Ensure date is consistent
+            const formattedDate = normalizeDateStr(pickupDate); // YYYY-MM-DD
 
             const newOrder: Order = {
                 id: Date.now().toString(),
@@ -340,7 +183,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                 amountCharged: estimatedTotal,
                 amountCollected: 0,
                 deliveryRequired,
-                deliveryFee: 0,
+                deliveryFee: 0, // Admin sets this later usually
                 deliveryAddress: deliveryRequired ? deliveryAddress : null,
                 paymentStatus: PaymentStatus.PENDING,
                 paymentMethod: null,
@@ -353,8 +196,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
             setLastOrder(newOrder);
             setIsSubmitted(true);
             
-            // We do NOT force scroll to top here.
-            // The user stays at the bottom where they clicked, and sees the Inline Receipt immediately.
+            window.scrollTo({ top: 0, behavior: 'smooth' });
 
         } catch (err: any) {
             console.error(err);
@@ -364,426 +206,285 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
             setIsSubmitting(false);
         }
     };
-    
-    const miniPackages = safePricing.packages?.filter(p => p.itemType === 'mini' && p.visible && !p.isSpecial) || [];
-    const fullPackages = safePricing.packages?.filter(p => p.itemType === 'full' && p.visible && !p.isSpecial) || [];
-    const specialPackages = safePricing.packages?.filter(p => p.visible && p.isSpecial) || [];
-    const allVisibleFlavors = empanadaFlavors.filter(f => f.visible);
-    const standardFlavors = allVisibleFlavors.filter(f => !f.isSpecial);
-    const specialFlavors = allVisibleFlavors.filter(f => f.isSpecial);
-    
-    const salsaFlavors: Flavor[] = useMemo(() => 
-        (safePricing.salsas || [])
-            .filter(s => s.visible)
-            .map(s => ({ name: s.name, visible: true, description: 'Dipping Sauce', price: s.price })), 
-        [safePricing.salsas]
-    );
+
+    // --- Render ---
+
+    if (isSubmitted && lastOrder) {
+        return (
+            <div className="min-h-screen bg-brand-cream flex items-center justify-center p-4">
+                <div className="bg-white max-w-lg w-full rounded-xl shadow-xl p-8 text-center border border-brand-tan">
+                    <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <CheckCircleIcon className="w-12 h-12 text-green-600" />
+                    </div>
+                    <h2 className="text-3xl font-serif text-brand-brown mb-4">Order Received!</h2>
+                    <p className="text-gray-600 mb-6">
+                        Thank you, <strong>{lastOrder.customerName}</strong>! Your order has been placed successfully.
+                        <br/>We will contact you shortly to confirm details.
+                    </p>
+                    <div className="bg-gray-50 p-4 rounded-lg mb-6 text-left text-sm">
+                        <p><strong>Order #:</strong> {lastOrder.id.slice(-6)}</p>
+                        <p><strong>Pickup:</strong> {lastOrder.pickupDate} @ {lastOrder.pickupTime}</p>
+                        <p><strong>Total Estimate:</strong> ${lastOrder.amountCharged.toFixed(2)}</p>
+                    </div>
+                    <button 
+                        onClick={() => window.location.reload()}
+                        className="bg-brand-orange text-white font-bold py-3 px-8 rounded-full hover:bg-opacity-90 transition-all"
+                    >
+                        Place Another Order
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     return (
-        <div className={`font-sans flex flex-col ${isEmbedded ? 'h-auto bg-white' : 'min-h-screen bg-brand-cream'}`}>
-            {/* AGGRESSIVE SCROLLBAR HIDING for Embedded View */}
-            {isEmbedded && (
-                <style>
-                    {`
-                        /* Chrome, Safari, Edge, Opera */
-                        html, body { 
-                            overflow-y: auto; 
-                            overscroll-behavior-y: none; 
-                            -ms-overflow-style: none;  /* IE and Edge */
-                            scrollbar-width: none;  /* Firefox */
-                        }
-                        ::-webkit-scrollbar { 
-                            display: none; 
-                            width: 0px; 
-                            background: transparent; 
-                        }
-                    `}
-                </style>
-            )}
+        <div className="min-h-screen bg-brand-cream">
+            {/* Header / Nav */}
+            <div className="bg-white shadow-sm border-b border-brand-tan sticky top-0 z-20">
+                <div className="max-w-3xl mx-auto px-4 py-4 flex justify-between items-center">
+                    <h1 className="text-xl font-serif text-brand-brown font-bold">Empanadas by Rose</h1>
+                    {Object.keys(cart).length > 0 && (
+                        <div className="text-sm font-bold text-brand-orange bg-orange-50 px-3 py-1 rounded-full border border-orange-100">
+                            {Object.values(cart).reduce((a, b) => a + b, 0)} Items | {formatPrice(estimatedTotal)}
+                        </div>
+                    )}
+                </div>
+            </div>
 
-            {!isEmbedded && <Header variant="public" />}
-            
-            {/* MOTD Banner */}
-            {motd && !isEmbedded && (
-                <div className="bg-brand-brown text-brand-tan overflow-hidden py-2 border-b border-brand-tan/20 flex select-none">
-                    <div className="animate-marquee flex-shrink-0 flex items-center whitespace-nowrap text-sm font-medium tracking-wide">
-                        {Array(10).fill(motd).map((msg, i) => (
-                            <span key={`a-${i}`} className="mx-8 inline-flex items-center">
-                                <MegaphoneIcon className="w-4 h-4 mr-2" />{String(msg)}
-                            </span>
-                        ))}
-                    </div>
-                    <div className="animate-marquee flex-shrink-0 flex items-center whitespace-nowrap text-sm font-medium tracking-wide" aria-hidden="true">
-                        {Array(10).fill(motd).map((msg, i) => (
-                            <span key={`b-${i}`} className="mx-8 inline-flex items-center">
-                                <MegaphoneIcon className="w-4 h-4 mr-2" />{String(msg)}
-                            </span>
-                        ))}
-                    </div>
+            {motd && (
+                <div className="bg-brand-brown text-brand-cream text-center py-2 px-4 text-sm font-medium">
+                    {motd}
                 </div>
             )}
 
-            <main className={`max-w-5xl mx-auto px-4 ${isEmbedded ? 'py-2 pb-64' : 'py-12 pb-32'} w-full`}>
-                {error && (
-                    <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-lg text-center mb-8" role="alert">
-                        <strong className="block font-bold mb-1">Oops!</strong>
-                        <span>{error}</span>
-                    </div>
-                )}
-
-                {/* TOP RECEIPT - For users scrolled to top */}
-                {isSubmitted && lastOrder && (
-                    <div className="mb-8">
-                        <InlineReceiptCard order={lastOrder} />
-                    </div>
-                )}
-
-                <form onSubmit={handleSubmit} className={`space-y-16 ${isSubmitted ? 'opacity-30 pointer-events-none grayscale transition-opacity duration-1000' : ''}`}>
-                    
-                    {/* FLAVORS SECTION */}
-                    <section>
-                        <h3 className="text-3xl font-serif text-brand-brown mb-8 text-center">Our Flavors</h3>
-                        <div className="bg-white p-8 sm:p-12 rounded-xl shadow-sm">
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-12 gap-y-6">
-                                {standardFlavors.map(f => (
-                                    <div key={f.name} className="flex flex-col items-center text-center">
-                                        <span className="font-serif text-xl text-brand-brown">{f.name}</span>
-                                        {f.description && <span className="text-sm text-gray-500 mt-1 font-light">{f.description}</span>}
-                                    </div>
-                                ))}
-                            </div>
-                            <p className="text-center text-xs text-gray-400 mt-10 font-medium uppercase tracking-widest">Available for both Mini and Full-Size</p>
-                        </div>
-                        
-                        {specialFlavors.length > 0 && (
-                            <div className="mt-8 rounded-xl shadow-sm border border-purple-100 bg-white overflow-hidden transition-all">
-                                <button 
-                                    type="button"
-                                    onClick={() => setIsSpecialtyOpen(!isSpecialtyOpen)}
-                                    className="w-full p-6 flex items-center justify-between bg-purple-50 hover:bg-purple-100 transition-colors text-left group"
-                                >
-                                    <h4 className="text-xl font-serif text-purple-900 flex items-center gap-3">
-                                        <StarIcon className="w-6 h-6 text-purple-400" /> Specialty & Seasonal Flavors
-                                    </h4>
-                                    <div className={`transform transition-transform duration-300 ${isSpecialtyOpen ? 'rotate-180' : ''}`}>
-                                        <ChevronDownIcon className="w-6 h-6 text-purple-400" />
-                                    </div>
-                                </button>
-                                
-                                {isSpecialtyOpen && (
-                                    <div className="p-8 border-t border-purple-100 bg-white">
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                                            {specialFlavors.map(f => (
-                                                <div key={f.name} className="text-center">
-                                                    <p className="font-serif text-lg text-brand-brown">{f.name}</p>
-                                                    {f.description && <p className="text-sm text-gray-500 mt-1 font-light italic">{f.description}</p>}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </section>
-
-                    {/* Header Section - HIDDEN IN EMBEDDED MODE */}
-                    {!isEmbedded && (
-                        <div className="text-center py-8 border-t border-brand-tan/20">
-                            <h3 className="text-3xl font-serif text-brand-brown mb-4">Place Your Order</h3>
-                            <div className="w-24 h-1 bg-brand-orange mx-auto mb-6"></div>
-                            <p className="text-brand-brown/70 max-w-2xl mx-auto text-lg font-light">Select your packages below. Everything is made fresh to order with love.</p>
-                        </div>
-                    )}
-
-                    {/* PACKAGES SECTION */}
-                    <div className="space-y-8">
-                        {/* Mini Packages */}
-                        <section className="scroll-mt-20" id="section-mini">
-                            <button 
-                                type="button" 
-                                onClick={() => toggleSection('mini')} 
-                                className="w-full flex items-center justify-between gap-4 mb-4 group cursor-pointer"
-                            >
-                                <div className="flex items-center gap-4 flex-grow">
-                                    <h3 className="text-2xl md:text-3xl font-serif text-brand-brown group-hover:text-brand-orange transition-colors">Mini Empanadas</h3>
-                                    <div className="flex-grow h-px bg-brand-tan group-hover:bg-brand-orange/30 transition-colors"></div>
-                                </div>
-                                <div className={`transform transition-transform duration-200 ${sectionsState.mini ? 'rotate-180' : ''}`}>
-                                    <ChevronDownIcon className="w-6 h-6 text-brand-brown/50 group-hover:text-brand-orange" />
-                                </div>
-                            </button>
-                            
-                            {sectionsState.mini && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                    {miniPackages.map(pkg => (
-                                        <div key={pkg.id} className="bg-white p-4 rounded-lg shadow-sm hover:shadow-md transition-all border border-transparent hover:border-brand-tan flex flex-col items-center text-center">
-                                            <h4 className="font-serif text-lg font-bold text-brand-brown mb-0.5">{pkg.name}</h4>
-                                            <div className="text-brand-orange font-bold text-base mb-2">${pkg.price.toFixed(2)}</div>
-                                            <p className="text-xs text-gray-600 mb-0.5">{pkg.quantity} Mini Empanadas</p>
-                                            <p className="text-[10px] text-gray-400 mb-3 uppercase tracking-wide">Up to {pkg.maxFlavors} {pkg.maxFlavors === 1 ? 'flavor' : 'flavors'}</p>
-                                            {pkg.description && <p className="text-xs text-gray-500 italic mb-3 px-2">{pkg.description}</p>}
-                                            <button type="button" onClick={() => openPackageBuilder(pkg)} className="mt-auto bg-brand-brown text-white px-4 py-1.5 rounded hover:bg-brand-brown/90 transition-colors text-xs uppercase tracking-wider font-bold w-full">Select</button>
-                                        </div>
-                                    ))}
-                                    {miniPackages.length === 0 && <p className="col-span-3 text-center text-gray-400 italic py-8">Sold out or unavailable.</p>}
-                                </div>
-                            )}
-                        </section>
-
-                        {/* Full Packages */}
-                        <section className="scroll-mt-20" id="section-full">
-                            <button 
-                                type="button" 
-                                onClick={() => toggleSection('full')} 
-                                className="w-full flex items-center justify-between gap-4 mb-4 group cursor-pointer"
-                            >
-                                <div className="flex items-center gap-4 flex-grow">
-                                    <h3 className="text-2xl md:text-3xl font-serif text-brand-brown group-hover:text-brand-orange transition-colors">Full-Size Empanadas</h3>
-                                    <div className="flex-grow h-px bg-brand-tan group-hover:bg-brand-orange/30 transition-colors"></div>
-                                </div>
-                                <div className={`transform transition-transform duration-200 ${sectionsState.full ? 'rotate-180' : ''}`}>
-                                    <ChevronDownIcon className="w-6 h-6 text-brand-brown/50 group-hover:text-brand-orange" />
-                                </div>
-                            </button>
-
-                            {sectionsState.full && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                    {fullPackages.map(pkg => (
-                                        <div key={pkg.id} className="bg-white p-4 rounded-lg shadow-sm hover:shadow-md transition-all border border-transparent hover:border-brand-tan flex flex-col items-center text-center">
-                                            <h4 className="font-serif text-lg font-bold text-brand-brown mb-0.5">{pkg.name}</h4>
-                                            <div className="text-brand-orange font-bold text-base mb-2">${pkg.price.toFixed(2)}</div>
-                                            <p className="text-xs text-gray-600 mb-0.5">{pkg.quantity} Full-Size Empanadas</p>
-                                            <p className="text-[10px] text-gray-400 mb-3 uppercase tracking-wide">Up to {pkg.maxFlavors} {pkg.maxFlavors === 1 ? 'flavor' : 'flavors'}</p>
-                                            <button type="button" onClick={() => openPackageBuilder(pkg)} className="mt-auto bg-brand-brown text-white px-4 py-1.5 rounded hover:bg-brand-brown/90 transition-colors text-xs uppercase tracking-wider font-bold w-full">Select</button>
-                                        </div>
-                                    ))}
-                                    {fullPackages.length === 0 && <p className="col-span-3 text-center text-gray-400 italic py-8">Sold out or unavailable.</p>}
-                                </div>
-                            )}
-                        </section>
-
-                        {/* Specials */}
-                        {specialPackages.length > 0 && (
-                            <section className="scroll-mt-20" id="section-platters">
-                                <button 
-                                    type="button" 
-                                    onClick={() => toggleSection('platters')} 
-                                    className="w-full flex items-center justify-between gap-4 mb-4 group cursor-pointer"
-                                >
-                                    <div className="flex items-center gap-4 flex-grow">
-                                        <h3 className="text-2xl md:text-3xl font-serif text-purple-900 group-hover:text-purple-700 transition-colors">Platters & Specials</h3>
-                                        <div className="flex-grow h-px bg-purple-100 group-hover:bg-purple-200 transition-colors"></div>
-                                    </div>
-                                    <div className={`transform transition-transform duration-200 ${sectionsState.platters ? 'rotate-180' : ''}`}>
-                                        <ChevronDownIcon className="w-6 h-6 text-purple-300 group-hover:text-purple-500" />
-                                    </div>
-                                </button>
-
-                                {sectionsState.platters && (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                        {specialPackages.map(pkg => (
-                                            <div key={pkg.id} className="bg-purple-50/50 p-4 rounded-lg shadow-sm hover:shadow-md transition-all border border-purple-100 flex flex-col items-center text-center">
-                                                <h4 className="font-serif text-lg font-bold text-purple-900 mb-0.5">{pkg.name}</h4>
-                                                <div className="text-purple-700 font-bold text-base mb-2">${pkg.price.toFixed(2)}</div>
-                                                <p className="text-xs text-gray-600 mb-0.5">{pkg.quantity} Items</p>
-                                                <p className="text-[10px] text-purple-400 mb-3 uppercase tracking-wide font-bold">Limited Time</p>
-                                                {pkg.description && <p className="text-xs text-gray-500 italic mb-3 px-2">{pkg.description}</p>}
-                                                <button type="button" onClick={() => openPackageBuilder(pkg)} className="mt-auto bg-purple-900 text-white px-4 py-1.5 rounded hover:bg-purple-800 transition-colors text-xs uppercase tracking-wider font-bold w-full">Select</button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </section>
-                        )}
-                    </div>
-
-                    {/* EXTRAS SECTION */}
-                    {salsaItems.length > 0 && (
-                        <section className="bg-white p-8 rounded-xl shadow-sm">
-                            <h3 className="text-3xl font-serif text-brand-brown mb-6 text-center">Add Extras</h3>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                {salsaItems.map((salsa, idx) => (
-                                    <div key={salsa.id} className={`flex items-center justify-between p-4 rounded border transition-all ${salsa.checked ? 'border-brand-orange bg-orange-50' : 'border-gray-100 bg-gray-50'}`}>
-                                        <div className="flex items-center">
-                                            <input type="checkbox" checked={salsa.checked} onChange={e => handleSalsaChange(idx, 'checked', e.target.checked)} className="h-5 w-5 text-brand-orange rounded focus:ring-brand-orange border-gray-300 cursor-pointer" />
-                                            <div className="ml-3">
-                                                <span className="block font-medium text-brand-brown">{salsa.name}</span>
-                                                <span className="text-sm text-gray-500">${salsa.price.toFixed(2)}</span>
-                                            </div>
-                                        </div>
-                                        {salsa.checked && (
-                                            <div className="flex items-center gap-2 bg-white rounded border border-gray-200 px-2 py-1">
-                                                <span className="text-xs text-gray-400 uppercase">Qty</span>
-                                                <input type="number" min="1" value={salsa.quantity} onChange={e => handleSalsaChange(idx, 'quantity', parseInt(e.target.value))} className="w-12 text-center border-none p-0 text-sm focus:ring-0" />
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </section>
-                    )}
-
-                    {/* Cart Summary Block */}
-                    {cartPackages.length > 0 && (
-                        <div className="bg-white rounded-xl p-8 shadow-xl border-l-8 border-brand-orange relative">
-                            <div className="flex items-center gap-3 mb-6 border-b border-gray-100 pb-4">
-                                <div className="bg-brand-orange text-white p-2 rounded-full shadow-sm">
-                                    <ShoppingBagIcon className="w-6 h-6" />
-                                </div>
-                                <h4 className="font-serif text-2xl text-brand-brown font-bold">Your Selection</h4>
-                            </div>
-                            <div className="space-y-4">
-                                {cartPackages.map((item) => {
-                                    const extraSalsaCost = item.items.reduce((sum, i) => {
-                                        const salsa = safePricing.salsas.find(s => s.name === i.name);
-                                        return sum + (salsa ? (salsa.price * i.quantity) : 0);
-                                    }, 0);
-                                    const displayPrice = (item.price || 0) + (extraSalsaCost || 0);
-
-                                    return (
-                                        <div key={item.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-gray-50 p-5 rounded-lg border border-gray-200 hover:shadow-md transition-all">
-                                            <div>
-                                                <p className="font-serif text-lg text-brand-brown font-bold">{item.name}</p>
-                                                <p className="text-sm text-gray-600 mt-1 leading-relaxed">{item.items.map(i => `${i.quantity} ${i.name}`).join(', ')}</p>
-                                            </div>
-                                            <div className="flex items-center gap-6 mt-4 sm:mt-0 w-full sm:w-auto justify-between sm:justify-end">
-                                                <span className="font-bold text-xl text-brand-brown">${displayPrice.toFixed(2)}</span>
-                                                <button type="button" onClick={() => removeCartPackage(item.id)} className="text-gray-400 hover:text-red-600 transition-colors p-2 hover:bg-red-50 rounded-full"><TrashIcon className="w-5 h-5" /></button>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* CONTACT & DETAILS FORM */}
-                    <section className="bg-white p-8 sm:p-12 rounded-xl shadow-sm">
-                        <h3 className="text-3xl font-serif text-brand-brown mb-8 text-center">Your Details</h3>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                            <div className="md:col-span-2">
-                                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Full Name</label>
-                                <input type="text" required value={customerName} onChange={e => setCustomerName(e.target.value)} className="w-full bg-brand-cream/50 border-0 border-b-2 border-gray-200 focus:border-brand-orange focus:ring-0 px-0 py-3 text-lg placeholder-gray-300 transition-colors" placeholder="Jane Doe" />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Phone Number</label>
-                                <input type="tel" required value={phoneNumber} onChange={handlePhoneChange} className="w-full bg-brand-cream/50 border-0 border-b-2 border-gray-200 focus:border-brand-orange focus:ring-0 px-0 py-3 text-lg placeholder-gray-300 transition-colors" placeholder="(555) 123-4567" maxLength={14} />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Email Address</label>
-                                <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full bg-brand-cream/50 border-0 border-b-2 border-gray-200 focus:border-brand-orange focus:ring-0 px-0 py-3 text-lg placeholder-gray-300 transition-colors" placeholder="jane@example.com" />
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                            <div>
-                                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Preferred Pickup Date</label>
-                                <input 
-                                    type="date" 
-                                    required 
-                                    min={getLocalMinDate()}
-                                    value={pickupDate} 
-                                    onChange={e => { setPickupDate(e.target.value); setPickupTime(''); }} 
-                                    className={`w-full bg-brand-cream/50 border-0 border-b-2 border-gray-200 focus:border-brand-orange focus:ring-0 px-0 py-3 text-lg text-brand-brown appearance-none rounded-none ${dateStatus.isFull || dateStatus.isClosed ? 'border-amber-300 bg-amber-50' : ''}`} 
-                                    style={{ colorScheme: 'light' }}
-                                />
-                                {dateStatus.isFull && <p className="text-xs text-amber-700 mt-1 font-bold">⚠️ High Volume - Approval Required</p>}
-                                {dateStatus.isClosed && <p className="text-xs text-amber-700 mt-1 font-bold">⚠️ Limited Availability - We'll contact you to confirm</p>}
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Preferred Time</label>
-                                {scheduling?.enabled ? (
-                                    <div className="relative">
-                                        <select 
-                                            value={pickupTime} 
-                                            onChange={e => setPickupTime(e.target.value)} 
-                                            disabled={!pickupDate}
-                                            className="w-full bg-brand-cream/50 border-0 border-b-2 border-gray-200 focus:border-brand-orange focus:ring-0 px-0 py-3 text-lg text-brand-brown appearance-none disabled:opacity-50"
-                                        >
-                                            <option value="">Select a time...</option>
-                                            {availableTimeSlots.map(time => (
-                                                <option key={time} value={time}>{time}</option>
-                                            ))}
-                                        </select>
-                                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center text-gray-400">
-                                            <ClockIcon className="w-5 h-5" />
-                                        </div>
-                                        {pickupDate && !dateStatus.isClosed && availableTimeSlots.length === 0 && (
-                                            <p className="text-xs text-red-500 mt-2">No slots available for this date.</p>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <input type="time" value={pickupTime} onChange={e => setPickupTime(e.target.value)} className="w-full bg-brand-cream/50 border-0 border-b-2 border-gray-200 focus:border-brand-orange focus:ring-0 px-0 py-3 text-lg text-brand-brown" />
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="mb-8">
-                            <div className="flex items-center gap-3 mb-4">
-                                <input type="checkbox" id="delivery" checked={deliveryRequired} onChange={e => setDeliveryRequired(e.target.checked)} className="h-5 w-5 text-brand-orange rounded border-gray-300 focus:ring-brand-orange cursor-pointer" />
-                                <label htmlFor="delivery" className="text-brand-brown cursor-pointer select-none">I need delivery <span className="text-sm text-gray-500">(Fees apply based on location)</span></label>
-                            </div>
-                            {deliveryRequired && (
-                                <div className="pl-8">
-                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Delivery Address</label>
-                                    <input type="text" required={deliveryRequired} value={deliveryAddress} onChange={e => setDeliveryAddress(e.target.value)} className="w-full bg-brand-cream/50 border-0 border-b-2 border-gray-200 focus:border-brand-orange focus:ring-0 px-0 py-3 text-lg placeholder-gray-300" placeholder="123 Main St, Town, NY" />
-                                </div>
-                            )}
-                        </div>
-
+            <main className="max-w-3xl mx-auto p-4 space-y-6 pb-24">
+                
+                {/* 1. Contact Info */}
+                <section className="bg-white p-6 rounded-xl shadow-sm border border-brand-tan">
+                    <h2 className="text-lg font-bold text-brand-brown mb-4 flex items-center gap-2">
+                        <UserIcon className="w-5 h-5" /> Contact Information
+                    </h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Special Instructions / Notes</label>
-                            <textarea rows={3} value={specialInstructions} onChange={e => setSpecialInstructions(e.target.value)} className="w-full bg-brand-cream/50 border-0 border-b-2 border-gray-200 focus:border-brand-orange focus:ring-0 px-0 py-3 text-brand-brown resize-none" placeholder="Allergies, gate code, etc." />
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Your Name *</label>
+                            <input type="text" required value={customerName} onChange={e => setCustomerName(e.target.value)} className="w-full rounded-lg border-gray-300 focus:ring-brand-orange focus:border-brand-orange" />
                         </div>
-                    </section>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number *</label>
+                            <input type="tel" required value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} className="w-full rounded-lg border-gray-300 focus:ring-brand-orange focus:border-brand-orange" />
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Email (Optional)</label>
+                            <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full rounded-lg border-gray-300 focus:ring-brand-orange focus:border-brand-orange" />
+                        </div>
+                    </div>
+                </section>
 
-                    {/* BOTTOM INLINE RECEIPT - Replaces the button after submission */}
-                    {isSubmitted && lastOrder ? (
-                        <div className="mt-8 mb-32">
-                            <InlineReceiptCard order={lastOrder} />
+                {/* 2. Date & Time */}
+                <section className="bg-white p-6 rounded-xl shadow-sm border border-brand-tan">
+                    <h2 className="text-lg font-bold text-brand-brown mb-4 flex items-center gap-2">
+                        <CalendarIcon className="w-5 h-5" /> Pickup / Delivery Time
+                    </h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Date *</label>
+                            <input 
+                                type="date" 
+                                required 
+                                value={pickupDate} 
+                                onChange={e => { setPickupDate(e.target.value); setPickupTime(''); }} 
+                                min={new Date().toISOString().split('T')[0]}
+                                className="w-full rounded-lg border-gray-300 focus:ring-brand-orange focus:border-brand-orange" 
+                            />
                         </div>
-                    ) : (
-                        /* Footer with Submit Button - Standard Layout for both modes, but embedded gets relative positioning + padding */
-                        <div className={`${isEmbedded ? 'relative mt-8 border-t border-brand-tan/20 pt-6 pb-20' : 'fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-md border-t border-gray-200 p-4 sm:p-6 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-20'}`}>
-                            <div className={`max-w-5xl mx-auto flex flex-row justify-between items-center gap-4 ${isEmbedded ? '' : ''}`}>
-                                <div className="text-left">
-                                    <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Estimated Total</p>
-                                    <p className="text-3xl font-serif text-brand-brown font-bold">${estimatedTotal.toFixed(2)}*</p>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Time *</label>
+                            <select 
+                                required 
+                                value={pickupTime} 
+                                onChange={e => setPickupTime(e.target.value)} 
+                                disabled={!pickupDate}
+                                className="w-full rounded-lg border-gray-300 focus:ring-brand-orange focus:border-brand-orange disabled:bg-gray-100"
+                            >
+                                <option value="">Select Time</option>
+                                {timeSlots.map(slot => (
+                                    <option key={slot} value={slot}>{slot}</option>
+                                ))}
+                            </select>
+                            {pickupDate && timeSlots.length === 0 && (
+                                <p className="text-xs text-red-500 mt-1">No available slots for this date.</p>
+                            )}
+                        </div>
+                        
+                        <div className="md:col-span-2 border-t pt-4 mt-2">
+                            <label className="flex items-center gap-2 cursor-pointer mb-3">
+                                <input type="checkbox" checked={deliveryRequired} onChange={e => setDeliveryRequired(e.target.checked)} className="rounded text-brand-orange focus:ring-brand-orange" />
+                                <span className="font-medium text-gray-700">Request Delivery?</span>
+                            </label>
+                            
+                            {deliveryRequired && (
+                                <div className="relative">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Delivery Address *</label>
+                                    <input 
+                                        type="text" 
+                                        required={deliveryRequired} 
+                                        value={deliveryAddress} 
+                                        onChange={handleAddressChange}
+                                        placeholder="123 Main St, Town, NY"
+                                        className="w-full rounded-lg border-gray-300 focus:ring-brand-orange focus:border-brand-orange" 
+                                    />
+                                    {addressSuggestions.length > 0 && (
+                                        <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-b-lg shadow-lg max-h-40 overflow-y-auto">
+                                            {addressSuggestions.map((s, i) => (
+                                                <li key={i} onClick={() => { setDeliveryAddress(s); setAddressSuggestions([]); }} className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm">
+                                                    {s}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
                                 </div>
-                                <button 
-                                    type="submit" 
-                                    disabled={isSubmitting} 
-                                    className="bg-brand-orange text-white font-bold text-sm sm:text-base px-8 py-3 sm:py-4 rounded shadow-lg hover:bg-brand-orange/90 hover:shadow-xl transition-all disabled:bg-gray-400 disabled:cursor-not-allowed disabled:shadow-none uppercase tracking-widest"
-                                >
-                                    {isSubmitting ? 'Sending Request...' : 'Submit Order'}
-                                </button>
+                            )}
+                        </div>
+                    </div>
+                </section>
+
+                {/* 3. Menu Selection */}
+                <section className="bg-white p-6 rounded-xl shadow-sm border border-brand-tan">
+                    <h2 className="text-lg font-bold text-brand-brown mb-6 flex items-center gap-2">
+                        <ShoppingBagIcon className="w-5 h-5" /> Build Your Order
+                    </h2>
+                    
+                    {/* Category Tabs */}
+                    <div className="flex space-x-2 border-b border-gray-200 mb-6 overflow-x-auto pb-1">
+                        <button onClick={() => setActiveCategory('mini')} className={`px-4 py-2 text-sm font-bold whitespace-nowrap border-b-2 transition-colors ${activeCategory === 'mini' ? 'border-brand-orange text-brand-orange' : 'border-transparent text-gray-500 hover:text-brand-brown'}`}>
+                            Mini Empanadas
+                        </button>
+                        <button onClick={() => setActiveCategory('full')} className={`px-4 py-2 text-sm font-bold whitespace-nowrap border-b-2 transition-colors ${activeCategory === 'full' ? 'border-brand-orange text-brand-orange' : 'border-transparent text-gray-500 hover:text-brand-brown'}`}>
+                            Full-Size
+                        </button>
+                        <button onClick={() => setActiveCategory('packages')} className={`px-4 py-2 text-sm font-bold whitespace-nowrap border-b-2 transition-colors ${activeCategory === 'packages' ? 'border-brand-orange text-brand-orange' : 'border-transparent text-gray-500 hover:text-brand-brown'}`}>
+                            Packages & Deals
+                        </button>
+                    </div>
+
+                    <div className="space-y-4">
+                        {activeCategory === 'mini' && availableFlavors.map(flavor => (
+                            <div key={flavor.name} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                                <div className="flex-grow">
+                                    <p className="font-bold text-brand-brown">{flavor.name} {flavor.isSpecial && <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full ml-2">SPECIAL</span>}</p>
+                                    {flavor.description && <p className="text-xs text-gray-500">{flavor.description}</p>}
+                                    {flavor.surcharge ? <p className="text-xs text-orange-600 font-bold">+${flavor.surcharge.toFixed(2)}</p> : null}
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <button onClick={() => updateCart(flavor.name, -1)} className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-200"><MinusIcon className="w-4 h-4"/></button>
+                                    <span className="w-6 text-center font-bold">{cart[flavor.name] || 0}</span>
+                                    <button onClick={() => updateCart(flavor.name, 1)} className="w-8 h-8 bg-brand-orange text-white rounded-full flex items-center justify-center hover:bg-opacity-90"><PlusIcon className="w-4 h-4"/></button>
+                                </div>
+                            </div>
+                        ))}
+
+                        {activeCategory === 'full' && availableFullFlavors.map(flavor => (
+                            <div key={flavor.name} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                                <div className="flex-grow">
+                                    <p className="font-bold text-brand-brown">{flavor.name.replace('Full ', '')}</p>
+                                    {flavor.description && <p className="text-xs text-gray-500">{flavor.description}</p>}
+                                    {flavor.surcharge ? <p className="text-xs text-orange-600 font-bold">+${flavor.surcharge.toFixed(2)}</p> : null}
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <button onClick={() => updateCart(flavor.name, -1)} className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-200"><MinusIcon className="w-4 h-4"/></button>
+                                    <span className="w-6 text-center font-bold">{cart[flavor.name] || 0}</span>
+                                    <button onClick={() => updateCart(flavor.name, 1)} className="w-8 h-8 bg-brand-orange text-white rounded-full flex items-center justify-center hover:bg-opacity-90"><PlusIcon className="w-4 h-4"/></button>
+                                </div>
+                            </div>
+                        ))}
+
+                        {activeCategory === 'packages' && (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {availablePackages.map(pkg => (
+                                    <div key={pkg.id} className="border border-brand-tan rounded-lg p-4 hover:shadow-md transition-shadow bg-brand-cream/20 cursor-pointer" onClick={() => setActivePackageBuilder(pkg)}>
+                                        <div className="flex justify-between items-start mb-2">
+                                            <h3 className="font-bold text-brand-brown">{pkg.name}</h3>
+                                            <span className="bg-white border border-brand-tan px-2 py-1 rounded text-sm font-bold text-brand-orange">${pkg.price}</span>
+                                        </div>
+                                        <p className="text-xs text-gray-600 mb-3">{pkg.description || `${pkg.quantity} items of your choice.`}</p>
+                                        <button className="w-full py-2 bg-brand-orange text-white text-sm font-bold rounded-lg hover:bg-opacity-90">Customize</button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                    
+                    {availableSalsas.length > 0 && (
+                        <div className="mt-8 pt-6 border-t border-dashed border-gray-300">
+                            <h3 className="font-bold text-brand-brown mb-4">Extras & Salsas</h3>
+                            <div className="space-y-3">
+                                {availableSalsas.map(salsa => (
+                                    <div key={salsa.id} className="flex items-center justify-between">
+                                        <div>
+                                            <p className="font-medium text-gray-800">{salsa.name}</p>
+                                            <p className="text-xs text-brand-orange font-bold">${salsa.price.toFixed(2)}</p>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <button onClick={() => updateCart(salsa.name, -1)} className="w-7 h-7 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-200"><MinusIcon className="w-3 h-3"/></button>
+                                            <span className="w-6 text-center text-sm font-bold">{cart[salsa.name] || 0}</span>
+                                            <button onClick={() => updateCart(salsa.name, 1)} className="w-7 h-7 bg-brand-orange text-white rounded-full flex items-center justify-center hover:bg-opacity-90"><PlusIcon className="w-3 h-3"/></button>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     )}
-                </form>
+                </section>
 
-                {activePackageBuilder && (
-                    <PackageBuilderModal 
-                        pkg={activePackageBuilder} 
-                        standardFlavors={empanadaFlavors.filter(f => !f.isSpecial)}
-                        specialFlavors={empanadaFlavors.filter(f => f.isSpecial)}
-                        salsas={salsaFlavors}
-                        onClose={() => setActivePackageBuilder(null)} 
-                        onConfirm={handlePackageConfirm}
+                {/* 4. Special Instructions */}
+                <section className="bg-white p-6 rounded-xl shadow-sm border border-brand-tan">
+                    <label className="block text-sm font-bold text-brand-brown mb-2">Special Instructions / Allergies</label>
+                    <textarea 
+                        rows={3} 
+                        value={specialInstructions}
+                        onChange={e => setSpecialInstructions(e.target.value)}
+                        className="w-full rounded-lg border-gray-300 focus:ring-brand-orange focus:border-brand-orange text-sm"
+                        placeholder="Let us know if you have any special requests..."
                     />
+                </section>
+
+                {/* Error Message */}
+                {error && (
+                    <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg flex items-start gap-3">
+                        <ExclamationCircleIcon className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                        <p className="text-sm">{error}</p>
+                    </div>
                 )}
+
+                {/* Submit Button */}
+                <button
+                    onClick={handleSubmit}
+                    disabled={isSubmitting}
+                    className="w-full bg-brand-orange text-white font-bold text-lg py-4 rounded-xl shadow-lg hover:bg-opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex justify-center items-center gap-3"
+                >
+                    {isSubmitting ? (
+                        <span>Processing...</span>
+                    ) : (
+                        <>
+                            <span>Submit Order</span>
+                            <span className="bg-white/20 px-2 py-0.5 rounded text-sm">${estimatedTotal.toFixed(2)}</span>
+                        </>
+                    )}
+                </button>
+
             </main>
-            
-            <style>{`
-                @keyframes marquee {
-                    0% { transform: translateX(0); }
-                    100% { transform: translateX(-100%); }
-                }
-                .animate-marquee {
-                    animation: marquee 60s linear infinite;
-                }
-            `}</style>
+
+            {/* Modals */}
+            {activePackageBuilder && (
+                <PackageBuilderModal 
+                    pkg={activePackageBuilder}
+                    standardFlavors={empanadaFlavors.filter(f => !f.isSpecial)}
+                    specialFlavors={empanadaFlavors.filter(f => f.isSpecial)}
+                    salsas={[]} // Salsas usually added separately in main cart
+                    onClose={() => setActivePackageBuilder(null)}
+                    onConfirm={handlePackageConfirm}
+                />
+            )}
         </div>
     );
 }
