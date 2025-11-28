@@ -174,9 +174,9 @@ export default function CustomerOrderPage({
         const dateStr = normalizeDateStr(pickupDate);
         const override = scheduling.dateOverrides?.[dateStr];
         
-        if (override?.isClosed) return [];
-        if (override?.isFull) return [];
-
+        // Generate slots even if closed/full to populate dropdown (warning shown separately)
+        // If it's a closed day, customHours might be undefined, so we fallback to global. 
+        // This ensures times are "available" even on closed days as requested.
         const start = override?.customHours?.start || scheduling.startTime;
         const end = override?.customHours?.end || scheduling.endTime;
         
@@ -188,6 +188,23 @@ export default function CustomerOrderPage({
             
         return allSlots.filter(t => !busyForDate.includes(t));
     }, [pickupDate, scheduling, busySlots]);
+    
+    // Check if date is restricted for UI warning
+    const isDateRestricted = useMemo(() => {
+        if (!pickupDate || !scheduling?.enabled) return false;
+        
+        // Check overrides
+        const dateStr = normalizeDateStr(pickupDate);
+        const override = scheduling.dateOverrides?.[dateStr];
+        if (override?.isClosed || override?.isFull) return true;
+
+        // Check regular closed days (e.g., Sundays)
+        const dateObj = new Date(dateStr + 'T00:00:00');
+        const dayIndex = dateObj.getDay();
+        if (scheduling.closedDays?.includes(dayIndex) && !override) return true;
+
+        return false;
+    }, [pickupDate, scheduling]);
 
     // Totals Calculation
     const { finalItems, totalMini, totalFull, estimatedTotal } = useMemo(() => {
@@ -282,11 +299,15 @@ export default function CustomerOrderPage({
         setCartPackages(prev => [...prev, newPackage]);
         setActivePackageBuilder(null);
         
-        // Scroll back to order section
-        const section = document.getElementById('order-section');
-        if (section) {
-            section.scrollIntoView({ behavior: 'smooth' });
-        }
+        // Smoothly scroll to the "Your Selection" area so user sees the added item and form on mobile
+        // Increased timeout slightly to ensure layout stability
+        setTimeout(() => {
+            const section = document.getElementById('your-selection');
+            if (section) {
+                // Scroll to 'start' to ensure the summary is at the top, making the form below visible
+                section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }, 500);
     };
 
     const removePackageFromCart = (internalId: string) => {
@@ -323,7 +344,7 @@ export default function CustomerOrderPage({
     const scrollToSelection = () => {
         const section = document.getElementById('your-selection');
         if (section) {
-            section.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            section.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
     };
 
@@ -394,6 +415,8 @@ export default function CustomerOrderPage({
             setLastOrder(newOrder);
             setIsSubmitted(true);
             setIsReviewing(false);
+            
+            // FIX: Scroll to top to allow user to see success message and navigate
             window.scrollTo({ top: 0, behavior: 'smooth' });
 
         } catch (err: any) {
@@ -414,7 +437,7 @@ export default function CustomerOrderPage({
 
     if (isSubmitted && lastOrder) {
         return (
-            <div className="min-h-screen bg-brand-cream flex items-center justify-center p-4">
+            <div className="min-h-screen bg-brand-cream flex items-center justify-center p-4 pb-20">
                 <div className="bg-white max-w-lg w-full rounded-xl shadow-2xl p-8 text-center border border-brand-tan">
                     <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
                         <CheckCircleIcon className="w-10 h-10 text-green-700" />
@@ -465,7 +488,7 @@ export default function CustomerOrderPage({
 
     if (isReviewing) {
         return (
-            <div className="min-h-screen bg-brand-cream font-sans flex items-center justify-center p-4">
+            <div className="min-h-screen bg-brand-cream font-sans flex items-center justify-center p-4 pb-24">
                 <div className="max-w-2xl w-full bg-white rounded-xl shadow-xl border border-brand-tan overflow-hidden">
                     <header className="bg-brand-brown text-white p-6 text-center">
                         <h2 className="text-3xl font-serif">Review Your Order</h2>
@@ -621,14 +644,14 @@ export default function CustomerOrderPage({
                 </div>
             )}
 
-            <main className="max-w-4xl mx-auto p-4 sm:p-6 space-y-10 pb-32">
+            <main className="max-w-4xl mx-auto p-4 sm:p-6 space-y-10 pb-96">
                 
                 {/* 1. Menu & Flavors (Visual) */}
                 <section className="space-y-6">
                     <div className="text-center space-y-2">
                         <h2 className="text-3xl font-serif text-brand-brown">Our Menu</h2>
                         <div className="h-1 w-20 bg-brand-orange mx-auto rounded-full"></div>
-                        <p className="text-gray-500 font-light max-w-lg mx-auto">Explore our delicious variety of handmade empanadas. Choose a package below to start your order.</p>
+                        <p className="text-gray-500 font-light max-w-lg mx-auto">Explore our delicious variety of handmade empanadas.</p>
                     </div>
                     
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -674,7 +697,10 @@ export default function CustomerOrderPage({
                             <div className="bg-brand-brown text-white p-2 rounded-lg">
                                 <ShoppingBagIcon className="w-6 h-6" />
                             </div>
-                            <h2 className="text-2xl font-serif text-brand-brown">Order Here</h2>
+                            <div>
+                                <h2 className="text-2xl font-serif text-brand-brown">Order Here</h2>
+                                <p className="text-xs text-gray-500 mt-1 font-medium">Choose a package below to start your order.</p>
+                            </div>
                         </div>
                         
                         {activePackageBuilder ? (
@@ -913,8 +939,11 @@ export default function CustomerOrderPage({
                                         <option key={slot} value={slot}>{slot}</option>
                                     ))}
                                 </select>
-                                {pickupDate && timeSlots.length === 0 && (
-                                    <p className="text-[10px] text-red-500 mt-0.5 font-medium bg-red-50 p-1 rounded">Limited availability! We will contact you for availability.</p>
+                                {/* WARNING MESSAGE FOR RESTRICTED DATES */}
+                                {pickupDate && isDateRestricted && (
+                                    <p className="text-[10px] text-red-500 mt-0.5 font-medium bg-red-50 p-1 rounded border border-red-100">
+                                        Limited availability! We will contact you for availability.
+                                    </p>
                                 )}
                             </div>
                             
