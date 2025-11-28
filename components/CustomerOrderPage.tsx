@@ -1,4 +1,8 @@
 
+<change>
+    <file>components/CustomerOrderPage.tsx</file>
+    <description>Make cart icon click scroll to "Your Selection" section instead of triggering review.</description>
+    <content><![CDATA[
 import React, { useState, useMemo, useEffect } from 'react';
 import { Order, Flavor, PricingSettings, AppSettings, ContactMethod, PaymentStatus, FollowUpStatus, ApprovalStatus, OrderItem, MenuPackage } from '../types';
 import { saveOrderToDb } from '../services/dbService';
@@ -319,6 +323,14 @@ export default function CustomerOrderPage({
         }, 50);
     };
 
+    // Scroll to the "Your Selection" section
+    const scrollToSelection = () => {
+        const section = document.getElementById('your-selection');
+        if (section) {
+            section.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    };
+
     // Step 1: Review - Navigational
     const handleReview = (e?: React.SyntheticEvent) => {
         if (e) e.preventDefault();
@@ -591,8 +603,8 @@ export default function CustomerOrderPage({
                     {(cartPackages.length > 0 || Object.keys(cartSalsas).length > 0) && (
                         <div 
                             className="flex items-center gap-3 animate-fade-in cursor-pointer group" 
-                            onClick={(e) => handleReview(e)}
-                            title="Review Order"
+                            onClick={scrollToSelection}
+                            title="View Your Selection"
                         >
                             <div className="text-right hidden sm:block">
                                 <span className="block text-xs text-gray-500 uppercase tracking-wider group-hover:text-brand-orange transition-colors">Estimated Total</span>
@@ -761,7 +773,7 @@ export default function CustomerOrderPage({
 
                 {/* 3.5. Order Summary (Refactored) */}
                 {!activePackageBuilder && (cartPackages.length > 0 || Object.keys(cartSalsas).length > 0) && (
-                    <section className="bg-white rounded-xl shadow-2xl border-4 border-brand-orange/30 relative overflow-hidden animate-fade-in ring-4 ring-brand-orange/10 transform transition-all duration-300">
+                    <section id="your-selection" className="bg-white rounded-xl shadow-2xl border-4 border-brand-orange/30 relative overflow-hidden animate-fade-in ring-4 ring-brand-orange/10 transform transition-all duration-300">
                         {/* Distinct Header - TIGHTER (p-3) */}
                         <div className="bg-brand-orange/10 p-3 border-b border-brand-orange/20 flex items-center gap-3 relative z-10">
                             <div className="bg-brand-orange text-white p-2 rounded-full shadow-lg"> {/* Smaller padding on icon */}
@@ -967,3 +979,5 @@ export default function CustomerOrderPage({
         </div>
     );
 }
+]]></content>
+</change>
