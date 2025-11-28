@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Order, Flavor, PricingSettings, AppSettings, ContactMethod, PaymentStatus, FollowUpStatus, ApprovalStatus, OrderItem, MenuPackage } from '../types';
 import { saveOrderToDb } from '../services/dbService';
@@ -679,6 +678,50 @@ export default function CustomerOrderPage({
                                     </div>
                                 </div>
                             ))}
+                        </div>
+                    </section>
+                )}
+
+                {/* 3.5. Order Summary (New) */}
+                {!activePackageBuilder && finalItems.length > 0 && (
+                    <section className="bg-white p-6 md:p-8 rounded-xl shadow-sm border border-brand-tan">
+                        <div className="flex items-center gap-3 mb-6">
+                            <div className="bg-brand-brown/10 text-brand-brown p-2 rounded-lg">
+                                <ListBulletIcon className="w-6 h-6" />
+                            </div>
+                            <h2 className="text-2xl font-serif text-brand-brown">Your Selection</h2>
+                        </div>
+                        
+                        <div className="divide-y divide-gray-100 mb-4">
+                            {finalItems.map((item, idx) => (
+                                <div key={idx} className="flex items-center justify-between py-3 first:pt-0">
+                                    <span className="font-medium text-brand-brown text-lg">{item.name}</span>
+                                    <div className="flex items-center gap-4">
+                                        <div className="flex items-center gap-3 bg-gray-50 p-1 rounded-lg border border-gray-200">
+                                            <button 
+                                                onClick={() => updateCart(item.name, -1)} 
+                                                className="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-red-500 hover:bg-white rounded shadow-sm transition-all"
+                                                type="button"
+                                            >
+                                                <MinusIcon className="w-3 h-3"/>
+                                            </button>
+                                            <span className="font-bold text-brand-brown w-6 text-center">{item.quantity}</span>
+                                            <button 
+                                                onClick={() => updateCart(item.name, 1)} 
+                                                className="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-green-600 hover:bg-white rounded shadow-sm transition-all"
+                                                type="button"
+                                            >
+                                                <PlusIcon className="w-3 h-3"/>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        
+                        <div className="flex justify-between items-center pt-4 border-t border-brand-tan/30">
+                            <span className="text-gray-500 font-medium uppercase tracking-wider text-sm">Current Total</span>
+                            <span className="text-2xl font-serif font-bold text-brand-orange">{formatPrice(estimatedTotal)}</span>
                         </div>
                     </section>
                 )}
