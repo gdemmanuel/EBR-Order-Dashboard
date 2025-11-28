@@ -1,7 +1,7 @@
 
 <change>
     <file>components/CustomerOrderPage.tsx</file>
-    <description>Overwrite file with clean TypeScript code to fix build error caused by XML tags in source, while keeping UI tight and logic correct.</description>
+    <description>Overwrite file with valid TypeScript code to remove syntax errors, tighten UI spacing, and ensure correct cart scrolling and special instructions logic.</description>
     <content><![CDATA[
 import React, { useState, useMemo, useEffect } from 'react';
 import { Order, Flavor, PricingSettings, AppSettings, ContactMethod, PaymentStatus, FollowUpStatus, ApprovalStatus, OrderItem, MenuPackage } from '../types';
