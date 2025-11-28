@@ -8,7 +8,7 @@ import { getAddressSuggestions } from '../services/geminiService';
 import { 
     ShoppingBagIcon, CalendarIcon, UserIcon, CheckCircleIcon, 
     ExclamationCircleIcon, PlusIcon, MinusIcon, ChevronDownIcon,
-    SparklesIcon, ListBulletIcon
+    SparklesIcon, ListBulletIcon, PencilIcon
 } from './icons/Icons';
 import PackageBuilderModal from './PackageBuilderModal';
 
@@ -59,7 +59,7 @@ const PackageCard = ({ pkg, onClick }: { pkg: MenuPackage; onClick: () => void }
             </p>
         </div>
         
-        <button className="w-full py-3 bg-brand-brown text-brand-cream text-sm font-bold uppercase tracking-widest rounded hover:bg-brand-orange transition-colors mt-auto flex items-center justify-center gap-2 shadow-sm group-hover:shadow-md">
+        <button type="button" className="w-full py-3 bg-brand-brown text-brand-cream text-sm font-bold uppercase tracking-widest rounded hover:bg-brand-orange transition-colors mt-auto flex items-center justify-center gap-2 shadow-sm group-hover:shadow-md">
             <span>Customize</span>
             <PlusIcon className="w-4 h-4" /> 
         </button>
@@ -115,6 +115,7 @@ export default function CustomerOrderPage({
     // Cart: Key is item name
     const [cart, setCart] = useState<Record<string, number>>({});
     
+    const [isReviewing, setIsReviewing] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [lastOrder, setLastOrder] = useState<Order | null>(null);
@@ -241,16 +242,52 @@ export default function CustomerOrderPage({
         }
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    // Step 1: Review
+    const handleReview = async (e: React.FormEvent) => {
         e.preventDefault();
+        setError(null);
+
+        if (finalItems.length === 0) {
+            setError("Please add items to your order.");
+            window.scrollTo(0,0);
+            return;
+        }
+        if (!pickupDate) {
+            setError("Please select a pickup date.");
+            window.scrollTo(0,0);
+            return;
+        }
+        if (!pickupTime) {
+            setError("Please select a pickup time.");
+            window.scrollTo(0,0);
+            return;
+        }
+        if (!customerName.trim()) {
+            setError("Please enter your name.");
+            window.scrollTo(0,0);
+            return;
+        }
+        if (!phoneNumber.trim()) {
+            setError("Please enter your phone number.");
+            window.scrollTo(0,0);
+            return;
+        }
+        if (deliveryRequired && !deliveryAddress.trim()) {
+            setError("Please enter a delivery address.");
+            window.scrollTo(0,0);
+            return;
+        }
+
+        setIsReviewing(true);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    // Step 2: Final Submit
+    const handleFinalSubmit = async () => {
         setError(null);
         setIsSubmitting(true);
 
         try {
-            if (finalItems.length === 0) throw new Error("Please add items to your order.");
-            if (!pickupDate) throw new Error("Please select a pickup date.");
-            if (!pickupTime) throw new Error("Please select a pickup time.");
-            
             const formattedTime = pickupTime; 
             const formattedDate = normalizeDateStr(pickupDate);
 
@@ -279,6 +316,7 @@ export default function CustomerOrderPage({
             await saveOrderToDb(newOrder);
             setLastOrder(newOrder);
             setIsSubmitted(true);
+            setIsReviewing(false);
             window.scrollTo({ top: 0, behavior: 'smooth' });
 
         } catch (err: any) {
@@ -288,6 +326,11 @@ export default function CustomerOrderPage({
         } finally {
             setIsSubmitting(false);
         }
+    };
+
+    const handleEditOrder = () => {
+        setIsReviewing(false);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     // --- Render ---
@@ -313,6 +356,20 @@ export default function CustomerOrderPage({
                             <span className="text-sm text-gray-500 uppercase tracking-wide">Pickup</span>
                             <span className="font-medium text-brand-brown">{lastOrder.pickupDate} @ {lastOrder.pickupTime}</span>
                         </div>
+                        
+                        {/* Final Receipt Summary */}
+                        <div className="border-t border-brand-tan/30 my-4 pt-4">
+                            <span className="text-xs text-gray-500 uppercase tracking-wide mb-2 block font-bold">Order Summary</span>
+                            <ul className="space-y-1 text-sm text-brand-brown">
+                                {lastOrder.items.map((item, idx) => (
+                                    <li key={idx} className="flex justify-between">
+                                        <span>{item.name}</span>
+                                        <span className="font-medium">x {item.quantity}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+
                         <div className="border-t border-brand-tan/30 my-2 pt-2 flex justify-between items-center">
                             <span className="text-sm text-gray-500 uppercase tracking-wide">Total Est.</span>
                             <span className="text-xl font-serif font-bold text-brand-orange">${lastOrder.amountCharged.toFixed(2)}</span>
@@ -324,6 +381,101 @@ export default function CustomerOrderPage({
                     >
                         Place Another Order
                     </button>
+                </div>
+            </div>
+        );
+    }
+
+    if (isReviewing) {
+        return (
+            <div className="min-h-screen bg-brand-cream font-sans flex items-center justify-center p-4">
+                <div className="max-w-2xl w-full bg-white rounded-xl shadow-xl border border-brand-tan overflow-hidden">
+                    <header className="bg-brand-brown text-white p-6 text-center">
+                        <h2 className="text-3xl font-serif">Review Your Order</h2>
+                        <p className="text-brand-tan/80 text-sm mt-1">Please confirm details before submitting</p>
+                    </header>
+                    
+                    <div className="p-6 space-y-6">
+                        {/* Customer Info */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-b border-brand-tan/50 pb-6">
+                            <div>
+                                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Customer</h3>
+                                <p className="font-medium text-brand-brown text-lg">{customerName}</p>
+                                <p className="text-gray-600">{phoneNumber}</p>
+                                {email && <p className="text-gray-600 text-sm">{email}</p>}
+                            </div>
+                            <div>
+                                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Pickup / Delivery</h3>
+                                <p className="font-medium text-brand-brown text-lg">{new Date(normalizeDateStr(pickupDate) + 'T00:00:00').toLocaleDateString()} @ {pickupTime}</p>
+                                {deliveryRequired ? (
+                                    <div className="mt-1">
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                            Delivery Requested
+                                        </span>
+                                        <p className="text-sm text-gray-600 mt-1">{deliveryAddress}</p>
+                                    </div>
+                                ) : (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 mt-1">
+                                        Pickup
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Order Items */}
+                        <div>
+                            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3">Order Items</h3>
+                            <div className="bg-brand-cream rounded-lg p-4 border border-brand-tan/50">
+                                <ul className="space-y-3">
+                                    {finalItems.map((item, idx) => (
+                                        <li key={idx} className="flex justify-between items-center text-sm">
+                                            <span className="font-medium text-brand-brown">{item.name}</span>
+                                            <div className="flex items-center gap-4">
+                                                <span className="text-gray-500">Qty: {item.quantity}</span>
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        </div>
+
+                        {/* Special Instructions */}
+                        {specialInstructions && (
+                            <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-100">
+                                <h3 className="text-xs font-bold text-yellow-800 uppercase tracking-wider mb-1">Special Instructions</h3>
+                                <p className="text-sm text-yellow-900 italic">"{specialInstructions}"</p>
+                            </div>
+                        )}
+
+                        {/* Total */}
+                        <div className="flex justify-between items-center pt-4 border-t border-brand-tan">
+                            <span className="text-lg font-bold text-brand-brown">Estimated Total</span>
+                            <span className="text-2xl font-serif font-bold text-brand-orange">{formatPrice(estimatedTotal)}</span>
+                        </div>
+                        
+                        {/* Action Buttons */}
+                        <div className="flex gap-4 pt-4">
+                            <button 
+                                onClick={handleEditOrder}
+                                className="flex-1 py-3 border-2 border-brand-brown text-brand-brown font-bold rounded-lg hover:bg-brand-brown hover:text-white transition-colors flex items-center justify-center gap-2"
+                            >
+                                <PencilIcon className="w-4 h-4" /> Edit Order
+                            </button>
+                            <button 
+                                onClick={handleFinalSubmit}
+                                disabled={isSubmitting}
+                                className="flex-1 py-3 bg-brand-orange text-white font-bold rounded-lg shadow-md hover:bg-opacity-90 disabled:bg-gray-400 transition-colors flex items-center justify-center gap-2"
+                            >
+                                {isSubmitting ? (
+                                    'Submitting...'
+                                ) : (
+                                    <>
+                                        <CheckCircleIcon className="w-5 h-5" /> Confirm & Submit
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         );
@@ -606,18 +758,11 @@ export default function CustomerOrderPage({
                     )}
 
                     <button
-                        onClick={handleSubmit}
-                        disabled={isSubmitting}
+                        onClick={handleReview}
                         className="w-full bg-brand-orange text-white font-bold text-lg py-4 rounded-xl shadow-lg hover:bg-opacity-90 disabled:opacity-70 disabled:cursor-not-allowed transition-all transform active:scale-[0.99] flex justify-center items-center gap-3 uppercase tracking-widest"
                     >
-                        {isSubmitting ? (
-                            <span>Processing...</span>
-                        ) : (
-                            <>
-                                <span>Submit Order</span>
-                                <span className="bg-white/20 px-3 py-1 rounded text-base font-serif">${estimatedTotal.toFixed(2)}</span>
-                            </>
-                        )}
+                        <span>Review Order</span>
+                        <span className="bg-white/20 px-3 py-1 rounded text-base font-serif">${estimatedTotal.toFixed(2)}</span>
                     </button>
                 </section>
 
