@@ -24,6 +24,22 @@ interface CustomerOrderPageProps {
 // Helper for formatting currency
 const formatPrice = (price: number) => `$${price.toFixed(2)}`;
 
+// Component for rendering a package card
+const PackageCard = ({ pkg, onClick }: { pkg: MenuPackage; onClick: () => void }) => (
+    <div className="border border-brand-tan rounded-xl p-5 hover:shadow-lg transition-all bg-white hover:border-brand-orange/30 cursor-pointer flex flex-col justify-between h-full transform hover:-translate-y-1 duration-200" onClick={onClick}>
+        <div>
+            <div className="flex justify-between items-start mb-2">
+                <h3 className="font-bold text-brand-brown text-lg leading-tight">{pkg.name}</h3>
+                <span className="bg-brand-orange/10 border border-brand-orange/20 px-2 py-1 rounded text-sm font-bold text-brand-orange whitespace-nowrap">${pkg.price}</span>
+            </div>
+            <p className="text-sm text-gray-600 mb-4 leading-relaxed">{pkg.description || `${pkg.quantity} items of your choice.`}</p>
+        </div>
+        <button className="w-full py-2.5 bg-brand-brown text-white text-sm font-bold rounded-lg hover:bg-brand-orange transition-colors mt-auto flex items-center justify-center gap-2">
+            <PlusIcon className="w-4 h-4" /> Add to Order
+        </button>
+    </div>
+);
+
 export default function CustomerOrderPage({
     empanadaFlavors,
     fullSizeEmpanadaFlavors,
@@ -71,6 +87,11 @@ export default function CustomerOrderPage({
     const availablePackages = useMemo(() => {
         return (pricing?.packages || []).filter(p => p.visible);
     }, [pricing]);
+
+    // Categorize Packages
+    const miniPackages = useMemo(() => availablePackages.filter(p => p.itemType === 'mini' && !p.isSpecial), [availablePackages]);
+    const fullPackages = useMemo(() => availablePackages.filter(p => p.itemType === 'full' && !p.isSpecial), [availablePackages]);
+    const specialPackages = useMemo(() => availablePackages.filter(p => p.isSpecial), [availablePackages]);
 
     const availableSalsas = useMemo(() => {
         return (pricing?.salsas || []).filter(s => s.visible);
@@ -268,14 +289,14 @@ export default function CustomerOrderPage({
                         <ListBulletIcon className="w-5 h-5" /> Our Flavors
                     </h2>
                     
-                    {/* Regular Flavors */}
+                    {/* Regular Flavors Grid */}
                     <div className="mb-6">
-                        <h3 className="font-serif text-lg text-brand-brown mb-3 border-b border-brand-tan pb-1">Classic Flavors</h3>
-                        <div className="grid grid-cols-1 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                             {regularFlavors.map(flavor => (
-                                <div key={flavor.name} className="flex flex-col">
-                                    <span className="font-bold text-brand-brown text-base">{flavor.name}</span>
-                                    {flavor.description && <span className="text-sm text-gray-500">{flavor.description}</span>}
+                                <div key={flavor.name} className="flex flex-col p-3 bg-white border border-brand-tan/60 rounded-lg shadow-sm hover:shadow-md transition-shadow">
+                                    <span className="font-serif font-bold text-brand-brown text-base">{flavor.name}</span>
+                                    {flavor.description && <span className="text-xs text-gray-500 mt-1 leading-snug">{flavor.description}</span>}
+                                    {flavor.surcharge ? <span className="text-[10px] text-orange-600 font-bold mt-2 self-start bg-orange-50 px-1.5 py-0.5 rounded">+{formatPrice(flavor.surcharge)}</span> : null}
                                 </div>
                             ))}
                         </div>
@@ -295,12 +316,15 @@ export default function CustomerOrderPage({
                             </button>
                             
                             {showSpecialtyMenu && (
-                                <div className="mt-3 grid grid-cols-1 gap-3 px-2 animate-fade-in">
+                                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 px-1 animate-fade-in">
                                     {specialFlavors.map(flavor => (
-                                        <div key={flavor.name} className="flex flex-col border-b border-gray-50 pb-2 last:border-0">
-                                            <span className="font-bold text-brand-brown text-base">{flavor.name}</span>
-                                            {flavor.description && <span className="text-sm text-gray-500">{flavor.description}</span>}
-                                            {flavor.surcharge ? <span className="text-xs text-orange-600 font-medium">Extra charge may apply</span> : null}
+                                        <div key={flavor.name} className="flex flex-col p-3 bg-white border border-purple-100 rounded-lg shadow-sm">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className="font-bold text-brand-brown text-base">{flavor.name}</span>
+                                                <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-bold uppercase tracking-wide">Special</span>
+                                            </div>
+                                            {flavor.description && <span className="text-xs text-gray-500 leading-snug">{flavor.description}</span>}
+                                            {flavor.surcharge ? <span className="text-[10px] text-orange-600 font-bold mt-1">Extra charge may apply</span> : null}
                                         </div>
                                     ))}
                                 </div>
@@ -309,26 +333,50 @@ export default function CustomerOrderPage({
                     )}
                 </section>
 
-                {/* 2. Packages (Ordering Mechanism) */}
+                {/* 2. Packages (Ordering Mechanism - Split into Sections) */}
                 {availablePackages.length > 0 && (
                     <section className="bg-white p-6 rounded-xl shadow-sm border border-brand-tan">
                         <h2 className="text-lg font-bold text-brand-brown mb-6 flex items-center gap-2">
                             <ShoppingBagIcon className="w-5 h-5" /> Select a Package
                         </h2>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            {availablePackages.map(pkg => (
-                                <div key={pkg.id} className="border border-brand-tan rounded-lg p-4 hover:shadow-md transition-shadow bg-brand-cream/20 cursor-pointer flex flex-col justify-between" onClick={() => setActivePackageBuilder(pkg)}>
-                                    <div>
-                                        <div className="flex justify-between items-start mb-2">
-                                            <h3 className="font-bold text-brand-brown">{pkg.name}</h3>
-                                            <span className="bg-white border border-brand-tan px-2 py-1 rounded text-sm font-bold text-brand-orange">${pkg.price}</span>
-                                        </div>
-                                        <p className="text-xs text-gray-600 mb-3">{pkg.description || `${pkg.quantity} items of your choice.`}</p>
-                                    </div>
-                                    <button className="w-full py-2 bg-brand-orange text-white text-sm font-bold rounded-lg hover:bg-opacity-90 transition-colors mt-2">Customize Order</button>
+                        
+                        {/* Mini Packages */}
+                        {miniPackages.length > 0 && (
+                            <div className="mb-8">
+                                <h3 className="font-serif text-lg text-brand-brown mb-3 pb-1 border-b border-brand-tan">Mini Empanada Packages</h3>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    {miniPackages.map(pkg => (
+                                        <PackageCard key={pkg.id} pkg={pkg} onClick={() => setActivePackageBuilder(pkg)} />
+                                    ))}
                                 </div>
-                            ))}
-                        </div>
+                            </div>
+                        )}
+
+                        {/* Full Size Packages */}
+                        {fullPackages.length > 0 && (
+                            <div className="mb-8">
+                                <h3 className="font-serif text-lg text-brand-brown mb-3 pb-1 border-b border-brand-tan">Full-Size Empanada Packages</h3>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    {fullPackages.map(pkg => (
+                                        <PackageCard key={pkg.id} pkg={pkg} onClick={() => setActivePackageBuilder(pkg)} />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Specialty Packages */}
+                        {specialPackages.length > 0 && (
+                            <div className="mb-2">
+                                <h3 className="font-serif text-lg text-purple-900 mb-3 pb-1 border-b border-purple-100 flex items-center gap-2">
+                                    <SparklesIcon className="w-4 h-4" /> Specialty Packages
+                                </h3>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    {specialPackages.map(pkg => (
+                                        <PackageCard key={pkg.id} pkg={pkg} onClick={() => setActivePackageBuilder(pkg)} />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </section>
                 )}
 
@@ -338,14 +386,15 @@ export default function CustomerOrderPage({
                         <h2 className="text-lg font-bold text-brand-brown mb-6 flex items-center gap-2">
                             <PlusIcon className="w-5 h-5" /> Extras & Salsas
                         </h2>
-                        <div className="space-y-3">
+                        <div className="space-y-4">
                             {availableSalsas.map(salsa => (
-                                <div key={salsa.id} className="flex items-center justify-between">
-                                    <div>
+                                <div key={salsa.id} className="flex items-start justify-between py-2 border-b border-gray-50 last:border-0">
+                                    <div className="pr-4">
                                         <p className="font-medium text-gray-800">{salsa.name}</p>
+                                        {salsa.description && <p className="text-xs text-gray-500 mb-1">{salsa.description}</p>}
                                         <p className="text-xs text-brand-orange font-bold">${salsa.price.toFixed(2)}</p>
                                     </div>
-                                    <div className="flex items-center gap-3">
+                                    <div className="flex items-center gap-3 self-center">
                                         <button onClick={() => updateCart(salsa.name, -1)} className="w-7 h-7 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-200 transition-colors"><MinusIcon className="w-3 h-3"/></button>
                                         <span className="w-6 text-center text-sm font-bold">{cart[salsa.name] || 0}</span>
                                         <button onClick={() => updateCart(salsa.name, 1)} className="w-7 h-7 bg-brand-orange text-white rounded-full flex items-center justify-center hover:bg-opacity-90 transition-colors"><PlusIcon className="w-3 h-3"/></button>

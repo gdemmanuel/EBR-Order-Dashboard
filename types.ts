@@ -95,6 +95,7 @@ export interface SalsaProduct {
     id: string;
     name: string;
     price: number;
+    description?: string; // Optional description
     visible: boolean;
 }
 
