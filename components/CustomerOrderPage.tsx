@@ -263,6 +263,13 @@ export default function CustomerOrderPage({
         e.preventDefault();
         setError(null);
 
+        if (activePackageBuilder) {
+            alert("Please finish customizing your package first.");
+            const section = document.getElementById('order-section');
+            if (section) section.scrollIntoView({ behavior: 'smooth' });
+            return;
+        }
+
         if (finalItems.length === 0) {
             setError("Please add items to your order.");
             window.scrollTo(0,0);
@@ -509,12 +516,16 @@ export default function CustomerOrderPage({
                     </div>
                     
                     {Object.keys(cart).length > 0 && (
-                        <div className="flex items-center gap-3 animate-fade-in">
+                        <div 
+                            className="flex items-center gap-3 animate-fade-in cursor-pointer group" 
+                            onClick={handleReview}
+                            title="Review Order"
+                        >
                             <div className="text-right hidden sm:block">
-                                <span className="block text-xs text-gray-500 uppercase tracking-wider">Estimated Total</span>
+                                <span className="block text-xs text-gray-500 uppercase tracking-wider group-hover:text-brand-orange transition-colors">Estimated Total</span>
                                 <span className="block text-lg font-serif font-bold text-brand-orange leading-none">{formatPrice(estimatedTotal)}</span>
                             </div>
-                            <div className="bg-brand-orange text-white px-3 py-2 rounded-lg shadow-sm flex items-center gap-2">
+                            <div className="bg-brand-orange text-white px-3 py-2 rounded-lg shadow-sm flex items-center gap-2 group-hover:bg-opacity-90 transition-all">
                                 <ShoppingBagIcon className="w-5 h-5" />
                                 <span className="font-bold">{Object.values(cart).reduce((a, b) => a + b, 0)}</span>
                             </div>
@@ -648,7 +659,7 @@ export default function CustomerOrderPage({
                 )}
 
                 {/* 3. Extras & Salsas */}
-                {availableSalsas.length > 0 && (
+                {!activePackageBuilder && availableSalsas.length > 0 && (
                     <section className="bg-white p-6 md:p-8 rounded-xl shadow-sm border border-brand-tan">
                         <div className="flex items-center gap-3 mb-6">
                             <div className="bg-brand-orange/10 text-brand-orange p-2 rounded-lg">
@@ -676,7 +687,8 @@ export default function CustomerOrderPage({
                 )}
 
                 {/* 4. Customer Details Form */}
-                <section className="bg-white p-6 md:p-8 rounded-xl shadow-lg border-t-4 border-brand-brown">
+                {!activePackageBuilder && (
+                    <section className="bg-white p-6 md:p-8 rounded-xl shadow-lg border-t-4 border-brand-brown">
                     <div className="flex items-center gap-3 mb-8">
                         <div className="bg-brand-brown text-white p-2 rounded-lg">
                             <UserIcon className="w-6 h-6" />
@@ -796,6 +808,7 @@ export default function CustomerOrderPage({
                         <span className="bg-white/20 px-3 py-1 rounded text-base font-serif">${estimatedTotal.toFixed(2)}</span>
                     </button>
                 </section>
+                )}
 
             </main>
         </div>
