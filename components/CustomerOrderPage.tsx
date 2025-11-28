@@ -191,15 +191,40 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
         setPhoneNumber(formatted);
     };
 
-    // --- Scheduling Logic ---
+    // --- Scheduling Status Logic ---
+    const dateStatus = useMemo(() => {
+        if (!pickupDate || !scheduling || !scheduling.enabled) return { isClosed: false, isFull: false };
+        const normalizedDate = normalizeDateStr(pickupDate);
+        const override = scheduling.dateOverrides?.[normalizedDate];
+        
+        // Check blocked dates / closed days
+        const [y, m, d] = normalizedDate.split('-').map(Number);
+        const dayOfWeek = new Date(y, m - 1, d).getDay();
+        
+        const isClosed = override?.isClosed || 
+                         (!override && scheduling.blockedDates.includes(normalizedDate)) || 
+                         (!override && scheduling.closedDays?.includes(dayOfWeek));
+                         
+        const isFull = scheduling.dateOverrides?.[normalizedDate]?.isFull || false;
+
+        return { isClosed, isFull };
+    }, [pickupDate, scheduling]);
+
+    // --- Available Time Slots Logic ---
     const availableTimeSlots = useMemo(() => {
         if (!pickupDate || !scheduling || !scheduling.enabled) return [];
 
         const normalizedDate = normalizeDateStr(pickupDate); 
+        
+        // ** NEW: If Closed/Limited, allow a flexible slot **
+        if (dateStatus.isClosed) {
+            return ["Flexible / TBD"];
+        }
+
         const override = scheduling.dateOverrides?.[normalizedDate];
         
         if (override) {
-            if (override.isClosed) return [];
+            // isClosed handled above
             if (override.customHours) {
                 const slots = generateTimeSlots(normalizedDate, override.customHours.start, override.customHours.end, scheduling.intervalMinutes);
                 const todaysBusyTimes = new Set(busySlots.filter(slot => slot.date === normalizedDate).map(slot => slot.time));
@@ -207,18 +232,13 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
             }
         }
 
-        const [y, m, d] = normalizedDate.split('-').map(Number);
-        const dateObj = new Date(y, m - 1, d);
-        if (!override && scheduling.closedDays && scheduling.closedDays.includes(dateObj.getDay())) return [];
-        if (!override && scheduling.blockedDates.includes(normalizedDate)) return [];
-
         const start = override?.customHours?.start || scheduling.startTime;
         const end = override?.customHours?.end || scheduling.endTime;
         const slots = generateTimeSlots(normalizedDate, start, end, scheduling.intervalMinutes);
         const todaysBusyTimes = new Set(busySlots.filter(slot => slot.date === normalizedDate).map(slot => slot.time));
 
         return slots.filter(time => !todaysBusyTimes.has(time));
-    }, [pickupDate, scheduling, busySlots]);
+    }, [pickupDate, scheduling, busySlots, dateStatus.isClosed]);
 
     // --- Calculate Estimated Total ---
     useEffect(() => {
@@ -280,11 +300,14 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
 
             if (finalItems.length === 0) throw new Error("Please add at least one package or item to your order.");
 
-            if (scheduling?.enabled && pickupTime) {
+            // ** MODIFIED VALIDATION **
+            // If dateStatus.isClosed, we ALLOW submission (inquiry), but ensure time isn't blocked otherwise.
+            if (scheduling?.enabled && pickupTime && !dateStatus.isClosed) {
                 const normalizedDate = normalizeDateStr(pickupDate);
                 const override = scheduling.dateOverrides?.[normalizedDate];
                 const [y, m, d] = normalizedDate.split('-').map(Number);
                 const dayOfWeek = new Date(y, m - 1, d).getDay();
+                // This logic is partially redundant due to dateStatus but kept for safety on open days
                 const isClosed = override?.isClosed || (!override && scheduling.blockedDates.includes(normalizedDate)) || (!override && scheduling.closedDays?.includes(dayOfWeek));
 
                 if (isClosed) throw new Error("Sorry, this date is unavailable. Please select another date.");
@@ -355,22 +378,6 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
             .map(s => ({ name: s.name, visible: true, description: 'Dipping Sauce', price: s.price })), 
         [safePricing.salsas]
     );
-
-    const isDateBlocked = (dateStr: string) => {
-        if (!scheduling?.enabled) return false;
-        const override = scheduling.dateOverrides?.[dateStr];
-        if (override) return override.isClosed;
-        if (scheduling.blockedDates.includes(dateStr)) return true;
-        const [y, m, d] = dateStr.split('-').map(Number);
-        const day = new Date(y, m - 1, d).getDay();
-        return scheduling.closedDays?.includes(day);
-    };
-
-    const isDateFull = useMemo(() => {
-        if (!pickupDate || !scheduling) return false;
-        const normalizedDate = normalizeDateStr(pickupDate);
-        return scheduling.dateOverrides?.[normalizedDate]?.isFull || false;
-    }, [pickupDate, scheduling]);
 
     return (
         <div className={`font-sans flex flex-col ${isEmbedded ? 'h-auto bg-white' : 'min-h-screen bg-brand-cream'}`}>
@@ -678,10 +685,11 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                                     min={getLocalMinDate()}
                                     value={pickupDate} 
                                     onChange={e => { setPickupDate(e.target.value); setPickupTime(''); }} 
-                                    className={`w-full bg-brand-cream/50 border-0 border-b-2 border-gray-200 focus:border-brand-orange focus:ring-0 px-0 py-3 text-lg text-brand-brown appearance-none rounded-none ${isDateFull ? 'border-amber-300 bg-amber-50' : ''}`} 
+                                    className={`w-full bg-brand-cream/50 border-0 border-b-2 border-gray-200 focus:border-brand-orange focus:ring-0 px-0 py-3 text-lg text-brand-brown appearance-none rounded-none ${dateStatus.isFull || dateStatus.isClosed ? 'border-amber-300 bg-amber-50' : ''}`} 
                                     style={{ colorScheme: 'light' }}
                                 />
-                                {isDateFull && <p className="text-xs text-amber-700 mt-1 font-bold">⚠️ High Volume - Approval Required</p>}
+                                {dateStatus.isFull && <p className="text-xs text-amber-700 mt-1 font-bold">⚠️ High Volume - Approval Required</p>}
+                                {dateStatus.isClosed && <p className="text-xs text-amber-700 mt-1 font-bold">⚠️ Limited Availability - We'll contact you to confirm</p>}
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Preferred Time</label>
@@ -701,7 +709,7 @@ export default function CustomerOrderPage({ empanadaFlavors, fullSizeEmpanadaFla
                                         <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center text-gray-400">
                                             <ClockIcon className="w-5 h-5" />
                                         </div>
-                                        {pickupDate && !isDateBlocked(normalizeDateStr(pickupDate)) && availableTimeSlots.length === 0 && (
+                                        {pickupDate && !dateStatus.isClosed && availableTimeSlots.length === 0 && (
                                             <p className="text-xs text-red-500 mt-2">No slots available for this date.</p>
                                         )}
                                     </div>

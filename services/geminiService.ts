@@ -53,15 +53,28 @@ export async function generateMessageForOrder(order: Order, templates?: { follow
             itemsText = `${order.totalMini} mini and ${order.totalFullSize} full-size empanadas`;
         }
         const itemsList = order.items.map(item => `${item.quantity} ${item.name}`).join('\n');
-        const address = order.deliveryAddress || "N/A";
+        
+        // Smart Address Replacement
+        let text = template;
+        if (!order.deliveryRequired) {
+            // If pickup, remove "Address: {deliveryAddress}" style patterns
+            text = text.replace(/(Address|Delivery to):\s*{deliveryAddress},?\s*/gi, '');
+            text = text.replace(/(Address|Delivery to):\s*{{deliveryAddress}},?\s*/gi, '');
+            // Remove standalone lines
+            text = text.replace(/^\s*{deliveryAddress}\s*$/gm, '');
+            // Clean up any remaining placeholders
+            text = text.replace(/{deliveryAddress}|{{deliveryAddress}}/g, '');
+        } else {
+            const address = order.deliveryAddress || "";
+            text = text.replace(/{deliveryAddress}|{{deliveryAddress}}/g, address);
+        }
 
-        return template
+        return text
             .replace(/{firstName}|{{firstName}}/g, firstName)
             .replace(/{name}|{{name}}/g, order.customerName)
             .replace(/{date}|{{date}}/g, dateString)
             .replace(/{time}|{{time}}/g, order.pickupTime)
             .replace(/{deliveryType}|{{deliveryType}}/g, deliveryType)
-            .replace(/{deliveryAddress}|{{deliveryAddress}}/g, address)
             .replace(/{total}|{{total}}/g, order.amountCharged.toFixed(2))
             .replace(/{totals}|{{totals}}/g, itemsText)
             .replace(/{items}|{{items}}/g, itemsList);

@@ -11,6 +11,16 @@ const PendingOrderItem: React.FC<{
 }> = ({ order, onApprove, onDeny, onSelectOrder }) => {
     const totalItems = order.items.reduce((sum, item) => sum + item.quantity, 0);
 
+    // Helper to format ID timestamp
+    const getOrderTimestamp = (id: string) => {
+        // Check if ID is likely a timestamp (13 digits)
+        if (/^\d{13}$/.test(id)) {
+            const date = new Date(parseInt(id));
+            return date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+        }
+        return ''; // Fallback for legacy IDs
+    };
+
     return (
         <li 
             className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 bg-white rounded-lg border border-brand-tan/80 shadow-sm hover:bg-brand-tan/30 cursor-pointer transition-colors"
@@ -22,11 +32,17 @@ const PendingOrderItem: React.FC<{
         >
             <div className="flex-grow">
                 <p className="font-semibold text-brand-brown">{order.customerName}</p>
-                <p className="text-sm text-gray-500">
-                    Pickup: {order.pickupDate} @ {order.pickupTime}
-                </p>
-                <p className="text-sm text-gray-500">
-                    {totalItems} item{totalItems !== 1 ? 's' : ''}
+                <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
+                    <p className="text-sm text-gray-500">
+                        Pickup: <span className="font-medium text-gray-700">{order.pickupDate} @ {order.pickupTime}</span>
+                    </p>
+                    <p className="text-sm text-gray-500">
+                        {totalItems} item{totalItems !== 1 ? 's' : ''}
+                    </p>
+                </div>
+                {/* Timestamp */}
+                <p className="text-xs text-gray-400 mt-1.5 font-medium">
+                    Placed: {getOrderTimestamp(order.id)}
                 </p>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0 w-full sm:w-auto">
