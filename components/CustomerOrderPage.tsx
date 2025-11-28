@@ -258,9 +258,9 @@ export default function CustomerOrderPage({
         }, 50);
     };
 
-    // Step 1: Review
-    const handleReview = async (e: React.FormEvent) => {
-        e.preventDefault();
+    // Step 1: Review - Navigational
+    const handleReview = (e?: React.SyntheticEvent) => {
+        if (e) e.preventDefault();
         setError(null);
 
         if (activePackageBuilder) {
@@ -275,39 +275,23 @@ export default function CustomerOrderPage({
             window.scrollTo(0,0);
             return;
         }
-        if (!pickupDate) {
-            setError("Please select a pickup date.");
-            window.scrollTo(0,0);
-            return;
-        }
-        if (!pickupTime) {
-            setError("Please select a pickup time.");
-            window.scrollTo(0,0);
-            return;
-        }
-        if (!customerName.trim()) {
-            setError("Please enter your name.");
-            window.scrollTo(0,0);
-            return;
-        }
-        if (!phoneNumber.trim()) {
-            setError("Please enter your phone number.");
-            window.scrollTo(0,0);
-            return;
-        }
-        if (deliveryRequired && !deliveryAddress.trim()) {
-            setError("Please enter a delivery address.");
-            window.scrollTo(0,0);
-            return;
-        }
 
+        // Allow navigation to review even if details are missing
         setIsReviewing(true);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    // Step 2: Final Submit
+    // Step 2: Final Submit - Validation
     const handleFinalSubmit = async () => {
         setError(null);
+
+        // Validation Checks
+        if (!customerName.trim()) { setError("Please enter your name."); return; }
+        if (!phoneNumber.trim()) { setError("Please enter your phone number."); return; }
+        if (!pickupDate) { setError("Please select a pickup date."); return; }
+        if (!pickupTime) { setError("Please select a pickup time."); return; }
+        if (deliveryRequired && !deliveryAddress.trim()) { setError("Please enter a delivery address."); return; }
+
         setIsSubmitting(true);
 
         try {
@@ -419,23 +403,36 @@ export default function CustomerOrderPage({
                     </header>
                     
                     <div className="p-6 space-y-6">
+                        {error && (
+                            <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded flex items-start gap-3">
+                                <ExclamationCircleIcon className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                                <p className="text-sm font-medium">{error}</p>
+                            </div>
+                        )}
+
                         {/* Customer Info */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-b border-brand-tan/50 pb-6">
                             <div>
                                 <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Customer</h3>
-                                <p className="font-medium text-brand-brown text-lg">{customerName}</p>
-                                <p className="text-gray-600">{phoneNumber}</p>
+                                <p className={`font-medium text-lg ${customerName ? 'text-brand-brown' : 'text-gray-400 italic'}`}>
+                                    {customerName || 'Name not provided'}
+                                </p>
+                                <p className="text-gray-600">{phoneNumber || 'Phone not provided'}</p>
                                 {email && <p className="text-gray-600 text-sm">{email}</p>}
                             </div>
                             <div>
                                 <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Pickup / Delivery</h3>
-                                <p className="font-medium text-brand-brown text-lg">{new Date(normalizeDateStr(pickupDate) + 'T00:00:00').toLocaleDateString()} @ {pickupTime}</p>
+                                <p className={`font-medium text-lg ${pickupDate && pickupTime ? 'text-brand-brown' : 'text-gray-400 italic'}`}>
+                                    {pickupDate 
+                                        ? `${new Date(normalizeDateStr(pickupDate) + 'T00:00:00').toLocaleDateString()} @ ${pickupTime || 'Time not set'}` 
+                                        : 'Date/Time not selected'}
+                                </p>
                                 {deliveryRequired ? (
                                     <div className="mt-1">
                                         <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
                                             Delivery Requested
                                         </span>
-                                        <p className="text-sm text-gray-600 mt-1">{deliveryAddress}</p>
+                                        <p className="text-sm text-gray-600 mt-1">{deliveryAddress || 'Address missing'}</p>
                                     </div>
                                 ) : (
                                     <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 mt-1">
@@ -518,7 +515,7 @@ export default function CustomerOrderPage({
                     {Object.keys(cart).length > 0 && (
                         <div 
                             className="flex items-center gap-3 animate-fade-in cursor-pointer group" 
-                            onClick={handleReview}
+                            onClick={(e) => handleReview(e)}
                             title="Review Order"
                         >
                             <div className="text-right hidden sm:block">
@@ -689,6 +686,12 @@ export default function CustomerOrderPage({
                 {/* 4. Customer Details Form */}
                 {!activePackageBuilder && (
                     <section className="bg-white p-6 md:p-8 rounded-xl shadow-lg border-t-4 border-brand-brown">
+                    {error && !isReviewing && (
+                        <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded mb-6 flex items-start gap-3">
+                            <ExclamationCircleIcon className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                            <p className="text-sm font-medium">{error}</p>
+                        </div>
+                    )}
                     <div className="flex items-center gap-3 mb-8">
                         <div className="bg-brand-brown text-white p-2 rounded-lg">
                             <UserIcon className="w-6 h-6" />
@@ -793,15 +796,8 @@ export default function CustomerOrderPage({
                         />
                     </div>
 
-                    {error && (
-                        <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded mb-6 flex items-start gap-3">
-                            <ExclamationCircleIcon className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                            <p className="text-sm font-medium">{error}</p>
-                        </div>
-                    )}
-
                     <button
-                        onClick={handleReview}
+                        onClick={(e) => handleReview(e)}
                         className="w-full bg-brand-orange text-white font-bold text-lg py-4 rounded-xl shadow-lg hover:bg-opacity-90 disabled:opacity-70 disabled:cursor-not-allowed transition-all transform active:scale-[0.99] flex justify-center items-center gap-3 uppercase tracking-widest"
                     >
                         <span>Review Order</span>
