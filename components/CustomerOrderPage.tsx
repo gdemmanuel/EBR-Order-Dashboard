@@ -1,4 +1,8 @@
 
+<change>
+    <file>components/CustomerOrderPage.tsx</file>
+    <description>Fix build error by providing clean code, and tighten UI spacing for Selection, Details, and Pickup sections.</description>
+    <content><![CDATA[
 import React, { useState, useMemo, useEffect } from 'react';
 import { Order, Flavor, PricingSettings, AppSettings, ContactMethod, PaymentStatus, FollowUpStatus, ApprovalStatus, OrderItem, MenuPackage } from '../types';
 import { saveOrderToDb } from '../services/dbService';
@@ -774,36 +778,36 @@ export default function CustomerOrderPage({
                 {/* 3.5. Order Summary (Refactored) */}
                 {!activePackageBuilder && (cartPackages.length > 0 || Object.keys(cartSalsas).length > 0) && (
                     <section className="bg-white rounded-xl shadow-2xl border-4 border-brand-orange/30 relative overflow-hidden animate-fade-in ring-4 ring-brand-orange/10 transform transition-all duration-300">
-                        {/* Distinct Header */}
-                        <div className="bg-brand-orange/10 p-6 border-b border-brand-orange/20 flex items-center gap-3 relative z-10">
-                            <div className="bg-brand-orange text-white p-3 rounded-full shadow-lg">
-                                <ListBulletIcon className="w-6 h-6" />
+                        {/* Distinct Header - TIGHTER (p-4 instead of p-6) */}
+                        <div className="bg-brand-orange/10 p-4 border-b border-brand-orange/20 flex items-center gap-3 relative z-10">
+                            <div className="bg-brand-orange text-white p-2 rounded-full shadow-lg"> {/* Smaller padding on icon */}
+                                <ListBulletIcon className="w-5 h-5" /> {/* Smaller icon */}
                             </div>
-                            <h2 className="text-3xl font-serif text-brand-brown font-bold">Your Selection</h2>
+                            <h2 className="text-2xl font-serif text-brand-brown font-bold">Your Selection</h2> {/* Smaller text */}
                         </div>
                         
-                        <div className="p-6 md:p-8 relative z-10">
-                            {/* Packages List */}
-                            <div className="space-y-6 mb-6">
+                        <div className="p-4 md:p-6 relative z-10"> {/* TIGHTER padding */}
+                            {/* Packages List - TIGHTER spacing */}
+                            <div className="space-y-3 mb-4">
                                 {cartPackages.map((pkg) => (
-                                    <div key={pkg.internalId} className="bg-gray-50 rounded-lg p-4 border border-gray-200 shadow-sm relative group">
-                                        <div className="flex justify-between items-start mb-2">
+                                    <div key={pkg.internalId} className="bg-gray-50 rounded-lg p-3 border border-gray-200 shadow-sm relative group"> {/* Smaller padding */}
+                                        <div className="flex justify-between items-start mb-1">
                                             <div>
-                                                <h4 className="font-serif font-bold text-brand-brown text-lg">{pkg.name}</h4>
-                                                <span className="text-sm font-bold text-brand-orange">{formatPrice(pkg.totalPrice)}</span>
+                                                <h4 className="font-serif font-bold text-brand-brown text-base">{pkg.name}</h4> {/* Smaller text */}
+                                                <span className="text-xs font-bold text-brand-orange">{formatPrice(pkg.totalPrice)}</span>
                                             </div>
                                             <button 
                                                 onClick={() => removePackageFromCart(pkg.internalId)} 
-                                                className="text-gray-400 hover:text-red-500 p-2 hover:bg-red-50 rounded-full transition-colors"
+                                                className="text-gray-400 hover:text-red-500 p-1 hover:bg-red-50 rounded-full transition-colors"
                                                 title="Remove Package"
                                             >
-                                                <TrashIcon className="w-5 h-5" />
+                                                <TrashIcon className="w-4 h-4" />
                                             </button>
                                         </div>
-                                        <div className="text-sm text-gray-600 bg-white p-3 rounded border border-gray-100">
-                                            <ul className="grid grid-cols-2 gap-x-4 gap-y-1">
+                                        <div className="text-xs text-gray-600 bg-white p-2 rounded border border-gray-100">
+                                            <ul className="grid grid-cols-2 gap-x-2 gap-y-1">
                                                 {pkg.items.map((item, idx) => (
-                                                    <li key={idx} className="flex justify-between border-b border-gray-50 last:border-0 py-1">
+                                                    <li key={idx} className="flex justify-between border-b border-gray-50 last:border-0 py-0.5">
                                                         <span>{item.name.replace('Full ', '')}</span>
                                                         <span className="font-bold">x {item.quantity}</span>
                                                     </li>
@@ -816,23 +820,23 @@ export default function CustomerOrderPage({
 
                             {/* Salsas List */}
                             {Object.keys(cartSalsas).length > 0 && (
-                                <div className="border-t-2 border-dashed border-gray-200 pt-4 mb-6">
-                                    <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-3">Extras</h4>
-                                    <div className="space-y-3">
+                                <div className="border-t-2 border-dashed border-gray-200 pt-3 mb-4">
+                                    <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">Extras</h4>
+                                    <div className="space-y-2">
                                         {Object.entries(cartSalsas).map(([name, quantity]) => (
-                                            <div key={name} className="flex items-center justify-between bg-brand-tan/20 p-3 rounded-lg border border-brand-tan/50">
-                                                <span className="font-medium text-brand-brown">{name}</span>
-                                                <div className="flex items-center gap-3">
+                                            <div key={name} className="flex items-center justify-between bg-brand-tan/20 p-2 rounded-lg border border-brand-tan/50">
+                                                <span className="font-medium text-brand-brown text-sm">{name}</span>
+                                                <div className="flex items-center gap-2">
                                                     <button 
                                                         onClick={() => updateSalsaCart(name, -1)} 
-                                                        className="w-8 h-8 flex items-center justify-center bg-white border border-gray-300 rounded text-gray-600 hover:bg-gray-50"
+                                                        className="w-6 h-6 flex items-center justify-center bg-white border border-gray-300 rounded text-gray-600 hover:bg-gray-50"
                                                     >
                                                         <MinusIcon className="w-3 h-3"/>
                                                     </button>
-                                                    <span className="font-bold text-brand-brown w-6 text-center">{quantity}</span>
+                                                    <span className="font-bold text-brand-brown w-4 text-center text-sm">{quantity}</span>
                                                     <button 
                                                         onClick={() => updateSalsaCart(name, 1)} 
-                                                        className="w-8 h-8 flex items-center justify-center bg-white border border-gray-300 rounded text-brand-orange hover:bg-orange-50"
+                                                        className="w-6 h-6 flex items-center justify-center bg-white border border-gray-300 rounded text-brand-orange hover:bg-orange-50"
                                                     >
                                                         <PlusIcon className="w-3 h-3"/>
                                                     </button>
@@ -843,74 +847,74 @@ export default function CustomerOrderPage({
                                 </div>
                             )}
                             
-                            {/* Total Footer */}
-                            <div className="flex justify-between items-center pt-6 border-t-2 border-brand-brown/10 mt-4 bg-brand-orange/5 -mx-6 -mb-6 md:-mx-8 md:-mb-8 p-6 md:p-8">
-                                <span className="text-brand-brown/70 font-bold uppercase tracking-widest text-sm">Estimated Total</span>
-                                <span className="text-4xl font-serif font-bold text-brand-orange drop-shadow-sm">{formatPrice(estimatedTotal)}</span>
+                            {/* Total Footer - TIGHTER */}
+                            <div className="flex justify-between items-center pt-4 border-t-2 border-brand-brown/10 mt-2 bg-brand-orange/5 -mx-4 -mb-4 md:-mx-6 md:-mb-6 p-4 md:p-6">
+                                <span className="text-brand-brown/70 font-bold uppercase tracking-widest text-xs">Estimated Total</span>
+                                <span className="text-3xl font-serif font-bold text-brand-orange drop-shadow-sm">{formatPrice(estimatedTotal)}</span>
                             </div>
                         </div>
                     </section>
                 )}
 
-                {/* 4. Customer Details Form */}
+                {/* 4. Customer Details Form - TIGHTER */}
                 {!activePackageBuilder && (
-                    <section className="bg-white p-6 md:p-8 rounded-xl shadow-lg border-t-4 border-brand-brown">
+                    <section className="bg-white p-4 md:p-6 rounded-xl shadow-lg border-t-4 border-brand-brown">
                     {error && !isReviewing && (
                         <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded mb-6 flex items-start gap-3">
                             <ExclamationCircleIcon className="w-5 h-5 flex-shrink-0 mt-0.5" />
                             <p className="text-sm font-medium">{error}</p>
                         </div>
                     )}
-                    <div className="flex items-center gap-3 mb-8">
-                        <div className="bg-brand-brown text-white p-2 rounded-lg">
-                            <UserIcon className="w-6 h-6" />
+                    <div className="flex items-center gap-2 mb-6"> {/* Reduced margin */}
+                        <div className="bg-brand-brown text-white p-1.5 rounded-lg">
+                            <UserIcon className="w-5 h-5" />
                         </div>
-                        <h2 className="text-2xl font-serif text-brand-brown">Your Details</h2>
+                        <h2 className="text-xl font-serif text-brand-brown">Your Details</h2>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4"> {/* Reduced gap */}
                         <div className="space-y-1">
-                            <label className="block text-sm font-bold text-brand-brown uppercase tracking-wider">Full Name <span className="text-red-500">*</span></label>
-                            <input type="text" required value={customerName} onChange={e => setCustomerName(e.target.value)} className="w-full rounded-lg border-gray-300 focus:ring-brand-orange focus:border-brand-orange bg-brand-cream/30 py-3" placeholder="Enter your name" />
+                            <label className="block text-xs font-bold text-brand-brown uppercase tracking-wider">Full Name <span className="text-red-500">*</span></label>
+                            <input type="text" required value={customerName} onChange={e => setCustomerName(e.target.value)} className="w-full rounded-lg border-gray-300 focus:ring-brand-orange focus:border-brand-orange bg-brand-cream/30 py-2" placeholder="Enter your name" />
                         </div>
                         <div className="space-y-1">
-                            <label className="block text-sm font-bold text-brand-brown uppercase tracking-wider">Phone Number <span className="text-red-500">*</span></label>
-                            <input type="tel" required value={phoneNumber} onChange={handlePhoneNumberChange} className="w-full rounded-lg border-gray-300 focus:ring-brand-orange focus:border-brand-orange bg-brand-cream/30 py-3" placeholder="(555) 123-4567" />
+                            <label className="block text-xs font-bold text-brand-brown uppercase tracking-wider">Phone Number <span className="text-red-500">*</span></label>
+                            <input type="tel" required value={phoneNumber} onChange={handlePhoneNumberChange} className="w-full rounded-lg border-gray-300 focus:ring-brand-orange focus:border-brand-orange bg-brand-cream/30 py-2" placeholder="(555) 123-4567" />
                         </div>
                         <div className="md:col-span-2 space-y-1">
-                            <label className="block text-sm font-bold text-brand-brown uppercase tracking-wider">Email</label>
-                            <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full rounded-lg border-gray-300 focus:ring-brand-orange focus:border-brand-orange bg-brand-cream/30 py-3" placeholder="For order confirmation" />
+                            <label className="block text-xs font-bold text-brand-brown uppercase tracking-wider">Email</label>
+                            <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full rounded-lg border-gray-300 focus:ring-brand-orange focus:border-brand-orange bg-brand-cream/30 py-2" placeholder="For order confirmation" />
                         </div>
                     </div>
 
-                    <div className="border-t border-gray-100 my-8 pt-8">
-                        <div className="flex items-center gap-3 mb-6">
-                            <div className="bg-brand-brown text-white p-2 rounded-lg">
-                                <CalendarIcon className="w-6 h-6" />
+                    <div className="border-t border-gray-100 my-6 pt-6"> {/* Reduced margin/padding */}
+                        <div className="flex items-center gap-2 mb-4">
+                            <div className="bg-brand-brown text-white p-1.5 rounded-lg">
+                                <CalendarIcon className="w-5 h-5" />
                             </div>
-                            <h2 className="text-2xl font-serif text-brand-brown">Pickup & Delivery</h2>
+                            <h2 className="text-xl font-serif text-brand-brown">Pickup & Delivery</h2>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-1">
-                                <label className="block text-sm font-bold text-brand-brown uppercase tracking-wider">Date <span className="text-red-500">*</span></label>
+                                <label className="block text-xs font-bold text-brand-brown uppercase tracking-wider">Date <span className="text-red-500">*</span></label>
                                 <input 
                                     type="date" 
                                     required 
                                     value={pickupDate} 
                                     onChange={e => { setPickupDate(e.target.value); setPickupTime(''); }} 
                                     min={new Date().toISOString().split('T')[0]}
-                                    className="w-full rounded-lg border-gray-300 focus:ring-brand-orange focus:border-brand-orange bg-brand-cream/30 py-3" 
+                                    className="w-full rounded-lg border-gray-300 focus:ring-brand-orange focus:border-brand-orange bg-brand-cream/30 py-2" 
                                 />
                             </div>
                             <div className="space-y-1">
-                                <label className="block text-sm font-bold text-brand-brown uppercase tracking-wider">Time <span className="text-red-500">*</span></label>
+                                <label className="block text-xs font-bold text-brand-brown uppercase tracking-wider">Time <span className="text-red-500">*</span></label>
                                 <select 
                                     required 
                                     value={pickupTime} 
                                     onChange={e => setPickupTime(e.target.value)} 
                                     disabled={!pickupDate}
-                                    className="w-full rounded-lg border-gray-300 focus:ring-brand-orange focus:border-brand-orange bg-brand-cream/30 py-3 disabled:bg-gray-100 disabled:text-gray-400"
+                                    className="w-full rounded-lg border-gray-300 focus:ring-brand-orange focus:border-brand-orange bg-brand-cream/30 py-2 disabled:bg-gray-100 disabled:text-gray-400"
                                 >
                                     <option value="">Select Time</option>
                                     {timeSlots.map(slot => (
@@ -922,22 +926,22 @@ export default function CustomerOrderPage({
                                 )}
                             </div>
                             
-                            <div className="md:col-span-2 pt-4">
-                                <label className="flex items-center gap-3 cursor-pointer p-4 border border-brand-tan rounded-lg hover:bg-brand-cream transition-colors">
+                            <div className="md:col-span-2 pt-2">
+                                <label className="flex items-center gap-3 cursor-pointer p-3 border border-brand-tan rounded-lg hover:bg-brand-cream transition-colors">
                                     <input type="checkbox" checked={deliveryRequired} onChange={e => setDeliveryRequired(e.target.checked)} className="h-5 w-5 rounded text-brand-orange focus:ring-brand-orange border-gray-300" />
                                     <span className="font-bold text-brand-brown">Request Delivery?</span>
                                 </label>
                                 
                                 {deliveryRequired && (
-                                    <div className="relative mt-4 animate-fade-in">
-                                        <label className="block text-sm font-bold text-brand-brown uppercase tracking-wider mb-1">Delivery Address <span className="text-red-500">*</span></label>
+                                    <div className="relative mt-3 animate-fade-in">
+                                        <label className="block text-xs font-bold text-brand-brown uppercase tracking-wider mb-1">Delivery Address <span className="text-red-500">*</span></label>
                                         <input 
                                             type="text" 
                                             required={deliveryRequired} 
                                             value={deliveryAddress} 
                                             onChange={handleAddressChange}
                                             placeholder="123 Main St, Town, NY"
-                                            className="w-full rounded-lg border-gray-300 focus:ring-brand-orange focus:border-brand-orange bg-brand-cream/30 py-3" 
+                                            className="w-full rounded-lg border-gray-300 focus:ring-brand-orange focus:border-brand-orange bg-brand-cream/30 py-2" 
                                         />
                                         {addressSuggestions.length > 0 && (
                                             <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-b-lg shadow-xl max-h-48 overflow-y-auto mt-1">
@@ -954,20 +958,20 @@ export default function CustomerOrderPage({
                         </div>
                     </div>
 
-                    <div className="border-t border-gray-100 my-8 pt-8">
-                        <label className="block text-sm font-bold text-brand-brown uppercase tracking-wider mb-2">Special Instructions / Allergies</label>
+                    <div className="border-t border-gray-100 my-6 pt-6">
+                        <label className="block text-xs font-bold text-brand-brown uppercase tracking-wider mb-2">Special Instructions / Allergies</label>
                         <textarea 
                             rows={3} 
                             value={specialInstructions}
                             onChange={e => setSpecialInstructions(e.target.value)}
-                            className="w-full rounded-lg border-gray-300 focus:ring-brand-orange focus:border-brand-orange bg-brand-cream/30 p-3 text-sm"
+                            className="w-full rounded-lg border-gray-300 focus:ring-brand-orange focus:border-brand-orange bg-brand-cream/30 p-2 text-sm"
                             placeholder="Let us know if you have any special requests..."
                         />
                     </div>
 
                     <button
                         onClick={(e) => handleReview(e)}
-                        className="w-full bg-brand-orange text-white font-bold text-lg py-4 rounded-xl shadow-lg hover:bg-opacity-90 disabled:opacity-70 disabled:cursor-not-allowed transition-all transform active:scale-[0.99] flex justify-center items-center gap-3 uppercase tracking-widest"
+                        className="w-full bg-brand-orange text-white font-bold text-lg py-3 rounded-xl shadow-lg hover:bg-opacity-90 disabled:opacity-70 disabled:cursor-not-allowed transition-all transform active:scale-[0.99] flex justify-center items-center gap-3 uppercase tracking-widest"
                     >
                         <span>Review Order</span>
                         <span className="bg-white/20 px-3 py-1 rounded text-base font-serif">${estimatedTotal.toFixed(2)}</span>
@@ -979,3 +983,5 @@ export default function CustomerOrderPage({
         </div>
     );
 }
+]]></content>
+</change>
