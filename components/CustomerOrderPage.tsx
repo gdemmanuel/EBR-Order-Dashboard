@@ -225,6 +225,11 @@ export default function CustomerOrderPage({
             return newCart;
         });
         setActivePackageBuilder(null);
+        // Scroll back to order section
+        const section = document.getElementById('order-section');
+        if (section) {
+            section.scrollIntoView({ behavior: 'smooth' });
+        }
     };
 
     const handleAddressChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -240,6 +245,17 @@ export default function CustomerOrderPage({
         } else {
             setAddressSuggestions([]);
         }
+    };
+
+    const openPackageBuilder = (pkg: MenuPackage) => {
+        setActivePackageBuilder(pkg);
+        // Small delay to ensure render, then scroll to section top
+        setTimeout(() => {
+            const section = document.getElementById('order-section');
+            if (section) {
+                section.scrollIntoView({ behavior: 'smooth' });
+            }
+        }, 50);
     };
 
     // Step 1: Review
@@ -559,9 +575,9 @@ export default function CustomerOrderPage({
                     )}
                 </section>
 
-                {/* 2. Packages (Ordering) */}
+                {/* 2. Packages (Ordering) - SWITCHES TO BUILDER WHEN ACTIVE */}
                 {availablePackages.length > 0 && (
-                    <section className="space-y-8 pt-8 border-t border-brand-tan/50">
+                    <section id="order-section" className="scroll-mt-24 space-y-8 pt-8 border-t border-brand-tan/50">
                         <div className="flex items-center gap-3 mb-6">
                             <div className="bg-brand-brown text-white p-2 rounded-lg">
                                 <ShoppingBagIcon className="w-6 h-6" />
@@ -569,49 +585,64 @@ export default function CustomerOrderPage({
                             <h2 className="text-2xl font-serif text-brand-brown">Order Here</h2>
                         </div>
                         
-                        {/* Mini Packages */}
-                        {miniPackages.length > 0 && (
-                            <div>
-                                <h3 className="text-xl font-serif text-brand-brown mb-4 pb-2 border-b border-brand-tan flex items-center gap-2">
-                                    <span className="bg-brand-orange w-2 h-2 rounded-full inline-block"></span>
-                                    Mini Empanada Packages
-                                </h3>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {miniPackages.map(pkg => (
-                                        <PackageCard key={pkg.id} pkg={pkg} onClick={() => setActivePackageBuilder(pkg)} />
-                                    ))}
-                                </div>
+                        {activePackageBuilder ? (
+                            <div className="animate-fade-in">
+                                <PackageBuilderModal 
+                                    pkg={activePackageBuilder}
+                                    standardFlavors={empanadaFlavors.filter(f => !f.isSpecial)}
+                                    specialFlavors={empanadaFlavors.filter(f => f.isSpecial)}
+                                    salsas={salsaListForModal} 
+                                    onClose={() => setActivePackageBuilder(null)}
+                                    onConfirm={handlePackageConfirm}
+                                />
                             </div>
-                        )}
+                        ) : (
+                            <>
+                                {/* Mini Packages */}
+                                {miniPackages.length > 0 && (
+                                    <div>
+                                        <h3 className="text-xl font-serif text-brand-brown mb-4 pb-2 border-b border-brand-tan flex items-center gap-2">
+                                            <span className="bg-brand-orange w-2 h-2 rounded-full inline-block"></span>
+                                            Mini Empanada Packages
+                                        </h3>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                                            {miniPackages.map(pkg => (
+                                                <PackageCard key={pkg.id} pkg={pkg} onClick={() => openPackageBuilder(pkg)} />
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
 
-                        {/* Full Size Packages */}
-                        {fullPackages.length > 0 && (
-                            <div>
-                                <h3 className="text-xl font-serif text-brand-brown mb-4 pb-2 border-b border-brand-tan flex items-center gap-2">
-                                    <span className="bg-brand-brown w-2 h-2 rounded-full inline-block"></span>
-                                    Full-Size Empanada Packages
-                                </h3>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {fullPackages.map(pkg => (
-                                        <PackageCard key={pkg.id} pkg={pkg} onClick={() => setActivePackageBuilder(pkg)} />
-                                    ))}
-                                </div>
-                            </div>
-                        )}
+                                {/* Full Size Packages */}
+                                {fullPackages.length > 0 && (
+                                    <div>
+                                        <h3 className="text-xl font-serif text-brand-brown mb-4 pb-2 border-b border-brand-tan flex items-center gap-2">
+                                            <span className="bg-brand-brown w-2 h-2 rounded-full inline-block"></span>
+                                            Full-Size Empanada Packages
+                                        </h3>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                                            {fullPackages.map(pkg => (
+                                                <PackageCard key={pkg.id} pkg={pkg} onClick={() => openPackageBuilder(pkg)} />
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
 
-                        {/* Specialty Packages */}
-                        {specialPackages.length > 0 && (
-                            <div>
-                                <h3 className="text-xl font-serif text-purple-900 mb-4 pb-2 border-b border-purple-100 flex items-center gap-2">
-                                    <span className="bg-purple-600 w-2 h-2 rounded-full inline-block"></span>
-                                    Specialty Packages
-                                </h3>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {specialPackages.map(pkg => (
-                                        <PackageCard key={pkg.id} pkg={pkg} onClick={() => setActivePackageBuilder(pkg)} />
-                                    ))}
-                                </div>
-                            </div>
+                                {/* Specialty Packages */}
+                                {specialPackages.length > 0 && (
+                                    <div>
+                                        <h3 className="text-xl font-serif text-purple-900 mb-4 pb-2 border-b border-purple-100 flex items-center gap-2">
+                                            <span className="bg-purple-600 w-2 h-2 rounded-full inline-block"></span>
+                                            Specialty Packages
+                                        </h3>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                                            {specialPackages.map(pkg => (
+                                                <PackageCard key={pkg.id} pkg={pkg} onClick={() => openPackageBuilder(pkg)} />
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </>
                         )}
                     </section>
                 )}
@@ -767,18 +798,6 @@ export default function CustomerOrderPage({
                 </section>
 
             </main>
-
-            {/* Modals */}
-            {activePackageBuilder && (
-                <PackageBuilderModal 
-                    pkg={activePackageBuilder}
-                    standardFlavors={empanadaFlavors.filter(f => !f.isSpecial)}
-                    specialFlavors={empanadaFlavors.filter(f => f.isSpecial)}
-                    salsas={salsaListForModal} 
-                    onClose={() => setActivePackageBuilder(null)}
-                    onConfirm={handlePackageConfirm}
-                />
-            )}
         </div>
     );
 }

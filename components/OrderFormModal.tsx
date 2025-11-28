@@ -583,7 +583,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fade-in">
-            <div className="bg-white rounded-lg shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col border border-brand-tan">
+            <div className="bg-white rounded-lg shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col border border-brand-tan relative overflow-hidden">
                 <header className="p-6 border-b border-brand-tan flex justify-between items-center">
                     <h2 className="text-3xl font-serif text-brand-brown">{order ? 'Edit Order' : 'Add New Order'}</h2>
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
@@ -591,7 +591,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                     </button>
                 </header>
 
-                <form onSubmit={handleSubmit} className="overflow-y-auto p-6 space-y-6">
+                <form onSubmit={handleSubmit} className="overflow-y-auto p-6 space-y-6 flex-grow">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                         <div className="md:col-span-2 relative">
                              <label className="block text-sm font-medium text-brand-brown/90">Customer Name</label>
@@ -787,8 +787,18 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                     </footer>
                 </form>
                 
+                {/* Admin Overlay for Package Builder */}
                 {activePackageBuilder && (
-                    <PackageBuilderModal pkg={activePackageBuilder} standardFlavors={empanadaFlavors.filter(f => !f.isSpecial)} specialFlavors={empanadaFlavors.filter(f => f.isSpecial)} salsas={salsaFlavors} onClose={() => setActivePackageBuilder(null)} onConfirm={handlePackageConfirm} />
+                    <div className="absolute inset-0 bg-white z-20 flex flex-col p-6 animate-fade-in overflow-hidden">
+                        <PackageBuilderModal 
+                            pkg={activePackageBuilder} 
+                            standardFlavors={empanadaFlavors.filter(f => !f.isSpecial)} 
+                            specialFlavors={empanadaFlavors.filter(f => f.isSpecial)} 
+                            salsas={salsaFlavors} 
+                            onClose={() => setActivePackageBuilder(null)} 
+                            onConfirm={handlePackageConfirm} 
+                        />
+                    </div>
                 )}
             </div>
         </div>
