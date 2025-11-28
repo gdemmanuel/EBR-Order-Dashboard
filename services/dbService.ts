@@ -9,7 +9,9 @@ import {
     where, 
     getDocs,
     writeBatch,
-    FirestoreError
+    FirestoreError,
+    QuerySnapshot,
+    DocumentData
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import { Order, ApprovalStatus, PricingSettings, Flavor, Expense, AppSettings, WorkShift, FollowUpStatus } from "../types";
@@ -89,7 +91,7 @@ export const subscribeToOrders = (
     onError?: (error: FirestoreError) => void
 ) => {
     const q = query(collection(db, ORDERS_COLLECTION));
-    return onSnapshot(q, (snapshot) => {
+    return onSnapshot(q, (snapshot: QuerySnapshot<DocumentData>) => {
         const orders: Order[] = [];
         snapshot.forEach((doc) => orders.push(doc.data() as Order));
         onUpdate(orders);
@@ -101,7 +103,7 @@ export const subscribeToExpenses = (
     onError?: (error: FirestoreError) => void
 ) => {
     const q = query(collection(db, EXPENSES_COLLECTION));
-    return onSnapshot(q, (snapshot) => {
+    return onSnapshot(q, (snapshot: QuerySnapshot<DocumentData>) => {
         const expenses: Expense[] = [];
         snapshot.forEach((doc) => {
             const data = doc.data() as Expense;
@@ -118,7 +120,7 @@ export const subscribeToShifts = (
     onError?: (error: FirestoreError) => void
 ) => {
     const q = query(collection(db, EXPENSES_COLLECTION), where("category", "==", "Labor"));
-    return onSnapshot(q, (snapshot) => {
+    return onSnapshot(q, (snapshot: QuerySnapshot<DocumentData>) => {
         const shifts: WorkShift[] = [];
         snapshot.forEach((doc) => {
             const data = doc.data() as Expense;
@@ -161,7 +163,7 @@ export const subscribeToSettings = (
 ) => {
     return onSnapshot(doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC), (docSnap) => {
         if (docSnap.exists()) {
-            const data = docSnap.data();
+            const data = docSnap.data() as any;
             
             const mergedSettings: AppSettings = {
                 ...DEFAULT_SETTINGS,

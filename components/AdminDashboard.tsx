@@ -61,14 +61,18 @@ export default function AdminDashboard({
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<FollowUpStatus | null>(null);
     
-    // Initialize Date Range to TODAY by default
-    const [dateRange, setDateRange] = useState<{ start?: string; end?: string }>(() => {
-        const today = new Date();
-        const year = today.getFullYear();
-        const month = String(today.getMonth() + 1).padStart(2, '0');
-        const day = String(today.getDate()).padStart(2, '0');
-        const todayStr = `${year}-${month}-${day}`;
-        return { start: todayStr };
+    // Helper to get local today string YYYY-MM-DD
+    const getTodayStr = () => {
+        const d = new Date();
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    // Initialize Date Range to default to Today's start date
+    const [dateRange, setDateRange] = useState<{ start?: string; end?: string }>({
+        start: getTodayStr()
     });
     
     const [viewingCancelled, setViewingCancelled] = useState(false);
