@@ -54,7 +54,6 @@ export default function CustomerOrderPage({
     const [error, setError] = useState<string | null>(null);
 
     const [activePackageBuilder, setActivePackageBuilder] = useState<MenuPackage | null>(null);
-    const [activeCategory, setActiveCategory] = useState<'mini' | 'full' | 'packages'>('mini');
 
     // --- Derived Data ---
     
@@ -196,6 +195,7 @@ export default function CustomerOrderPage({
             setLastOrder(newOrder);
             setIsSubmitted(true);
             
+            // Scroll to top so user sees the confirmation message immediately
             window.scrollTo({ top: 0, behavior: 'smooth' });
 
         } catch (err: any) {
@@ -354,69 +354,83 @@ export default function CustomerOrderPage({
                         <ShoppingBagIcon className="w-5 h-5" /> Build Your Order
                     </h2>
                     
-                    {/* Category Tabs */}
-                    <div className="flex space-x-2 border-b border-gray-200 mb-6 overflow-x-auto pb-1">
-                        <button onClick={() => setActiveCategory('mini')} className={`px-4 py-2 text-sm font-bold whitespace-nowrap border-b-2 transition-colors ${activeCategory === 'mini' ? 'border-brand-orange text-brand-orange' : 'border-transparent text-gray-500 hover:text-brand-brown'}`}>
-                            Mini Empanadas
-                        </button>
-                        <button onClick={() => setActiveCategory('full')} className={`px-4 py-2 text-sm font-bold whitespace-nowrap border-b-2 transition-colors ${activeCategory === 'full' ? 'border-brand-orange text-brand-orange' : 'border-transparent text-gray-500 hover:text-brand-brown'}`}>
-                            Full-Size
-                        </button>
-                        <button onClick={() => setActiveCategory('packages')} className={`px-4 py-2 text-sm font-bold whitespace-nowrap border-b-2 transition-colors ${activeCategory === 'packages' ? 'border-brand-orange text-brand-orange' : 'border-transparent text-gray-500 hover:text-brand-brown'}`}>
-                            Packages & Deals
-                        </button>
+                    {/* Mini Empanadas */}
+                    <div className="mb-8">
+                        <div className="flex justify-between items-end border-b border-brand-tan pb-2 mb-4">
+                            <h3 className="font-serif text-xl text-brand-brown">Mini Empanadas</h3>
+                            <span className="text-sm font-medium text-gray-500">
+                                {pricing?.mini?.basePrice ? `$${pricing.mini.basePrice.toFixed(2)} ea` : ''}
+                            </span>
+                        </div>
+                        <div className="space-y-4">
+                            {availableFlavors.map(flavor => (
+                                <div key={flavor.name} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                                    <div className="flex-grow pr-4">
+                                        <p className="font-bold text-brand-brown text-base">{flavor.name} {flavor.isSpecial && <span className="text-[10px] align-top bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full ml-1">SPECIAL</span>}</p>
+                                        {flavor.description && <p className="text-xs text-gray-500 mt-0.5">{flavor.description}</p>}
+                                        {flavor.surcharge ? <p className="text-xs text-orange-600 font-bold mt-0.5">+${flavor.surcharge.toFixed(2)}</p> : null}
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <button onClick={() => updateCart(flavor.name, -1)} className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-200 transition-colors"><MinusIcon className="w-4 h-4"/></button>
+                                        <span className="w-6 text-center font-bold text-lg">{cart[flavor.name] || 0}</span>
+                                        <button onClick={() => updateCart(flavor.name, 1)} className="w-8 h-8 bg-brand-orange text-white rounded-full flex items-center justify-center hover:bg-opacity-90 transition-colors"><PlusIcon className="w-4 h-4"/></button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
                     </div>
 
-                    <div className="space-y-4">
-                        {activeCategory === 'mini' && availableFlavors.map(flavor => (
-                            <div key={flavor.name} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
-                                <div className="flex-grow">
-                                    <p className="font-bold text-brand-brown">{flavor.name} {flavor.isSpecial && <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full ml-2">SPECIAL</span>}</p>
-                                    {flavor.description && <p className="text-xs text-gray-500">{flavor.description}</p>}
-                                    {flavor.surcharge ? <p className="text-xs text-orange-600 font-bold">+${flavor.surcharge.toFixed(2)}</p> : null}
+                    {/* Full-Size Empanadas */}
+                    <div className="mb-8">
+                        <div className="flex justify-between items-end border-b border-brand-tan pb-2 mb-4">
+                            <h3 className="font-serif text-xl text-brand-brown">Full-Size Empanadas</h3>
+                            <span className="text-sm font-medium text-gray-500">
+                                {pricing?.full?.basePrice ? `$${pricing.full.basePrice.toFixed(2)} ea` : ''}
+                            </span>
+                        </div>
+                        <div className="space-y-4">
+                            {availableFullFlavors.map(flavor => (
+                                <div key={flavor.name} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
+                                    <div className="flex-grow pr-4">
+                                        <p className="font-bold text-brand-brown text-base">{flavor.name.replace('Full ', '')}</p>
+                                        {flavor.description && <p className="text-xs text-gray-500 mt-0.5">{flavor.description}</p>}
+                                        {flavor.surcharge ? <p className="text-xs text-orange-600 font-bold mt-0.5">+${flavor.surcharge.toFixed(2)}</p> : null}
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <button onClick={() => updateCart(flavor.name, -1)} className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-200 transition-colors"><MinusIcon className="w-4 h-4"/></button>
+                                        <span className="w-6 text-center font-bold text-lg">{cart[flavor.name] || 0}</span>
+                                        <button onClick={() => updateCart(flavor.name, 1)} className="w-8 h-8 bg-brand-orange text-white rounded-full flex items-center justify-center hover:bg-opacity-90 transition-colors"><PlusIcon className="w-4 h-4"/></button>
+                                    </div>
                                 </div>
-                                <div className="flex items-center gap-3">
-                                    <button onClick={() => updateCart(flavor.name, -1)} className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-200"><MinusIcon className="w-4 h-4"/></button>
-                                    <span className="w-6 text-center font-bold">{cart[flavor.name] || 0}</span>
-                                    <button onClick={() => updateCart(flavor.name, 1)} className="w-8 h-8 bg-brand-orange text-white rounded-full flex items-center justify-center hover:bg-opacity-90"><PlusIcon className="w-4 h-4"/></button>
-                                </div>
-                            </div>
-                        ))}
+                            ))}
+                        </div>
+                    </div>
 
-                        {activeCategory === 'full' && availableFullFlavors.map(flavor => (
-                            <div key={flavor.name} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
-                                <div className="flex-grow">
-                                    <p className="font-bold text-brand-brown">{flavor.name.replace('Full ', '')}</p>
-                                    {flavor.description && <p className="text-xs text-gray-500">{flavor.description}</p>}
-                                    {flavor.surcharge ? <p className="text-xs text-orange-600 font-bold">+${flavor.surcharge.toFixed(2)}</p> : null}
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    <button onClick={() => updateCart(flavor.name, -1)} className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-200"><MinusIcon className="w-4 h-4"/></button>
-                                    <span className="w-6 text-center font-bold">{cart[flavor.name] || 0}</span>
-                                    <button onClick={() => updateCart(flavor.name, 1)} className="w-8 h-8 bg-brand-orange text-white rounded-full flex items-center justify-center hover:bg-opacity-90"><PlusIcon className="w-4 h-4"/></button>
-                                </div>
-                            </div>
-                        ))}
-
-                        {activeCategory === 'packages' && (
+                    {/* Packages */}
+                    {availablePackages.length > 0 && (
+                        <div className="mb-8">
+                            <h3 className="font-serif text-xl text-brand-brown mb-4 border-b border-brand-tan pb-2">Packages & Deals</h3>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 {availablePackages.map(pkg => (
-                                    <div key={pkg.id} className="border border-brand-tan rounded-lg p-4 hover:shadow-md transition-shadow bg-brand-cream/20 cursor-pointer" onClick={() => setActivePackageBuilder(pkg)}>
-                                        <div className="flex justify-between items-start mb-2">
-                                            <h3 className="font-bold text-brand-brown">{pkg.name}</h3>
-                                            <span className="bg-white border border-brand-tan px-2 py-1 rounded text-sm font-bold text-brand-orange">${pkg.price}</span>
+                                    <div key={pkg.id} className="border border-brand-tan rounded-lg p-4 hover:shadow-md transition-shadow bg-brand-cream/20 cursor-pointer flex flex-col justify-between" onClick={() => setActivePackageBuilder(pkg)}>
+                                        <div>
+                                            <div className="flex justify-between items-start mb-2">
+                                                <h3 className="font-bold text-brand-brown">{pkg.name}</h3>
+                                                <span className="bg-white border border-brand-tan px-2 py-1 rounded text-sm font-bold text-brand-orange">${pkg.price}</span>
+                                            </div>
+                                            <p className="text-xs text-gray-600 mb-3">{pkg.description || `${pkg.quantity} items of your choice.`}</p>
                                         </div>
-                                        <p className="text-xs text-gray-600 mb-3">{pkg.description || `${pkg.quantity} items of your choice.`}</p>
-                                        <button className="w-full py-2 bg-brand-orange text-white text-sm font-bold rounded-lg hover:bg-opacity-90">Customize</button>
+                                        <button className="w-full py-2 bg-brand-orange text-white text-sm font-bold rounded-lg hover:bg-opacity-90 transition-colors mt-2">Customize Package</button>
                                     </div>
                                 ))}
                             </div>
-                        )}
-                    </div>
+                        </div>
+                    )}
                     
+                    {/* Salsas */}
                     {availableSalsas.length > 0 && (
-                        <div className="mt-8 pt-6 border-t border-dashed border-gray-300">
-                            <h3 className="font-bold text-brand-brown mb-4">Extras & Salsas</h3>
+                        <div className="pt-6 border-t border-dashed border-gray-300">
+                            <h3 className="font-bold text-brand-brown mb-4 text-lg">Extras & Salsas</h3>
                             <div className="space-y-3">
                                 {availableSalsas.map(salsa => (
                                     <div key={salsa.id} className="flex items-center justify-between">
@@ -425,9 +439,9 @@ export default function CustomerOrderPage({
                                             <p className="text-xs text-brand-orange font-bold">${salsa.price.toFixed(2)}</p>
                                         </div>
                                         <div className="flex items-center gap-3">
-                                            <button onClick={() => updateCart(salsa.name, -1)} className="w-7 h-7 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-200"><MinusIcon className="w-3 h-3"/></button>
+                                            <button onClick={() => updateCart(salsa.name, -1)} className="w-7 h-7 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-200 transition-colors"><MinusIcon className="w-3 h-3"/></button>
                                             <span className="w-6 text-center text-sm font-bold">{cart[salsa.name] || 0}</span>
-                                            <button onClick={() => updateCart(salsa.name, 1)} className="w-7 h-7 bg-brand-orange text-white rounded-full flex items-center justify-center hover:bg-opacity-90"><PlusIcon className="w-3 h-3"/></button>
+                                            <button onClick={() => updateCart(salsa.name, 1)} className="w-7 h-7 bg-brand-orange text-white rounded-full flex items-center justify-center hover:bg-opacity-90 transition-colors"><PlusIcon className="w-3 h-3"/></button>
                                         </div>
                                     </div>
                                 ))}
