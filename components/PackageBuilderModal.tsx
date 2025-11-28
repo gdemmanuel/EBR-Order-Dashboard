@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { MenuPackage, Flavor } from '../types';
-import { XMarkIcon, ChevronDownIcon, ArrowUturnLeftIcon } from './icons/Icons';
+import { XMarkIcon, ChevronDownIcon, ArrowUturnLeftIcon, CheckCircleIcon } from './icons/Icons';
 
 interface PackageBuilderModalProps {
     pkg: MenuPackage;
@@ -10,9 +10,10 @@ interface PackageBuilderModalProps {
     salsas?: Flavor[];
     onClose: () => void;
     onConfirm: (items: { name: string; quantity: number }[]) => void;
+    className?: string;
 }
 
-export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavors, salsas = [], onClose, onConfirm }: PackageBuilderModalProps) {
+export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavors, salsas = [], onClose, onConfirm, className = "h-auto" }: PackageBuilderModalProps) {
     const [builderSelections, setBuilderSelections] = useState<{ [flavorName: string]: number }>({});
     const [salsaSelections, setSalsaSelections] = useState<{ [salsaName: string]: number }>({});
     const [flavorCategory, setFlavorCategory] = useState<'standard' | 'special'>('standard');
@@ -109,20 +110,30 @@ export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavo
     const remaining = pkg.quantity - totalSelected;
     
     return (
-        <div className="bg-white rounded-xl shadow-lg border border-brand-tan w-full animate-fade-in flex flex-col h-full">
-            <header className="p-3 border-b border-gray-200 flex justify-between items-center bg-brand-tan/10 rounded-t-xl flex-shrink-0">
-                <div>
+        <div className={`bg-white rounded-xl shadow-lg border border-brand-tan w-full animate-fade-in flex flex-col ${className}`}>
+            <header className="p-3 border-b border-gray-200 flex justify-between items-center bg-brand-tan/10 rounded-t-xl flex-shrink-0 sticky top-0 z-20 backdrop-blur-sm bg-brand-tan/10">
+                <div className="flex-grow">
                     <h3 className="text-lg font-bold text-brand-brown">Customize {pkg.name}</h3>
                     <p className="text-xs text-gray-500">
                         Pick {pkg.quantity} empanadas (Up to {pkg.maxFlavors} flavors)
                     </p>
                 </div>
-                <button onClick={onClose} className="text-brand-brown hover:text-brand-orange flex items-center gap-1 text-sm font-medium bg-white border border-brand-tan/50 px-2 py-1 rounded shadow-sm transition-colors">
-                    <ArrowUturnLeftIcon className="w-4 h-4" /> Back
-                </button>
+                <div className="flex items-center gap-2">
+                    {/* Top "Add" Button for easy access */}
+                    <button 
+                        onClick={handleConfirm}
+                        disabled={totalSelected !== pkg.quantity}
+                        className="bg-brand-orange text-white text-xs font-bold px-3 py-1.5 rounded shadow-sm hover:bg-opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 transition-all"
+                    >
+                        <CheckCircleIcon className="w-4 h-4" /> Add
+                    </button>
+                    <button onClick={onClose} className="text-brand-brown hover:text-brand-orange flex items-center gap-1 text-xs font-medium bg-white border border-brand-tan/50 px-2 py-1.5 rounded shadow-sm transition-colors">
+                        <ArrowUturnLeftIcon className="w-4 h-4" /> Back
+                    </button>
+                </div>
             </header>
             
-            <div className="flex-grow">
+            <div className="flex-grow overflow-y-auto">
                 {/* Empanadas Section */}
                 <div className="p-3">
                     <div className="flex justify-between items-center mb-2 border-b border-gray-200 pb-2">
@@ -139,7 +150,7 @@ export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavo
                         </select>
                     </div>
 
-                    <div className="space-y-0.5">
+                    <div className="space-y-0.5 pb-2">
                         {activeFlavors.length === 0 && (
                             <p className="text-sm text-gray-400 italic text-center py-4">No flavors available in this category.</p>
                         )}
@@ -153,8 +164,8 @@ export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavo
                                 const canAdd = remaining > 0 && (qty > 0 || distinctSelected < pkg.maxFlavors);
 
                                 return (
-                                    <div key={flavor.name} className="flex items-center justify-between py-1.5 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
-                                        <div className="flex-grow pr-2 min-w-0">
+                                    <div key={flavor.name} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
+                                        <div className="flex-grow pr-2 min-w-0" onClick={() => canAdd && updateBuilderSelection(flavor.name, step)}>
                                             <p className="font-medium text-brand-brown text-sm truncate">
                                                 {flavor.name} 
                                                 {flavor.isSpecial && <span className="ml-1 text-[10px] bg-purple-100 text-purple-700 px-1 rounded">Special</span>}
@@ -167,7 +178,7 @@ export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavo
                                                 type="button"
                                                 onClick={() => fillRemaining(flavor.name)}
                                                 disabled={!canAdd}
-                                                className="text-[10px] font-bold text-brand-orange hover:text-brand-brown disabled:opacity-30 mr-1 uppercase tracking-wide bg-brand-orange/10 px-1.5 py-0.5 rounded"
+                                                className="text-[10px] font-bold text-brand-orange hover:text-brand-brown disabled:opacity-30 mr-1 uppercase tracking-wide bg-brand-orange/10 px-2 py-1 rounded"
                                             >
                                                 Max
                                             </button>
@@ -176,7 +187,7 @@ export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavo
                                                 type="button"
                                                 onClick={() => updateBuilderSelection(flavor.name, -step)}
                                                 disabled={qty === 0}
-                                                className="w-7 h-7 rounded-md bg-gray-100 border border-gray-300 text-gray-600 text-sm font-bold flex items-center justify-center hover:bg-gray-200 disabled:opacity-30"
+                                                className="w-8 h-8 rounded-md bg-gray-100 border border-gray-300 text-gray-600 text-lg font-bold flex items-center justify-center hover:bg-gray-200 disabled:opacity-30 touch-manipulation"
                                             >
                                                 -
                                             </button>
@@ -189,14 +200,14 @@ export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavo
                                                 value={qty > 0 ? qty : ''}
                                                 placeholder="0"
                                                 onChange={(e) => setBuilderQuantity(flavor.name, parseInt(e.target.value) || 0)}
-                                                className="w-10 h-7 text-center font-bold border-gray-300 rounded p-0 text-sm focus:border-brand-orange focus:ring-brand-orange"
+                                                className="w-10 h-8 text-center font-bold border-gray-300 rounded p-0 text-sm focus:border-brand-orange focus:ring-brand-orange"
                                             />
                                             
                                             <button 
                                                 type="button"
                                                 onClick={() => updateBuilderSelection(flavor.name, step)}
                                                 disabled={!canAdd}
-                                                className="w-7 h-7 rounded-md bg-brand-orange text-white text-sm font-bold flex items-center justify-center hover:bg-brand-orange/90 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                                                className="w-8 h-8 rounded-md bg-brand-orange text-white text-lg font-bold flex items-center justify-center hover:bg-brand-orange/90 disabled:bg-gray-300 disabled:cursor-not-allowed touch-manipulation"
                                             >
                                                 +
                                             </button>
@@ -209,7 +220,7 @@ export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavo
 
                 {/* Salsas Section */}
                 {salsas.length > 0 && (
-                    <div className="p-3 bg-orange-50/50 border-t border-orange-100">
+                    <div className="p-3 bg-orange-50/50 border-t border-orange-100 mb-20">
                         <h4 className="font-bold text-brand-brown mb-1 text-sm">Add Dipping Sauces</h4>
                         <div className="space-y-0.5">
                             {salsas.map(salsa => {
@@ -218,7 +229,7 @@ export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavo
                                 const price = (typeof salsa.price === 'number' ? salsa.price : (salsa.surcharge || 0)) || 0;
 
                                 return (
-                                    <div key={salsa.name} className="flex items-center justify-between py-1.5 border-b border-orange-100 last:border-0 hover:bg-orange-50/50 transition-colors">
+                                    <div key={salsa.name} className="flex items-center justify-between py-2 border-b border-orange-100 last:border-0 hover:bg-orange-50/50 transition-colors">
                                         <div className="flex-grow pr-2">
                                             <p className="font-medium text-brand-brown text-sm">{salsa.name}</p>
                                             <p className="text-[10px] text-brand-orange font-bold">+ ${price.toFixed(2)} ea</p>
@@ -228,7 +239,7 @@ export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavo
                                                 type="button"
                                                 onClick={() => updateSalsaSelection(salsa.name, -1)}
                                                 disabled={qty === 0}
-                                                className="w-7 h-7 rounded-md bg-white border border-gray-300 text-gray-600 text-sm font-bold flex items-center justify-center hover:bg-gray-50 disabled:opacity-50"
+                                                className="w-8 h-8 rounded-md bg-white border border-gray-300 text-gray-600 text-lg font-bold flex items-center justify-center hover:bg-gray-50 disabled:opacity-50 touch-manipulation"
                                             >
                                                 -
                                             </button>
@@ -236,7 +247,7 @@ export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavo
                                             <button 
                                                 type="button"
                                                 onClick={() => updateSalsaSelection(salsa.name, 1)}
-                                                className="w-7 h-7 rounded-md bg-white border border-gray-300 text-brand-orange text-sm font-bold flex items-center justify-center hover:bg-orange-50"
+                                                className="w-8 h-8 rounded-md bg-white border border-gray-300 text-brand-orange text-lg font-bold flex items-center justify-center hover:bg-orange-50 touch-manipulation"
                                             >
                                                 +
                                             </button>
@@ -249,7 +260,7 @@ export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavo
                 )}
             </div>
 
-            <footer className="p-3 border-t border-gray-200 bg-gray-50 rounded-b-xl flex-shrink-0">
+            <footer className="p-3 border-t border-gray-200 bg-white rounded-b-xl flex-shrink-0 sticky bottom-0 z-30 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
                 <div className="flex justify-between items-center mb-2">
                     <span className="text-xs font-medium text-gray-600">
                         Remaining: <span className="font-bold text-brand-brown">{remaining}</span>
@@ -261,8 +272,9 @@ export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavo
                 <button 
                     onClick={handleConfirm}
                     disabled={totalSelected !== pkg.quantity}
-                    className="w-full bg-brand-orange text-white font-bold py-2.5 rounded-lg shadow-md hover:bg-opacity-90 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex justify-center items-center gap-2 text-sm"
+                    className="w-full bg-brand-orange text-white font-bold py-3 rounded-lg shadow-md hover:bg-opacity-90 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex justify-center items-center gap-2 text-base touch-manipulation"
                 >
+                    <CheckCircleIcon className="w-5 h-5" />
                     <span>Add to Order</span>
                 </button>
             </footer>

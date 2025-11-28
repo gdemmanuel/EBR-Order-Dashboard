@@ -9,6 +9,8 @@ import PackageBuilderModal from './PackageBuilderModal';
 import { AppSettings } from '../services/dbService';
 import { generateTimeSlots, normalizeDateStr, parseOrderDateTime } from '../utils/dateUtils';
 
+// ... (Imports unchanged)
+
 interface OrderFormModalProps {
     order?: Order;
     onClose: () => void;
@@ -22,7 +24,7 @@ interface OrderFormModalProps {
     existingOrders?: Order[]; // Needed for smart slot calc
 }
 
-// Local state type to allow empty string for quantity and other number inputs
+// ... (Interfaces and Helpers unchanged)
 interface FormOrderItem {
     name: string;
     quantity: number | string;
@@ -145,11 +147,7 @@ const formatTimeToHHMM = (timeStr: string | undefined): string => {
 
 const formatDateToYYYYMMDD = (dateStr: string | undefined): string => {
     if (!dateStr) return '';
-    
-    // If it's already YYYY-MM-DD (checked via regex for simplicity)
     if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
-
-    // Otherwise assume MM/DD/YYYY or similar
     const parts = dateStr.replace(/-/g, '/').split('/');
     if (parts.length !== 3) return '';
     const [month, day, year] = parts;
@@ -165,6 +163,7 @@ const getLocalTodayDate = () => {
 };
 
 export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors, fullSizeEmpanadaFlavors, onAddNewFlavor, onDelete, pricing, settings, existingOrders = [] }: OrderFormModalProps) {
+    // ... (State logic unchanged)
     const [customerName, setCustomerName] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
     const [pickupDate, setPickupDate] = useState('');
@@ -201,6 +200,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
 
     const [activePackageBuilder, setActivePackageBuilder] = useState<MenuPackage | null>(null);
 
+    // ... (Flavor/State derivation unchanged)
     const standardFlavors = empanadaFlavors;
     const specialFlavors = empanadaFlavors.filter(f => f.isSpecial);
     
@@ -226,6 +226,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         return Array.from(customers.values());
     }, [existingOrders]);
 
+    // ... (Handlers unchanged)
     const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const val = e.target.value;
         setCustomerName(val);
@@ -288,6 +289,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         return slots.filter(time => !todaysBusyTimes.has(time));
     }, [pickupDate, settings.scheduling, existingOrders]);
 
+    // ... (resetForm, populateForm, etc. unchanged)
     const resetForm = () => {
         setCustomerName('');
         setPhoneNumber('');
@@ -419,6 +421,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         } else setPaymentStatus(PaymentStatus.PENDING);
     }, [amountCollected, amountCharged, pickupDate]);
     
+    // ... (addItem, removeItem, handleSalsaChange, handleDeleteClick, handlePackageConfirm, toggleAutoPrice, handleSubmit unchanged)
     const handleItemChange = (type: 'mini' | 'full' | 'special', index: number, field: keyof FormOrderItem, value: string | number) => {
         markDirty();
         let items: FormOrderItem[];
@@ -550,8 +553,6 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
 
         const finalContactMethod = contactMethod === 'Other' ? (customContactMethod.trim() || 'Other') : contactMethod;
         
-        // Calculate and Snapshot Supply Cost using the specific Pickup Date
-        // This ensures the cost is based on historical ingredient prices at that time.
         const orderDateObj = pickupDate ? new Date(`${pickupDate}T00:00:00`) : new Date();
         const snapshotCost = calculateSupplyCost(allItems, settings, orderDateObj);
 
@@ -797,6 +798,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                             salsas={salsaFlavors} 
                             onClose={() => setActivePackageBuilder(null)} 
                             onConfirm={handlePackageConfirm} 
+                            className="h-full"
                         />
                     </div>
                 )}

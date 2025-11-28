@@ -1,3 +1,8 @@
+
+<change>
+    <file>components/CustomerOrderPage.tsx</file>
+    <description>Make Your Selection section visual pop out more with better shadows, borders, and footer styling.</description>
+    <content><![CDATA[
 import React, { useState, useMemo, useEffect } from 'react';
 import { Order, Flavor, PricingSettings, AppSettings, ContactMethod, PaymentStatus, FollowUpStatus, ApprovalStatus, OrderItem, MenuPackage } from '../types';
 import { saveOrderToDb } from '../services/dbService';
@@ -684,34 +689,37 @@ export default function CustomerOrderPage({
 
                 {/* 3.5. Order Summary (New) */}
                 {!activePackageBuilder && finalItems.length > 0 && (
-                    <section className="bg-white p-6 md:p-8 rounded-xl shadow-sm border border-brand-tan">
-                        <div className="flex items-center gap-3 mb-6">
-                            <div className="bg-brand-brown/10 text-brand-brown p-2 rounded-lg">
+                    <section className="bg-white p-6 md:p-8 rounded-xl shadow-2xl border-2 border-brand-orange/20 relative overflow-hidden animate-fade-in ring-4 ring-brand-orange/5">
+                        {/* Decorative background accent */}
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-brand-orange/5 rounded-full -mr-16 -mt-16 z-0 pointer-events-none"></div>
+
+                        <div className="flex items-center gap-3 mb-6 relative z-10">
+                            <div className="bg-brand-orange text-white p-3 rounded-full shadow-lg">
                                 <ListBulletIcon className="w-6 h-6" />
                             </div>
-                            <h2 className="text-2xl font-serif text-brand-brown">Your Selection</h2>
+                            <h2 className="text-3xl font-serif text-brand-brown font-bold">Your Selection</h2>
                         </div>
                         
-                        <div className="divide-y divide-gray-100 mb-4">
+                        <div className="divide-y divide-gray-100 mb-6 relative z-10">
                             {finalItems.map((item, idx) => (
-                                <div key={idx} className="flex items-center justify-between py-3 first:pt-0">
-                                    <span className="font-medium text-brand-brown text-lg">{item.name}</span>
+                                <div key={idx} className="flex items-center justify-between py-4 first:pt-0">
+                                    <span className="font-medium text-brand-brown text-xl">{item.name}</span>
                                     <div className="flex items-center gap-4">
-                                        <div className="flex items-center gap-3 bg-gray-50 p-1 rounded-lg border border-gray-200">
+                                        <div className="flex items-center gap-3 bg-brand-tan/30 p-1.5 rounded-xl border border-brand-tan/50">
                                             <button 
                                                 onClick={() => updateCart(item.name, -1)} 
-                                                className="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-red-500 hover:bg-white rounded shadow-sm transition-all"
+                                                className="w-10 h-10 flex items-center justify-center text-gray-600 hover:text-red-500 bg-white hover:bg-red-50 rounded-lg shadow-sm transition-all"
                                                 type="button"
                                             >
-                                                <MinusIcon className="w-3 h-3"/>
+                                                <MinusIcon className="w-4 h-4"/>
                                             </button>
-                                            <span className="font-bold text-brand-brown w-6 text-center">{item.quantity}</span>
+                                            <span className="font-bold text-brand-brown w-8 text-center text-lg">{item.quantity}</span>
                                             <button 
                                                 onClick={() => updateCart(item.name, 1)} 
-                                                className="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-green-600 hover:bg-white rounded shadow-sm transition-all"
+                                                className="w-10 h-10 flex items-center justify-center text-gray-600 hover:text-green-600 bg-white hover:bg-green-50 rounded-lg shadow-sm transition-all"
                                                 type="button"
                                             >
-                                                <PlusIcon className="w-3 h-3"/>
+                                                <PlusIcon className="w-4 h-4"/>
                                             </button>
                                         </div>
                                     </div>
@@ -719,9 +727,9 @@ export default function CustomerOrderPage({
                             ))}
                         </div>
                         
-                        <div className="flex justify-between items-center pt-4 border-t border-brand-tan/30">
-                            <span className="text-gray-500 font-medium uppercase tracking-wider text-sm">Current Total</span>
-                            <span className="text-2xl font-serif font-bold text-brand-orange">{formatPrice(estimatedTotal)}</span>
+                        <div className="flex justify-between items-center pt-6 border-t-2 border-brand-tan/30 relative z-10 bg-brand-orange/5 -mx-6 md:-mx-8 -mb-6 md:-mb-8 p-6 md:p-8 mt-4">
+                            <span className="text-brand-brown/70 font-bold uppercase tracking-widest text-sm">Estimated Total</span>
+                            <span className="text-4xl font-serif font-bold text-brand-orange drop-shadow-sm">{formatPrice(estimatedTotal)}</span>
                         </div>
                     </section>
                 )}
@@ -853,3 +861,5 @@ export default function CustomerOrderPage({
         </div>
     );
 }
+]]></content>
+</change>
