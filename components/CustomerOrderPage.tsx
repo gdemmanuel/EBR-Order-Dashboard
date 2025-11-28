@@ -1,7 +1,7 @@
 
 <change>
     <file>components/CustomerOrderPage.tsx</file>
-    <description>Remove XML tags from file content, tighten UI spacing further, and ensure package details are not auto-appended to special instructions.</description>
+    <description>Fix build error by removing XML tags from file content, tighten UI spacing, and ensure package details are not auto-appended to special instructions.</description>
     <content><![CDATA[
 import React, { useState, useMemo, useEffect } from 'react';
 import { Order, Flavor, PricingSettings, AppSettings, ContactMethod, PaymentStatus, FollowUpStatus, ApprovalStatus, OrderItem, MenuPackage } from '../types';
