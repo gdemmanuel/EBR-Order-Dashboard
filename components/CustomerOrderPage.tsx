@@ -133,6 +133,17 @@ export default function CustomerOrderPage({
         return (pricing?.salsas || []).filter(s => s.visible);
     }, [pricing]);
 
+    // Convert salsas to "Flavors" for the modal, using surcharge as price to be compatible with Flavor interface
+    const salsaListForModal = useMemo(() => {
+        return availableSalsas.map(s => ({
+            name: s.name,
+            visible: true,
+            description: s.description,
+            surcharge: s.price, 
+            isSpecial: false
+        }));
+    }, [availableSalsas]);
+
     // Time Slots Logic
     const timeSlots = useMemo(() => {
         if (!pickupDate || !scheduling?.enabled) return [];
@@ -386,7 +397,7 @@ export default function CustomerOrderPage({
                             <div className="bg-brand-brown text-white p-2 rounded-lg">
                                 <ShoppingBagIcon className="w-6 h-6" />
                             </div>
-                            <h2 className="text-2xl font-serif text-brand-brown">Select a Package</h2>
+                            <h2 className="text-2xl font-serif text-brand-brown">Order Here</h2>
                         </div>
                         
                         {/* Mini Packages */}
@@ -396,7 +407,7 @@ export default function CustomerOrderPage({
                                     <span className="bg-brand-orange w-2 h-2 rounded-full inline-block"></span>
                                     Mini Empanada Packages
                                 </h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                                     {miniPackages.map(pkg => (
                                         <PackageCard key={pkg.id} pkg={pkg} onClick={() => setActivePackageBuilder(pkg)} />
                                     ))}
@@ -411,7 +422,7 @@ export default function CustomerOrderPage({
                                     <span className="bg-brand-brown w-2 h-2 rounded-full inline-block"></span>
                                     Full-Size Empanada Packages
                                 </h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                                     {fullPackages.map(pkg => (
                                         <PackageCard key={pkg.id} pkg={pkg} onClick={() => setActivePackageBuilder(pkg)} />
                                     ))}
@@ -426,7 +437,7 @@ export default function CustomerOrderPage({
                                     <span className="bg-purple-600 w-2 h-2 rounded-full inline-block"></span>
                                     Specialty Packages
                                 </h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                                     {specialPackages.map(pkg => (
                                         <PackageCard key={pkg.id} pkg={pkg} onClick={() => setActivePackageBuilder(pkg)} />
                                     ))}
@@ -443,7 +454,7 @@ export default function CustomerOrderPage({
                             <div className="bg-brand-orange/10 text-brand-orange p-2 rounded-lg">
                                 <PlusIcon className="w-6 h-6" />
                             </div>
-                            <h2 className="text-2xl font-serif text-brand-brown">Extras & Salsas</h2>
+                            <h2 className="text-2xl font-serif text-brand-brown">Extras</h2>
                         </div>
                         <div className="divide-y divide-gray-100">
                             {availableSalsas.map(salsa => (
@@ -601,7 +612,7 @@ export default function CustomerOrderPage({
                     pkg={activePackageBuilder}
                     standardFlavors={empanadaFlavors.filter(f => !f.isSpecial)}
                     specialFlavors={empanadaFlavors.filter(f => f.isSpecial)}
-                    salsas={[]} 
+                    salsas={salsaListForModal} 
                     onClose={() => setActivePackageBuilder(null)}
                     onConfirm={handlePackageConfirm}
                 />
