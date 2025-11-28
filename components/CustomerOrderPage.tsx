@@ -1,7 +1,7 @@
 
 <change>
     <file>components/CustomerOrderPage.tsx</file>
-    <description>Make cart icon click scroll to "Your Selection" section instead of triggering review.</description>
+    <description>Overwrite file with clean TypeScript code to fix build error caused by XML tags in source, while keeping UI tight and logic correct.</description>
     <content><![CDATA[
 import React, { useState, useMemo, useEffect } from 'react';
 import { Order, Flavor, PricingSettings, AppSettings, ContactMethod, PaymentStatus, FollowUpStatus, ApprovalStatus, OrderItem, MenuPackage } from '../types';
