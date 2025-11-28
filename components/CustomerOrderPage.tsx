@@ -24,6 +24,18 @@ interface CustomerOrderPageProps {
 // Helper for formatting currency
 const formatPrice = (price: number) => `$${price.toFixed(2)}`;
 
+// Helper to format phone number as (XXX) XXX-XXXX
+const formatPhoneNumber = (value: string) => {
+    if (!value) return value;
+    const phoneNumber = value.replace(/[^\d]/g, '');
+    const phoneNumberLength = phoneNumber.length;
+    if (phoneNumberLength < 4) return phoneNumber;
+    if (phoneNumberLength < 7) {
+      return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3)}`;
+    }
+    return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`;
+};
+
 // Component for rendering a package card with "Empanadas by Rose" style
 const PackageCard = ({ pkg, onClick }: { pkg: MenuPackage; onClick: () => void }) => (
     <div 
@@ -187,6 +199,11 @@ export default function CustomerOrderPage({
     }, [cart, pricing, empanadaFlavors, fullSizeEmpanadaFlavors]);
 
     // --- Handlers ---
+
+    const handlePhoneNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const formatted = formatPhoneNumber(e.target.value);
+        setPhoneNumber(formatted);
+    };
 
     const updateCart = (name: string, delta: number) => {
         setCart(prev => {
@@ -491,10 +508,10 @@ export default function CustomerOrderPage({
                         </div>
                         <div className="space-y-1">
                             <label className="block text-sm font-bold text-brand-brown uppercase tracking-wider">Phone Number <span className="text-red-500">*</span></label>
-                            <input type="tel" required value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} className="w-full rounded-lg border-gray-300 focus:ring-brand-orange focus:border-brand-orange bg-brand-cream/30 py-3" placeholder="(555) 123-4567" />
+                            <input type="tel" required value={phoneNumber} onChange={handlePhoneNumberChange} className="w-full rounded-lg border-gray-300 focus:ring-brand-orange focus:border-brand-orange bg-brand-cream/30 py-3" placeholder="(555) 123-4567" />
                         </div>
                         <div className="md:col-span-2 space-y-1">
-                            <label className="block text-sm font-bold text-brand-brown uppercase tracking-wider">Email (Optional)</label>
+                            <label className="block text-sm font-bold text-brand-brown uppercase tracking-wider">Email</label>
                             <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full rounded-lg border-gray-300 focus:ring-brand-orange focus:border-brand-orange bg-brand-cream/30 py-3" placeholder="For order confirmation" />
                         </div>
                     </div>
@@ -534,7 +551,7 @@ export default function CustomerOrderPage({
                                     ))}
                                 </select>
                                 {pickupDate && timeSlots.length === 0 && (
-                                    <p className="text-xs text-red-500 mt-1 font-medium bg-red-50 p-2 rounded">No available slots for this date. We may be closed or fully booked.</p>
+                                    <p className="text-xs text-red-500 mt-1 font-medium bg-red-50 p-2 rounded">Limited availability! We will contact you for availability.</p>
                                 )}
                             </div>
                             

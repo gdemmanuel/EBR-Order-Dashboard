@@ -144,13 +144,21 @@ const formatTimeToHHMM = (timeStr: string | undefined): string => {
     else if (!hasAmPm && hours > 0 && hours < 8) hours += 12;
     return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 };
+
+// FIX: Updated to handle YYYY-MM-DD correctly so it doesn't break input[type=date]
 const formatDateToYYYYMMDD = (dateStr: string | undefined): string => {
     if (!dateStr) return '';
+    
+    // If it's already YYYY-MM-DD (checked via regex for simplicity)
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+
+    // Otherwise assume MM/DD/YYYY or similar
     const parts = dateStr.replace(/-/g, '/').split('/');
     if (parts.length !== 3) return '';
     const [month, day, year] = parts;
     return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 };
+
 const getLocalTodayDate = () => {
     const d = new Date();
     const year = d.getFullYear();
