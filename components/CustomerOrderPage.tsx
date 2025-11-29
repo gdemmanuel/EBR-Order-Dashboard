@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Order, Flavor, PricingSettings, AppSettings, ContactMethod, PaymentStatus, FollowUpStatus, ApprovalStatus, OrderItem, MenuPackage } from '../types';
 import { saveOrderToDb } from '../services/dbService';
@@ -100,19 +99,6 @@ const FlavorCard = ({ flavor }: { flavor: Flavor }) => (
 );
 
 export default function CustomerOrderPage({
-
-  // Auto-resize iframe height for embedding
-  React.useEffect(() => {
-    const sendHeight = () => {
-      const height = document.body.scrollHeight;
-      window.parent.postMessage({ type: "embedHeight", height }, "*");
-    };
-    const observer = new ResizeObserver(sendHeight);
-    observer.observe(document.body);
-    sendHeight();
-    return () => observer.disconnect();
-  }, []);
-
     empanadaFlavors,
     fullSizeEmpanadaFlavors,
     pricing,
@@ -120,6 +106,18 @@ export default function CustomerOrderPage({
     busySlots,
     motd
 }: CustomerOrderPageProps) {
+    // Auto-resize iframe height for embedding
+    useEffect(() => {
+        const sendHeight = () => {
+            const height = document.body.scrollHeight;
+            window.parent.postMessage({ type: "embedHeight", height }, "*");
+        };
+        const observer = new ResizeObserver(sendHeight);
+        observer.observe(document.body);
+        sendHeight();
+        return () => observer.disconnect();
+    }, []);
+
     // --- State ---
     const [customerName, setCustomerName] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
