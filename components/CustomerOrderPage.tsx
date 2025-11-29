@@ -9,13 +9,12 @@ import PackageBuilderModal from './PackageBuilderModal';
 interface CustomerOrderPageProps {
     empanadaFlavors: Flavor[];
     fullSizeEmpanadaFlavors: Flavor[];
-    pricing: PricingSettings;
+    pricing: PricingSettings | undefined; // Pricing might be undefined initially
     scheduling: AppSettings['scheduling'];
     busySlots: { date: string, time: string }[];
     motd: string;
 }
 
-// Re-implementing simplified ItemInputSection locally since it's not exported
 const ItemInputSection: React.FC<{
     title: string;
     items: { name: string; quantity: number | string }[];
@@ -104,7 +103,8 @@ export default function CustomerOrderPage({
     const [formData, setFormData] = useState({
         name: '',
         phone: '',
-        contactMethod: 'Google Forms', // Default for web
+        contactMethod: 'Google Forms',
+        email: '',
         date: '',
         time: '',
         delivery: false,
@@ -116,6 +116,16 @@ export default function CustomerOrderPage({
     const [fullSizeItems, setFullSizeItems] = useState<{name: string, quantity: number | string}[]>([]);
     const [specialItems, setSpecialItems] = useState<{name: string, quantity: number | string}[]>([]);
     const [activePackageBuilder, setActivePackageBuilder] = useState<MenuPackage | null>(null);
+
+    // CRITICAL FIX: If pricing hasn't loaded, return loading state
+    if (!pricing) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center p-4 text-brand-brown">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-orange mb-4"></div>
+                <p className="text-lg">Loading menu...</p>
+            </div>
+        );
+    }
 
     const availableTimeSlots = useMemo(() => {
         if (!formData.date || !scheduling?.enabled) return [];
@@ -180,9 +190,13 @@ export default function CustomerOrderPage({
         });
         setFunction(newItems);
         
-        // Auto-add note for special
+        // Auto-add note for Party Platter
         if (isSpecial && !formData.instructions.includes("PARTY PLATTER")) {
-            setFormData(prev => ({ ...prev, instructions: "*** PARTY PLATTER ***\n" + prev.instructions }));
+            const marker = "*** PARTY PLATTER ***";
+            setFormData(prev => ({ 
+                ...prev, 
+                instructions: prev.instructions ? `${marker}\n${prev.instructions}` : marker 
+            }));
         }
 
         setActivePackageBuilder(null);
@@ -190,7 +204,7 @@ export default function CustomerOrderPage({
 
     const handleSubmit = async () => {
         // Validation
-        if (!formData.name || !formData.phone || !formData.date || !formData.time) {
+        if (!formData.name || !formData.phone || !formData.email || !formData.date || !formData.time) {
             alert("Please fill in all required fields.");
             return;
         }
@@ -214,11 +228,16 @@ export default function CustomerOrderPage({
             fullSizeEmpanadaFlavors
         );
 
+        // Append Email to Contact Method for Admin visibility
+        const finalContactMethod = formData.email 
+            ? `${formData.contactMethod} (Email: ${formData.email})`
+            : formData.contactMethod;
+
         const newOrder: Order = {
             id: Date.now().toString(),
             customerName: formData.name,
             phoneNumber: formData.phone,
-            contactMethod: formData.contactMethod,
+            contactMethod: finalContactMethod,
             pickupDate: formData.date,
             pickupTime: formData.time,
             deliveryRequired: formData.delivery,
@@ -251,7 +270,7 @@ export default function CustomerOrderPage({
             <div className="max-w-md mx-auto mt-10 p-6 bg-white rounded-lg shadow-xl text-center border-t-4 border-brand-orange">
                 <h2 className="text-3xl font-serif text-brand-brown mb-4">Thank You!</h2>
                 <p className="text-lg text-gray-700 mb-6">Your order has been placed successfully.</p>
-                <p className="text-gray-600 mb-8">Rose will review your order and contact you at <span className="font-bold">{formData.phone}</span> to confirm details and arrange payment.</p>
+                <p className="text-gray-600 mb-8">Rose will review your order and contact you at <span className="font-bold">{formData.phone}</span> or <span className="font-bold">{formData.email}</span> to confirm details and arrange payment.</p>
                 <button onClick={() => window.location.reload()} className="bg-brand-orange text-white px-6 py-2 rounded-lg font-bold hover:bg-opacity-90">Place Another Order</button>
             </div>
         );
@@ -275,11 +294,15 @@ export default function CustomerOrderPage({
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-bold text-gray-700">Name</label>
-                            <input type="text" className="w-full mt-1 border-gray-300 rounded-md shadow-sm" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                            <input type="text" className="w-full mt-1 border-gray-300 rounded-md shadow-sm" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
                         </div>
                         <div>
                             <label className="block text-sm font-bold text-gray-700">Phone Number</label>
-                            <input type="tel" className="w-full mt-1 border-gray-300 rounded-md shadow-sm" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} placeholder="(555) 555-5555" />
+                            <input type="tel" className="w-full mt-1 border-gray-300 rounded-md shadow-sm" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} placeholder="(555) 555-5555" required />
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className="block text-sm font-bold text-gray-700">Email Address</label>
+                            <input type="email" className="w-full mt-1 border-gray-300 rounded-md shadow-sm" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} placeholder="you@example.com" required />
                         </div>
                     </div>
                 </section>
@@ -293,11 +316,11 @@ export default function CustomerOrderPage({
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                          <div>
                             <label className="block text-sm font-bold text-gray-700">Date</label>
-                            <input type="date" className="w-full mt-1 border-gray-300 rounded-md shadow-sm" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value, time: ''})} min={new Date().toISOString().split('T')[0]} />
+                            <input type="date" className="w-full mt-1 border-gray-300 rounded-md shadow-sm" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value, time: ''})} min={new Date().toISOString().split('T')[0]} required />
                         </div>
                         <div>
                             <label className="block text-sm font-bold text-gray-700">Time</label>
-                            <select className="w-full mt-1 border-gray-300 rounded-md shadow-sm" value={formData.time} onChange={e => setFormData({...formData, time: e.target.value})} disabled={!formData.date || availableTimeSlots.length === 0}>
+                            <select className="w-full mt-1 border-gray-300 rounded-md shadow-sm" value={formData.time} onChange={e => setFormData({...formData, time: e.target.value})} disabled={!formData.date || availableTimeSlots.length === 0} required>
                                 <option value="">Select a time...</option>
                                 {availableTimeSlots.map(t => <option key={t} value={t}>{t}</option>)}
                             </select>
@@ -334,7 +357,7 @@ export default function CustomerOrderPage({
                             onItemChange={(i, f, v) => handleItemChange('mini', i, f, v)} 
                             onAddItem={() => handleAddItem('mini')} 
                             onRemoveItem={(i) => handleRemoveItem('mini', i)} 
-                            availablePackages={pricing.packages?.filter(p => p.itemType === 'mini' && !p.isSpecial)}
+                            availablePackages={pricing?.packages?.filter(p => p.itemType === 'mini' && !p.isSpecial)}
                             onAddPackage={setActivePackageBuilder}
                         />
                          <ItemInputSection 
@@ -344,7 +367,7 @@ export default function CustomerOrderPage({
                             onItemChange={(i, f, v) => handleItemChange('full', i, f, v)} 
                             onAddItem={() => handleAddItem('full')} 
                             onRemoveItem={(i) => handleRemoveItem('full', i)} 
-                            availablePackages={pricing.packages?.filter(p => p.itemType === 'full' && !p.isSpecial)}
+                            availablePackages={pricing?.packages?.filter(p => p.itemType === 'full' && !p.isSpecial)}
                             onAddPackage={setActivePackageBuilder}
                         />
                         <ItemInputSection 
@@ -354,7 +377,7 @@ export default function CustomerOrderPage({
                             onItemChange={(i, f, v) => handleItemChange('special', i, f, v)} 
                             onAddItem={() => handleAddItem('special')} 
                             onRemoveItem={(i) => handleRemoveItem('special', i)} 
-                            availablePackages={pricing.packages?.filter(p => p.isSpecial)}
+                            availablePackages={pricing?.packages?.filter(p => p.isSpecial)}
                             onAddPackage={setActivePackageBuilder}
                             bgColor="bg-purple-50"
                         />
