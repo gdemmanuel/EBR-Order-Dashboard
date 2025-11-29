@@ -56,7 +56,6 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
   const handleGenerateMessage = useCallback(async () => {
     setLoadingAction('message');
     setError(null);
-    setGeneratedMessage('');
     try {
       // Pass custom templates if available, and useAi flag
       // Note: we use localStatus here so message reflects the currently selected dropdown value
@@ -151,7 +150,7 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
 
   const handleSendInstagram = () => {
     if (!generatedMessage) {
-      setError("No message has been generated.");
+      setError("Please enter a message first.");
       return;
     }
     navigator.clipboard.writeText(generatedMessage).then(() => {
@@ -166,7 +165,7 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
 
   const handleSendFacebook = () => {
     if (!generatedMessage) {
-      setError("No message has been generated.");
+      setError("Please enter a message first.");
       return;
     }
     navigator.clipboard.writeText(generatedMessage).then(() => {
@@ -181,7 +180,7 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
 
   const handleSendText = () => {
     if (!generatedMessage) {
-      setError("No message has been generated.");
+      setError("Please enter a message first.");
       return;
     }
     if (!order.phoneNumber) {
@@ -424,22 +423,25 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
               
               {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
 
-              {generatedMessage && (
-                <div className="mt-4">
-                  <label htmlFor="message" className="block text-sm font-medium text-brand-brown/90 mb-1">Message Preview (Editable):</label>
-                  <textarea
-                    id="message"
-                    value={generatedMessage}
-                    onChange={(e) => setGeneratedMessage(e.target.value)}
-                    className="w-full h-32 p-2 border border-gray-300 rounded-md bg-white focus:ring-brand-orange focus:border-brand-orange"
-                  />
+              {/* Message Box always visible to allow manual typing */}
+              <div className="mt-4">
+                <label htmlFor="message" className="block text-sm font-medium text-brand-brown/90 mb-1">Message Preview (Editable):</label>
+                <textarea
+                  id="message"
+                  value={generatedMessage}
+                  onChange={(e) => setGeneratedMessage(e.target.value)}
+                  placeholder="Draft a message here or click the button above to auto-generate..."
+                  className="w-full h-32 p-2 border border-gray-300 rounded-md bg-white focus:ring-brand-orange focus:border-brand-orange"
+                />
+                
+                {/* Send Buttons visible if there is content */}
+                {generatedMessage && (
                   <div className="mt-2 flex justify-end items-start gap-3 flex-wrap">
                     {order.contactMethod === 'Instagram' && (
                         <div className="text-right">
                             <button
                                 onClick={handleSendInstagram}
-                                disabled={!generatedMessage}
-                                className="inline-flex items-center justify-center gap-2 text-white font-semibold px-4 py-2 rounded-lg shadow-md transition-all duration-200 bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                                className="inline-flex items-center justify-center gap-2 text-white font-semibold px-4 py-2 rounded-lg shadow-md transition-all duration-200 bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90"
                                 title="Copy message and open Instagram DMs"
                             >
                                 <InstagramIcon className="w-5 h-5" />
@@ -454,8 +456,7 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
                         <div className="text-right">
                             <button
                                 onClick={handleSendFacebook}
-                                disabled={!generatedMessage}
-                                className="inline-flex items-center justify-center gap-2 text-white font-semibold px-4 py-2 rounded-lg shadow-md transition-all duration-200 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                                className="inline-flex items-center justify-center gap-2 text-white font-semibold px-4 py-2 rounded-lg shadow-md transition-all duration-200 bg-blue-600 hover:bg-blue-700"
                                 title="Copy message and open Facebook Messenger"
                             >
                                 <FacebookIcon className="w-5 h-5" />
@@ -470,8 +471,7 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
                         <div className="text-right">
                             <button
                                 onClick={handleSendText}
-                                disabled={!generatedMessage}
-                                className="inline-flex items-center justify-center gap-2 text-white font-semibold px-4 py-2 rounded-lg shadow-md transition-all duration-200 bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                                className="inline-flex items-center justify-center gap-2 text-white font-semibold px-4 py-2 rounded-lg shadow-md transition-all duration-200 bg-emerald-600 hover:bg-emerald-700"
                                 title="Send message using your device's SMS app"
                             >
                                 <PaperAirplaneIcon className="w-5 h-5" />
@@ -483,8 +483,8 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
                         </div>
                     )}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
         </div>

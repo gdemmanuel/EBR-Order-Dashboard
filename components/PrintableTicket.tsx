@@ -10,82 +10,60 @@ export default function PrintableTicket({ order }: PrintableTicketProps) {
   const isPartyPlatter = (order.specialInstructions || '').includes("PARTY PLATTER");
 
   return (
-    <div className="p-4 bg-white text-black font-sans text-sm leading-normal h-full flex flex-col border border-gray-300">
+    <div className="w-full h-full bg-white text-black font-mono text-[11px] leading-tight p-1 flex flex-col box-border">
       
-      {/* Header */}
-      <div className="flex justify-between items-start border-b-2 border-black pb-2 mb-4">
-        <div>
-            <h1 className="text-2xl font-bold uppercase tracking-tight">Empanadas by Rose</h1>
-            <p className="text-xs">Homemade • Fresh • Delicious</p>
-        </div>
-        <div className="text-right">
-            <p className="font-bold text-lg">{order.customerName}</p>
-            <p className="text-sm">{order.pickupDate} @ {order.pickupTime}</p>
-            {order.deliveryRequired && <p className="text-xs font-bold mt-1">DELIVERY</p>}
-        </div>
+      {/* Header: Name and Date */}
+      <div className="text-center mb-1">
+        <h1 className="text-sm font-bold uppercase leading-none mb-1">{order.customerName}</h1>
+        <p className="font-bold">{order.pickupDate} @ {order.pickupTime}</p>
+        {order.deliveryRequired && <p className="font-bold mt-0.5 uppercase">** Delivery **</p>}
       </div>
 
       {/* Party Platter Banner */}
       {isPartyPlatter && (
-          <div className="mb-4 text-center border-2 border-black p-2">
-              <h2 className="text-xl font-black uppercase tracking-widest">*** PARTY PLATTER ***</h2>
+          <div className="text-center font-black my-1 text-[12px] border-y border-black border-dashed py-0.5">
+              *** PARTY PLATTER ***
           </div>
       )}
 
-      {/* Items Table */}
-      <div className="flex-grow mb-4">
-        <table className="w-full text-left border-collapse">
-            <thead>
-                <tr className="border-b border-black">
-                    <th className="py-1 font-bold w-16 text-center">QTY</th>
-                    <th className="py-1 font-bold">ITEM DESCRIPTION</th>
-                </tr>
-            </thead>
-            <tbody>
-                {order.items.map((item, index) => (
-                    <tr key={index} className="border-b border-gray-200">
-                        <td className="py-2 text-center font-bold text-lg align-top">{item.quantity}</td>
-                        <td className="py-2 align-top">
-                            <span className="font-medium text-base">{item.name}</span>
-                        </td>
-                    </tr>
-                ))}
-            </tbody>
-        </table>
+      {/* Dashed Separator */}
+      {!isPartyPlatter && <div className="border-b border-black border-dashed my-1 w-full" />}
+
+      {/* Columns Headers */}
+      <div className="flex justify-between font-bold mb-1">
+        <span>Item</span>
+        <span>Qty</span>
       </div>
 
-      {/* Footer / Notes / Totals */}
-      <div className="mt-auto pt-2 border-t-2 border-black">
-          <div className="flex justify-between items-start gap-4">
-              <div className="flex-grow">
-                  {order.deliveryRequired && (
-                      <div className="mb-2 text-xs">
-                          <span className="font-bold">Deliver To: </span>
-                          {order.deliveryAddress}
-                          {order.phoneNumber && <span> ({order.phoneNumber})</span>}
-                      </div>
-                  )}
-                  
-                  {order.specialInstructions && (
-                      <div className="text-xs bg-gray-100 p-2 border border-gray-300">
-                          <p className="font-bold">NOTES:</p>
-                          <p className="whitespace-pre-wrap">{order.specialInstructions}</p>
-                      </div>
-                  )}
-              </div>
+      {/* Items List */}
+      <div className="flex-grow">
+        <ul className="space-y-1">
+            {order.items.map((item, index) => (
+                <li key={index} className="flex justify-between items-start leading-snug">
+                    <span className="pr-1 break-words max-w-[85%]">{item.name}</span>
+                    <span className="font-bold">{item.quantity}</span>
+                </li>
+            ))}
+        </ul>
+      </div>
 
-              <div className="text-right min-w-[150px]">
-                  {balanceDue > 0.01 ? (
-                      <div className="border-2 border-black p-2 text-center">
-                          <p className="text-xs font-bold">BALANCE DUE</p>
-                          <p className="text-xl font-bold">${balanceDue.toFixed(2)}</p>
-                      </div>
-                  ) : (
-                      <div className="border-2 border-black p-2 text-center bg-gray-100">
-                          <p className="text-lg font-bold">PAID IN FULL</p>
-                      </div>
-                  )}
+      {/* Footer */}
+      <div className="mt-2">
+          {/* Notes (clean up the auto-tag to avoid redundancy if desired) */}
+          {order.specialInstructions && (
+              <div className="mb-2 text-[10px] leading-3 border-l-2 border-black pl-1 my-1 italic">
+                  {order.specialInstructions}
               </div>
+          )}
+
+          <div className="border-t border-black border-dashed my-1 w-full" />
+          
+          <div className="text-center font-bold text-xs py-1">
+              {balanceDue > 0.01 ? (
+                  <span>** BALANCE: ${balanceDue.toFixed(2)} **</span>
+              ) : (
+                  <span>** PAID IN FULL **</span>
+              )}
           </div>
       </div>
     </div>
