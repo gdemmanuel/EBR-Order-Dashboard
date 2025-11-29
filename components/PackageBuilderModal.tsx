@@ -166,11 +166,11 @@ export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavo
                                 return (
                                     <div key={flavor.name} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
                                         <div className="flex-grow pr-2 min-w-0" onClick={() => canAdd && updateBuilderSelection(flavor.name, step)}>
-                                            <p className="font-medium text-brand-brown text-sm whitespace-normal break-words">
+                                            <p className="font-medium text-brand-brown text-sm whitespace-normal break-words leading-snug">
                                                 {flavor.name} 
                                                 {flavor.isSpecial && <span className="ml-1 text-[10px] bg-purple-100 text-purple-700 px-1 rounded">Special</span>}
                                             </p>
-                                            {flavor.description && <p className="text-[10px] text-gray-500 whitespace-normal break-words">{flavor.description}</p>}
+                                            {flavor.description && <p className="text-[10px] text-gray-500 whitespace-normal break-words leading-tight mt-0.5">{flavor.description}</p>}
                                         </div>
                                         <div className="flex items-center gap-1 flex-shrink-0">
                                             {/* Max Button */}

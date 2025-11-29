@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Order, Flavor, PricingSettings, AppSettings, ContactMethod, PaymentStatus, FollowUpStatus, ApprovalStatus, OrderItem, MenuPackage } from '../types';
 import { saveOrderToDb } from '../services/dbService';
@@ -78,7 +79,7 @@ const PackageCard = ({ pkg, onClick }: { pkg: MenuPackage; onClick: () => void }
 const FlavorCard = ({ flavor }: { flavor: Flavor }) => (
     <div className="flex flex-col p-3 bg-white border border-brand-tan/40 rounded-lg shadow-sm hover:shadow-md transition-shadow h-full">
         <div className="flex items-start justify-between gap-2">
-            <span className="font-serif font-bold text-brand-brown text-base leading-tight">{flavor.name}</span>
+            <span className="font-serif font-bold text-brand-brown text-base leading-tight break-words">{flavor.name}</span>
             {flavor.isSpecial && (
                 <span className="flex-shrink-0 text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wide border border-purple-200">
                     Special
@@ -86,7 +87,7 @@ const FlavorCard = ({ flavor }: { flavor: Flavor }) => (
             )}
         </div>
         {flavor.description && (
-            <span className="text-[10px] text-gray-500 mt-1 leading-relaxed font-light">
+            <span className="text-[10px] text-gray-500 mt-1 leading-relaxed font-light whitespace-normal break-words">
                 {flavor.description}
             </span>
         )}
@@ -99,23 +100,56 @@ const FlavorCard = ({ flavor }: { flavor: Flavor }) => (
 );
 
 export default function CustomerOrderPage({
-    empanadaFlavors,
-    fullSizeEmpanadaFlavors,
+    empanadaFlavors = [],
+    fullSizeEmpanadaFlavors = [],
     pricing,
     scheduling,
     busySlots,
     motd
 }: CustomerOrderPageProps) {
-    // Auto-resize iframe height for embedding
+    
+    // Auto-resize iframe height for embedding - Robust Implementation
     useEffect(() => {
+        if (typeof window === 'undefined') return;
+
         const sendHeight = () => {
-            const height = document.body.scrollHeight;
-            window.parent.postMessage({ type: "embedHeight", height }, "*");
+            try {
+                const height = document.body.scrollHeight;
+                if (window.parent && window.parent !== window) {
+                    window.parent.postMessage({ type: "embedHeight", height }, "*");
+                }
+            } catch (e) {
+                // Ignore cross-origin errors if parent is restricted
+                console.debug("Embed resize warning:", e);
+            }
         };
-        const observer = new ResizeObserver(sendHeight);
-        observer.observe(document.body);
-        sendHeight();
-        return () => observer.disconnect();
+
+        let observer: ResizeObserver | null = null;
+
+        try {
+            if (typeof ResizeObserver !== 'undefined') {
+                observer = new ResizeObserver(sendHeight);
+                observer.observe(document.body);
+            } else {
+                // Fallback for older browsers
+                window.addEventListener('resize', sendHeight);
+                const i = setInterval(sendHeight, 1000);
+                return () => {
+                    window.removeEventListener('resize', sendHeight);
+                    clearInterval(i);
+                };
+            }
+        } catch (e) {
+            console.warn("ResizeObserver init failed", e);
+        }
+
+        // Initial send with delay to ensure rendering
+        setTimeout(sendHeight, 100);
+        setTimeout(sendHeight, 1000);
+
+        return () => {
+            if (observer) observer.disconnect();
+        };
     }, []);
 
     // --- State ---
@@ -147,7 +181,7 @@ export default function CustomerOrderPage({
 
     // --- Derived Data ---
     const { regularFlavors, specialFlavors } = useMemo(() => {
-        const visible = empanadaFlavors.filter(f => f.visible);
+        const visible = empanadaFlavors ? empanadaFlavors.filter(f => f.visible) : [];
         return {
             regularFlavors: visible.filter(f => !f.isSpecial),
             specialFlavors: visible.filter(f => f.isSpecial)
@@ -655,7 +689,7 @@ export default function CustomerOrderPage({
                 </div>
             )}
 
-            <main className="max-w-4xl mx-auto p-4 sm:p-6 space-y-10 pb-96">
+            <main className="max-w-4xl mx-auto p-4 sm:p-6 space-y-10 pb-[600px]">
                 
                 {/* 1. Menu & Flavors (Visual) */}
                 <section className="space-y-6">
