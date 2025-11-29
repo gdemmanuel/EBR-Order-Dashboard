@@ -4,10 +4,10 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Empanada Order Tracker</title>
+    <title>Empanadas by Rose</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -28,14 +28,10 @@
       }
     </script>
     <style>
-      /* --- THIS IS THE DEFINITIVE FIX FOR PRINTING --- */
-      /* This is the standard, reliable way to handle printing. */
-      
-      /* Styles for the on-screen print preview page */
+      /* Print Styles */
       #print-preview-page {
-        background-color: #f3f4f6; /* A neutral gray background */
+        background-color: #f3f4f6;
       }
-      
       #printable-tickets-container {
         display: grid;
         grid-template-columns: repeat(auto-fill, 2in);
@@ -43,7 +39,6 @@
         justify-content: center;
         padding: 0.5in;
       }
-      
       .printable-ticket-wrapper {
         width: 2in;
         height: 3in;
@@ -51,48 +46,29 @@
         box-sizing: border-box;
         overflow: hidden;
       }
-
-      /* Styles for when the browser's print dialog is active */
       @media print {
-        /* Hide the header on the preview page, so only tickets are printed */
-        #print-preview-header {
-          display: none;
-        }
-
-        /* Ensure the tickets take up the full print page */
-        #print-preview-page {
-          background-color: white;
-        }
-        
-        #printable-tickets-container {
-          padding: 0;
-        }
-
-        /* Avoid breaking tickets across pages */
-        .printable-ticket-wrapper {
-          page-break-inside: avoid;
-        }
+        #print-preview-header { display: none; }
+        #print-preview-page { background-color: white; }
+        #printable-tickets-container { padding: 0; }
+        .printable-ticket-wrapper { page-break-inside: avoid; }
       }
-      
-      @page {
-        margin: 0.5in;
-      }
+      @page { margin: 0.5in; }
     </style>
   <script type="importmap">
 {
   "imports": {
     "react": "https://aistudiocdn.com/react@^19.2.0",
-    "react-dom": "https://aistudiocdn.com/react-dom@^19.2.0",
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
     "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "recharts": "https://aistudiocdn.com/recharts@^3.4.1",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.29.1",
+    "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.9.6",
     "firebase/": "https://aistudiocdn.com/firebase@^12.6.0/",
-    "react-router-dom": "https://aistudiocdn.com/react-router-dom@^6.22.3"
+    "recharts": "https://aistudiocdn.com/recharts@^3.5.0",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "vite": "https://aistudiocdn.com/vite@^7.2.4",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1"
   }
 }
 </script>
-<link rel="stylesheet" href="/index.css">
 </head>
   <body class="bg-brand-cream text-brand-brown font-sans">
     <div id="root"></div>

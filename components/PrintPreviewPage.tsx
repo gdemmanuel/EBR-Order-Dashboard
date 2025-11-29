@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Order } from '../types';
 import PrintableTicket from './PrintableTicket';
@@ -6,9 +7,10 @@ import { PrinterIcon, ArrowUturnLeftIcon } from './icons/Icons';
 interface PrintPreviewPageProps {
   orders: Order[];
   onExit: () => void;
+  onMarkAsPrinted?: () => void;
 }
 
-export default function PrintPreviewPage({ orders, onExit }: PrintPreviewPageProps) {
+export default function PrintPreviewPage({ orders, onExit, onMarkAsPrinted }: PrintPreviewPageProps) {
   
   // This is the definitive fix for printing in complex environments.
   // It creates a new, clean window with only the ticket content and styles,
@@ -18,6 +20,11 @@ export default function PrintPreviewPage({ orders, onExit }: PrintPreviewPagePro
     if (!printContent) {
       console.error("Printable content not found!");
       return;
+    }
+
+    // Trigger the "Mark as Printed" callback if provided
+    if (onMarkAsPrinted) {
+        onMarkAsPrinted();
     }
 
     const printWindow = window.open('', '_blank', 'height=800,width=1000');

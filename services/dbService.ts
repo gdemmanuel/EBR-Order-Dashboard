@@ -8,36 +8,78 @@ import {
     query, 
     where, 
     getDocs,
-    writeBatch
+    writeBatch,
+    FirestoreError,
+    QuerySnapshot,
+    DocumentData
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
-import { Order, ApprovalStatus, PricingSettings, Flavor } from "../types";
+import { Order, ApprovalStatus, PricingSettings, Flavor, Expense, AppSettings, WorkShift, FollowUpStatus } from "../types";
 import { initialEmpanadaFlavors, initialFullSizeEmpanadaFlavors } from "../data/mockData";
 
 // Collection References
 const ORDERS_COLLECTION = "orders";
+const EXPENSES_COLLECTION = "expenses";
 const SETTINGS_COLLECTION = "app_settings";
 const GENERAL_SETTINGS_DOC = "general";
 
-export interface AppSettings {
-    empanadaFlavors: Flavor[];
-    fullSizeEmpanadaFlavors: Flavor[];
-    sheetUrl: string;
-    importedSignatures: string[];
-    pricing: PricingSettings;
-}
+// Re-export AppSettings for compatibility with other components
+export type { AppSettings };
 
 const DEFAULT_SETTINGS: AppSettings = {
+    motd: '',
     empanadaFlavors: initialEmpanadaFlavors.map(f => ({ name: f, visible: true })),
     fullSizeEmpanadaFlavors: initialFullSizeEmpanadaFlavors.map(f => ({ name: f, visible: true })),
     sheetUrl: '',
     importedSignatures: [],
     pricing: {
-        mini: { basePrice: 1.75 },
-        full: { basePrice: 3.00 },
+        mini: { basePrice: 1.75, tiers: [] },
+        full: { basePrice: 3.00, tiers: [] },
         packages: [],
-        salsaSmall: 2.00,
-        salsaLarge: 4.00
+        salsas: [
+            { id: 'salsa-verde-sm', name: 'Salsa Verde (4oz)', price: 2.00, visible: true },
+            { id: 'salsa-rosada-sm', name: 'Salsa Rosada (4oz)', price: 2.00, visible: true },
+            { id: 'salsa-verde-lg', name: 'Salsa Verde (8oz)', price: 4.00, visible: true },
+            { id: 'salsa-rosada-lg', name: 'Salsa Rosada (8oz)', price: 4.00, visible: true },
+        ]
+    },
+    ingredients: [],
+    prepSettings: {
+        lbsPer20: {},
+        recipes: {},
+        fullSizeMultiplier: 2.0,
+        discosPer: { mini: 1, full: 1 },
+        discoPackSize: { mini: 10, full: 10 },
+        productionRates: { mini: 40, full: 25 }
+    },
+    scheduling: {
+        enabled: true,
+        intervalMinutes: 15,
+        startTime: "09:00",
+        endTime: "17:00",
+        blockedDates: [],
+        closedDays: [],
+        dateOverrides: {}
+    },
+    messageTemplates: {
+        followUpNeeded: "Hi {firstName}! This is Rose from Empanadas by Rose. Thank you for placing an order. Please confirm your order for {deliveryType} on {date} at {time} as follows:\n{totals}\n{items}",
+        pendingConfirmation: "Perfect! The total is ${total}. Cash on {deliveryType}, please. I'll see you on {date} at {time}.\nThank you for your order!",
+        confirmed: "Your order is confirmed! See you on {date} at {time}. Total: ${total}. Address: {deliveryAddress}.",
+        processing: "Hi {firstName}! Just wanted to let you know we've started preparing your order for {date}. We'll see you soon!",
+        completed: "Thank you for your order, {firstName}! We hope you enjoy the empanadas."
+    },
+    laborWage: 15.00,
+    materialCosts: {},
+    discoCosts: { mini: 0.10, full: 0.15 },
+    inventory: {},
+    expenseCategories: ['Packaging', 'Marketing', 'Rent', 'Utilities', 'Equipment', 'Ingredients', 'Other'],
+    employees: [],
+    statusColors: {
+        [FollowUpStatus.NEEDED]: '#fef3c7',
+        [FollowUpStatus.PENDING]: '#eff6ff',
+        [FollowUpStatus.CONFIRMED]: '#dbeafe',
+        [FollowUpStatus.PROCESSING]: '#e0e7ff',
+        [FollowUpStatus.COMPLETED]: '#dcfce7',
     }
 };
 
@@ -46,149 +88,165 @@ const DEFAULT_SETTINGS: AppSettings = {
 export const subscribeToOrders = (
     onUpdate: (orders: Order[]) => void,
     status: ApprovalStatus = ApprovalStatus.APPROVED,
-    onError?: (error: Error) => void
+    onError?: (error: FirestoreError) => void
 ) => {
     const q = query(collection(db, ORDERS_COLLECTION));
-    
-    return onSnapshot(q, (snapshot) => {
+    return onSnapshot(q, (snapshot: QuerySnapshot<DocumentData>) => {
         const orders: Order[] = [];
-        snapshot.forEach((doc) => {
-            orders.push(doc.data() as Order);
-        });
+        snapshot.forEach((doc) => orders.push(doc.data() as Order));
         onUpdate(orders);
-    }, (error) => {
-        console.error("Error fetching orders:", error);
-        if (onError) onError(error);
-    });
+    }, onError);
+};
+
+export const subscribeToExpenses = (
+    onUpdate: (expenses: Expense[]) => void,
+    onError?: (error: FirestoreError) => void
+) => {
+    const q = query(collection(db, EXPENSES_COLLECTION));
+    return onSnapshot(q, (snapshot: QuerySnapshot<DocumentData>) => {
+        const expenses: Expense[] = [];
+        snapshot.forEach((doc) => {
+            const data = doc.data() as Expense;
+            if (data.category !== 'Labor') {
+                expenses.push(data);
+            }
+        });
+        onUpdate(expenses);
+    }, onError);
+};
+
+export const subscribeToShifts = (
+    onUpdate: (shifts: WorkShift[]) => void,
+    onError?: (error: FirestoreError) => void
+) => {
+    const q = query(collection(db, EXPENSES_COLLECTION), where("category", "==", "Labor"));
+    return onSnapshot(q, (snapshot: QuerySnapshot<DocumentData>) => {
+        const shifts: WorkShift[] = [];
+        snapshot.forEach((doc) => {
+            const data = doc.data() as Expense;
+            try {
+                const meta = data.description ? JSON.parse(data.description) : {};
+                shifts.push({
+                    id: data.id,
+                    employeeId: meta.employeeId || '',
+                    employeeName: data.vendor,
+                    date: data.date,
+                    startTime: meta.startTime || '00:00',
+                    endTime: meta.endTime || '00:00',
+                    hours: data.quantity,
+                    hourlyWage: data.pricePerUnit,
+                    totalPay: data.totalCost,
+                    notes: meta.notes || ''
+                });
+            } catch (e) {
+                 shifts.push({
+                    id: data.id,
+                    employeeId: '',
+                    employeeName: data.vendor, 
+                    date: data.date,
+                    startTime: '00:00',
+                    endTime: '00:00',
+                    hours: data.quantity,
+                    hourlyWage: data.pricePerUnit,
+                    totalPay: data.totalCost,
+                    notes: data.description || ''
+                });
+            }
+        });
+        onUpdate(shifts);
+    }, onError);
 };
 
 export const subscribeToSettings = (
     onUpdate: (settings: AppSettings) => void,
-    onError?: (error: Error) => void
+    onError?: (error: FirestoreError) => void
 ) => {
     return onSnapshot(doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC), (docSnap) => {
         if (docSnap.exists()) {
-            const data = docSnap.data();
+            const data = docSnap.data() as any;
             
-            // Migration Logic: Handle legacy string arrays for flavors
-            let safeMiniFlavors: Flavor[] = DEFAULT_SETTINGS.empanadaFlavors;
-            if (data.empanadaFlavors && Array.isArray(data.empanadaFlavors)) {
-                if (data.empanadaFlavors.length > 0 && typeof data.empanadaFlavors[0] === 'string') {
-                    safeMiniFlavors = (data.empanadaFlavors as unknown as string[]).map(f => ({ name: f, visible: true }));
-                } else {
-                    safeMiniFlavors = data.empanadaFlavors as Flavor[];
-                }
-            }
-
-            let safeFullFlavors: Flavor[] = DEFAULT_SETTINGS.fullSizeEmpanadaFlavors;
-            if (data.fullSizeEmpanadaFlavors && Array.isArray(data.fullSizeEmpanadaFlavors)) {
-                if (data.fullSizeEmpanadaFlavors.length > 0 && typeof data.fullSizeEmpanadaFlavors[0] === 'string') {
-                    safeFullFlavors = (data.fullSizeEmpanadaFlavors as unknown as string[]).map(f => ({ name: f, visible: true }));
-                } else {
-                    safeFullFlavors = data.fullSizeEmpanadaFlavors as Flavor[];
-                }
-            }
-
             const mergedSettings: AppSettings = {
                 ...DEFAULT_SETTINGS,
                 ...data,
-                empanadaFlavors: safeMiniFlavors,
-                fullSizeEmpanadaFlavors: safeFullFlavors,
-                pricing: {
-                    ...DEFAULT_SETTINGS.pricing,
-                    ...(data.pricing || {})
-                }
+                pricing: { ...DEFAULT_SETTINGS.pricing, ...(data.pricing || {}) },
+                prepSettings: { ...DEFAULT_SETTINGS.prepSettings, ...(data.prepSettings || {}) },
+                scheduling: { ...DEFAULT_SETTINGS.scheduling, ...(data.scheduling || {}) },
+                messageTemplates: { ...DEFAULT_SETTINGS.messageTemplates, ...(data.messageTemplates || {}) },
+                expenseCategories: data.expenseCategories || DEFAULT_SETTINGS.expenseCategories,
+                employees: data.employees || DEFAULT_SETTINGS.employees,
+                statusColors: { ...DEFAULT_SETTINGS.statusColors, ...(data.statusColors || {}) },
+                ingredients: data.ingredients || DEFAULT_SETTINGS.ingredients,
             };
-            
             onUpdate(mergedSettings);
         } else {
-            // Initialize defaults if doc doesn't exist
-            console.log("Settings doc not found, initializing defaults...");
             onUpdate(DEFAULT_SETTINGS);
         }
-    }, (error) => {
-        console.error("Error fetching settings:", error);
-        if (onError) onError(error);
-    });
+    }, onError);
 };
 
 // --- CRUD Operations ---
 
 export const saveOrderToDb = async (order: Order) => {
-    try {
-        await setDoc(doc(db, ORDERS_COLLECTION, order.id), order);
-    } catch (error) {
-        console.error("Error saving order:", error);
-        throw error;
-    }
+    await setDoc(doc(db, ORDERS_COLLECTION, order.id), order);
 };
 
 export const saveOrdersBatch = async (orders: Order[]) => {
     const batch = writeBatch(db);
-    orders.forEach(order => {
-        const ref = doc(db, ORDERS_COLLECTION, order.id);
-        batch.set(ref, order);
-    });
+    orders.forEach(order => { const ref = doc(db, ORDERS_COLLECTION, order.id); batch.set(ref, order); });
     await batch.commit();
 };
 
 export const deleteOrderFromDb = async (orderId: string) => {
-    try {
-        await deleteDoc(doc(db, ORDERS_COLLECTION, orderId));
-    } catch (error) {
-        console.error("Error deleting order:", error);
-        throw error;
-    }
+    await deleteDoc(doc(db, ORDERS_COLLECTION, orderId));
+};
+
+export const saveExpenseToDb = async (expense: Expense) => {
+    if (!expense.id) expense.id = Date.now().toString();
+    await setDoc(doc(db, EXPENSES_COLLECTION, expense.id), expense);
+};
+
+export const deleteExpenseFromDb = async (expenseId: string) => {
+    await deleteDoc(doc(db, EXPENSES_COLLECTION, expenseId));
+};
+
+export const saveShiftToDb = async (shift: WorkShift) => {
+    const metaData = JSON.stringify({
+        startTime: shift.startTime,
+        endTime: shift.endTime,
+        employeeId: shift.employeeId,
+        notes: shift.notes
+    });
+
+    const shiftExpense: Expense = {
+        id: shift.id,
+        date: shift.date,
+        category: 'Labor',
+        vendor: shift.employeeName,
+        item: 'Shift Work',
+        unitName: 'hours',
+        pricePerUnit: shift.hourlyWage,
+        quantity: shift.hours,
+        totalCost: shift.totalPay,
+        description: metaData
+    };
+
+    await setDoc(doc(db, EXPENSES_COLLECTION, shift.id), shiftExpense);
+};
+
+export const deleteShiftFromDb = async (shiftId: string) => {
+    await deleteDoc(doc(db, EXPENSES_COLLECTION, shiftId));
 };
 
 export const updateSettingsInDb = async (settings: Partial<AppSettings>) => {
-    try {
-        await setDoc(doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC), settings, { merge: true });
-    } catch (error) {
-        console.error("Error updating settings:", error);
-        throw error;
-    }
+    await setDoc(doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC), settings, { merge: true });
 };
 
-// --- Migration Helper ---
-
-export const migrateLocalDataToFirestore = async (
-    localOrders: Order[],
-    localPending: Order[],
-    localSettings: AppSettings
-) => {
-    // 1. Check if DB is empty to avoid overwriting cloud data
+export const migrateLocalDataToFirestore = async (localOrders: Order[], localPending: Order[], localSettings: AppSettings) => {
     const snapshot = await getDocs(collection(db, ORDERS_COLLECTION));
-    if (!snapshot.empty) {
-        console.log("Database not empty, skipping migration.");
-        return;
-    }
-
-    if (localOrders.length === 0 && localPending.length === 0) {
-        console.log("No local data to migrate.");
-        return;
-    }
-
-    console.log("Migrating local data to Firebase...");
-    const batch = writeBatch(db);
-
-    // 2. Add Orders
-    [...localOrders, ...localPending].forEach(order => {
-        const ref = doc(db, ORDERS_COLLECTION, order.id);
-        batch.set(ref, order);
-    });
-
-    // 3. Add Settings
-    const settingsRef = doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC);
-    // Ensure we migrate pricing or default if not present locally
-    const settingsToSave = {
-        ...DEFAULT_SETTINGS,
-        ...localSettings,
-        pricing: localSettings.pricing || DEFAULT_SETTINGS.pricing
-    };
+    if (!snapshot.empty) return;
     
-    batch.set(settingsRef, settingsToSave);
-
+    const batch = writeBatch(db);
+    [...localOrders, ...localPending].forEach(order => batch.set(doc(db, ORDERS_COLLECTION, order.id), order));
+    batch.set(doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC), localSettings);
     await batch.commit();
-    console.log("Migration complete.");
 };

@@ -1,102 +1,139 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
-import { Order } from '../types';
+import { Order, Expense, FollowUpStatus } from '../types';
+import { parseOrderDateTime } from '../utils/dateUtils';
 
 // Safe API Key retrieval for Vite/Vercel deployments
-// In a browser environment (Vite), accessing process.env directly can cause a crash
-// if 'process' is not defined. We must check types safely.
 const getApiKey = () => {
-    // 1. Try Vite/Modern Browser Standard (import.meta.env)
     try {
-        // @ts-ignore - import.meta is a Vite/ESM standard
+        // @ts-ignore
         if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_KEY) {
             // @ts-ignore
             return import.meta.env.VITE_API_KEY;
         }
-    } catch (e) {
-        // Ignore errors accessing import.meta
-    }
-
-    // 2. Try Node.js/Webpack Standard (process.env) - WITH SAFETY CHECK
+    } catch (e) {}
     try {
         // @ts-ignore
         if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
             // @ts-ignore
             return process.env.API_KEY;
         }
-    } catch (e) {
-        // Ignore errors accessing process
-    }
-
-    // 3. Return empty string if nothing found (prevents startup crash)
+    } catch (e) {}
     console.warn("API Key not found. Please check your VITE_API_KEY environment variable.");
     return '';
 };
 
-// Initialize the client with the safe key
 const ai = new GoogleGenAI({ apiKey: getApiKey() });
 
-export async function generateFollowUpMessage(order: Order): Promise<string> {
-  const model = 'gemini-2.5-flash';
-
-  const itemsList = order.items.map(item => `${item.quantity} ${item.name}`).join(', ');
-  
-  const prompt = `
-    You are a friendly business owner of an empanada shop.
-    Generate a short, friendly, and casual follow-up message for a customer via SMS or a messaging app.
-    Do not use emojis. Keep it concise, around 2-3 sentences.
+export async function generateMessageForOrder(order: Order, templates?: { followUpNeeded?: string; pendingConfirmation?: string; confirmed?: string; processing?: string; completed?: string; }, useAi: boolean = false): Promise<string> {
+    const status = order.followUpStatus;
+    const firstName = order.customerName.split(' ')[0];
+    const deliveryType = order.deliveryRequired ? 'delivery' : 'pick up';
     
-    Here is the customer and order information:
-    - Customer Name: ${order.customerName}
-    - Items Ordered: ${itemsList}
-    
-    The message should:
-    1. Greet the customer by their first name (if their name is "John Doe", use "John").
-    2. Mention their recent empanada order.
-    3. Ask if they enjoyed everything.
-    4. Thank them for their business.
-  `;
-  
-  try {
-    const response = await ai.models.generateContent({
-        model: model,
-        contents: prompt
-    });
-
-    const text = response.text;
-    if (text) {
-        return text.trim();
-    } else {
-        throw new Error("Received an empty response from the API.");
+    // Get formatted Date with Day of Week
+    let dateString = order.pickupDate;
+    try {
+        const dateObj = parseOrderDateTime(order);
+        if (!isNaN(dateObj.getTime())) {
+            const dayOfWeek = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
+            dateString = `${dayOfWeek}, ${order.pickupDate}`;
+        }
+    } catch (e) {
+        console.warn("Date parsing error", e);
     }
-  } catch (error) {
-    console.error("Error calling Gemini API:", error);
-    throw new Error("Failed to generate message from Gemini API.");
-  }
-}
 
-export async function generateOrderConfirmationMessage(order: Order): Promise<string> {
+    // Helper to populate templates
+    const replacePlaceholders = (template: string) => {
+        let itemsText = "";
+        if (order.totalMini > 0 && order.totalFullSize === 0) {
+            itemsText = `${order.totalMini} total mini empanadas`;
+        } else if (order.totalFullSize > 0 && order.totalMini === 0) {
+            itemsText = `${order.totalFullSize} total full-size empanadas`;
+        } else {
+            itemsText = `${order.totalMini} mini and ${order.totalFullSize} full-size empanadas`;
+        }
+        const itemsList = order.items.map(item => `${item.quantity} ${item.name}`).join('\n');
+        
+        // Smart Address Replacement
+        let text = template;
+        if (!order.deliveryRequired) {
+            // If pickup, remove "Address: {deliveryAddress}" style patterns
+            text = text.replace(/(Address|Delivery to):\s*{deliveryAddress},?\s*/gi, '');
+            text = text.replace(/(Address|Delivery to):\s*{{deliveryAddress}},?\s*/gi, '');
+            // Remove standalone lines
+            text = text.replace(/^\s*{deliveryAddress}\s*$/gm, '');
+            // Clean up any remaining placeholders
+            text = text.replace(/{deliveryAddress}|{{deliveryAddress}}/g, '');
+        } else {
+            const address = order.deliveryAddress || "";
+            text = text.replace(/{deliveryAddress}|{{deliveryAddress}}/g, address);
+        }
+
+        return text
+            .replace(/{firstName}|{{firstName}}/g, firstName)
+            .replace(/{name}|{{name}}/g, order.customerName)
+            .replace(/{date}|{{date}}/g, dateString)
+            .replace(/{time}|{{time}}/g, order.pickupTime)
+            .replace(/{deliveryType}|{{deliveryType}}/g, deliveryType)
+            .replace(/{total}|{{total}}/g, order.amountCharged.toFixed(2))
+            .replace(/{totals}|{{totals}}/g, itemsText)
+            .replace(/{items}|{{items}}/g, itemsList);
+    };
+
+    // If NOT using AI, check configurable templates first
+    if (!useAi) {
+        if (status === FollowUpStatus.NEEDED && templates?.followUpNeeded) {
+            return replacePlaceholders(templates.followUpNeeded);
+        }
+        if (status === FollowUpStatus.PENDING && templates?.pendingConfirmation) {
+            return replacePlaceholders(templates.pendingConfirmation);
+        }
+        if (status === FollowUpStatus.CONFIRMED && templates?.confirmed) {
+            return replacePlaceholders(templates.confirmed);
+        }
+        if (status === FollowUpStatus.PROCESSING && templates?.processing) {
+            return replacePlaceholders(templates.processing);
+        }
+        if (status === FollowUpStatus.COMPLETED && templates?.completed) {
+            return replacePlaceholders(templates.completed);
+        }
+
+        // Fallbacks for default statuses if no template provided and no AI requested
+        if (status === FollowUpStatus.NEEDED) {
+            let totalsText = "";
+            if (order.totalMini > 0 && order.totalFullSize === 0) {
+                totalsText = `${order.totalMini} total mini empanadas`;
+            } else if (order.totalFullSize > 0 && order.totalMini === 0) {
+                totalsText = `${order.totalFullSize} total full-size empanadas`;
+            } else {
+                totalsText = `${order.totalMini} mini and ${order.totalFullSize} full-size empanadas`;
+            }
+            const itemsList = order.items.map(item => `${item.quantity} ${item.name}`).join('\n');
+            return `Hi ${firstName}! This is Rose from Empanadas by Rose. Thank you for placing an order. Please confirm your order for ${deliveryType} on ${dateString} at ${order.pickupTime} as follows:\n${totalsText}\n${itemsList}`;
+        }
+
+        if (status === FollowUpStatus.PENDING) {
+            return `Perfect! The total is $${order.amountCharged.toFixed(2)}. Cash on ${deliveryType}, please. I'll see you on ${dateString} at ${order.pickupTime}.
+Thank you for your order!`;
+        }
+    }
+
+    // AI GENERATION (Fallback or Explicit Request)
     const model = 'gemini-2.5-flash';
-    const itemsList = order.items.map(item => `- ${item.quantity} ${item.name}`).join('\n');
-
     const prompt = `
-        You are the owner of a friendly empanada business, and you're texting a customer to confirm their order.
-        Write a short, friendly, and professional confirmation message. It should sound like a real person wrote it, not a robot.
-        Do not use emojis.
-
-        Here is the order information:
-        - Customer Name: ${order.customerName}
-        - Pickup/Delivery Date: ${order.pickupDate}
-        - Pickup Time: ${order.pickupTime}
-        - Items Ordered:
-        ${itemsList}
-        - Total Cost: $${order.amountCharged.toFixed(2)}
-        ${order.deliveryRequired ? `- Delivery Address: ${order.deliveryAddress}` : ''}
-
-        The message must:
-        1. Greet the customer warmly by their first name.
-        2. Provide a quick summary of their order details (date, time, items, and total cost).
-        3. Politely ask them to reply to this message to confirm everything looks correct.
-        4. End with a friendly closing like "Thanks!" or "Talk soon!".
+    You are Rose, the owner of "Empanadas by Rose". Write a short, friendly text message to a customer named ${firstName}.
+    
+    Context:
+    - Order Status: ${status}
+    - Items: ${order.totalMini + order.totalFullSize} empanadas
+    - Pickup/Delivery: ${deliveryType} on ${dateString} at ${order.pickupTime}
+    
+    Instructions:
+    - If status is 'Confirmed', confirm that everything is set.
+    - If status is 'Processing', tell them you have started preparing their order.
+    - If status is 'Completed', thank them for their business and hope they enjoyed the food.
+    - Keep it brief and professional but warm.
+    - Do not include subject lines.
     `;
 
     try {
@@ -104,28 +141,19 @@ export async function generateOrderConfirmationMessage(order: Order): Promise<st
             model: model,
             contents: prompt
         });
-
-        const text = response.text;
-        if (text) {
-            return text.trim();
-        } else {
-            throw new Error("Received an empty response from the API.");
-        }
-    } catch (error) {
-        console.error("Error calling Gemini API:", error);
-        throw new Error("Failed to generate confirmation message from Gemini API.");
+        return response.text?.trim() || "Message generation failed.";
+    } catch (e) {
+        console.error(e);
+        return "Error generating message.";
     }
 }
 
-interface Location {
-    latitude: number;
-    longitude: number;
-}
+// --- Legacy/Other Functions ---
+
+interface Location { latitude: number; longitude: number; }
 
 export async function getAddressSuggestions(query: string, location: Location | null): Promise<string[]> {
-    if (!query || query.trim().length < 3) {
-        return [];
-    }
+    if (!query || query.trim().length < 3) return [];
 
     const model = 'gemini-2.5-flash';
     const prompt = `Based on the following address query, provide up to 3 valid, complete address suggestions. 
@@ -153,11 +181,8 @@ Query: "${query}"`;
                 }),
             },
         });
-
         const text = response.text;
-        if (text) {
-            return text.trim().split('\n').filter(addr => addr.trim() !== '');
-        }
+        if (text) return text.trim().split('\n').filter(addr => addr.trim() !== '');
         return [];
     } catch (error) {
         console.error("Error getting address suggestions from Gemini API:", error);
@@ -165,7 +190,6 @@ Query: "${query}"`;
     }
 }
 
-// A shared schema for a single order object.
 const orderSchema = {
     type: Type.OBJECT,
     properties: {
@@ -191,13 +215,18 @@ const orderSchema = {
     }
 };
 
-// Sleep helper for rate limiting
+const expenseSchema = {
+    type: Type.OBJECT,
+    properties: {
+        date: { type: Type.STRING, description: "YYYY-MM-DD" },
+        amount: { type: Type.NUMBER },
+        description: { type: Type.STRING },
+        category: { type: Type.STRING }
+    }
+};
+
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-/**
- * A simple, robust CSV parser to handle data before sending to the AI.
- * This handles fields that are quoted and may contain commas.
- */
 function simpleCsvParser(csv: string): Record<string, string>[] {
     const lines = csv.trim().replace(/\r/g, '').split('\n');
     if (lines.length < 2) return [];
@@ -278,8 +307,13 @@ async function parseObjectsBatch(
             }
         });
         
-        const jsonText = response.text.trim();
-        if (jsonText.length > batchObjects.length * 2000) { // Safeguard against abnormally large responses
+        const jsonText = response.text?.trim() || '';
+        
+        if (!jsonText) {
+             throw new Error("Empty response from Gemini API");
+        }
+
+        if (jsonText.length > batchObjects.length * 2000) {
              throw new Error("The AI returned an abnormally large response, which indicates a processing error (e.g., data repetition).");
         }
         
@@ -296,13 +330,6 @@ export interface ImportResult {
     newSignatures: string[];
 }
 
-/**
- * DEFINITIVE FIX: Re-architected for reliability, scalability, and deduplication.
- * 1. Uses a deterministic client-side CSV parser to handle file structure.
- * 2. Filters out rows that have already been processed based on `existingSignatures`.
- * 3. Simplifies the AI's task to a more reliable structured data mapping job.
- * 4. Implements a delay between batches to respect API rate limits.
- */
 export async function parseOrdersFromSheet(
     csvText: string,
     onProgress: (message: string) => void,
@@ -311,7 +338,6 @@ export async function parseOrdersFromSheet(
     
     let rowObjects: Record<string, string>[];
     try {
-        // Pre-process: remove quotes from the entire CSV text to prevent parsing errors
         const sanitizedCsv = csvText.replace(/"/g, '');
         rowObjects = simpleCsvParser(sanitizedCsv);
     } catch (e: any) {
@@ -323,12 +349,10 @@ export async function parseOrdersFromSheet(
         return { newOrders: [], newSignatures: [] };
     }
     
-    // Deduplication: Filter out rows that we've already imported
     const newRows: Record<string, string>[] = [];
     const newRowSignatures: string[] = [];
 
     rowObjects.forEach(row => {
-        // Create a unique signature for the row. A simple stringify of the row object works well for this.
         const signature = JSON.stringify(row);
         if (!existingSignatures.has(signature)) {
             newRows.push(row);
@@ -360,7 +384,7 @@ export async function parseOrdersFromSheet(
             allParsedOrders.push(...parsedBatch);
         } catch (error: any) {
             onProgress('');
-            throw error; // Error is already well-formatted by parseObjectsBatch
+            throw error;
         }
 
         if (batchNum < totalBatches) {
@@ -375,4 +399,48 @@ export async function parseOrdersFromSheet(
         newOrders: allParsedOrders, 
         newSignatures: newRowSignatures 
     };
+}
+
+export async function parseReceiptImage(base64Image: string, mimeType: string, categories: string[]): Promise<Partial<Expense>> {
+  const model = 'gemini-2.5-flash';
+  const prompt = `
+    Analyze this receipt image. Extract the following details:
+    1. Date: The transaction date in YYYY-MM-DD format. If not found, use today's date.
+    2. Amount: The total amount paid.
+    3. Description: The Vendor Name followed by a concise list of the key items purchased (e.g. "Home Depot - Lumber, Paint, Screws"). If the item list is too long, just list the top 3-5 distinct items.
+    4. Category: Choose the best fit from this list: [${categories.join(', ')}]. If unsure, use 'Other'.
+
+    Return the result as a valid JSON object with keys: 'date', 'amount', 'description', 'category'.
+    Do not include markdown formatting or code blocks. Just the JSON string.
+  `;
+
+  const imagePart = {
+    inlineData: {
+      mimeType: mimeType,
+      data: base64Image
+    }
+  };
+
+  try {
+    const response = await ai.models.generateContent({
+        model: model,
+        contents: { parts: [
+             { text: prompt },
+             imagePart
+        ] },
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: expenseSchema
+        }
+    });
+    
+    const jsonText = response.text?.trim();
+    if (jsonText) {
+        return JSON.parse(jsonText) as Partial<Expense>;
+    }
+    throw new Error("Empty response from AI");
+  } catch (error) {
+    console.error("Error parsing receipt:", error);
+    throw new Error("Failed to scan receipt.");
+  }
 }

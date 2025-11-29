@@ -1,11 +1,15 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Order, OrderItem, ContactMethod, PaymentStatus, FollowUpStatus, ApprovalStatus, PricingSettings, Flavor, MenuPackage } from '../types';
-import { TrashIcon, PlusIcon, XMarkIcon, ShoppingBagIcon } from './icons/Icons';
+import { TrashIcon, PlusIcon, XMarkIcon, ShoppingBagIcon, CogIcon, ArrowUturnLeftIcon, ClockIcon, UserIcon } from './icons/Icons';
 import { getAddressSuggestions } from '../services/geminiService';
-import { calculateOrderTotal } from '../utils/pricingUtils';
+import { calculateOrderTotal, calculateSupplyCost } from '../utils/pricingUtils';
 import { SalsaSize } from '../config';
 import PackageBuilderModal from './PackageBuilderModal';
+import { AppSettings } from '../services/dbService';
+import { generateTimeSlots, normalizeDateStr, parseOrderDateTime } from '../utils/dateUtils';
+
+// ... (Imports unchanged)
 
 interface OrderFormModalProps {
     order?: Order;
@@ -16,22 +20,34 @@ interface OrderFormModalProps {
     onAddNewFlavor: (flavor: string, type: 'mini' | 'full') => void;
     onDelete?: (orderId: string) => void;
     pricing: PricingSettings;
+    settings: AppSettings;
+    existingOrders?: Order[]; // Needed for smart slot calc
 }
 
-// Local state type to allow empty string for quantity and other number inputs
+// ... (Interfaces and Helpers unchanged)
 interface FormOrderItem {
     name: string;
     quantity: number | string;
     customName?: string;
 }
 
-type SalsaName = 'Salsa Verde' | 'Salsa Rosada';
-interface SalsaState {
-    name: SalsaName;
+interface DynamicSalsaState {
+    id: string;
+    name: string;
     checked: boolean;
     quantity: number | string;
-    size: SalsaSize;
 }
+
+const formatPhoneNumber = (value: string) => {
+    if (!value) return value;
+    const phoneNumber = value.replace(/[^\d]/g, '');
+    const phoneNumberLength = phoneNumber.length;
+    if (phoneNumberLength < 4) return phoneNumber;
+    if (phoneNumberLength < 7) {
+      return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3)}`;
+    }
+    return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`;
+};
 
 const ItemInputSection: React.FC<{
     title: string;
@@ -43,33 +59,45 @@ const ItemInputSection: React.FC<{
     itemType: 'mini' | 'full';
     availablePackages?: MenuPackage[];
     onAddPackage: (pkg: MenuPackage) => void;
-}> = ({ title, items, flavors, onItemChange, onAddItem, onRemoveItem, itemType, availablePackages, onAddPackage }) => {
+    bgColor?: string;
+}> = ({ title, items, flavors, onItemChange, onAddItem, onRemoveItem, itemType, availablePackages, onAddPackage, bgColor = "bg-white" }) => {
     const otherOption = itemType === 'mini' ? 'Other' : 'Full Other';
+    const [isPackageMenuOpen, setIsPackageMenuOpen] = useState(false);
+
     return (
-        <div>
+        <div className={`${bgColor} p-4 rounded-lg border border-brand-tan/50 shadow-sm`}>
             <div className="flex justify-between items-end mb-2">
                 <h3 className="text-lg font-semibold text-brand-brown/90">{title}</h3>
                 {availablePackages && availablePackages.length > 0 && (
-                    <div className="relative group">
-                         <button type="button" className="text-xs bg-brand-tan/50 hover:bg-brand-orange hover:text-white text-brand-brown px-2 py-1 rounded flex items-center gap-1 transition-colors">
+                    <div className="relative">
+                         <button 
+                            type="button" 
+                            onClick={() => setIsPackageMenuOpen(!isPackageMenuOpen)}
+                            className="text-xs bg-brand-tan/50 hover:bg-brand-orange hover:text-white text-brand-brown px-2 py-1 rounded flex items-center gap-1 transition-colors"
+                         >
                             <ShoppingBagIcon className="w-3 h-3" /> Quick Add Package
                          </button>
-                         <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded shadow-lg z-20 hidden group-hover:block">
-                            {availablePackages.map(pkg => (
-                                <button 
-                                    key={pkg.id} 
-                                    type="button" 
-                                    onClick={() => onAddPackage(pkg)}
-                                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                >
-                                    {pkg.name} ({pkg.quantity})
-                                </button>
-                            ))}
-                         </div>
+                         {isPackageMenuOpen && (
+                             <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded shadow-lg z-20 animate-fade-in">
+                                {availablePackages.map(pkg => (
+                                    <button 
+                                        key={pkg.id} 
+                                        type="button" 
+                                        onClick={() => { onAddPackage(pkg); setIsPackageMenuOpen(false); }}
+                                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 border-b border-gray-50 last:border-0"
+                                    >
+                                        {pkg.name} ({pkg.quantity})
+                                    </button>
+                                ))}
+                             </div>
+                         )}
+                         {/* Overlay to close menu when clicking outside */}
+                         {isPackageMenuOpen && <div className="fixed inset-0 z-10" onClick={() => setIsPackageMenuOpen(false)}></div>}
                     </div>
                 )}
             </div>
-            <div className="space-y-3 max-h-40 overflow-y-auto pr-2 border-l-4 border-brand-tan/60 pl-3">
+            {/* REMOVED max-h-40 and overflow-y-auto to prevent nested scrollbars */}
+            <div className="space-y-3 pr-2 border-l-4 border-brand-tan/60 pl-3">
                 {items.map((item, index) => (
                     <div key={index} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 animate-fade-in">
                         <div className="flex-grow w-full">
@@ -87,7 +115,7 @@ const ItemInputSection: React.FC<{
                                 />
                             )}
                         </div>
-                        <input type="number" min="1" value={item.quantity} onChange={e => onItemChange(index, 'quantity', e.target.value)} className="block w-full sm:w-24 rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm bg-white text-brand-brown" />
+                        <input type="number" min="1" value={item.quantity === 0 ? '' : item.quantity} onChange={e => onItemChange(index, 'quantity', e.target.value)} className="block w-full sm:w-24 rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm bg-white text-brand-brown" />
                         <button type="button" onClick={() => onRemoveItem(index)} className="text-red-500 hover:text-red-700 p-1 self-center">
                             <TrashIcon className="w-5 h-5" />
                         </button>
@@ -102,7 +130,6 @@ const ItemInputSection: React.FC<{
     );
 };
 
-// Helper formatters
 const formatTimeToHHMM = (timeStr: string | undefined): string => {
     if (!timeStr) return '';
     let tempTimeStr = timeStr.split('-')[0].trim().toLowerCase();
@@ -117,15 +144,26 @@ const formatTimeToHHMM = (timeStr: string | undefined): string => {
     else if (!hasAmPm && hours > 0 && hours < 8) hours += 12;
     return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 };
+
 const formatDateToYYYYMMDD = (dateStr: string | undefined): string => {
     if (!dateStr) return '';
-    const parts = dateStr.split('/');
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+    const parts = dateStr.replace(/-/g, '/').split('/');
     if (parts.length !== 3) return '';
     const [month, day, year] = parts;
     return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 };
 
-export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors, fullSizeEmpanadaFlavors, onAddNewFlavor, onDelete, pricing }: OrderFormModalProps) {
+const getLocalTodayDate = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors, fullSizeEmpanadaFlavors, onAddNewFlavor, onDelete, pricing, settings, existingOrders = [] }: OrderFormModalProps) {
+    // ... (State logic unchanged)
     const [customerName, setCustomerName] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
     const [pickupDate, setPickupDate] = useState('');
@@ -134,11 +172,12 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
     const [customContactMethod, setCustomContactMethod] = useState('');
     const [miniItems, setMiniItems] = useState<FormOrderItem[]>([]);
     const [fullSizeItems, setFullSizeItems] = useState<FormOrderItem[]>([]);
-    const [salsaItems, setSalsaItems] = useState<SalsaState[]>([
-        { name: 'Salsa Verde', checked: false, quantity: 1, size: 'Small (4oz)' },
-        { name: 'Salsa Rosada', checked: false, quantity: 1, size: 'Small (4oz)' }
-    ]);
-    const [amountCharged, setAmountCharged] = useState(0);
+    const [specialItems, setSpecialItems] = useState<FormOrderItem[]>([]);
+    const [salsaItems, setSalsaItems] = useState<DynamicSalsaState[]>([]);
+    
+    const [amountCharged, setAmountCharged] = useState<number | string>(0);
+    const [isAutoPrice, setIsAutoPrice] = useState(true); 
+
     const [deliveryRequired, setDeliveryRequired] = useState(false);
     const [deliveryFee, setDeliveryFee] = useState<number | string>(0);
     const [deliveryAddress, setDeliveryAddress] = useState('');
@@ -154,9 +193,103 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
     const [addressError, setAddressError] = useState<string | null>(null);
     const [userLocation, setUserLocation] = useState<{latitude: number, longitude: number} | null>(null);
 
-    // Package Builder State
+    const [showTimePicker, setShowTimePicker] = useState(false);
+    
+    const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
+    const [filteredCustomers, setFilteredCustomers] = useState<{name: string, phone: string | null, method: string, address: string | null}[]>([]);
+
     const [activePackageBuilder, setActivePackageBuilder] = useState<MenuPackage | null>(null);
 
+    // ... (Flavor/State derivation unchanged)
+    const standardFlavors = empanadaFlavors;
+    const specialFlavors = empanadaFlavors.filter(f => f.isSpecial);
+    
+    const salsaFlavors: Flavor[] = useMemo(() => 
+        (pricing.salsas || [])
+            .filter(s => s.visible)
+            .map(s => ({ name: s.name, visible: true, description: 'Dipping Sauce', price: s.price })),
+        [pricing.salsas]
+    );
+
+    const uniqueCustomers = useMemo(() => {
+        const customers = new Map<string, {name: string, phone: string | null, method: string, address: string | null}>();
+        existingOrders.forEach(o => {
+            if (o.customerName && !customers.has(o.customerName.toLowerCase())) {
+                customers.set(o.customerName.toLowerCase(), {
+                    name: o.customerName,
+                    phone: o.phoneNumber,
+                    method: o.contactMethod,
+                    address: o.deliveryAddress
+                });
+            }
+        });
+        return Array.from(customers.values());
+    }, [existingOrders]);
+
+    // ... (Handlers unchanged)
+    const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value;
+        setCustomerName(val);
+        if (val.length > 1) {
+            const matches = uniqueCustomers.filter(c => c.name.toLowerCase().includes(val.toLowerCase()));
+            setFilteredCustomers(matches.slice(0, 5)); 
+            setShowCustomerSuggestions(matches.length > 0);
+        } else {
+            setShowCustomerSuggestions(false);
+        }
+    };
+
+    const selectCustomer = (customer: {name: string, phone: string | null, method: string, address: string | null}) => {
+        setCustomerName(customer.name);
+        if (customer.phone) setPhoneNumber(customer.phone);
+        if (Object.values(ContactMethod).includes(customer.method as ContactMethod)) {
+            setContactMethod(customer.method);
+            setCustomContactMethod('');
+        } else {
+            setContactMethod('Other');
+            setCustomContactMethod(customer.method);
+        }
+        if (customer.address) {
+            setDeliveryAddress(customer.address);
+            setDeliveryRequired(true);
+        }
+        setShowCustomerSuggestions(false);
+    };
+
+    const handlePhoneNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const formatted = formatPhoneNumber(e.target.value);
+        setPhoneNumber(formatted);
+    };
+
+    useEffect(() => {
+        if (!pricing.salsas) return;
+        if (!order && salsaItems.length === 0) {
+            const initialSalsas = pricing.salsas.map(s => ({
+                id: s.id,
+                name: s.name,
+                checked: false,
+                quantity: 1
+            }));
+            setSalsaItems(initialSalsas);
+        }
+    }, [pricing.salsas]);
+
+    const availableTimeSlots = useMemo(() => {
+        if (!pickupDate || !settings.scheduling || !settings.scheduling.enabled) return [];
+        const normalizedDate = normalizeDateStr(pickupDate);
+        const override = settings.scheduling.dateOverrides?.[normalizedDate];
+        const start = override?.customHours?.start || settings.scheduling.startTime;
+        const end = override?.customHours?.end || settings.scheduling.endTime;
+        const slots = generateTimeSlots(normalizedDate, start, end, settings.scheduling.intervalMinutes);
+        const busySlots = existingOrders.map(o => ({
+            date: normalizeDateStr(o.pickupDate),
+            time: o.pickupTime
+        }));
+        const todaysBusyTimes = new Set(busySlots.filter(slot => slot.date === normalizedDate).map(slot => slot.time));
+        return slots.filter(time => !todaysBusyTimes.has(time));
+    }, [pickupDate, settings.scheduling, existingOrders]);
+
+    // ... (resetForm, populateForm, etc. unchanged)
     const resetForm = () => {
         setCustomerName('');
         setPhoneNumber('');
@@ -166,17 +299,16 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         setCustomContactMethod('');
         setMiniItems([]);
         setFullSizeItems([]);
+        setSpecialItems([]);
         setAmountCharged(0);
+        setIsAutoPrice(true);
         setDeliveryRequired(false);
         setDeliveryFee(0);
         setDeliveryAddress('');
         setPaymentStatus(PaymentStatus.PENDING);
         setAmountCollected(0);
         setPaymentMethod('');
-        setSalsaItems([
-            { name: 'Salsa Verde', checked: false, quantity: 1, size: 'Small (4oz)' },
-            { name: 'Salsa Rosada', checked: false, quantity: 1, size: 'Small (4oz)' }
-        ]);
+        setSalsaItems((pricing.salsas || []).map(s => ({ id: s.id, name: s.name, checked: false, quantity: 1 })));
         setSpecialInstructions('');
         setInitialLoadComplete(false);
     };
@@ -186,7 +318,6 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         setPhoneNumber(data.phoneNumber || '');
         setPickupDate(formatDateToYYYYMMDD(data.pickupDate));
         setPickupTime(formatTimeToHHMM(data.pickupTime));
-
         const contact = data.contactMethod || '';
         if (Object.values(ContactMethod).includes(contact as ContactMethod)) {
             setContactMethod(contact);
@@ -195,53 +326,44 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
             setContactMethod('Other');
             setCustomContactMethod(contact);
         }
-
         setDeliveryRequired(data.deliveryRequired || false);
         setDeliveryFee(data.deliveryFee || 0);
         setDeliveryAddress(data.deliveryAddress || '');
-
         const items = data.items || [];
-        const isSalsa = (name: string) => name.includes('Salsa Verde') || name.includes('Salsa Rosada');
-        setMiniItems(items.filter(i => !i.name.startsWith('Full ') && !isSalsa(i.name)));
-        setFullSizeItems(items.filter(i => i.name.startsWith('Full ')));
+        const isSalsa = (name: string) => (pricing.salsas || []).some(s => name === s.name || name.includes(s.name));
+        const isSpecial = (name: string) => { const cleanName = name.replace('Full ', ''); return specialFlavors.some(f => f.name === cleanName); };
         
+        const pMiniItems = items.filter(i => !i.name.startsWith('Full ') && !isSalsa(i.name) && !isSpecial(i.name));
+        const pFullItems = items.filter(i => i.name.startsWith('Full ') && !isSalsa(i.name) && !isSpecial(i.name)).map(i => ({ ...i, name: i.name.replace('Full ', '') }));
+        const pSpecialItems = items.filter(i => !isSalsa(i.name) && isSpecial(i.name));
+
+        setMiniItems(pMiniItems);
+        setFullSizeItems(pFullItems);
+        setSpecialItems(pSpecialItems);
         setPaymentStatus((data as Order).paymentStatus || PaymentStatus.PENDING);
         setAmountCollected(data.amountCollected || 0);
         setPaymentMethod(data.paymentMethod || '');
         setSpecialInstructions(data.specialInstructions || '');
 
-        // Populate salsa items
-        const initialSalsaState: SalsaState[] = [
-            { name: 'Salsa Verde', checked: false, quantity: 1, size: 'Small (4oz)' },
-            { name: 'Salsa Rosada', checked: false, quantity: 1, size: 'Small (4oz)' }
-        ];
-        items.forEach(item => {
-            if (item.name.includes('Salsa Verde')) {
-                initialSalsaState[0].checked = true;
-                initialSalsaState[0].quantity = item.quantity;
-                initialSalsaState[0].size = item.name.includes('Large') ? 'Large (8oz)' : 'Small (4oz)';
-            }
-            if (item.name.includes('Salsa Rosada')) {
-                initialSalsaState[1].checked = true;
-                initialSalsaState[1].quantity = item.quantity;
-                initialSalsaState[1].size = item.name.includes('Large') ? 'Large (8oz)' : 'Small (4oz)';
-            }
+        const currentSalsas = (pricing.salsas || []).map(product => {
+            const foundItem = items.find(i => i.name === product.name || i.name.includes(product.name));
+            return { id: product.id, name: product.name, checked: !!foundItem, quantity: foundItem ? foundItem.quantity : 1 };
         });
-        setSalsaItems(initialSalsaState);
+        setSalsaItems(currentSalsas);
 
         if (data.amountCharged !== undefined) {
             setAmountCharged(data.amountCharged);
-        }
+            const expected = calculateOrderTotal(items, data.deliveryFee || 0, pricing, empanadaFlavors, fullSizeEmpanadaFlavors);
+            if (Math.abs(expected - data.amountCharged) > 0.01) setIsAutoPrice(false);
+            else setIsAutoPrice(true);
+        } else setIsAutoPrice(true);
+        
         setInitialLoadComplete(true);
     };
 
     useEffect(() => {
-        if (order) {
-            populateForm(order);
-        } else {
-            resetForm();
-            setInitialLoadComplete(true);
-        }
+        if (order) populateForm(order);
+        else { resetForm(); setInitialLoadComplete(true); }
     }, [order]);
 
      useEffect(() => {
@@ -253,7 +375,6 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         }
     }, [deliveryRequired]);
 
-    // Address Suggestions
     useEffect(() => {
         if (!deliveryRequired) { setAddressSuggestions([]); return; }
         const handler = setTimeout(async () => {
@@ -273,75 +394,76 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
     const [isDirty, setIsDirty] = useState(false);
 
     useEffect(() => {
-        if (isDirty) {
+        if (isDirty && isAutoPrice) {
              const currentItems: OrderItem[] = [
                 ...miniItems.map(i => ({ name: i.name, quantity: Number(i.quantity) || 0 })),
-                ...fullSizeItems.map(i => ({ name: i.name, quantity: Number(i.quantity) || 0 })),
-                ...salsaItems.filter(s => s.checked).map(s => ({ name: `${s.name} - ${s.size}`, quantity: Number(s.quantity) || 0 }))
+                ...fullSizeItems.map(i => ({ name: `Full ${i.name}`, quantity: Number(i.quantity) || 0 })),
+                ...specialItems.map(i => ({ name: i.name, quantity: Number(i.quantity) || 0 })),
+                ...salsaItems.filter(s => s.checked).map(s => ({ name: s.name, quantity: Number(s.quantity) || 0 }))
             ];
             const currentFee = deliveryRequired ? (Number(deliveryFee) || 0) : 0;
-            const newTotal = calculateOrderTotal(currentItems, currentFee, pricing);
+            const newTotal = calculateOrderTotal(currentItems, currentFee, pricing, empanadaFlavors, fullSizeEmpanadaFlavors);
             setAmountCharged(newTotal);
         }
-    }, [miniItems, fullSizeItems, salsaItems, deliveryFee, deliveryRequired, pricing, isDirty]);
+    }, [miniItems, fullSizeItems, specialItems, salsaItems, deliveryFee, deliveryRequired, pricing, isDirty, isAutoPrice, empanadaFlavors, fullSizeEmpanadaFlavors]);
 
     const markDirty = () => setIsDirty(true);
 
     useEffect(() => {
-        if ((Number(amountCollected) || 0) >= amountCharged && amountCharged > 0) {
-            setPaymentStatus(PaymentStatus.PAID);
-        } else if (pickupDate) {
+        const charged = Number(amountCharged) || 0;
+        const collected = Number(amountCollected) || 0;
+        if (collected >= charged && charged > 0) setPaymentStatus(PaymentStatus.PAID);
+        else if (pickupDate) {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             const pickup = new Date(pickupDate + 'T00:00:00');
             setPaymentStatus(pickup < today ? PaymentStatus.OVERDUE : PaymentStatus.PENDING);
-        } else {
-            setPaymentStatus(PaymentStatus.PENDING);
-        }
+        } else setPaymentStatus(PaymentStatus.PENDING);
     }, [amountCollected, amountCharged, pickupDate]);
     
-    const handleItemChange = (type: 'mini' | 'full', index: number, field: keyof FormOrderItem, value: string | number) => {
+    // ... (addItem, removeItem, handleSalsaChange, handleDeleteClick, handlePackageConfirm, toggleAutoPrice, handleSubmit unchanged)
+    const handleItemChange = (type: 'mini' | 'full' | 'special', index: number, field: keyof FormOrderItem, value: string | number) => {
         markDirty();
-        const items = type === 'mini' ? miniItems : fullSizeItems;
+        let items: FormOrderItem[];
+        let updateFn: (i: FormOrderItem[]) => void;
+        if (type === 'mini') { items = miniItems; updateFn = setMiniItems; }
+        else if (type === 'full') { items = fullSizeItems; updateFn = setFullSizeItems; }
+        else { items = specialItems; updateFn = setSpecialItems; }
         const updatedItems = items.map((item, i) => {
             if (i === index) {
                 const updatedItem = { ...item };
                 if (field === 'quantity') {
                     const strValue = String(value);
                     if (/^\d*$/.test(strValue)) updatedItem.quantity = strValue;
-                } else if (field === 'customName') {
-                    updatedItem.customName = value as string;
-                } else {
-                    updatedItem.name = value as string;
-                    if (updatedItem.name !== 'Other' && updatedItem.name !== 'Full Other') delete updatedItem.customName;
-                }
+                } else if (field === 'customName') { updatedItem.customName = value as string; } 
+                else { updatedItem.name = value as string; if (updatedItem.name !== 'Other' && updatedItem.name !== 'Full Other') delete updatedItem.customName; }
                 return updatedItem;
             }
             return item;
         });
-        if (type === 'mini') setMiniItems(updatedItems);
-        else setFullSizeItems(updatedItems);
+        updateFn(updatedItems);
     };
 
-    const addItem = (type: 'mini' | 'full') => {
+    const addItem = (type: 'mini' | 'full' | 'special') => {
         markDirty();
-        // Safely access the first flavor name
-        const firstFlavor = type === 'mini' 
-            ? (empanadaFlavors[0]?.name || 'Other')
-            : (fullSizeEmpanadaFlavors[0]?.name || 'Full Other');
-            
+        let firstFlavor = 'Other';
+        if (type === 'mini') firstFlavor = standardFlavors[0]?.name || 'Other';
+        else if (type === 'full') firstFlavor = standardFlavors[0]?.name || 'Other'; 
+        else firstFlavor = specialFlavors[0]?.name || 'Other';
         const newItem: FormOrderItem = { name: firstFlavor, quantity: 1 };
         if (type === 'mini') setMiniItems([...miniItems, newItem]);
-        else setFullSizeItems([...fullSizeItems, newItem]);
+        else if (type === 'full') setFullSizeItems([...fullSizeItems, newItem]);
+        else setSpecialItems([...specialItems, newItem]);
     };
 
-    const removeItem = (type: 'mini' | 'full', index: number) => {
+    const removeItem = (type: 'mini' | 'full' | 'special', index: number) => {
         markDirty();
         if (type === 'mini') setMiniItems(miniItems.filter((_, i) => i !== index));
-        else setFullSizeItems(fullSizeItems.filter((_, i) => i !== index));
+        else if (type === 'full') setFullSizeItems(fullSizeItems.filter((_, i) => i !== index));
+        else setSpecialItems(specialItems.filter((_, i) => i !== index));
     };
 
-    const handleSalsaChange = (index: number, field: keyof SalsaState, value: string | number | boolean) => {
+    const handleSalsaChange = (index: number, field: keyof DynamicSalsaState, value: string | number | boolean) => {
         markDirty();
         const newSalsaItems = [...salsaItems];
         const itemToUpdate = { ...newSalsaItems[index] };
@@ -349,7 +471,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         else if (field === 'quantity') {
             const strValue = String(value);
             if (/^\d*$/.test(strValue)) itemToUpdate.quantity = strValue;
-        } else if (field === 'size') itemToUpdate.size = value as SalsaSize;
+        }
         newSalsaItems[index] = itemToUpdate;
         setSalsaItems(newSalsaItems);
     };
@@ -361,45 +483,45 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         }
     };
 
-    // Package Builder Handlers
     const handlePackageConfirm = (items: { name: string; quantity: number }[]) => {
         markDirty();
         if (!activePackageBuilder) return;
-        
         const type = activePackageBuilder.itemType;
+        const isSpecial = activePackageBuilder.isSpecial;
         const formItems: FormOrderItem[] = items.map(i => ({ name: i.name, quantity: i.quantity }));
-        
-        // Consolidate with existing items
-        const currentItems = type === 'mini' ? miniItems : fullSizeItems;
+        let currentItems: FormOrderItem[];
+        let updateFn: (i: FormOrderItem[]) => void;
+        if (isSpecial) { currentItems = specialItems; updateFn = setSpecialItems; } 
+        else if (type === 'mini') { currentItems = miniItems; updateFn = setMiniItems; } 
+        else { currentItems = fullSizeItems; updateFn = setFullSizeItems; }
         const combinedItems = [...currentItems];
-        
         formItems.forEach(newItem => {
             const existingIndex = combinedItems.findIndex(existing => existing.name === newItem.name);
             if (existingIndex >= 0) {
                 const existingQty = Number(combinedItems[existingIndex].quantity) || 0;
                 combinedItems[existingIndex].quantity = existingQty + Number(newItem.quantity);
-            } else {
-                combinedItems.push(newItem);
-            }
+            } else { combinedItems.push(newItem); }
         });
-
-        if (type === 'mini') setMiniItems(combinedItems);
-        else setFullSizeItems(combinedItems);
-        
+        updateFn(combinedItems);
         setActivePackageBuilder(null);
     };
+    
+    const toggleAutoPrice = () => { if (!isAutoPrice) { markDirty(); setIsAutoPrice(true); } else setIsAutoPrice(false); };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         
-        const processItems = (items: FormOrderItem[], type: 'mini' | 'full'): OrderItem[] => {
-            const otherOption = type === 'mini' ? 'Other' : 'Full Other';
+        const processItems = (items: FormOrderItem[], type: 'mini' | 'full' | 'special'): OrderItem[] => {
             return items.map(item => {
                 let finalName = item.name;
-                if (item.name === otherOption && item.customName?.trim()) {
+                if ((item.name === 'Other' || item.name === 'Full Other') && item.customName?.trim()) {
                     const customName = item.customName.trim();
-                    onAddNewFlavor(customName, type); 
-                    finalName = type === 'full' ? `Full ${customName}` : customName;
+                    onAddNewFlavor(customName, type === 'full' ? 'full' : 'mini'); 
+                    finalName = customName;
+                }
+                const isSalsa = pricing.salsas.some(s => s.name === item.name);
+                if (type === 'full' && !finalName.startsWith('Full ') && !isSalsa) {
+                    finalName = `Full ${finalName}`;
                 }
                 return { name: finalName, quantity: Number(item.quantity) || 0 };
             }).filter(item => item.quantity > 0);
@@ -407,16 +529,17 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         
         const miniOrderItems = processItems(miniItems, 'mini');
         const fullSizeOrderItems = processItems(fullSizeItems, 'full');
-        const empanadaItems: OrderItem[] = [...miniOrderItems, ...fullSizeOrderItems];
+        const specialOrderItems = processItems(specialItems, 'special');
+        
+        const empanadaItems: OrderItem[] = [...miniOrderItems, ...fullSizeOrderItems, ...specialOrderItems];
         const salsaOrderItems: OrderItem[] = salsaItems
             .filter(salsa => salsa.checked && (Number(salsa.quantity) || 0) > 0)
-            .map(salsa => ({ name: `${salsa.name} - ${salsa.size}`, quantity: Number(salsa.quantity) || 0 }));
+            .map(salsa => ({ name: salsa.name, quantity: Number(salsa.quantity) || 0 }));
 
         const allItems = [...empanadaItems, ...salsaOrderItems];
-        const totalFullSize = fullSizeOrderItems.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
-        const totalMini = miniOrderItems.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
-
-        const formattedDate = pickupDate ? `${pickupDate.split('-')[1]}/${pickupDate.split('-')[2]}/${pickupDate.split('-')[0]}` : '';
+        const finalTotalFull = allItems.filter(i => i.name.startsWith('Full ')).reduce((s, i) => s + i.quantity, 0);
+        const finalTotalMini = allItems.filter(i => !i.name.startsWith('Full ') && !pricing.salsas.some(s => i.name.includes(s.name))).reduce((s, i) => s + i.quantity, 0);
+        const formattedDate = pickupDate ? `${pickupDate.split('-')[1]}-${pickupDate.split('-')[2]}-${pickupDate.split('-')[0]}` : '';
 
         let formattedTime = '';
         if (pickupTime) {
@@ -429,6 +552,9 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         }
 
         const finalContactMethod = contactMethod === 'Other' ? (customContactMethod.trim() || 'Other') : contactMethod;
+        
+        const orderDateObj = pickupDate ? new Date(`${pickupDate}T00:00:00`) : new Date();
+        const snapshotCost = calculateSupplyCost(allItems, settings, orderDateObj);
 
         const orderData = {
             customerName,
@@ -437,9 +563,10 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
             pickupTime: formattedTime,
             contactMethod: finalContactMethod,
             items: allItems,
-            amountCharged,
-            totalFullSize,
-            totalMini,
+            amountCharged: Number(amountCharged),
+            totalCost: snapshotCost, // Save cost snapshot
+            totalFullSize: finalTotalFull,
+            totalMini: finalTotalMini,
             deliveryRequired,
             deliveryFee: deliveryRequired ? (Number(deliveryFee) || 0) : 0,
             deliveryAddress: deliveryRequired ? deliveryAddress : null,
@@ -457,7 +584,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fade-in">
-            <div className="bg-white rounded-lg shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col border border-brand-tan">
+            <div className="bg-white rounded-lg shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col border border-brand-tan relative overflow-hidden">
                 <header className="p-6 border-b border-brand-tan flex justify-between items-center">
                     <h2 className="text-3xl font-serif text-brand-brown">{order ? 'Edit Order' : 'Add New Order'}</h2>
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
@@ -465,15 +592,34 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                     </button>
                 </header>
 
-                <form onSubmit={handleSubmit} className="overflow-y-auto p-6 space-y-6">
+                <form onSubmit={handleSubmit} className="overflow-y-auto p-6 space-y-6 flex-grow">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                        <div className="md:col-span-2">
+                        <div className="md:col-span-2 relative">
                              <label className="block text-sm font-medium text-brand-brown/90">Customer Name</label>
-                            <input type="text" value={customerName} onChange={e => setCustomerName(e.target.value)} required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown" />
+                            <input type="text" value={customerName} onChange={handleNameChange} required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown" autoComplete="off" />
+                            {showCustomerSuggestions && (
+                                <div className="absolute z-10 w-full bg-white border border-gray-200 rounded-md mt-1 shadow-lg max-h-40 overflow-y-auto">
+                                    {filteredCustomers.map((customer, idx) => (
+                                        <button 
+                                            key={idx}
+                                            type="button"
+                                            onClick={() => selectCustomer(customer)}
+                                            className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-brand-tan/30 flex justify-between items-center"
+                                        >
+                                            <span className="font-medium">{customer.name}</span>
+                                            <div className="text-right">
+                                                <span className="text-xs text-gray-500 block">{customer.phone || 'No Phone'}</span>
+                                                {customer.address && <span className="text-[10px] text-green-600 block truncate max-w-[120px]">📍 {customer.address}</span>}
+                                            </div>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
+                        {/* ... (Rest of form fields unchanged) ... */}
                         <div>
                             <label className="block text-sm font-medium text-brand-brown/90">Phone Number</label>
-                            <input type="tel" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown" />
+                            <input type="tel" value={phoneNumber} onChange={handlePhoneNumberChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown" />
                         </div>
                         <div>
                            <label className="block text-sm font-medium text-brand-brown/90">Contact Method</label>
@@ -487,19 +633,43 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-brand-brown/90">Pickup Date</label>
-                            <input type="date" value={pickupDate} onChange={e => setPickupDate(e.target.value)} required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown" />
+                            <div className="flex gap-2">
+                                <input type="date" value={pickupDate} onChange={e => { setPickupDate(e.target.value); setPickupTime(''); }} required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown appearance-none" style={{ colorScheme: 'light' }} />
+                                <button type="button" onClick={() => { setPickupDate(getLocalTodayDate()); setPickupTime(''); }} className="mt-1 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-md text-xs font-semibold text-gray-600 border border-gray-300">Today</button>
+                            </div>
                         </div>
                          <div>
                             <label className="block text-sm font-medium text-brand-brown/90">Pickup Time</label>
-                            <input type="time" value={pickupTime} onChange={e => setPickupTime(e.target.value)} required className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown" />
+                            <div className="relative flex gap-2 mt-1">
+                                <input type="time" value={pickupTime} onChange={e => setPickupTime(e.target.value)} required className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown" />
+                                {settings.scheduling?.enabled && (
+                                    <div className="relative">
+                                        <button type="button" disabled={!pickupDate} onClick={() => setShowTimePicker(!showTimePicker)} className="h-full px-3 bg-brand-tan/50 hover:bg-brand-orange hover:text-white text-brand-brown rounded-md text-xs font-semibold border border-brand-tan whitespace-nowrap disabled:opacity-50 flex items-center gap-1"><ClockIcon className="w-4 h-4" /> Select Slot</button>
+                                        {showTimePicker && (
+                                            <>
+                                                <div className="fixed inset-0 z-10" onClick={() => setShowTimePicker(false)}></div>
+                                                <div className="absolute right-0 top-full mt-1 bg-white border border-gray-300 shadow-lg rounded-md w-48 max-h-60 overflow-y-auto z-20">
+                                                    {availableTimeSlots.length > 0 ? ( availableTimeSlots.map(slot => ( <button key={slot} type="button" onClick={() => { const [time, modifier] = slot.split(' '); let [hours, minutes] = time.split(':'); if (hours === '12') hours = '00'; if (modifier === 'PM') hours = String(parseInt(hours, 10) + 12); setPickupTime(`${hours.padStart(2, '0')}:${minutes}`); setShowTimePicker(false); }} className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 text-gray-700" > {slot} </button> )) ) : ( <div className="p-3 text-xs text-gray-500 text-center">No slots available for this date.</div> )}
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                          <div>
-                            <label className="block text-sm font-medium text-brand-brown/90">Amount Charged ($)</label>
-                            <input type="number" step="0.01" value={amountCharged.toFixed(2)} readOnly className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-gray-100 text-brand-brown/70" />
+                            <div className="flex justify-between items-center mb-1">
+                                <label className="block text-sm font-medium text-brand-brown/90">Amount Charged ($)</label>
+                                <button type="button" onClick={toggleAutoPrice} className={`text-xs font-medium px-2 py-0.5 rounded transition-colors border ${isAutoPrice ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'}`} title={isAutoPrice ? "Calculated automatically. Click to switch to manual." : "Manual price set. Click to auto-calculate."}> {isAutoPrice ? "Auto-Calc ON" : "Manual Price"} </button>
+                            </div>
+                            <div className="relative">
+                                <input type="number" step="0.01" value={amountCharged === 0 ? '' : amountCharged} onChange={(e) => { setAmountCharged(e.target.value); setIsAutoPrice(false); }} className={`mt-1 block w-full rounded-md shadow-sm focus:border-brand-orange focus:ring-brand-orange ${isAutoPrice ? 'bg-gray-50 text-brand-brown/70 border-gray-300' : 'bg-white text-brand-brown border-brand-orange ring-1 ring-brand-orange/20'}`} />
+                                {!isAutoPrice && ( <div className="absolute inset-y-0 right-0 pr-3 flex items-center cursor-pointer" onClick={toggleAutoPrice} title="Revert to Auto-Calculation" > <ArrowUturnLeftIcon className="h-4 w-4 text-gray-400 hover:text-brand-orange" /> </div> )}
+                            </div>
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-brand-brown/90">Amount Collected ($)</label>
-                            <input type="number" step="0.01" min="0" value={amountCollected} onChange={e => setAmountCollected(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown" />
+                            <input type="number" step="0.01" min="0" value={amountCollected === 0 ? '' : amountCollected} onChange={e => setAmountCollected(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown" />
                         </div>
                         <div>
                            <label className="block text-sm font-medium text-brand-brown/90">Payment Method</label>
@@ -533,58 +703,68 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-brand-brown/90">Delivery Fee ($)</label>
-                                    <input type="number" step="1" min="0" value={deliveryFee} onChange={e => {setDeliveryFee(e.target.value); markDirty();}} required={deliveryRequired} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown" />
+                                    <input type="number" step="1" min="0" value={deliveryFee === 0 ? '' : deliveryFee} onChange={e => {setDeliveryFee(e.target.value); markDirty();}} required={deliveryRequired} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown" />
                                 </div>
                             </div>
                         )}
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-4 border-t border-brand-tan pt-4">
+                    <div className="space-y-6 border-t border-brand-tan pt-6">
                         <ItemInputSection 
                             title="Mini Empanadas"
                             items={miniItems}
-                            flavors={empanadaFlavors}
+                            flavors={standardFlavors}
                             onItemChange={(index, field, value) => handleItemChange('mini', index, field, value)}
                             onAddItem={() => addItem('mini')}
                             onRemoveItem={(index) => removeItem('mini', index)}
                             itemType="mini"
-                            availablePackages={pricing.packages?.filter(p => p.itemType === 'mini')}
+                            availablePackages={pricing.packages?.filter(p => p.itemType === 'mini' && !p.isSpecial)}
                             onAddPackage={setActivePackageBuilder}
                         />
-                         <ItemInputSection 
+                        <ItemInputSection 
                             title="Full-Size Empanadas"
                             items={fullSizeItems}
-                            flavors={fullSizeEmpanadaFlavors}
+                            flavors={standardFlavors}
                             onItemChange={(index, field, value) => handleItemChange('full', index, field, value)}
                             onAddItem={() => addItem('full')}
                             onRemoveItem={(index) => removeItem('full', index)}
                             itemType="full"
-                            availablePackages={pricing.packages?.filter(p => p.itemType === 'full')}
+                            availablePackages={pricing.packages?.filter(p => p.itemType === 'full' && !p.isSpecial)}
                             onAddPackage={setActivePackageBuilder}
+                        />
+                        <ItemInputSection 
+                            title="Party Platters & Specials"
+                            items={specialItems}
+                            flavors={empanadaFlavors}
+                            onItemChange={(index, field, value) => handleItemChange('special', index, field, value)}
+                            onAddItem={() => addItem('special')}
+                            onRemoveItem={(index) => removeItem('special', index)}
+                            itemType="mini"
+                            availablePackages={pricing.packages?.filter(p => p.isSpecial)}
+                            onAddPackage={setActivePackageBuilder}
+                            bgColor="bg-purple-50 border-purple-200"
                         />
                     </div>
 
                     <div className="border-t border-brand-tan pt-4">
-                        <h3 className="text-lg font-semibold text-brand-brown/90 mb-3">Salsas</h3>
+                        <h3 className="text-lg font-semibold text-brand-brown/90 mb-3">Salsa & Extras</h3>
                         <div className="space-y-4">
-                            {salsaItems.map((salsa, index) => (
-                                <div key={salsa.name} className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                                    <div className="flex items-center">
-                                        <input type="checkbox" id={`salsa-${index}`} checked={salsa.checked} onChange={e => handleSalsaChange(index, 'checked', e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-brand-orange focus:ring-brand-orange" />
-                                        <label htmlFor={`salsa-${index}`} className="font-medium text-brand-brown w-32 ml-2">{salsa.name}</label>
-                                    </div>
-                                    {salsa.checked && (
-                                        <div className="flex items-center gap-2 animate-fade-in flex-grow sm:flex-grow-0">
-                                            <label htmlFor={`salsa-qty-${index}`} className="text-sm">Qty:</label>
-                                            <input type="number" id={`salsa-qty-${index}`} min="1" value={salsa.quantity} onChange={e => handleSalsaChange(index, 'quantity', e.target.value)} className="block w-20 rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm bg-white text-brand-brown" />
-                                            <select value={salsa.size} onChange={e => handleSalsaChange(index, 'size', e.target.value)} className="block w-32 rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm bg-white text-brand-brown">
-                                                <option value="Small (4oz)">Small</option>
-                                                <option value="Large (8oz)">Large</option>
-                                            </select>
+                            {(salsaItems.length > 0) ? (
+                                salsaItems.map((salsa, index) => (
+                                    <div key={salsa.id} className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                                        <div className="flex items-center">
+                                            <input type="checkbox" id={`salsa-${index}`} checked={salsa.checked} onChange={e => handleSalsaChange(index, 'checked', e.target.checked)} className="h-4 w-4 rounded border-gray-300 text-brand-orange focus:ring-brand-orange" />
+                                            <label htmlFor={`salsa-${index}`} className="font-medium text-brand-brown min-w-[150px] ml-2">{salsa.name}</label>
                                         </div>
-                                    )}
-                                </div>
-                            ))}
+                                        {salsa.checked && (
+                                            <div className="flex items-center gap-2 animate-fade-in flex-grow sm:flex-grow-0">
+                                                <label htmlFor={`salsa-qty-${index}`} className="text-sm">Qty:</label>
+                                                <input type="number" id={`salsa-qty-${index}`} min="1" value={salsa.quantity === 0 ? '' : salsa.quantity} onChange={e => handleSalsaChange(index, 'quantity', e.target.value)} className="block w-20 rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm bg-white text-brand-brown" />
+                                            </div>
+                                        )}
+                                    </div>
+                                ))
+                            ) : ( <p className="text-sm text-gray-500 italic">No salsas available.</p> )}
                         </div>
                     </div>
                     
@@ -608,14 +788,19 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                     </footer>
                 </form>
                 
-                {/* Package Builder Modal for Admin */}
+                {/* Admin Overlay for Package Builder */}
                 {activePackageBuilder && (
-                    <PackageBuilderModal 
-                        pkg={activePackageBuilder}
-                        flavors={activePackageBuilder.itemType === 'mini' ? empanadaFlavors : fullSizeEmpanadaFlavors}
-                        onClose={() => setActivePackageBuilder(null)}
-                        onConfirm={handlePackageConfirm}
-                    />
+                    <div className="absolute inset-0 bg-white z-20 flex flex-col p-6 animate-fade-in overflow-hidden">
+                        <PackageBuilderModal 
+                            pkg={activePackageBuilder} 
+                            standardFlavors={empanadaFlavors.filter(f => !f.isSpecial)} 
+                            specialFlavors={empanadaFlavors.filter(f => f.isSpecial)} 
+                            salsas={salsaFlavors} 
+                            onClose={() => setActivePackageBuilder(null)} 
+                            onConfirm={handlePackageConfirm} 
+                            className="h-full"
+                        />
+                    </div>
                 )}
             </div>
         </div>

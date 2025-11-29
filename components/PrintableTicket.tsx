@@ -7,56 +7,86 @@ interface PrintableTicketProps {
 
 export default function PrintableTicket({ order }: PrintableTicketProps) {
   const balanceDue = order.amountCharged - (order.amountCollected || 0);
+  const isPartyPlatter = (order.specialInstructions || '').includes("PARTY PLATTER");
 
   return (
-    <div className="printable-ticket bg-white text-black p-2 font-mono text-[9pt] leading-snug h-full flex flex-col">
-      {/* Header section */}
-      <div className="text-center font-bold text-[10pt] mb-1.5">
-        <p className="break-words">{order.customerName}</p>
-        <p>{order.pickupDate} @ {order.pickupTime}</p>
-      </div>
+    <div className="p-4 bg-white text-black font-sans text-sm leading-normal h-full flex flex-col border border-gray-300">
       
-      {/* Delivery information */}
-      {order.deliveryRequired && (
-        <div className="border-t border-black border-dashed pt-1.5 mb-1.5">
-          <p className="font-bold">
-            DELIVERY TO:{order.deliveryFee > 0 && ` ($${order.deliveryFee.toFixed(2)})`}
-          </p>
-          {order.deliveryAddress && <p className="break-words">{order.deliveryAddress}</p>}
-          {order.phoneNumber && <p>Phone: {order.phoneNumber}</p>}
+      {/* Header */}
+      <div className="flex justify-between items-start border-b-2 border-black pb-2 mb-4">
+        <div>
+            <h1 className="text-2xl font-bold uppercase tracking-tight">Empanadas by Rose</h1>
+            <p className="text-xs">Homemade • Fresh • Delicious</p>
         </div>
+        <div className="text-right">
+            <p className="font-bold text-lg">{order.customerName}</p>
+            <p className="text-sm">{order.pickupDate} @ {order.pickupTime}</p>
+            {order.deliveryRequired && <p className="text-xs font-bold mt-1">DELIVERY</p>}
+        </div>
+      </div>
+
+      {/* Party Platter Banner */}
+      {isPartyPlatter && (
+          <div className="mb-4 text-center border-2 border-black p-2">
+              <h2 className="text-xl font-black uppercase tracking-widest">*** PARTY PLATTER ***</h2>
+          </div>
       )}
-      
-      {/* Items list - this section will grow to fill available space */}
-      <div className="border-y border-black border-dashed py-1.5 flex-grow min-h-0 overflow-hidden">
-        <div className="grid grid-cols-4 font-bold">
-          <p className="col-span-3">Item</p>
-          <p className="text-right">Qty</p>
-        </div>
-        {order.items.map((item, index) => (
-          <div key={index} className="grid grid-cols-4">
-            <p className="col-span-3 break-words pr-1">{item.name}</p>
-            <p className="text-right">{item.quantity}</p>
-          </div>
-        ))}
+
+      {/* Items Table */}
+      <div className="flex-grow mb-4">
+        <table className="w-full text-left border-collapse">
+            <thead>
+                <tr className="border-b border-black">
+                    <th className="py-1 font-bold w-16 text-center">QTY</th>
+                    <th className="py-1 font-bold">ITEM DESCRIPTION</th>
+                </tr>
+            </thead>
+            <tbody>
+                {order.items.map((item, index) => (
+                    <tr key={index} className="border-b border-gray-200">
+                        <td className="py-2 text-center font-bold text-lg align-top">{item.quantity}</td>
+                        <td className="py-2 align-top">
+                            <span className="font-medium text-base">{item.name}</span>
+                        </td>
+                    </tr>
+                ))}
+            </tbody>
+        </table>
       </div>
 
-      {/* Footer section - pushed to the bottom by flex-grow above */}
-      <div className="mt-auto pt-1.5">
-        <div className="text-center">
-          {balanceDue > 0 ? (
-            <p className="font-bold text-[10pt]">BALANCE DUE: ${balanceDue.toFixed(2)}</p>
-          ) : (
-            <p className="font-bold text-[10pt]">** PAID IN FULL **</p>
-          )}
-        </div>
+      {/* Footer / Notes / Totals */}
+      <div className="mt-auto pt-2 border-t-2 border-black">
+          <div className="flex justify-between items-start gap-4">
+              <div className="flex-grow">
+                  {order.deliveryRequired && (
+                      <div className="mb-2 text-xs">
+                          <span className="font-bold">Deliver To: </span>
+                          {order.deliveryAddress}
+                          {order.phoneNumber && <span> ({order.phoneNumber})</span>}
+                      </div>
+                  )}
+                  
+                  {order.specialInstructions && (
+                      <div className="text-xs bg-gray-100 p-2 border border-gray-300">
+                          <p className="font-bold">NOTES:</p>
+                          <p className="whitespace-pre-wrap">{order.specialInstructions}</p>
+                      </div>
+                  )}
+              </div>
 
-        {order.specialInstructions && (
-          <div className="mt-1.5 border-t border-black border-dashed pt-1.5">
-              <p className="font-bold">NOTES:</p>
-              <p className="text-[8pt] whitespace-pre-wrap break-words">{order.specialInstructions}</p>
+              <div className="text-right min-w-[150px]">
+                  {balanceDue > 0.01 ? (
+                      <div className="border-2 border-black p-2 text-center">
+                          <p className="text-xs font-bold">BALANCE DUE</p>
+                          <p className="text-xl font-bold">${balanceDue.toFixed(2)}</p>
+                      </div>
+                  ) : (
+                      <div className="border-2 border-black p-2 text-center bg-gray-100">
+                          <p className="text-lg font-bold">PAID IN FULL</p>
+                      </div>
+                  )}
+              </div>
           </div>
-        )}
       </div>
     </div>
   );

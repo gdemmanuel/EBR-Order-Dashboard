@@ -1,3 +1,4 @@
+
 import { Order, ContactMethod, FollowUpStatus, PaymentStatus, ApprovalStatus } from '../types';
 
 export const initialOrders: Order[] = [
@@ -89,7 +90,7 @@ export const initialOrders: Order[] = [
         amountCollected: 70,
         paymentMethod: 'Venmo',
         deliveryAddress: null,
-        followUpStatus: FollowUpStatus.CONTACTED,
+        followUpStatus: FollowUpStatus.PENDING,
         paymentStatus: PaymentStatus.PAID,
         specialInstructions: null,
         approvalStatus: ApprovalStatus.APPROVED,
@@ -215,3 +216,26 @@ export const initialFullSizeEmpanadaFlavors: string[] = [
     "Full Caramel Apple", "Full Apple Pie", "Full Rainbow", "Full Oreo",
     "Full Nutella", "Full Potato", "Full Bacon Egg Cheese", "Full Other"
 ];
+
+export const SUGGESTED_DESCRIPTIONS: Record<string, string> = {
+    "Beef": "Classic savory ground beef seasoned with our signature spice blend.",
+    "Beef & Cheese": "Our classic savory beef filling mixed with gooey melted cheese.",
+    "Chicken": "Tender, slow-cooked chicken seasoned to perfection.",
+    "Chicken & Cheese": "Tender seasoned chicken blended with a rich cheese mix.",
+    "Buffalo Chicken": "Shredded chicken tossed in spicy buffalo sauce with a touch of creaminess.",
+    "Cheese": "A simple yet delicious blend of melted cheeses in a crispy shell.",
+    "Thanksgiving Turkey": "A holiday favorite! Roasted turkey, stuffing, and cranberry sauce.",
+    "Spinach Artichoke": "Creamy spinach and artichoke hearts blended with parmesan and garlic.",
+    "Caramel Apple": "Sweet sliced apples drizzled with rich salted caramel.",
+    "Apple Pie": "Classic cinnamon-spiced apples in a crispy, flaky crust.",
+    "Rainbow": "Italian Rainbow Cookie style: Almond paste, raspberry jam, and chocolate.",
+    "Oreo": "Crushed Oreo cookies mixed with a sweet cream filling. A cookies & cream dream.",
+    "Nutella": "Rich and creamy hazelnut cocoa spread. Simple and decadent.",
+    "Calzone": "Ham, ricotta, and mozzarella cheese with a hint of marinara.",
+    "Potato": "Soft seasoned potatoes mashed with cheddar cheese and herbs.",
+    "Bacon Egg Cheese": "The breakfast classic! Scrambled eggs, crispy bacon, and melted cheese.",
+    "Philly Cheesesteak": "Thinly sliced steak, sautéed onions, and melted cheese.",
+    "Churro": "Sweet cheesecake filling dusted with cinnamon sugar on the outside.",
+    "Corned Beef & Cabbage": "Tender corned beef and savory cabbage. A St. Patrick's Day classic.",
+    "Irish Cream Brownie": "Fudgy brownie batter infused with a hint of Irish Cream flavor."
+};
