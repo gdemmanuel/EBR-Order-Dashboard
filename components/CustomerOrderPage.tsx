@@ -423,6 +423,7 @@ export default function CustomerOrderPage({
         // Validation Checks
         if (!customerName.trim()) { setError("Please enter your name."); return; }
         if (!phoneNumber.trim()) { setError("Please enter your phone number."); return; }
+        if (!email.trim()) { setError("Please enter your email address."); return; }
         if (!pickupDate) { setError("Please select a pickup date."); return; }
         if (!pickupTime) { setError("Please select a pickup time."); return; }
         if (deliveryRequired && !deliveryAddress.trim()) { setError("Please enter a delivery address."); return; }
@@ -955,8 +956,8 @@ export default function CustomerOrderPage({
                             <input type="tel" required value={phoneNumber} onChange={handlePhoneNumberChange} className="w-full rounded border-gray-300 focus:ring-brand-orange focus:border-brand-orange bg-brand-cream/30 py-1.5 text-sm" placeholder="(555) 123-4567" />
                         </div>
                         <div className="md:col-span-2 space-y-0.5">
-                            <label className="block text-[10px] font-bold text-brand-brown uppercase tracking-wider">Email</label>
-                            <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full rounded border-gray-300 focus:ring-brand-orange focus:border-brand-orange bg-brand-cream/30 py-1.5 text-sm" placeholder="For order confirmation" />
+                            <label className="block text-[10px] font-bold text-brand-brown uppercase tracking-wider">Email <span className="text-red-500">*</span></label>
+                            <input type="email" required value={email} onChange={e => setEmail(e.target.value)} className="w-full rounded border-gray-300 focus:ring-brand-orange focus:border-brand-orange bg-brand-cream/30 py-1.5 text-sm" placeholder="For order confirmation" />
                         </div>
                     </div>
 

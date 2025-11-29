@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Order } from '../types';
 
@@ -49,7 +50,16 @@ export default function PrintableTicket({ order }: PrintableTicketProps) {
 
       {/* Footer */}
       <div className="mt-2">
-          {/* Notes (clean up the auto-tag to avoid redundancy if desired) */}
+          {/* Delivery Address */}
+          {order.deliveryRequired && order.deliveryAddress && (
+              <div className="mb-2 text-[10px] leading-3 border-l-2 border-black pl-1 my-1">
+                  <span className="font-bold block">DELIVER TO:</span>
+                  <span className="break-words">{order.deliveryAddress}</span>
+                  {order.phoneNumber && <span className="block mt-0.5">{order.phoneNumber}</span>}
+              </div>
+          )}
+
+          {/* Notes */}
           {order.specialInstructions && (
               <div className="mb-2 text-[10px] leading-3 border-l-2 border-black pl-1 my-1 italic">
                   {order.specialInstructions}
