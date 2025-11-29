@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Order, Flavor, PricingSettings, AppSettings, PaymentStatus, FollowUpStatus, ApprovalStatus } from '../types';
+import { Order, Flavor, PricingSettings, AppSettings, PaymentStatus, FollowUpStatus, ApprovalStatus, MenuPackage } from '../types';
 import { normalizeDateStr } from '../utils/dateUtils';
 import { calculateOrderTotal } from '../utils/pricingUtils';
-import { XMarkIcon, PlusIcon, TrashIcon, CheckCircleIcon, CubeIcon, ExclamationCircleIcon } from './icons/Icons';
+import { XMarkIcon, TrashIcon } from './icons/Icons';
 import PackageBuilderModal from './PackageBuilderModal';
 
 interface OrderFormModalProps {
@@ -24,6 +24,18 @@ interface FormOrderItem {
     quantity: number;
 }
 
+// Helper to format phone number as (XXX) XXX-XXXX
+const formatPhoneNumber = (value: string) => {
+    if (!value) return value;
+    const phoneNumber = value.replace(/[^\d]/g, '');
+    const phoneNumberLength = phoneNumber.length;
+    if (phoneNumberLength < 4) return phoneNumber;
+    if (phoneNumberLength < 7) {
+        return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3)}`;
+    }
+    return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`;
+};
+
 export default function OrderFormModal({ 
     order, 
     onClose, 
@@ -37,6 +49,7 @@ export default function OrderFormModal({
     // --- Form State ---
     const [customerName, setCustomerName] = useState(order?.customerName || '');
     const [phoneNumber, setPhoneNumber] = useState(order?.phoneNumber || '');
+    const [email, setEmail] = useState(order?.email || '');
     const [contactMethod, setContactMethod] = useState(order?.contactMethod || 'Instagram');
     const [pickupDate, setPickupDate] = useState(order ? normalizeDateStr(order.pickupDate) : new Date().toISOString().split('T')[0]);
     const [pickupTime, setPickupTime] = useState(order?.pickupTime || '');
@@ -55,7 +68,7 @@ export default function OrderFormModal({
     const [specialInstructions, setSpecialInstructions] = useState(order?.specialInstructions || '');
     
     // Package Builder
-    const [activePackageBuilder, setActivePackageBuilder] = useState<any | null>(null);
+    const [activePackageBuilder, setActivePackageBuilder] = useState<MenuPackage | null>(null);
     const [isSaving, setIsSaving] = useState(false);
 
     // --- Initialize Items from Order ---
@@ -89,6 +102,11 @@ export default function OrderFormModal({
     
     // --- Handlers ---
     
+    const handlePhoneNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const formatted = formatPhoneNumber(e.target.value);
+        setPhoneNumber(formatted);
+    };
+
     const addItem = (type: 'mini' | 'full' | 'special', name: string) => {
         const itemSet = type === 'mini' ? miniItems : type === 'full' ? fullSizeItems : specialItems;
         const setFn = type === 'mini' ? setMiniItems : type === 'full' ? setFullSizeItems : setSpecialItems;
@@ -167,6 +185,7 @@ export default function OrderFormModal({
                 id: order?.id,
                 customerName,
                 phoneNumber,
+                email: email || null,
                 contactMethod,
                 pickupDate: normalizeDateStr(pickupDate),
                 pickupTime,
@@ -206,14 +225,18 @@ export default function OrderFormModal({
                 <div className="flex-grow overflow-y-auto p-6">
                     <form id="order-form" onSubmit={handleSubmit} className="space-y-6">
                         {/* Customer Info */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                             <div>
                                 <label className="block text-xs font-bold text-gray-700 mb-1">Customer Name</label>
                                 <input required type="text" value={customerName} onChange={e => setCustomerName(e.target.value)} className="w-full rounded-md border-gray-300 text-sm" />
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-gray-700 mb-1">Phone</label>
-                                <input type="text" value={phoneNumber} onChange={e => setPhoneNumber(e.target.value)} className="w-full rounded-md border-gray-300 text-sm" />
+                                <input type="text" value={phoneNumber} onChange={handlePhoneNumberChange} className="w-full rounded-md border-gray-300 text-sm" placeholder="(555) 555-5555" />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-700 mb-1">Email</label>
+                                <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full rounded-md border-gray-300 text-sm" />
                             </div>
                             <div>
                                 <label className="block text-xs font-bold text-gray-700 mb-1">Source</label>

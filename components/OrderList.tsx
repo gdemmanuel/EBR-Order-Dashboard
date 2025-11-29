@@ -215,9 +215,9 @@ export default function OrderList({
                                 Items
                             </th>
 
-                            {/* Total / Payment */}
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange" onClick={() => handleSort('amountCharged')}>
-                                Total {sortConfig.key === 'amountCharged' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                            {/* Balance */}
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                Balance
                             </th>
 
                             {/* Status */}
@@ -247,11 +247,13 @@ export default function OrderList({
                             sortedOrders.map((order) => {
                                 const totalItems = order.totalMini + order.totalFullSize;
                                 const itemsSummary = order.items.map(i => `${i.quantity} ${i.name}`).join(', ');
+                                const balance = order.amountCharged - (order.amountCollected || 0);
+                                const isPlatter = (order.specialInstructions || '').includes('PARTY PLATTER');
                                 
                                 return (
                                     <tr 
                                         key={order.id} 
-                                        className="hover:bg-gray-50 transition-colors group cursor-pointer"
+                                        className={`transition-colors group cursor-pointer ${isPlatter ? 'bg-purple-50 hover:bg-purple-100 border-l-4 border-l-purple-400' : 'hover:bg-gray-50 border-l-4 border-l-transparent'}`}
                                         onClick={() => onSelectOrder(order)}
                                     >
                                         <td className="px-4 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
@@ -272,12 +274,17 @@ export default function OrderList({
                                             <div className="text-xs text-gray-500 mt-0.5" title={order.contactMethod}>{order.contactMethod}</div>
                                         </td>
                                         <td className="px-4 py-4">
-                                            <div className="text-brand-brown font-medium whitespace-nowrap">{totalItems} items</div>
-                                            <div className="text-xs text-gray-500">{itemsSummary}</div>
+                                            <div className="text-brand-brown font-medium whitespace-nowrap">
+                                                {totalItems} items
+                                                {isPlatter && <span className="ml-2 text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-bold uppercase">Platter</span>}
+                                            </div>
+                                            <div className="text-xs text-gray-500 truncate max-w-[200px]">{itemsSummary}</div>
                                         </td>
                                         <td className="px-4 py-4 whitespace-nowrap">
-                                            <div className="font-medium text-brand-brown">${order.amountCharged.toFixed(2)}</div>
-                                            {getPaymentStatusBadge(order.paymentStatus)}
+                                            <div className={`font-bold ${balance > 0.01 ? 'text-red-600' : 'text-green-600'}`}>
+                                                {balance > 0.01 ? `$${balance.toFixed(2)}` : 'PAID'}
+                                            </div>
+                                            <div className="text-xs text-gray-400">Total: ${order.amountCharged.toFixed(2)}</div>
                                         </td>
                                         <td className="px-4 py-4 whitespace-nowrap">
                                             <StatusBadge 

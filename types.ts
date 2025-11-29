@@ -40,6 +40,7 @@ export interface Order {
   customerName: string;
   contactMethod: string;
   phoneNumber: string | null;
+  email?: string | null; // Added email field
   items: OrderItem[];
   totalFullSize: number;
   totalMini: number;

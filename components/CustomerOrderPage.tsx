@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import {
     Order,
@@ -389,6 +390,12 @@ export default function CustomerOrderPage({
             return { name: flavorName, quantity: item.quantity };
         });
 
+        // Add Platter marker to special instructions (internal use for now, can be extracted later)
+        // Note: For customer view, we might not want to clog the special instructions field visibly
+        // but we need it for the admin side. 
+        // Strategy: We rely on the marker added during 'handleFinalSubmit' or check packages then.
+        // Actually, let's keep the marker logic in handleFinalSubmit to avoid cluttering the UI state 'specialInstructions'.
+
         const newPackage: SelectedPackage = {
             internalId: Date.now().toString() + Math.random().toString().slice(2, 6),
             pkgId: activePackageBuilder.id,
@@ -505,12 +512,28 @@ export default function CustomerOrderPage({
             const formattedTime = pickupTime;
             const formattedDate = normalizeDateStr(pickupDate);
 
-            // Package details are NOT appended to special instructions; only user notes.
+            // Logic to append Party Platter marker if any selected package is a platter
+            // This ensures Admin view highlights it correctly
+            let finalInstructions = specialInstructions || '';
+            
+            // Check for platter packages in cart
+            const platterPackagesInCart = cartPackages.filter(cp => {
+                // Find the original package definition to check isPlatter
+                const originalPkg = pricing?.packages.find(p => p.id === cp.pkgId);
+                return originalPkg?.isPlatter;
+            });
+
+            if (platterPackagesInCart.length > 0) {
+                const markers = platterPackagesInCart.map(p => `*** PARTY PLATTER: ${p.name} ***`).join('\n');
+                finalInstructions = finalInstructions ? `${markers}\n\n${finalInstructions}` : markers;
+            }
+
             const newOrder: Order = {
                 id: Date.now().toString(),
                 customerName,
                 phoneNumber,
-                contactMethod: email ? `Website (Email: ${email})` : 'Website Form',
+                email: email || null,
+                contactMethod: 'Website Form',
                 pickupDate: formattedDate,
                 pickupTime: formattedTime || 'TBD',
                 items: finalItems,
@@ -524,7 +547,7 @@ export default function CustomerOrderPage({
                 paymentStatus: PaymentStatus.PENDING,
                 paymentMethod: null,
                 followUpStatus: FollowUpStatus.NEEDED,
-                specialInstructions: specialInstructions || null,
+                specialInstructions: finalInstructions || null,
                 approvalStatus: ApprovalStatus.PENDING
             };
 

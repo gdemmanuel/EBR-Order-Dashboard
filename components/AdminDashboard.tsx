@@ -204,6 +204,7 @@ export default function AdminDashboard({
         if (!order) return;
         const newStatus = approved ? ApprovalStatus.APPROVED : ApprovalStatus.DENIED;
         await saveOrderToDb({ ...order, approvalStatus: newStatus });
+        setSelectedOrder(null); // Close modal on action
     };
 
     const handleDeductInventory = async (order: Order, updates?: Partial<Order>) => {

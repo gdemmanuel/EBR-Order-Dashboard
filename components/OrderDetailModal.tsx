@@ -26,6 +26,16 @@ export default function OrderDetailModal({
 }: OrderDetailModalProps) {
     
   const totalQty = order.totalMini + order.totalFullSize;
+  const balanceDue = order.amountCharged - (order.amountCollected || 0);
+  
+  // Format Date Ordered from ID timestamp
+  let dateOrderedStr = "Unknown";
+  try {
+      // Check if ID is a timestamp (digits only, roughly current era)
+      if (/^\d{13}$/.test(order.id)) {
+          dateOrderedStr = new Date(parseInt(order.id)).toLocaleString();
+      }
+  } catch(e) {}
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4 animate-fade-in">
@@ -34,11 +44,12 @@ export default function OrderDetailModal({
             <header className="p-6 border-b border-brand-tan flex justify-between items-start bg-brand-tan/10 rounded-t-lg">
                 <div>
                     <h2 className="text-2xl font-serif text-brand-brown">{order.customerName}</h2>
-                    <div className="flex items-center gap-2 mt-1">
+                    <div className="flex flex-wrap items-center gap-2 mt-1">
                         <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase ${order.approvalStatus === ApprovalStatus.APPROVED ? 'bg-green-100 text-green-800' : order.approvalStatus === ApprovalStatus.PENDING ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}`}>
                             {order.approvalStatus}
                         </span>
-                        <span className="text-sm text-gray-500">#{order.id}</span>
+                        <span className="text-sm text-gray-500">#{order.id.slice(-6)}</span>
+                        <span className="text-xs text-gray-400">Ordered: {dateOrderedStr}</span>
                     </div>
                 </div>
                 <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
@@ -54,6 +65,7 @@ export default function OrderDetailModal({
                     <div>
                         <p className="text-gray-500 font-bold text-xs uppercase">Contact</p>
                         <p className="text-gray-900">{order.phoneNumber || 'N/A'}</p>
+                        {order.email && <p className="text-gray-900 text-xs">{order.email}</p>}
                         <p className="text-gray-500 text-xs mt-0.5">{order.contactMethod}</p>
                     </div>
                     <div>
@@ -80,9 +92,23 @@ export default function OrderDetailModal({
                             </li>
                         ))}
                     </ul>
-                    <div className="mt-4 pt-3 border-t border-gray-200 flex justify-between items-center">
-                        <span className="font-bold text-gray-600">Total</span>
-                        <span className="font-bold text-xl text-brand-orange">${order.amountCharged.toFixed(2)}</span>
+                    
+                    {/* Financial Summary */}
+                    <div className="mt-4 pt-3 border-t border-gray-200 space-y-1">
+                        <div className="flex justify-between items-center text-sm">
+                            <span className="text-gray-600">Total Charged</span>
+                            <span className="font-bold text-gray-900">${order.amountCharged.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                            <span className="text-gray-600">Amount Paid</span>
+                            <span className="text-gray-900">${(order.amountCollected || 0).toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-lg border-t border-gray-200 pt-2 mt-2">
+                            <span className="font-bold text-gray-700">Balance Due</span>
+                            <span className={`font-bold ${balanceDue > 0.01 ? 'text-red-600' : 'text-green-600'}`}>
+                                ${balanceDue.toFixed(2)}
+                            </span>
+                        </div>
                     </div>
                 </div>
 
