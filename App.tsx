@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import firebase from 'firebase/compat/app';
 
@@ -44,17 +45,7 @@ export default function App() {
   const [fullSizeEmpanadaFlavors, setFullSizeEmpanadaFlavors] = useState<Flavor[]>(initialFullSizeEmpanadaFlavors.map(name => ({ name, visible: true })));
   const [importedSignatures, setImportedSignatures] = useState<Set<string>>(new Set());
   const [sheetUrl, setSheetUrl] = useState<string>('');
-  
-  // FIX: Initialize pricing with defaults to prevent blank screen on Order Page
-  const [pricing, setPricing] = useState<PricingSettings | undefined>({
-      mini: { basePrice: 1.75 },
-      full: { basePrice: 3.00 },
-      packages: [],
-      salsas: [],
-      salsaSmall: 2.00,
-      salsaLarge: 4.00
-  });
-  
+  const [pricing, setPricing] = useState<PricingSettings | undefined>(undefined);
   const [motd, setMotd] = useState<string>('');
   
   // Extended Settings State
