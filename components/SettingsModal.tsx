@@ -71,7 +71,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
     const [saveError, setSaveError] = useState<string | null>(null);
 
     // Package Form State
-    const [packageForm, setPackageForm] = useState<Partial<MenuPackage>>({ itemType: 'mini', quantity: 12, price: 20, maxFlavors: 4, increment: 1, visible: true, isSpecial: false, name: '', description: '' });
+    const [packageForm, setPackageForm] = useState<Partial<MenuPackage>>({ itemType: 'mini', quantity: 12, price: 20, maxFlavors: 4, increment: 1, visible: true, isSpecial: false, isPlatter: false, name: '', description: '' });
     const [editingPackageId, setEditingPackageId] = useState<string | null>(null);
 
     // Salsa Form State
@@ -215,9 +215,9 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
     const removeFlavor = (i:number) => {setEmpanadaFlavors(empanadaFlavors.filter((_,idx)=>idx!==i))};
     const addCategory = () => { if (newCategory.trim() && !expenseCategories.includes(newCategory.trim())) { setExpenseCategories([...expenseCategories, newCategory.trim()]); setNewCategory(''); } };
     const removeCategory = (cat: string) => { setExpenseCategories(expenseCategories.filter(c => c !== cat)); };
-    const handleEditPackageClick = (pkg: MenuPackage) => { setPackageForm({ ...pkg, increment: pkg.increment || 1 }); setEditingPackageId(pkg.id); };
-    const handleAddOrUpdatePackage = () => { if (!packageForm.name || !packageForm.price || !packageForm.quantity) return; const pkg: MenuPackage = { id: editingPackageId || Date.now().toString(), name: packageForm.name, description: packageForm.description, itemType: packageForm.itemType as 'mini'|'full', quantity: Number(packageForm.quantity), price: Number(packageForm.price), maxFlavors: Number(packageForm.maxFlavors)||Number(packageForm.quantity), increment: Number(packageForm.increment)||1, visible: packageForm.visible ?? true, isSpecial: packageForm.isSpecial ?? false }; let updated = pricing.packages || []; updated = editingPackageId ? updated.map(p => p.id === editingPackageId ? pkg : p) : [...updated, pkg]; setPricing({...pricing, packages: updated}); setPackageForm({ itemType: 'mini', quantity: 12, price: 20, maxFlavors: 4, increment: 1, visible: true, isSpecial: false, name: '', description: '' }); setEditingPackageId(null); };
-    const removePackage = (id: string) => { setPricing({...pricing, packages: pricing.packages.filter(p => p.id !== id)}); if(editingPackageId === id) { setEditingPackageId(null); setPackageForm({ itemType: 'mini', quantity: 12, price: 20, maxFlavors: 4, increment: 1, visible: true, isSpecial: false, name: '', description: '' }); } };
+    const handleEditPackageClick = (pkg: MenuPackage) => { setPackageForm({ ...pkg, increment: pkg.increment || 1, isPlatter: pkg.isPlatter || false }); setEditingPackageId(pkg.id); };
+    const handleAddOrUpdatePackage = () => { if (!packageForm.name || !packageForm.price || !packageForm.quantity) return; const pkg: MenuPackage = { id: editingPackageId || Date.now().toString(), name: packageForm.name, description: packageForm.description, itemType: packageForm.itemType as 'mini'|'full', quantity: Number(packageForm.quantity), price: Number(packageForm.price), maxFlavors: Number(packageForm.maxFlavors)||Number(packageForm.quantity), increment: Number(packageForm.increment)||1, visible: packageForm.visible ?? true, isSpecial: packageForm.isSpecial ?? false, isPlatter: packageForm.isPlatter ?? false }; let updated = pricing.packages || []; updated = editingPackageId ? updated.map(p => p.id === editingPackageId ? pkg : p) : [...updated, pkg]; setPricing({...pricing, packages: updated}); setPackageForm({ itemType: 'mini', quantity: 12, price: 20, maxFlavors: 4, increment: 1, visible: true, isSpecial: false, isPlatter: false, name: '', description: '' }); setEditingPackageId(null); };
+    const removePackage = (id: string) => { setPricing({...pricing, packages: pricing.packages.filter(p => p.id !== id)}); if(editingPackageId === id) { setEditingPackageId(null); setPackageForm({ itemType: 'mini', quantity: 12, price: 20, maxFlavors: 4, increment: 1, visible: true, isSpecial: false, isPlatter: false, name: '', description: '' }); } };
     const togglePackageVisibility = (id: string) => { setPricing({...pricing, packages: pricing.packages.map(p => p.id === id ? { ...p, visible: !p.visible } : p)}); };
     const addSalsa = () => { if (!newSalsaName || !newSalsaPrice) return; setPricing({...pricing, salsas: [...(pricing.salsas||[]), {id: `salsa-${Date.now()}`, name: newSalsaName, price: parseFloat(newSalsaPrice)||0, visible: true}]}); setNewSalsaName(''); setNewSalsaPrice(''); };
     const removeSalsa = (id: string) => { setPricing({...pricing, salsas: pricing.salsas.filter(s => s.id !== id)}); };
@@ -467,11 +467,14 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                             <input type="number" placeholder="Qty Items" value={packageForm.quantity} onChange={(e) => setPackageForm({...packageForm, quantity: parseInt(e.target.value)})} className="rounded-md border-gray-300 text-sm" />
                                             <input type="number" placeholder="Max Flavors" value={packageForm.maxFlavors} onChange={(e) => setPackageForm({...packageForm, maxFlavors: parseInt(e.target.value)})} className="rounded-md border-gray-300 text-sm" />
                                             <input type="number" placeholder="Increment (e.g. 1)" value={packageForm.increment || ''} onChange={(e) => setPackageForm({...packageForm, increment: parseInt(e.target.value)})} className="rounded-md border-gray-300 text-sm" />
-                                            <label className="flex items-center gap-2 text-sm bg-white border border-gray-300 rounded px-2"><input type="checkbox" checked={packageForm.isSpecial} onChange={(e) => setPackageForm({...packageForm, isSpecial: e.target.checked})} /> Is Special?</label>
+                                            <div className="flex flex-col gap-1 justify-center">
+                                                <label className="flex items-center gap-2 text-sm bg-white border border-gray-300 rounded px-2 py-0.5"><input type="checkbox" checked={packageForm.isSpecial} onChange={(e) => setPackageForm({...packageForm, isSpecial: e.target.checked})} /> Is Special?</label>
+                                                <label className="flex items-center gap-2 text-sm bg-white border border-gray-300 rounded px-2 py-0.5"><input type="checkbox" checked={packageForm.isPlatter} onChange={(e) => setPackageForm({...packageForm, isPlatter: e.target.checked})} /> Is Platter?</label>
+                                            </div>
                                         </div>
                                         <input type="text" placeholder="Description (optional)" value={packageForm.description} onChange={(e) => setPackageForm({...packageForm, description: e.target.value})} className="w-full rounded-md border-gray-300 text-sm mb-3" />
                                         <div className="flex justify-end gap-2">
-                                            {editingPackageId && <button onClick={() => { setEditingPackageId(null); setPackageForm({ itemType: 'mini', quantity: 12, price: 20, maxFlavors: 4, increment: 1, visible: true, isSpecial: false, name: '', description: '' }); }} className="text-gray-500 text-sm underline">Cancel</button>}
+                                            {editingPackageId && <button onClick={() => { setEditingPackageId(null); setPackageForm({ itemType: 'mini', quantity: 12, price: 20, maxFlavors: 4, increment: 1, visible: true, isSpecial: false, isPlatter: false, name: '', description: '' }); }} className="text-gray-500 text-sm underline">Cancel</button>}
                                             <button onClick={handleAddOrUpdatePackage} className="bg-brand-orange text-white px-4 py-1.5 rounded-md text-sm font-bold">{editingPackageId ? 'Update' : 'Add'}</button>
                                         </div>
                                     </div>
@@ -484,7 +487,10 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                                         <h5 className="font-bold text-brand-brown">{pkg.name}</h5>
                                                         <p className="text-xs text-gray-500">{pkg.quantity} {pkg.itemType} empanadas • ${pkg.price}</p>
                                                         <p className="text-xs text-gray-400">Max {pkg.maxFlavors} flavors • Step {pkg.increment || 1}</p>
-                                                        {pkg.isSpecial && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-bold uppercase mt-1 inline-block">Special</span>}
+                                                        <div className="flex gap-1 mt-1">
+                                                            {pkg.isSpecial && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-bold uppercase inline-block">Special</span>}
+                                                            {pkg.isPlatter && <span className="text-[10px] bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded font-bold uppercase inline-block">Platter</span>}
+                                                        </div>
                                                     </div>
                                                     <div className="flex gap-2">
                                                         <button onClick={() => togglePackageVisibility(pkg.id)} className="text-gray-400 hover:text-blue-600"><CheckCircleIcon className={`w-4 h-4 ${pkg.visible ? 'text-green-500' : 'text-gray-300'}`} /></button>
@@ -526,7 +532,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                             </div>
                         )}
                         
-                        {/* 6. Recipes Tab */}
+                        {/* 6. Recipes Tab (Unchanged) */}
                         {activeTab === 'recipes' && (
                             <div className="max-w-5xl mx-auto space-y-8">
                                 {/* Master Ingredient List */}

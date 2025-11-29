@@ -193,9 +193,10 @@ export default function CustomerOrderPage({
     }, [pricing]);
 
     // Categorize Packages
-    const miniPackages = useMemo(() => availablePackages.filter(p => p.itemType === 'mini' && !p.isSpecial), [availablePackages]);
-    const fullPackages = useMemo(() => availablePackages.filter(p => p.itemType === 'full' && !p.isSpecial), [availablePackages]);
-    const specialPackages = useMemo(() => availablePackages.filter(p => p.isSpecial), [availablePackages]);
+    const miniPackages = useMemo(() => availablePackages.filter(p => p.itemType === 'mini' && !p.isSpecial && !p.isPlatter), [availablePackages]);
+    const fullPackages = useMemo(() => availablePackages.filter(p => p.itemType === 'full' && !p.isSpecial && !p.isPlatter), [availablePackages]);
+    const specialPackages = useMemo(() => availablePackages.filter(p => p.isSpecial && !p.isPlatter), [availablePackages]);
+    const platterPackages = useMemo(() => availablePackages.filter(p => p.isPlatter), [availablePackages]);
 
     const availableSalsas = useMemo(() => {
         return (pricing?.salsas || []).filter(s => s.visible);
@@ -785,6 +786,21 @@ export default function CustomerOrderPage({
                                         </h3>
                                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                                             {fullPackages.map(pkg => (
+                                                <PackageCard key={pkg.id} pkg={pkg} onClick={() => openPackageBuilder(pkg)} />
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Party Platters */}
+                                {platterPackages.length > 0 && (
+                                    <div>
+                                        <h3 className="text-xl font-serif text-emerald-900 mb-4 pb-2 border-b border-emerald-100 flex items-center gap-2">
+                                            <span className="bg-emerald-600 w-2 h-2 rounded-full inline-block"></span>
+                                            Party Platters
+                                        </h3>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                                            {platterPackages.map(pkg => (
                                                 <PackageCard key={pkg.id} pkg={pkg} onClick={() => openPackageBuilder(pkg)} />
                                             ))}
                                         </div>

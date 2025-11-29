@@ -488,12 +488,16 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         if (!activePackageBuilder) return;
         const type = activePackageBuilder.itemType;
         const isSpecial = activePackageBuilder.isSpecial;
+        const isPlatter = activePackageBuilder.isPlatter;
         const formItems: FormOrderItem[] = items.map(i => ({ name: i.name, quantity: i.quantity }));
         let currentItems: FormOrderItem[];
         let updateFn: (i: FormOrderItem[]) => void;
-        if (isSpecial) { currentItems = specialItems; updateFn = setSpecialItems; } 
+        
+        // Group specials AND platters into the 'specialItems' list for the admin form as they are structurally similar
+        if (isSpecial || isPlatter) { currentItems = specialItems; updateFn = setSpecialItems; } 
         else if (type === 'mini') { currentItems = miniItems; updateFn = setMiniItems; } 
         else { currentItems = fullSizeItems; updateFn = setFullSizeItems; }
+        
         const combinedItems = [...currentItems];
         formItems.forEach(newItem => {
             const existingIndex = combinedItems.findIndex(existing => existing.name === newItem.name);
@@ -718,7 +722,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                             onAddItem={() => addItem('mini')}
                             onRemoveItem={(index) => removeItem('mini', index)}
                             itemType="mini"
-                            availablePackages={pricing.packages?.filter(p => p.itemType === 'mini' && !p.isSpecial)}
+                            availablePackages={pricing.packages?.filter(p => p.itemType === 'mini' && !p.isSpecial && !p.isPlatter)}
                             onAddPackage={setActivePackageBuilder}
                         />
                         <ItemInputSection 
@@ -729,7 +733,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                             onAddItem={() => addItem('full')}
                             onRemoveItem={(index) => removeItem('full', index)}
                             itemType="full"
-                            availablePackages={pricing.packages?.filter(p => p.itemType === 'full' && !p.isSpecial)}
+                            availablePackages={pricing.packages?.filter(p => p.itemType === 'full' && !p.isSpecial && !p.isPlatter)}
                             onAddPackage={setActivePackageBuilder}
                         />
                         <ItemInputSection 
@@ -740,7 +744,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                             onAddItem={() => addItem('special')}
                             onRemoveItem={(index) => removeItem('special', index)}
                             itemType="mini"
-                            availablePackages={pricing.packages?.filter(p => p.isSpecial)}
+                            availablePackages={pricing.packages?.filter(p => p.isSpecial || p.isPlatter)}
                             onAddPackage={setActivePackageBuilder}
                             bgColor="bg-purple-50 border-purple-200"
                         />
