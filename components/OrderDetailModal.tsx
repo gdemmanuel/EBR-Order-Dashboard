@@ -1,7 +1,8 @@
 
 import React, { useState } from 'react';
-import { Order, FollowUpStatus, PaymentStatus, ApprovalStatus } from '../types';
-import { XMarkIcon, PrinterIcon, TrashIcon, CheckCircleIcon, XCircleIcon, SparklesIcon, TruckIcon } from './icons/Icons';
+import { Order, FollowUpStatus, PaymentStatus, ApprovalStatus, AppSettings } from '../types';
+import { XMarkIcon, PrinterIcon, TrashIcon, CheckCircleIcon, XCircleIcon, SparklesIcon, TruckIcon, ChatBubbleOvalLeftEllipsisIcon, DocumentTextIcon } from './icons/Icons';
+import { generateMessageForOrder } from '../services/geminiService';
 
 interface OrderDetailModalProps {
   order: Order;
@@ -12,6 +13,7 @@ interface OrderDetailModalProps {
   onDeny: (id: string) => void;
   onDelete: (id: string) => void;
   onDeductInventory: (order: Order) => void;
+  settings?: AppSettings; // Optional settings for templates
 }
 
 export default function OrderDetailModal({ 
@@ -22,20 +24,43 @@ export default function OrderDetailModal({
     onApprove, 
     onDeny, 
     onDelete, 
-    onDeductInventory 
+    onDeductInventory,
+    settings
 }: OrderDetailModalProps) {
     
   const totalQty = order.totalMini + order.totalFullSize;
   const balanceDue = order.amountCharged - (order.amountCollected || 0);
   
+  // Messaging State
+  const [generatedMessage, setGeneratedMessage] = useState('');
+  const [isGeneratingMsg, setIsGeneratingMsg] = useState(false);
+  const [showMsg, setShowMsg] = useState(false);
+
   // Format Date Ordered from ID timestamp
   let dateOrderedStr = "Unknown";
   try {
-      // Check if ID is a timestamp (digits only, roughly current era)
       if (/^\d{13}$/.test(order.id)) {
           dateOrderedStr = new Date(parseInt(order.id)).toLocaleString();
       }
   } catch(e) {}
+
+  const handleGenerateMessage = async (useAi: boolean = false) => {
+      setIsGeneratingMsg(true);
+      setShowMsg(true);
+      try {
+          const msg = await generateMessageForOrder(order, settings?.messageTemplates, useAi);
+          setGeneratedMessage(msg);
+      } catch (e) {
+          setGeneratedMessage("Error generating message.");
+      } finally {
+          setIsGeneratingMsg(false);
+      }
+  };
+
+  const copyToClipboard = () => {
+      navigator.clipboard.writeText(generatedMessage);
+      alert("Message copied to clipboard!");
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4 animate-fade-in">
@@ -64,20 +89,63 @@ export default function OrderDetailModal({
                 <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                         <p className="text-gray-500 font-bold text-xs uppercase">Contact</p>
-                        <p className="text-gray-900">{order.phoneNumber || 'N/A'}</p>
-                        {order.email && <p className="text-gray-900 text-xs">{order.email}</p>}
+                        <p className="text-gray-900 font-medium text-lg">{order.phoneNumber || 'N/A'}</p>
+                        {order.email && <p className="text-gray-600 text-xs">{order.email}</p>}
                         <p className="text-gray-500 text-xs mt-0.5">{order.contactMethod}</p>
                     </div>
                     <div>
                         <p className="text-gray-500 font-bold text-xs uppercase">Pickup / Delivery</p>
-                        <p className="text-gray-900 font-medium">{order.pickupDate} @ {order.pickupTime}</p>
+                        <p className="text-gray-900 font-bold text-lg">{order.pickupDate} @ {order.pickupTime}</p>
                         {order.deliveryRequired && (
-                            <div className="flex items-start gap-1 mt-1 text-blue-600">
+                            <div className="flex items-start gap-1 mt-1 text-blue-600 font-medium">
                                 <TruckIcon className="w-4 h-4 flex-shrink-0 mt-0.5"/>
                                 <span className="text-xs">{order.deliveryAddress}</span>
                             </div>
                         )}
                     </div>
+                </div>
+
+                {/* Communication Section */}
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                    <div className="flex justify-between items-center mb-3">
+                        <h3 className="font-bold text-blue-900 text-sm uppercase flex items-center gap-2">
+                            <ChatBubbleOvalLeftEllipsisIcon className="w-4 h-4" /> Customer Communication
+                        </h3>
+                        <div className="flex gap-2">
+                            <button 
+                                onClick={() => handleGenerateMessage(false)} 
+                                className="text-xs bg-white border border-blue-200 text-blue-700 px-2 py-1 rounded hover:bg-blue-50"
+                            >
+                                Use Template
+                            </button>
+                            <button 
+                                onClick={() => handleGenerateMessage(true)} 
+                                className="text-xs bg-white border border-purple-200 text-purple-700 px-2 py-1 rounded hover:bg-purple-50 flex items-center gap-1"
+                            >
+                                <SparklesIcon className="w-3 h-3" /> AI Draft
+                            </button>
+                        </div>
+                    </div>
+                    
+                    {showMsg && (
+                        <div className="space-y-2 animate-fade-in">
+                            <textarea 
+                                value={isGeneratingMsg ? "Generating message..." : generatedMessage}
+                                onChange={(e) => setGeneratedMessage(e.target.value)}
+                                className="w-full text-sm p-2 rounded border border-blue-200 text-gray-800"
+                                rows={4}
+                            />
+                            <div className="flex justify-end">
+                                <button 
+                                    onClick={copyToClipboard}
+                                    disabled={isGeneratingMsg || !generatedMessage}
+                                    className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700 font-medium"
+                                >
+                                    Copy to Clipboard
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Items */}
@@ -129,7 +197,7 @@ export default function OrderDetailModal({
                     <div className="flex flex-col gap-2">
                          <label className="block text-xs font-bold text-gray-500 uppercase">Management</label>
                          <div className="flex gap-2">
-                             <button onClick={() => onEdit(order)} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded text-sm font-medium transition-colors">Edit</button>
+                             <button onClick={() => onEdit(order)} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 rounded text-sm font-medium transition-colors">Edit Order</button>
                              <button onClick={() => { if(window.confirm("Delete order?")) onDelete(order.id); }} className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 py-2 rounded text-sm font-medium transition-colors">Delete</button>
                          </div>
                     </div>

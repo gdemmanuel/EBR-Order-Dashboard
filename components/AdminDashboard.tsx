@@ -502,6 +502,7 @@ export default function AdminDashboard({
                     onDeny={(id) => handleApproval(id, false)}
                     onDelete={handleDeleteOrder}
                     onDeductInventory={handleDeductInventory}
+                    settings={settings}
                 />
             )}
 
