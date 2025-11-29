@@ -1,461 +1,278 @@
 
-import React, { useMemo, useState } from 'react';
-import { Order, FollowUpStatus } from '../types';
-import { XMarkIcon, ScaleIcon, PrinterIcon, CurrencyDollarIcon, ClockIcon } from './icons/Icons';
-import { AppSettings } from '../services/dbService';
+import React, { useState, useMemo } from 'react';
+import { MenuPackage, Flavor } from '../types';
+import { XMarkIcon, ChevronDownIcon, ArrowUturnLeftIcon, CheckCircleIcon } from './icons/Icons';
 
-interface PrepListModalProps {
-    orders: Order[];
-    settings: AppSettings;
+interface PackageBuilderModalProps {
+    pkg: MenuPackage;
+    standardFlavors: Flavor[];
+    specialFlavors: Flavor[];
+    salsas?: Flavor[];
     onClose: () => void;
-    onUpdateSettings?: (settings: Partial<AppSettings>) => void;
-    dateRange?: { start?: string; end?: string };
+    onConfirm: (items: { name: string; quantity: number }[]) => void;
+    className?: string;
 }
 
-export default function PrepListModal({ orders, settings, onClose, onUpdateSettings, dateRange }: PrepListModalProps) {
+export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavors, salsas = [], onClose, onConfirm, className = "h-auto" }: PackageBuilderModalProps) {
+    const [builderSelections, setBuilderSelections] = useState<{ [flavorName: string]: number }>({});
+    const [salsaSelections, setSalsaSelections] = useState<{ [salsaName: string]: number }>({});
+    const [flavorCategory, setFlavorCategory] = useState<'standard' | 'special'>('standard');
     
-    // Local state to manage inventory changes before saving
-    const [inventory, setInventory] = useState<Record<string, { mini: number, full: number }>>(settings.inventory || {});
-    const [isSaving, setIsSaving] = useState(false);
+    // Default increment to 10 if not set to preserve legacy behavior for existing packages,
+    // or utilize the configured increment.
+    const step = pkg.increment || 1;
 
-    const updateInventory = (flavor: string, type: 'mini' | 'full', value: string) => {
-        const numVal = parseInt(value) || 0;
-        setInventory(prev => ({
-            ...prev,
-            [flavor]: {
-                ...(prev[flavor] || { mini: 0, full: 0 }),
-                [type]: numVal
+    const activeFlavors = flavorCategory === 'standard' ? standardFlavors : specialFlavors;
+
+    // --- Empanada Logic (Counts towards limit) ---
+    const updateBuilderSelection = (flavorName: string, change: number) => {
+        const currentQty = builderSelections[flavorName] || 0;
+        const totalSelected = (Object.values(builderSelections) as number[]).reduce((a, b) => a + b, 0);
+        const distinctFlavors = Object.keys(builderSelections).filter(k => builderSelections[k] > 0).length;
+        const remaining = pkg.quantity - totalSelected;
+        
+        let actualChange = change;
+
+        // Logic for adding
+        if (change > 0) {
+            if (remaining === 0) return; // Full
+            
+            // Check flavor limit (only if this is a NEW flavor for this selection)
+            if (currentQty === 0 && distinctFlavors >= pkg.maxFlavors) return; 
+
+            // Cap change at remaining amount (e.g., if +10 but only 4 left, add 4)
+            if (actualChange > remaining) {
+                actualChange = remaining;
             }
-        }));
+        }
+
+        // Logic for removing
+        if (change < 0) {
+            // Don't go below 0
+            if (currentQty + change < 0) {
+                actualChange = -currentQty;
+            }
+        }
+
+        if (actualChange === 0) return;
+
+        const newQty = currentQty + actualChange;
+        const newSelections = { ...builderSelections, [flavorName]: newQty };
+        if (newQty === 0) delete newSelections[flavorName];
+        
+        setBuilderSelections(newSelections);
     };
 
-    const handleSaveInventory = async () => {
-        if (onUpdateSettings) {
-            setIsSaving(true);
-            await onUpdateSettings({ inventory });
-            setIsSaving(false);
+    const setBuilderQuantity = (flavorName: string, quantity: number) => {
+        const currentQty = builderSelections[flavorName] || 0;
+        const totalOthers = (Object.values(builderSelections) as number[]).reduce((a, b) => a + b, 0) - currentQty;
+        const distinctFlavors = Object.keys(builderSelections).filter(k => k !== flavorName && builderSelections[k] > 0).length;
+
+        // Rules
+        const maxAvailable = pkg.quantity - totalOthers;
+        let finalQty = Math.min(quantity, maxAvailable);
+        finalQty = Math.max(0, finalQty);
+
+        if (finalQty > 0 && currentQty === 0 && distinctFlavors >= pkg.maxFlavors) {
+            return; // New flavor but max distinct reached
+        }
+
+        const newSelections = { ...builderSelections, [flavorName]: finalQty };
+        if (finalQty === 0) delete newSelections[flavorName];
+        setBuilderSelections(newSelections);
+    };
+
+    const fillRemaining = (flavorName: string) => {
+        const totalSelected = (Object.values(builderSelections) as number[]).reduce((a, b) => a + b, 0);
+        const remaining = pkg.quantity - totalSelected;
+        if (remaining > 0) {
+            updateBuilderSelection(flavorName, remaining);
         }
     };
 
-    const prepData = useMemo(() => {
-        const miniCounts: Record<string, number> = {};
-        const fullCounts: Record<string, number> = {};
+    // --- Salsa Logic (Independent of limit) ---
+    const updateSalsaSelection = (salsaName: string, change: number) => {
+        const currentQty = salsaSelections[salsaName] || 0;
+        const newQty = Math.max(0, currentQty + change);
         
-        let totalMiniOrdered = 0;
-        let totalFullOrdered = 0;
-
-        orders.forEach(order => {
-            if (order.followUpStatus === FollowUpStatus.COMPLETED) return;
-
-            order.items.forEach(item => {
-                if (item.name.includes('Salsa')) return;
-
-                const isFull = item.name.startsWith('Full ');
-                const cleanName = item.name.replace('Full ', '');
-                
-                if (isFull) {
-                    fullCounts[cleanName] = (fullCounts[cleanName] || 0) + item.quantity;
-                    totalFullOrdered += item.quantity;
-                } else {
-                    miniCounts[cleanName] = (miniCounts[cleanName] || 0) + item.quantity;
-                    totalMiniOrdered += item.quantity;
-                }
-            });
-        });
-
-        // Sort: Regular flavors first, then Special flavors. Within groups, alphabetical.
-        const allFlavors = Array.from(new Set([
-            ...Object.keys(miniCounts),
-            ...Object.keys(fullCounts),
-            ...settings.empanadaFlavors.map(f => f.name)
-        ])).sort((a, b) => {
-            const defA = settings.empanadaFlavors.find(f => f.name === a);
-            const defB = settings.empanadaFlavors.find(f => f.name === b);
-            
-            const isSpecialA = defA?.isSpecial || false;
-            const isSpecialB = defB?.isSpecial || false;
-
-            if (isSpecialA !== isSpecialB) {
-                return isSpecialA ? 1 : -1; // Regular (false) before Special (true)
-            }
-            return a.localeCompare(b);
-        });
-
-        let totalEstimatedCost = 0; // Supply Cost (Ingredients + Discos)
-        const ingredientAggregates = new Map<string, number>(); // Ingredient ID -> Total Amount needed
-
-        // Disco Multipliers & Pack Sizes
-        const miniDiscosPer = settings.prepSettings?.discosPer?.mini ?? 1;
-        const fullDiscosPer = settings.prepSettings?.discosPer?.full ?? 1;
-        const miniPackSize = settings.prepSettings?.discoPackSize?.mini || 10;
-        const fullPackSize = settings.prepSettings?.discoPackSize?.full || 10;
-
-        const rows = allFlavors.map(flavor => {
-            const miniOrd = miniCounts[flavor] || 0;
-            const fullOrd = fullCounts[flavor] || 0;
-            
-            const stock = inventory[flavor] || { mini: 0, full: 0 };
-            
-            // Need to Make = Ordered - Stock. Cannot be less than 0.
-            const miniToMake = Math.max(0, miniOrd - stock.mini);
-            const fullToMake = Math.max(0, fullOrd - stock.full);
-
-            // Surplus = Stock - Ordered. Cannot be less than 0.
-            const miniSurplus = Math.max(0, stock.mini - miniOrd);
-            const fullSurplus = Math.max(0, stock.full - fullOrd);
-
-            // --- INGREDIENT CALCULATION (New Recipe Logic) ---
-            const recipes = settings.prepSettings?.recipes || {};
-            const flavorIngredients = recipes[flavor] || [];
-            
-            let fillingCost = 0;
-
-            // If we have a detailed recipe, use it
-            if (flavorIngredients.length > 0) {
-                flavorIngredients.forEach(ing => {
-                    const ingredientDef = settings.ingredients?.find(i => i.id === ing.ingredientId);
-                    if (ingredientDef) {
-                        // Logic: Amount per 20 minis
-                        // Mini Total Amount = (MiniToMake / 20) * AmountFor20
-                        // Full Total Amount = (FullToMake / 20) * AmountFor20 * FullSizeMultiplier
-                        const fullMultiplier = settings.prepSettings.fullSizeMultiplier || 2.0;
-                        
-                        const miniAmount = (miniToMake / 20) * ing.amountFor20Minis;
-                        const fullAmount = (fullToMake / 20) * ing.amountFor20Minis * fullMultiplier;
-                        const totalAmount = miniAmount + fullAmount;
-
-                        // Aggregate for Total Ingredients View
-                        const currentAgg = ingredientAggregates.get(ing.ingredientId) || 0;
-                        ingredientAggregates.set(ing.ingredientId, currentAgg + totalAmount);
-
-                        // Add to cost
-                        fillingCost += totalAmount * ingredientDef.cost;
-                    }
-                });
-            } else {
-                // --- FALLBACK TO LEGACY LBS/20 LOGIC ---
-                const lbsPer20 = settings.prepSettings?.lbsPer20[flavor] || 0;
-                const fullMultiplier = settings.prepSettings?.fullSizeMultiplier || 2.0;
-                const miniLbs = (miniToMake / 20) * lbsPer20;
-                const fullLbs = (fullToMake / 20) * lbsPer20 * fullMultiplier;
-                const totalLbs = miniLbs + fullLbs;
-                
-                // Use old cost map
-                const costPerLb = settings.materialCosts[flavor] || 0;
-                fillingCost += totalLbs * costPerLb;
-            }
-            
-            const miniDiscoCost = miniToMake * miniDiscosPer * (settings.discoCosts?.mini || 0);
-            const fullDiscoCost = fullToMake * fullDiscosPer * (settings.discoCosts?.full || 0);
-            
-            const rowCost = fillingCost + miniDiscoCost + fullDiscoCost;
-            totalEstimatedCost += rowCost;
-
-            return {
-                flavor,
-                miniOrd,
-                miniStock: stock.mini,
-                miniToMake,
-                miniSurplus,
-                fullOrd,
-                fullStock: stock.full,
-                fullToMake,
-                fullSurplus,
-                rowCost
-            };
-        }).filter(Boolean) as any[];
-
-        // Calculate Disco Totals
-        const totalMiniToMake = rows.reduce((acc, r) => acc + r.miniToMake, 0);
-        const totalFullToMake = rows.reduce((acc, r) => acc + r.fullToMake, 0);
-        
-        const totalMiniDiscosNeeded = totalMiniToMake * miniDiscosPer;
-        const totalFullDiscosNeeded = totalFullToMake * fullDiscosPer;
-        const totalDiscosNeeded = totalMiniDiscosNeeded + totalFullDiscosNeeded;
-
-        const miniPacksNeeded = Math.ceil(totalMiniDiscosNeeded / miniPackSize);
-        const fullPacksNeeded = Math.ceil(totalFullDiscosNeeded / fullPackSize);
-
-        // --- Labor Calculations ---
-        const miniRate = settings.prepSettings?.productionRates?.mini || 40;
-        const fullRate = settings.prepSettings?.productionRates?.full || 25;
-        const hourlyWage = settings.laborWage || 15;
-
-        const miniHours = miniRate > 0 ? totalMiniToMake / miniRate : 0;
-        const fullHours = fullRate > 0 ? totalFullToMake / fullRate : 0;
-        const totalHours = miniHours + fullHours;
-        const totalLaborCost = totalHours * hourlyWage;
-
-        const totalBatchCost = totalEstimatedCost + totalLaborCost;
-
-        // Resolve Ingredient Aggregates to View Models
-        const ingredientList = Array.from(ingredientAggregates.entries()).map(([id, amount]) => {
-            const def = settings.ingredients?.find(i => i.id === id);
-            return {
-                name: def?.name || 'Unknown Ingredient',
-                amount,
-                unit: def?.unit || 'units',
-                cost: amount * (def?.cost || 0)
-            };
-        }).sort((a, b) => b.cost - a.cost);
-
-        return {
-            rows,
-            totalMiniOrdered,
-            totalFullOrdered,
-            totalMiniToMake,
-            totalFullToMake,
-            totalMiniDiscosNeeded,
-            totalFullDiscosNeeded,
-            totalDiscosNeeded,
-            miniPacksNeeded,
-            fullPacksNeeded,
-            totalEstimatedCost,
-            // Labor Data
-            miniRate,
-            fullRate,
-            hourlyWage,
-            totalHours,
-            totalLaborCost,
-            totalBatchCost,
-            ingredientList
-        };
-
-    }, [orders, settings, inventory]);
-
-    const handlePrint = () => {
-        window.print();
+        const newSelections = { ...salsaSelections, [salsaName]: newQty };
+        if (newQty === 0) delete newSelections[salsaName];
+        setSalsaSelections(newSelections);
     };
 
-    const dateRangeLabel = useMemo(() => {
-        if (!dateRange?.start) return "All Upcoming Orders";
-        const start = new Date(dateRange.start + 'T00:00:00').toLocaleDateString();
-        if (!dateRange.end) return `Orders since ${start}`;
-        const end = new Date(dateRange.end + 'T00:00:00').toLocaleDateString();
-        return `${start} - ${end}`;
-    }, [dateRange]);
+    const handleConfirm = () => {
+        const empanadaItems = Object.entries(builderSelections).map(([name, quantity]) => ({ name, quantity: quantity as number }));
+        const salsaItems = Object.entries(salsaSelections).map(([name, quantity]) => ({ name, quantity: quantity as number }));
+        onConfirm([...empanadaItems, ...salsaItems]);
+    };
 
+    const totalSelected = (Object.values(builderSelections) as number[]).reduce((a, b) => a + b, 0);
+    const remaining = pkg.quantity - totalSelected;
+    
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[80] p-4 animate-fade-in">
-            <div className="bg-white rounded-lg shadow-2xl w-full max-w-6xl max-h-[90vh] flex flex-col border border-brand-tan">
-                <header className="p-6 border-b border-brand-tan flex justify-between items-center bg-brand-tan/10">
-                    <div className="flex items-center gap-3">
-                        <div className="bg-brand-orange text-white p-2 rounded-full">
-                            <ScaleIcon className="w-6 h-6" />
-                        </div>
-                        <div>
-                            <h2 className="text-2xl font-serif text-brand-brown">Prep & Inventory List</h2>
-                            <p className="text-sm text-gray-500 font-medium">{dateRangeLabel} <span className="font-normal text-gray-400 mx-1">|</span> <span className="font-normal">Excludes completed orders</span></p>
-                        </div>
+        <div className={`bg-white rounded-xl shadow-lg border border-brand-tan w-full animate-fade-in flex flex-col ${className}`}>
+            <header className="p-3 border-b border-gray-200 flex justify-between items-center bg-brand-tan/10 rounded-t-xl flex-shrink-0 sticky top-0 z-20 backdrop-blur-sm bg-brand-tan/10">
+                <div className="flex-grow">
+                    <h3 className="text-lg font-bold text-brand-brown">Customize {pkg.name}</h3>
+                    <p className="text-xs text-gray-500">
+                        Pick {pkg.quantity} empanadas (Up to {pkg.maxFlavors} flavors)
+                    </p>
+                </div>
+                <div className="flex items-center gap-2">
+                    {/* Top "Add" Button for easy access */}
+                    <button 
+                        onClick={handleConfirm}
+                        disabled={totalSelected !== pkg.quantity}
+                        className="bg-brand-orange text-white text-xs font-bold px-3 py-1.5 rounded shadow-sm hover:bg-opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 transition-all"
+                    >
+                        <CheckCircleIcon className="w-4 h-4" /> Add
+                    </button>
+                    <button onClick={onClose} className="text-brand-brown hover:text-brand-orange flex items-center gap-1 text-xs font-medium bg-white border border-brand-tan/50 px-2 py-1.5 rounded shadow-sm transition-colors">
+                        <ArrowUturnLeftIcon className="w-4 h-4" /> Back
+                    </button>
+                </div>
+            </header>
+            
+            <div className="flex-grow overflow-y-auto">
+                {/* Empanadas Section */}
+                <div className="p-3">
+                    <div className="flex justify-between items-center mb-2 border-b border-gray-200 pb-2">
+                        <h4 className="font-bold text-brand-brown text-sm">Select Flavors</h4>
+                        
+                        {/* Category Dropdown */}
+                        <select 
+                            value={flavorCategory} 
+                            onChange={(e) => setFlavorCategory(e.target.value as 'standard'|'special')}
+                            className="text-xs border-gray-300 rounded-md focus:ring-brand-orange focus:border-brand-orange bg-gray-50 py-1 pl-2 pr-7 font-medium text-gray-700 h-8"
+                        >
+                            <option value="standard">Standard Flavors</option>
+                            <option value="special">Specialty Flavors</option>
+                        </select>
                     </div>
-                    <div className="flex items-center gap-3">
-                        {onUpdateSettings && (
-                            <button onClick={handleSaveInventory} disabled={isSaving} className="hidden sm:block bg-blue-600 text-white px-3 py-1.5 rounded-md hover:bg-blue-700 transition-colors text-sm font-medium shadow-sm disabled:opacity-50">
-                                {isSaving ? 'Saving...' : 'Save Inventory'}
-                            </button>
-                        )}
-                        <button onClick={handlePrint} className="hidden sm:flex items-center gap-2 text-brand-brown hover:text-brand-orange border border-brand-tan px-3 py-1.5 rounded-md transition-colors">
-                            <PrinterIcon className="w-4 h-4" /> Print
-                        </button>
-                        <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-                            <XMarkIcon className="w-6 h-6" />
-                        </button>
-                    </div>
-                </header>
 
-                <div className="overflow-y-auto p-6 space-y-8 print:p-0">
-                    
-                    {/* Summary Section */}
-                    <section className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                        {/* 1. Discos */}
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                            <h4 className="text-xs font-bold text-blue-800 uppercase mb-1">Total Discos</h4>
-                            <div className="flex justify-between items-end">
-                                <div className="w-full">
-                                    <div className="flex justify-between items-center border-b border-blue-200 pb-1 mb-1">
-                                        <span className="text-blue-700 text-sm">Mini:</span>
-                                        <div className="text-right">
-                                            <span className="text-xl font-bold text-blue-900 block">{prepData.totalMiniDiscosNeeded}</span>
-                                            <span className="text-[10px] text-blue-600 block">({prepData.miniPacksNeeded} pks)</span>
+                    <div className="space-y-0.5 pb-2">
+                        {activeFlavors.length === 0 && (
+                            <p className="text-sm text-gray-400 italic text-center py-4">No flavors available in this category.</p>
+                        )}
+                        {activeFlavors
+                            .filter(f => f.visible)
+                            .map(flavor => {
+                                const qty = builderSelections[flavor.name] || 0;
+                                const distinctSelected = Object.keys(builderSelections).filter(k => builderSelections[k] > 0).length;
+                                
+                                // Determine if we can add ANY amount of this flavor
+                                const canAdd = remaining > 0 && (qty > 0 || distinctSelected < pkg.maxFlavors);
+
+                                return (
+                                    <div key={flavor.name} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
+                                        <div className="flex-grow pr-2 min-w-0" onClick={() => canAdd && updateBuilderSelection(flavor.name, step)}>
+                                            <p className="font-medium text-brand-brown text-sm whitespace-normal break-words leading-snug">
+                                                {flavor.name} 
+                                                {flavor.isSpecial && <span className="ml-1 text-[10px] bg-purple-100 text-purple-700 px-1 rounded">Special</span>}
+                                            </p>
+                                            {flavor.description && <p className="text-[10px] text-gray-500 whitespace-normal break-words leading-tight mt-0.5">{flavor.description}</p>}
+                                        </div>
+                                        <div className="flex items-center gap-1 flex-shrink-0">
+                                            {/* Max Button */}
+                                            <button
+                                                type="button"
+                                                onClick={() => fillRemaining(flavor.name)}
+                                                disabled={!canAdd}
+                                                className="text-[10px] font-bold text-brand-orange hover:text-brand-brown disabled:opacity-30 mr-1 uppercase tracking-wide bg-brand-orange/10 px-2 py-1 rounded"
+                                            >
+                                                Max
+                                            </button>
+
+                                            <button 
+                                                type="button"
+                                                onClick={() => updateBuilderSelection(flavor.name, -step)}
+                                                disabled={qty === 0}
+                                                className="w-8 h-8 rounded-md bg-gray-100 border border-gray-300 text-gray-600 text-lg font-bold flex items-center justify-center hover:bg-gray-200 disabled:opacity-30 touch-manipulation"
+                                            >
+                                                -
+                                            </button>
+                                            
+                                            {/* Editable Input */}
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                max={pkg.quantity}
+                                                value={qty > 0 ? qty : ''}
+                                                placeholder="0"
+                                                onChange={(e) => setBuilderQuantity(flavor.name, parseInt(e.target.value) || 0)}
+                                                className="w-10 h-8 text-center font-bold border-gray-300 rounded p-0 text-sm focus:border-brand-orange focus:ring-brand-orange"
+                                            />
+                                            
+                                            <button 
+                                                type="button"
+                                                onClick={() => updateBuilderSelection(flavor.name, step)}
+                                                disabled={!canAdd}
+                                                className="w-8 h-8 rounded-md bg-brand-orange text-white text-lg font-bold flex items-center justify-center hover:bg-brand-orange/90 disabled:bg-gray-300 disabled:cursor-not-allowed touch-manipulation"
+                                            >
+                                                +
+                                            </button>
                                         </div>
                                     </div>
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-purple-700 text-sm">Full:</span>
-                                        <div className="text-right">
-                                            <span className="text-xl font-bold text-purple-900 block">{prepData.totalFullDiscosNeeded}</span>
-                                            <span className="text-[10px] text-purple-600 block">({prepData.fullPacksNeeded} pks)</span>
-                                        </div>
+                                );
+                        })}
+                    </div>
+                </div>
+
+                {/* Salsas Section */}
+                {salsas.length > 0 && (
+                    <div className="p-3 bg-orange-50/50 border-t border-orange-100 mb-20">
+                        <h4 className="font-bold text-brand-brown mb-1 text-sm">Add Dipping Sauces</h4>
+                        <div className="space-y-0.5">
+                            {salsas.map(salsa => (
+                                <div key={salsa.name} className="flex items-center justify-between py-2 border-b border-orange-100 last:border-0 hover:bg-orange-50/50 transition-colors">
+                                    <div className="flex-grow pr-2">
+                                        <p className="font-medium text-brand-brown text-sm">{salsa.name}</p>
+                                        {/* @ts-ignore - Check both price and surcharge for compatibility */}
+                                        <p className="text-[10px] text-brand-orange font-bold">+ ${(typeof salsa.price === 'number' ? salsa.price : (salsa.surcharge || 0)).toFixed(2)} ea</p>
+                                    </div>
+                                    <div className="flex items-center gap-1 flex-shrink-0">
+                                        <button 
+                                            type="button"
+                                            onClick={() => updateSalsaSelection(salsa.name, -1)}
+                                            disabled={(salsaSelections[salsa.name] || 0) === 0}
+                                            className="w-8 h-8 rounded-md bg-white border border-gray-300 text-gray-600 text-lg font-bold flex items-center justify-center hover:bg-gray-50 disabled:opacity-50 touch-manipulation"
+                                        >
+                                            -
+                                        </button>
+                                        <span className="w-8 text-center font-bold text-sm">{salsaSelections[salsa.name] || 0}</span>
+                                        <button 
+                                            type="button"
+                                            onClick={() => updateSalsaSelection(salsa.name, 1)}
+                                            className="w-8 h-8 rounded-md bg-white border border-gray-300 text-brand-orange text-lg font-bold flex items-center justify-center hover:bg-orange-50 touch-manipulation"
+                                        >
+                                            +
+                                        </button>
                                     </div>
                                 </div>
-                            </div>
+                            ))}
                         </div>
-                        
-                        {/* 2. Supply Cost */}
-                        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                            <h4 className="text-xs font-bold text-green-800 uppercase mb-1">Est. Supply Cost</h4>
-                            <div className="flex items-center gap-2 mb-2">
-                                <CurrencyDollarIcon className="w-6 h-6 text-green-600" />
-                                <p className="text-2xl font-bold text-green-900">${prepData.totalEstimatedCost.toFixed(2)}</p>
-                            </div>
-                            <p className="text-[10px] text-green-700 leading-tight">Includes meat, ingredients, and disco costs.</p>
-                        </div>
-
-                        {/* 3. Labor Cost */}
-                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                            <h4 className="text-xs font-bold text-yellow-800 uppercase mb-1">Est. Labor Cost</h4>
-                            <div className="flex items-center gap-2 mb-1">
-                                <ClockIcon className="w-5 h-5 text-yellow-600" />
-                                <p className="text-2xl font-bold text-yellow-900">${prepData.totalLaborCost.toFixed(2)}</p>
-                            </div>
-                            <div className="text-xs text-yellow-800 flex justify-between border-t border-yellow-200 pt-1">
-                                <span>{prepData.totalHours.toFixed(1)} hrs</span>
-                                <span>@ ${prepData.hourlyWage}/hr</span>
-                            </div>
-                        </div>
-
-                        {/* 4. Total Batch Cost */}
-                         <div className="bg-gray-100 border border-gray-300 rounded-lg p-4 flex flex-col justify-center items-center">
-                             <h4 className="text-xs font-bold text-gray-600 uppercase mb-1">Total Batch Cost</h4>
-                             <p className="text-3xl font-bold text-brand-brown">${prepData.totalBatchCost.toFixed(2)}</p>
-                             <p className="text-xs text-gray-500 mt-1">Supplies + Labor</p>
-                        </div>
-                    </section>
-
-                    {/* Ingredient Breakdown (New Section) */}
-                    {prepData.ingredientList.length > 0 && (
-                        <section className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                            <h4 className="font-bold text-orange-900 mb-3">Ingredient Requirements (Aggregated)</h4>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                                {prepData.ingredientList.map((ing, idx) => (
-                                    <div key={idx} className="bg-white p-2 rounded shadow-sm border border-orange-100">
-                                        <span className="block text-xs font-bold text-gray-700 mb-1 truncate" title={ing.name}>{ing.name}</span>
-                                        <div className="flex justify-between items-end">
-                                            <span className="text-lg font-bold text-brand-orange leading-none">{ing.amount.toFixed(1)}</span>
-                                            <span className="text-xs text-gray-500">{ing.unit}</span>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </section>
-                    )}
-
-                    {/* Main Table */}
-                    <section>
-                        <div className="overflow-x-auto border rounded-lg shadow-sm">
-                            <table className="min-w-full divide-y divide-gray-200 text-sm">
-                                <thead className="bg-gray-50">
-                                    <tr>
-                                        <th className="px-3 py-3 text-left font-bold text-gray-700 sticky left-0 bg-gray-50">Flavor</th>
-                                        
-                                        {/* Mini Columns */}
-                                        <th className="px-2 py-3 text-center bg-blue-50/50 border-l border-blue-100">Mini<br/>Order</th>
-                                        <th className="px-2 py-3 text-center bg-blue-50/50 w-20">Mini<br/>Stock</th>
-                                        <th className="px-2 py-3 text-center bg-blue-100/50 font-bold text-blue-900 border-r border-blue-100">Mini<br/>Make</th>
-
-                                        {/* Full Columns */}
-                                        <th className="px-2 py-3 text-center bg-purple-50/50">Full<br/>Order</th>
-                                        <th className="px-2 py-3 text-center bg-purple-50/50 w-20">Full<br/>Stock</th>
-                                        <th className="px-2 py-3 text-center bg-purple-100/50 font-bold text-purple-900 border-r border-purple-100">Full<br/>Make</th>
-                                        
-                                        {/* Cost Column Removed */}
-                                    </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
-                                    {/* Explicit Discos Row */}
-                                    <tr className="bg-gray-50 font-semibold">
-                                        <td className="px-3 py-3 sticky left-0 bg-gray-50">Discos / Shells</td>
-                                        <td className="px-2 py-3 text-center text-gray-500">-</td>
-                                        <td className="px-2 py-3 text-center text-gray-500">-</td>
-                                        <td className="px-2 py-3 text-center text-blue-900 bg-blue-50">{prepData.totalMiniToMake}</td>
-                                        <td className="px-2 py-3 text-center text-gray-500">-</td>
-                                        <td className="px-2 py-3 text-center text-gray-500">-</td>
-                                        <td className="px-2 py-3 text-center text-purple-900 bg-purple-50">{prepData.totalFullToMake}</td>
-                                    </tr>
-
-                                    {prepData.rows.map((row) => (
-                                        <tr key={row.flavor} className="hover:bg-gray-50">
-                                            <td className="px-3 py-2 font-medium text-gray-900 sticky left-0 bg-white">
-                                                {row.flavor}
-                                                {/* Optional: Add marker for Special flavors? The sort puts them at bottom now. */}
-                                            </td>
-                                            
-                                            {/* Mini */}
-                                            <td className="px-2 py-2 text-center border-l border-gray-100">{row.miniOrd}</td>
-                                            <td className="px-2 py-2 text-center">
-                                                <input 
-                                                    type="number" min="0" 
-                                                    value={row.miniStock} 
-                                                    onChange={(e) => updateInventory(row.flavor, 'mini', e.target.value)}
-                                                    className="w-16 text-center text-xs border-gray-300 rounded shadow-sm focus:ring-blue-500 focus:border-blue-500 p-1"
-                                                />
-                                            </td>
-                                            <td className="px-2 py-2 text-center border-r border-gray-100 bg-blue-50/30">
-                                                {row.miniToMake > 0 ? (
-                                                    <span className="font-bold text-blue-700">{row.miniToMake}</span>
-                                                ) : row.miniSurplus > 0 ? (
-                                                    <span className="text-xs font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded border border-green-200" title="Surplus">+{row.miniSurplus}</span>
-                                                ) : (
-                                                    <span className="text-gray-300">-</span>
-                                                )}
-                                            </td>
-
-                                            {/* Full */}
-                                            <td className="px-2 py-2 text-center">{row.fullOrd}</td>
-                                            <td className="px-2 py-2 text-center">
-                                                <input 
-                                                    type="number" min="0" 
-                                                    value={row.fullStock} 
-                                                    onChange={(e) => updateInventory(row.flavor, 'full', e.target.value)}
-                                                    className="w-16 text-center text-xs border-gray-300 rounded shadow-sm focus:ring-purple-500 focus:border-purple-500 p-1"
-                                                />
-                                            </td>
-                                            <td className="px-2 py-2 text-center border-r border-purple-100 bg-purple-50/30">
-                                                {row.fullToMake > 0 ? (
-                                                    <span className="font-bold text-purple-700">{row.fullToMake}</span>
-                                                ) : row.fullSurplus > 0 ? (
-                                                    <span className="text-xs font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded border border-green-200" title="Surplus">+{row.fullSurplus}</span>
-                                                ) : (
-                                                    <span className="text-gray-300">-</span>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </section>
-                </div>
+                    </div>
+                )}
             </div>
-            
-            <style>{`
-                @media print {
-                    body * {
-                        visibility: hidden;
-                    }
-                    .fixed.inset-0.bg-black {
-                        position: absolute;
-                        left: 0;
-                        top: 0;
-                        background: white;
-                        padding: 0;
-                    }
-                    .bg-white.rounded-lg.shadow-2xl {
-                        box-shadow: none;
-                        border: none;
-                        max-width: 100%;
-                        width: 100%;
-                        visibility: visible;
-                    }
-                    .bg-white.rounded-lg.shadow-2xl * {
-                        visibility: visible;
-                    }
-                    header button, input[type="number"] {
-                        border: none;
-                        background: transparent;
-                        /* Hide inputs visually but keep value? Or simplify for print. */
-                    }
-                }
-            `}</style>
+
+            <footer className="p-3 border-t border-gray-200 bg-white rounded-b-xl flex-shrink-0 sticky bottom-0 z-30 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+                <div className="flex justify-between items-center mb-2">
+                    <span className="text-xs font-medium text-gray-600">
+                        Remaining: <span className="font-bold text-brand-brown">{remaining}</span>
+                    </span>
+                    <span className={`font-bold text-sm ${totalSelected === pkg.quantity ? 'text-green-600' : 'text-brand-orange'}`}>
+                        Selected: {totalSelected} / {pkg.quantity}
+                    </span>
+                </div>
+                <button 
+                    onClick={handleConfirm}
+                    disabled={totalSelected !== pkg.quantity}
+                    className="w-full bg-brand-orange text-white font-bold py-3 rounded-lg shadow-md hover:bg-opacity-90 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex justify-center items-center gap-2 text-base touch-manipulation"
+                >
+                    <CheckCircleIcon className="w-5 h-5" />
+                    <span>Add to Order</span>
+                </button>
+            </footer>
         </div>
     );
 }
