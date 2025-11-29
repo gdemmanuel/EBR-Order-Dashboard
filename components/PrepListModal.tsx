@@ -100,6 +100,10 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
             const miniToMake = Math.max(0, miniOrd - stock.mini);
             const fullToMake = Math.max(0, fullOrd - stock.full);
 
+            // Surplus = Stock - Ordered. Cannot be less than 0.
+            const miniSurplus = Math.max(0, stock.mini - miniOrd);
+            const fullSurplus = Math.max(0, stock.full - fullOrd);
+
             // --- INGREDIENT CALCULATION (New Recipe Logic) ---
             const recipes = settings.prepSettings?.recipes || {};
             const flavorIngredients = recipes[flavor] || [];
@@ -152,9 +156,11 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
                 miniOrd,
                 miniStock: stock.mini,
                 miniToMake,
+                miniSurplus,
                 fullOrd,
                 fullStock: stock.full,
                 fullToMake,
+                fullSurplus,
                 rowCost
             };
         }).filter(Boolean) as any[];
@@ -351,8 +357,7 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
                                         <th className="px-2 py-3 text-center bg-purple-50/50 w-20">Full<br/>Stock</th>
                                         <th className="px-2 py-3 text-center bg-purple-100/50 font-bold text-purple-900 border-r border-purple-100">Full<br/>Make</th>
                                         
-                                        {/* Cost Column */}
-                                        <th className="px-3 py-3 text-right text-green-700">Supply<br/>Cost</th>
+                                        {/* Cost Column Removed */}
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
@@ -365,9 +370,6 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
                                         <td className="px-2 py-3 text-center text-gray-500">-</td>
                                         <td className="px-2 py-3 text-center text-gray-500">-</td>
                                         <td className="px-2 py-3 text-center text-purple-900 bg-purple-50">{prepData.totalFullToMake}</td>
-                                        <td className="px-3 py-3 text-right text-green-700">
-                                            ${((prepData.totalMiniDiscosNeeded * (settings.discoCosts?.mini||0)) + (prepData.totalFullDiscosNeeded * (settings.discoCosts?.full||0))).toFixed(2)}
-                                        </td>
                                     </tr>
 
                                     {prepData.rows.map((row) => (
@@ -387,7 +389,15 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
                                                     className="w-16 text-center text-xs border-gray-300 rounded shadow-sm focus:ring-blue-500 focus:border-blue-500 p-1"
                                                 />
                                             </td>
-                                            <td className="px-2 py-2 text-center font-bold text-blue-700 bg-blue-50/30 border-r border-gray-100">{row.miniToMake}</td>
+                                            <td className="px-2 py-2 text-center border-r border-gray-100 bg-blue-50/30">
+                                                {row.miniToMake > 0 ? (
+                                                    <span className="font-bold text-blue-700">{row.miniToMake}</span>
+                                                ) : row.miniSurplus > 0 ? (
+                                                    <span className="text-xs font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded border border-green-200" title="Surplus">+{row.miniSurplus}</span>
+                                                ) : (
+                                                    <span className="text-gray-300">-</span>
+                                                )}
+                                            </td>
 
                                             {/* Full */}
                                             <td className="px-2 py-2 text-center">{row.fullOrd}</td>
@@ -399,10 +409,14 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
                                                     className="w-16 text-center text-xs border-gray-300 rounded shadow-sm focus:ring-purple-500 focus:border-purple-500 p-1"
                                                 />
                                             </td>
-                                            <td className="px-2 py-2 text-center font-bold text-purple-700 bg-purple-50/30 border-r border-gray-100">{row.fullToMake}</td>
-
-                                            <td className="px-3 py-2 text-right text-green-700 font-medium">
-                                                {row.rowCost > 0 ? `$${row.rowCost.toFixed(2)}` : '-'}
+                                            <td className="px-2 py-2 text-center border-r border-purple-100 bg-purple-50/30">
+                                                {row.fullToMake > 0 ? (
+                                                    <span className="font-bold text-purple-700">{row.fullToMake}</span>
+                                                ) : row.fullSurplus > 0 ? (
+                                                    <span className="text-xs font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded border border-green-200" title="Surplus">+{row.fullSurplus}</span>
+                                                ) : (
+                                                    <span className="text-gray-300">-</span>
+                                                )}
                                             </td>
                                         </tr>
                                     ))}
