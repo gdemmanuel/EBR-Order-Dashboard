@@ -433,7 +433,17 @@ export default function CustomerOrderPage({
             const formattedTime = pickupTime; 
             const formattedDate = normalizeDateStr(pickupDate);
 
-            // Package details are NOT appended to special instructions; only user notes.
+            // Automatically check for party platters to highlight them
+            const hasPartyPlatter = cartPackages.some(cartPkg => {
+                const originalPkg = pricing?.packages?.find(p => p.id === cartPkg.pkgId);
+                return originalPkg?.isSpecial;
+            });
+
+            let finalInstructions = specialInstructions || '';
+            if (hasPartyPlatter && !finalInstructions.includes("PARTY PLATTER")) {
+                finalInstructions = `*** PARTY PLATTER ***\n${finalInstructions}`;
+            }
+
             const newOrder: Order = {
                 id: Date.now().toString(),
                 customerName,
@@ -452,7 +462,7 @@ export default function CustomerOrderPage({
                 paymentStatus: PaymentStatus.PENDING,
                 paymentMethod: null,
                 followUpStatus: FollowUpStatus.NEEDED,
-                specialInstructions: specialInstructions || null,
+                specialInstructions: finalInstructions.trim() || null,
                 approvalStatus: ApprovalStatus.PENDING
             };
 

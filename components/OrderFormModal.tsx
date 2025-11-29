@@ -174,6 +174,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
     const [fullSizeItems, setFullSizeItems] = useState<FormOrderItem[]>([]);
     const [specialItems, setSpecialItems] = useState<FormOrderItem[]>([]);
     const [salsaItems, setSalsaItems] = useState<DynamicSalsaState[]>([]);
+    const [email, setEmail] = useState('');
     
     const [amountCharged, setAmountCharged] = useState<number | string>(0);
     const [isAutoPrice, setIsAutoPrice] = useState(true); 
@@ -196,7 +197,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
     const [showTimePicker, setShowTimePicker] = useState(false);
     
     const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
-    const [filteredCustomers, setFilteredCustomers] = useState<{name: string, phone: string | null, method: string, address: string | null}[]>([]);
+    const [filteredCustomers, setFilteredCustomers] = useState<{name: string, phone: string | null, method: string, address: string | null, email?: string}[]>([]);
 
     const [activePackageBuilder, setActivePackageBuilder] = useState<MenuPackage | null>(null);
 
@@ -212,14 +213,21 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
     );
 
     const uniqueCustomers = useMemo(() => {
-        const customers = new Map<string, {name: string, phone: string | null, method: string, address: string | null}>();
+        const customers = new Map<string, {name: string, phone: string | null, method: string, address: string | null, email?: string}>();
         existingOrders.forEach(o => {
             if (o.customerName && !customers.has(o.customerName.toLowerCase())) {
+                // Try to extract email from contactMethod if stored as "Website (Email: ...)"
+                let extractedEmail = '';
+                if (o.contactMethod && o.contactMethod.includes('Email: ')) {
+                    extractedEmail = o.contactMethod.split('Email: ')[1].replace(')', '').trim();
+                }
+
                 customers.set(o.customerName.toLowerCase(), {
                     name: o.customerName,
                     phone: o.phoneNumber,
                     method: o.contactMethod,
-                    address: o.deliveryAddress
+                    address: o.deliveryAddress,
+                    email: extractedEmail
                 });
             }
         });
@@ -239,9 +247,11 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         }
     };
 
-    const selectCustomer = (customer: {name: string, phone: string | null, method: string, address: string | null}) => {
+    const selectCustomer = (customer: {name: string, phone: string | null, method: string, address: string | null, email?: string}) => {
         setCustomerName(customer.name);
         if (customer.phone) setPhoneNumber(customer.phone);
+        if (customer.email) setEmail(customer.email);
+        
         if (Object.values(ContactMethod).includes(customer.method as ContactMethod)) {
             setContactMethod(customer.method);
             setCustomContactMethod('');
@@ -310,6 +320,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         setPaymentMethod('');
         setSalsaItems((pricing.salsas || []).map(s => ({ id: s.id, name: s.name, checked: false, quantity: 1 })));
         setSpecialInstructions('');
+        setEmail('');
         setInitialLoadComplete(false);
     };
     
@@ -319,13 +330,23 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         setPickupDate(formatDateToYYYYMMDD(data.pickupDate));
         setPickupTime(formatTimeToHHMM(data.pickupTime));
         const contact = data.contactMethod || '';
-        if (Object.values(ContactMethod).includes(contact as ContactMethod)) {
-            setContactMethod(contact);
-            setCustomContactMethod('');
+        
+        // Try to extract email if stored in contactMethod
+        if (contact.includes('Email: ')) {
+             const extractedEmail = contact.split('Email: ')[1].replace(')', '').trim();
+             setEmail(extractedEmail);
+             setContactMethod('Website Form'); 
         } else {
-            setContactMethod('Other');
-            setCustomContactMethod(contact);
+             setEmail('');
+             if (Object.values(ContactMethod).includes(contact as ContactMethod)) {
+                setContactMethod(contact);
+                setCustomContactMethod('');
+            } else {
+                setContactMethod('Other');
+                setCustomContactMethod(contact);
+            }
         }
+
         setDeliveryRequired(data.deliveryRequired || false);
         setDeliveryFee(data.deliveryFee || 0);
         setDeliveryAddress(data.deliveryAddress || '');
@@ -503,6 +524,15 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
             } else { combinedItems.push(newItem); }
         });
         updateFn(combinedItems);
+
+        // Automatically inject Party Platter marker into notes for Admin visibility
+        if (activePackageBuilder.isSpecial) {
+            const marker = "*** PARTY PLATTER ***";
+            if (!specialInstructions.includes("PARTY PLATTER")) {
+                setSpecialInstructions(prev => prev ? `${marker}\n${prev}` : marker);
+            }
+        }
+
         setActivePackageBuilder(null);
     };
     
@@ -553,6 +583,9 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
 
         const finalContactMethod = contactMethod === 'Other' ? (customContactMethod.trim() || 'Other') : contactMethod;
         
+        // Append Email to Contact Method if available
+        const finalContactString = email ? `${finalContactMethod} (Email: ${email})` : finalContactMethod;
+
         const orderDateObj = pickupDate ? new Date(`${pickupDate}T00:00:00`) : new Date();
         const snapshotCost = calculateSupplyCost(allItems, settings, orderDateObj);
 
@@ -561,7 +594,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
             phoneNumber,
             pickupDate: formattedDate,
             pickupTime: formattedTime,
-            contactMethod: finalContactMethod,
+            contactMethod: finalContactString,
             items: allItems,
             amountCharged: Number(amountCharged),
             totalCost: snapshotCost, // Save cost snapshot
@@ -620,6 +653,10 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                         <div>
                             <label className="block text-sm font-medium text-brand-brown/90">Phone Number</label>
                             <input type="tel" value={phoneNumber} onChange={handlePhoneNumberChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-brand-brown/90">Email</label>
+                            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown" />
                         </div>
                         <div>
                            <label className="block text-sm font-medium text-brand-brown/90">Contact Method</label>
