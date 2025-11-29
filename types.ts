@@ -88,7 +88,8 @@ export interface MenuPackage {
     maxFlavors: number; // Limit how many distinct flavors customer can pick
     increment?: number; // Step size for buttons (e.g. 1, 5, 10). Defaults to 1.
     visible: boolean;
-    isSpecial?: boolean; // Belongs in "Specials/Platters" section
+    isSpecial?: boolean; // Belongs in "Specials" section
+    isPartyPlatter?: boolean; // Belongs in "Party Platters" section and triggers highlighting
 }
 
 export interface SalsaProduct {

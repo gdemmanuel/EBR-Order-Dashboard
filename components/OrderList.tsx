@@ -280,7 +280,7 @@ export default function OrderList({
                                                 {totalItems} items
                                                 {isPartyPlatter && (
                                                     <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-200 text-purple-800 border border-purple-300 uppercase tracking-wide">
-                                                        <SparklesIcon className="w-3 h-3 mr-1"/> Platter
+                                                        <SparklesIcon className="w-3 h-3 mr-1"/> Party Platter
                                                     </span>
                                                 )}
                                             </div>
