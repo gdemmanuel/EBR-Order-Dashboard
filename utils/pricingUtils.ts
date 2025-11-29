@@ -1,26 +1,13 @@
 
-import { OrderItem, PricingSettings, MenuPackage, Flavor, PricingTier, Ingredient } from '../types';
-import { AppSettings } from '../services/dbService';
-
-/**
- * Determines the unit price based on total quantity and defined tiers.
- * If no tier matches, returns basePrice.
- */
-const getUnitPrice = (quantity: number, basePrice: number, tiers: PricingTier[] = []) => {
-    if (!tiers || tiers.length === 0) return basePrice;
-    
-    const sortedTiers = [...tiers].sort((a, b) => b.minQuantity - a.minQuantity);
-    
-    const applicableTier = sortedTiers.find(tier => quantity >= tier.minQuantity);
-    return applicableTier ? applicableTier.price : basePrice;
-};
+import { OrderItem, PricingSettings, MenuPackage } from '../types';
 
 /**
  * Calculates the best price for a given quantity of items by applying package deals first.
  */
-export const calculatePriceForType = (quantity: number, basePrice: number, tiers: PricingTier[] = [], packages: MenuPackage[] = [], type: 'mini' | 'full') => {
+export const calculatePriceForType = (quantity: number, basePrice: number, packages: MenuPackage[] = [], type: 'mini' | 'full') => {
     if (quantity <= 0) return 0;
 
+    // Filter packages for this specific item type (mini/full) and sort by quantity descending (largest packages first)
     const sortedPackages = packages
         .filter(p => p.itemType === type)
         .sort((a, b) => b.quantity - a.quantity);
@@ -37,134 +24,34 @@ export const calculatePriceForType = (quantity: number, basePrice: number, tiers
         }
     }
 
-    const currentUnitPrice = getUnitPrice(quantity, basePrice, tiers);
-    
-    totalPrice += remainingQty * currentUnitPrice;
+    // Remainder at base price
+    totalPrice += remainingQty * basePrice;
     return totalPrice;
 };
 
-export const calculateOrderTotal = (
-    items: OrderItem[], 
-    deliveryFee: number, 
-    pricing: PricingSettings,
-    miniFlavors: Flavor[] = [],
-    fullFlavors: Flavor[] = []
-) => {
-    const salsas = pricing.salsas || [];
+export const calculateOrderTotal = (items: OrderItem[], deliveryFee: number, pricing: PricingSettings) => {
+    // 1. Group Items
+    const miniItemsQty = items
+        .filter(i => !i.name.startsWith('Full ') && !i.name.includes('Salsa'))
+        .reduce((sum, i) => sum + (i.quantity || 0), 0);
 
-    const miniItems = items.filter(i => !i.name.startsWith('Full ') && !salsas.some(s => i.name === s.name));
-    const fullItems = items.filter(i => i.name.startsWith('Full ') && !salsas.some(s => i.name === s.name));
-
-    const miniItemsQty = miniItems.reduce((sum, i) => sum + (i.quantity || 0), 0);
-    const fullItemsQty = fullItems.reduce((sum, i) => sum + (i.quantity || 0), 0);
+    const fullItemsQty = items
+        .filter(i => i.name.startsWith('Full '))
+        .reduce((sum, i) => sum + (i.quantity || 0), 0);
     
-    let salsaTotal = 0;
-    items.forEach(item => {
-        const salsaProduct = salsas.find(s => s.name === item.name);
-        if (salsaProduct) {
-            salsaTotal += (item.quantity || 0) * salsaProduct.price;
-        }
-    });
-
-    const miniBaseTotal = calculatePriceForType(miniItemsQty, pricing.mini.basePrice, pricing.mini.tiers, pricing.packages, 'mini');
-    const fullBaseTotal = calculatePriceForType(fullItemsQty, pricing.full.basePrice, pricing.full.tiers, pricing.packages, 'full');
-    
-    let surchargeTotal = 0;
-    
-    miniItems.forEach(item => {
-        const flavorDef = miniFlavors.find(f => f.name === item.name);
-        if (flavorDef && flavorDef.surcharge) {
-            surchargeTotal += (item.quantity * flavorDef.surcharge);
-        }
-    });
-
-    fullItems.forEach(item => {
-        const flavorDef = fullFlavors.find(f => f.name === item.name);
-        if (flavorDef && flavorDef.surcharge) {
-            surchargeTotal += (item.quantity * flavorDef.surcharge);
-        }
-    });
-
-    return miniBaseTotal + fullBaseTotal + salsaTotal + surchargeTotal + (deliveryFee || 0);
-};
-
-/**
- * Helper to find the price of an ingredient effective on a specific date.
- */
-const getHistoricalIngredientPrice = (ingredient: Ingredient, date?: Date): number => {
-    if (!date || !ingredient.priceHistory || ingredient.priceHistory.length === 0) {
-        return ingredient.cost;
-    }
-
-    // Sort history descending by date
-    const sortedHistory = [...ingredient.priceHistory].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    
-    // Find the first entry that is on or before the target date
-    const effectiveEntry = sortedHistory.find(entry => {
-        // Create date objects for comparison at midnight to ignore time
-        const entryDate = new Date(entry.date + 'T00:00:00');
-        const targetDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-        return entryDate <= targetDate;
-    });
-
-    return effectiveEntry ? effectiveEntry.price : ingredient.cost;
-};
-
-/**
- * Calculates the Supply Cost (Expense) for an order based on material definitions.
- * Accepts an optional date to calculate historical costs accurately.
- */
-export const calculateSupplyCost = (
-    items: OrderItem[], 
-    settings: AppSettings,
-    date?: Date
-): number => {
-    let totalCost = 0;
-    const salsas = settings.pricing.salsas || [];
-
-    items.forEach(item => {
-        if (salsas.some(s => item.name === s.name)) return; 
-
-        const isFull = item.name.startsWith('Full ');
-        const cleanName = item.name.replace('Full ', '');
+    const smallSalsaQty = items
+        .filter(i => i.name.includes('Salsa') && i.name.includes('Small'))
+        .reduce((sum, i) => sum + (i.quantity || 0), 0);
         
-        // 1. Disco Cost
-        const discosNeededPerItem = isFull 
-            ? (settings.prepSettings.discosPer?.full ?? 1) 
-            : (settings.prepSettings.discosPer?.mini ?? 1);
-            
-        const unitDiscoCost = isFull ? settings.discoCosts.full : settings.discoCosts.mini;
-        totalCost += item.quantity * discosNeededPerItem * unitDiscoCost;
+    const largeSalsaQty = items
+        .filter(i => i.name.includes('Salsa') && i.name.includes('Large'))
+        .reduce((sum, i) => sum + (i.quantity || 0), 0);
 
-        // 2. Filling Cost (Legacy or Detailed)
-        const fullMultiplier = isFull ? settings.prepSettings.fullSizeMultiplier : 1.0;
-        const recipes = settings.prepSettings.recipes || {};
-        const flavorRecipe = recipes[cleanName];
+    // 2. Calculate Totals using Packages first, then Base Price
+    const miniTotal = calculatePriceForType(miniItemsQty, pricing.mini.basePrice, pricing.packages, 'mini');
+    const fullTotal = calculatePriceForType(fullItemsQty, pricing.full.basePrice, pricing.packages, 'full');
+    
+    const salsaTotal = (smallSalsaQty * pricing.salsaSmall) + (largeSalsaQty * pricing.salsaLarge);
 
-        if (flavorRecipe && flavorRecipe.length > 0) {
-            // --- NEW RECIPE LOGIC ---
-            // Recipe is defined per 20 mini empanadas.
-            // Amount Needed = (ItemQty / 20) * AmountFor20 * FullMultiplier
-            flavorRecipe.forEach(ri => {
-                const ingredient = settings.ingredients?.find(ing => ing.id === ri.ingredientId);
-                // Only add cost if ingredient exists (prevents errors on deleted ingredients)
-                if (ingredient) {
-                    const priceToUse = getHistoricalIngredientPrice(ingredient, date);
-                    const amountNeeded = (item.quantity / 20) * ri.amountFor20Minis * fullMultiplier;
-                    totalCost += amountNeeded * priceToUse;
-                }
-            });
-        } else {
-            // --- LEGACY LOGIC ---
-            const lbsPer20 = settings.prepSettings.lbsPer20[cleanName] || 0;
-            const costPerLb = settings.materialCosts[cleanName] || 0;
-
-            if (lbsPer20 > 0 && costPerLb > 0) {
-                const lbsNeeded = (item.quantity / 20) * lbsPer20 * fullMultiplier;
-                totalCost += lbsNeeded * costPerLb;
-            }
-        }
-    });
-
-    return totalCost;
+    return miniTotal + fullTotal + salsaTotal + (deliveryFee || 0);
 };

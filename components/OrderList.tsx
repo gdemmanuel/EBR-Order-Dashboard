@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
-import { Order, PaymentStatus, FollowUpStatus, ApprovalStatus, AppSettings } from '../types';
-import { TrashIcon, PrinterIcon, MagnifyingGlassIcon, XMarkIcon, ChevronDownIcon, TruckIcon } from './icons/Icons';
+import { Order, PaymentStatus, FollowUpStatus } from '../types';
+import { TrashIcon, PrinterIcon } from './icons/Icons';
 import { parseOrderDateTime } from '../utils/dateUtils';
 
 interface OrderListProps {
@@ -10,55 +10,9 @@ interface OrderListProps {
     onSelectOrder: (order: Order) => void;
     onPrintSelected: (selectedOrders: Order[]) => void;
     onDelete?: (orderId: string) => void;
-    searchTerm?: string;
-    onSearchChange?: (term: string) => void;
-    activeStatusFilter?: FollowUpStatus | null;
-    onClearStatusFilter?: () => void;
-    currentFilter?: string;
-    onFilterChange?: (filter: string) => void;
-    settings?: AppSettings;
 }
 
-// Helper to render status badges with configured colors
-const StatusBadge = ({ status, approvalStatus, colors }: { status: FollowUpStatus, approvalStatus: ApprovalStatus, colors?: Record<string, string> }) => {
-    if (approvalStatus === ApprovalStatus.CANCELLED) {
-        return <span className="text-xs font-medium px-2.5 py-0.5 rounded border" style={{ backgroundColor: '#fee2e2', color: '#991b1b', borderColor: '#fecaca' }}>Cancelled</span>;
-    }
-
-    const bgColor = colors?.[status] || '#f3f4f6'; // Default gray
-    
-    // Simple contrast check logic or just default text color
-    const textColor = '#1f2937'; 
-    const borderColor = 'rgba(0,0,0,0.05)';
-
-    return <span className="text-xs font-medium px-2.5 py-0.5 rounded border whitespace-nowrap" style={{ backgroundColor: bgColor, color: textColor, borderColor }}>{status}</span>;
-};
-
-const getPaymentStatusBadge = (status: PaymentStatus) => {
-    if (status === PaymentStatus.PAID) {
-        return <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-800 border border-green-200">Paid</span>;
-    }
-    // Pending (Not Paid) and Overdue are both Red
-    const label = status === PaymentStatus.PENDING ? 'Not Paid' : status;
-    return <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-800 border border-red-200 whitespace-nowrap">
-        {label}
-    </span>;
-};
-
-export default function OrderList({ 
-    orders, 
-    title, 
-    onSelectOrder, 
-    onPrintSelected, 
-    onDelete, 
-    searchTerm, 
-    onSearchChange, 
-    activeStatusFilter, 
-    onClearStatusFilter,
-    currentFilter,
-    onFilterChange,
-    settings
-}: OrderListProps) {
+export default function OrderList({ orders, title, onSelectOrder, onPrintSelected, onDelete }: OrderListProps) {
     const [selectedOrderIds, setSelectedOrderIds] = useState<Set<string>>(new Set());
     const [sortConfig, setSortConfig] = useState<{ key: keyof Order | 'pickupDateObj', direction: 'asc' | 'desc' }>({ key: 'pickupDateObj', direction: 'asc' });
 
@@ -119,210 +73,112 @@ export default function OrderList({
     };
 
     return (
-        <div className="bg-white border border-brand-tan rounded-lg shadow-sm overflow-visible relative flex flex-col h-full">
-             <div className="p-4 border-b border-brand-tan bg-brand-tan/10 flex flex-col md:flex-row justify-between items-center gap-4 flex-shrink-0">
-                <div className="flex items-center gap-4 flex-wrap w-full md:w-auto">
-                    <h2 className="text-xl font-serif text-brand-brown whitespace-nowrap">{title || 'Orders'}</h2>
-                    
-                    {/* Render Filter Dropdown if handler provided */}
-                    {onFilterChange ? (
-                        <div className="relative w-full sm:w-auto">
-                            <select 
-                                value={currentFilter || 'ALL'} 
-                                onChange={(e) => onFilterChange(e.target.value)}
-                                className="appearance-none w-full sm:w-auto border border-brand-tan hover:border-brand-orange rounded-lg text-sm py-1.5 pl-3 pr-8 focus:ring-brand-orange focus:border-brand-orange bg-white text-brand-brown font-medium cursor-pointer shadow-sm transition-colors"
-                            >
-                                <option value="ALL">All Active</option>
-                                <option value={FollowUpStatus.NEEDED}>{FollowUpStatus.NEEDED}</option>
-                                <option value={FollowUpStatus.PENDING}>{FollowUpStatus.PENDING}</option>
-                                <option value={FollowUpStatus.CONFIRMED}>{FollowUpStatus.CONFIRMED}</option>
-                                <option value={FollowUpStatus.PROCESSING}>{FollowUpStatus.PROCESSING}</option>
-                                <option value={FollowUpStatus.COMPLETED}>{FollowUpStatus.COMPLETED}</option>
-                                <option disabled>──────────</option>
-                                <option value="CANCELLED">Cancelled Orders</option>
-                            </select>
-                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
-                                <ChevronDownIcon className="h-4 w-4" />
-                            </div>
-                        </div>
-                    ) : (
-                        // Legacy filter clearing
-                        activeStatusFilter && onClearStatusFilter && (
-                            <div className="flex items-center bg-brand-orange/10 text-brand-orange px-3 py-1 rounded-full text-sm font-medium">
-                                <span>Filter: {activeStatusFilter}</span>
-                                <button onClick={onClearStatusFilter} className="ml-2 hover:text-brand-brown">
-                                    <XMarkIcon className="w-4 h-4" />
-                                </button>
-                            </div>
-                        )
-                    )}
-                </div>
-
-                <div className="flex items-center gap-3 w-full md:w-auto">
-                    {selectedOrderIds.size > 0 && (
-                        <button 
-                            onClick={handleBulkPrint}
-                            className="flex items-center gap-1 bg-gray-100 hover:bg-gray-200 text-gray-800 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border border-gray-300"
-                        >
-                            <PrinterIcon className="w-4 h-4" />
-                            <span>Print ({selectedOrderIds.size})</span>
-                        </button>
-                    )}
-                    
-                    {onSearchChange && (
-                        <div className="relative flex-grow md:flex-grow-0">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <MagnifyingGlassIcon className="h-4 w-4 text-gray-400" />
-                            </div>
-                            <input
-                                type="text"
-                                placeholder="Search orders..."
-                                value={searchTerm || ''}
-                                onChange={(e) => onSearchChange(e.target.value)}
-                                className="block w-full pl-9 rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange sm:text-sm"
-                            />
-                        </div>
-                    )}
-                </div>
+        <div className="bg-white border border-brand-tan rounded-lg shadow-sm overflow-hidden">
+             <div className="p-4 border-b border-brand-tan bg-brand-tan/10 flex justify-between items-center">
+                <h2 className="text-xl font-serif text-brand-brown">{title || 'All Orders'}</h2>
+                {selectedOrderIds.size > 0 && (
+                    <button 
+                        onClick={handleBulkPrint}
+                        className="flex items-center gap-2 bg-brand-orange text-white text-sm font-semibold px-3 py-1.5 rounded-lg hover:bg-opacity-90 transition-colors"
+                    >
+                        <PrinterIcon className="w-4 h-4" />
+                        Print Selected ({selectedOrderIds.size})
+                    </button>
+                )}
             </div>
-
-            <div className="overflow-x-auto flex-grow">
-                <table className="min-w-full divide-y divide-brand-tan/30">
-                    <thead className="bg-gray-50">
+            <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                    <thead className="text-xs text-brand-brown uppercase bg-brand-tan/20">
                         <tr>
-                            {/* Checkbox */}
-                            <th scope="col" className="px-4 py-3 text-left w-12">
-                                <input 
-                                    type="checkbox" 
-                                    className="rounded border-gray-300 text-brand-orange focus:ring-brand-orange"
-                                    checked={orders.length > 0 && selectedOrderIds.size === orders.length}
-                                    onChange={toggleAll}
-                                />
+                            <th scope="col" className="p-4">
+                                <div className="flex items-center">
+                                    <input type="checkbox" checked={selectedOrderIds.size === orders.length && orders.length > 0} onChange={toggleAll} className="w-4 h-4 text-brand-orange bg-gray-100 border-gray-300 rounded focus:ring-brand-orange" />
+                                </div>
                             </th>
-
-                            {/* Date */}
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange" onClick={() => handleSort('pickupDateObj')}>
-                                Date {sortConfig.key === 'pickupDateObj' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                            <th scope="col" className="px-6 py-3 cursor-pointer hover:text-brand-orange" onClick={() => handleSort('pickupDateObj')}>
+                                Date/Time
                             </th>
-
-                            {/* Customer */}
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange" onClick={() => handleSort('customerName')}>
-                                Customer {sortConfig.key === 'customerName' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                            <th scope="col" className="px-6 py-3 cursor-pointer hover:text-brand-orange" onClick={() => handleSort('customerName')}>
+                                Customer
                             </th>
-
-                            {/* Items */}
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th scope="col" className="px-6 py-3">
                                 Items
                             </th>
-
-                            {/* Balance */}
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Balance
+                            <th scope="col" className="px-6 py-3 cursor-pointer hover:text-brand-orange" onClick={() => handleSort('amountCharged')}>
+                                Total
                             </th>
-
-                            {/* Status */}
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange" onClick={() => handleSort('followUpStatus')}>
-                                Status {sortConfig.key === 'followUpStatus' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                            <th scope="col" className="px-6 py-3">
+                                Status
                             </th>
-
-                            {/* Printed */}
-                            <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                <PrinterIcon className="w-4 h-4 mx-auto" title="Printed Status" />
-                            </th>
-
-                            {/* Action */}
-                            <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <th scope="col" className="px-6 py-3 text-right">
                                 Actions
                             </th>
                         </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-100 text-sm">
+                    <tbody>
                         {sortedOrders.length === 0 ? (
                             <tr>
-                                <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
+                                <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
                                     No orders found.
                                 </td>
                             </tr>
                         ) : (
-                            sortedOrders.map((order) => {
-                                const totalItems = order.totalMini + order.totalFullSize;
-                                const itemsSummary = order.items.map(i => `${i.quantity} ${i.name}`).join(', ');
-                                const balance = order.amountCharged - (order.amountCollected || 0);
-                                const isPlatter = (order.specialInstructions || '').includes('PARTY PLATTER');
-                                
-                                return (
-                                    <tr 
-                                        key={order.id} 
-                                        className={`transition-colors group cursor-pointer ${isPlatter ? 'bg-purple-50 hover:bg-purple-100 border-l-4 border-l-purple-400' : 'hover:bg-gray-50 border-l-4 border-l-transparent'}`}
-                                        onClick={() => onSelectOrder(order)}
-                                    >
-                                        <td className="px-4 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                                            <input 
-                                                type="checkbox" 
-                                                className="rounded border-gray-300 text-brand-orange focus:ring-brand-orange"
-                                                checked={selectedOrderIds.has(order.id)}
-                                                onChange={() => toggleSelection(order.id)}
-                                                onClick={(e) => e.stopPropagation()}
-                                            />
-                                        </td>
-                                        <td className="px-4 py-4 whitespace-nowrap text-brand-brown">
-                                            <div className="font-medium">{order.pickupDate}</div>
-                                            <div className="text-xs text-gray-500">{order.pickupTime}</div>
-                                        </td>
-                                        <td className="px-4 py-4 whitespace-nowrap">
-                                            <div className="font-medium text-brand-brown" title={order.customerName}>{order.customerName}</div>
-                                            <div className="text-xs text-gray-500 mt-0.5" title={order.contactMethod}>{order.contactMethod}</div>
-                                        </td>
-                                        <td className="px-4 py-4">
-                                            <div className="text-brand-brown font-medium whitespace-nowrap">
-                                                {totalItems} items
-                                                {isPlatter && <span className="ml-2 text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-bold uppercase">Platter</span>}
-                                            </div>
-                                            <div className="text-xs text-gray-500 truncate max-w-[200px]">{itemsSummary}</div>
-                                        </td>
-                                        <td className="px-4 py-4 whitespace-nowrap">
-                                            <div className={`font-bold ${balance > 0.01 ? 'text-red-600' : 'text-green-600'}`}>
-                                                {balance > 0.01 ? `$${balance.toFixed(2)}` : 'PAID'}
-                                            </div>
-                                            <div className="text-xs text-gray-400">Total: ${order.amountCharged.toFixed(2)}</div>
-                                        </td>
-                                        <td className="px-4 py-4 whitespace-nowrap">
-                                            <StatusBadge 
-                                                status={order.followUpStatus} 
-                                                approvalStatus={order.approvalStatus} 
-                                                colors={settings?.statusColors}
-                                            />
-                                        </td>
-                                        <td className="px-4 py-4 whitespace-nowrap text-center">
-                                            {order.hasPrinted ? (
-                                                <div className="text-green-600 mx-auto" title="Printed">
-                                                    <PrinterIcon className="w-5 h-5 mx-auto" />
-                                                </div>
-                                            ) : (
-                                                <div className="text-gray-200 mx-auto" title="Not Printed">
-                                                    <PrinterIcon className="w-5 h-5 mx-auto" />
-                                                </div>
-                                            )}
-                                        </td>
-                                        <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium" onClick={(e) => e.stopPropagation()}>
-                                            <div className="flex justify-end gap-2">
-                                                {onDelete && (
-                                                    <button 
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            if(window.confirm('Delete this order permanently?')) onDelete(order.id);
-                                                        }}
-                                                        className="text-gray-400 hover:text-red-600 p-1 hover:bg-red-50 rounded"
-                                                        title="Delete"
-                                                    >
-                                                        <TrashIcon className="w-5 h-5" />
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                );
-                            })
+                            sortedOrders.map((order) => (
+                                <tr 
+                                    key={order.id} 
+                                    className="bg-white border-b hover:bg-gray-50 cursor-pointer transition-colors"
+                                    onClick={() => onSelectOrder(order)}
+                                >
+                                    <td className="w-4 p-4" onClick={(e) => e.stopPropagation()}>
+                                        <div className="flex items-center">
+                                            <input type="checkbox" checked={selectedOrderIds.has(order.id)} onChange={() => toggleSelection(order.id)} className="w-4 h-4 text-brand-orange bg-gray-100 border-gray-300 rounded focus:ring-brand-orange" />
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4 font-medium text-brand-brown whitespace-nowrap">
+                                        {order.pickupDate}
+                                        <span className="block text-xs text-gray-500">{order.pickupTime}</span>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        {order.customerName}
+                                        {order.deliveryRequired && <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded">DELIVERY</span>}
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <div className="max-w-xs truncate">
+                                            {order.items.map(i => `${i.quantity} ${i.name}`).join(', ')}
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        ${order.amountCharged.toFixed(2)}
+                                        {order.paymentStatus === PaymentStatus.PAID ? (
+                                            <span className="ml-2 inline-block w-2 h-2 rounded-full bg-emerald-500" title="Paid"></span>
+                                        ) : (
+                                            <span className="ml-2 inline-block w-2 h-2 rounded-full bg-red-500" title="Pending Payment"></span>
+                                        )}
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        {order.followUpStatus === FollowUpStatus.NEEDED && (
+                                            <span className="bg-amber-100 text-amber-800 text-xs font-medium px-2.5 py-0.5 rounded">Follow-up</span>
+                                        )}
+                                        {order.followUpStatus === FollowUpStatus.COMPLETED && (
+                                            <span className="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded">Done</span>
+                                        )}
+                                         {order.followUpStatus === FollowUpStatus.CONTACTED && (
+                                            <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded">Contacted</span>
+                                        )}
+                                    </td>
+                                    <td className="px-6 py-4 text-right">
+                                        {onDelete && (
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); onDelete(order.id); }} 
+                                                className="text-gray-500 hover:text-red-600 p-2 rounded-full hover:bg-red-50 transition-colors"
+                                                title="Delete Order"
+                                            >
+                                                <TrashIcon className="w-5 h-5" />
+                                            </button>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))
                         )}
                     </tbody>
                 </table>

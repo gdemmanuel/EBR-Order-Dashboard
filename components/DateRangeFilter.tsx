@@ -2,22 +2,19 @@
 import React, { useState } from 'react';
 
 interface DateRangeFilterProps {
-    initialStartDate?: string;
-    initialEndDate?: string;
     onDateChange: (range: { start?: string; end?: string }) => void;
 }
 
 const getISODateString = (date: Date) => {
-    // Returns YYYY-MM-DD using local time
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    return date.toISOString().split('T')[0];
 };
 
-export default function DateRangeFilter({ initialStartDate = '', initialEndDate = '', onDateChange }: DateRangeFilterProps) {
-    const [startDate, setStartDate] = useState(initialStartDate);
-    const [endDate, setEndDate] = useState(initialEndDate);
+export default function DateRangeFilter({ onDateChange }: DateRangeFilterProps) {
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
 
     const handleApplyFilter = () => {
-        if (startDate || endDate) {
+        if (startDate && endDate) {
             onDateChange({ start: startDate, end: endDate });
         }
     };
@@ -37,8 +34,8 @@ export default function DateRangeFilter({ initialStartDate = '', initialEndDate 
             case 'today':
                 break;
             case 'week':
-                start.setDate(today.getDate() - today.getDay()); // Sunday
-                end.setDate(start.getDate() + 6); // Saturday
+                start.setDate(today.getDate() - today.getDay());
+                end.setDate(start.getDate() + 6);
                 break;
             case 'month':
                 start = new Date(today.getFullYear(), today.getMonth(), 1);

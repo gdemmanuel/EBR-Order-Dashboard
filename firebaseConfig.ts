@@ -1,8 +1,7 @@
 
-import firebase from "firebase/compat/app";
-import "firebase/compat/firestore";
-import "firebase/compat/auth";
+import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
   apiKey: "AIzaSyC30semIKhwBNBKQsRERZ2apZ6yCIvhgAA",
@@ -14,13 +13,7 @@ const firebaseConfig = {
   measurementId: "G-PEDN5J5ELG"
 };
 
-// Initialize Firebase (Compat)
-const app = !firebase.apps.length ? firebase.initializeApp(firebaseConfig) : firebase.app();
-
-// Export Modular Firestore for dbService.ts
-export const db = getFirestore(); 
-
-// Export Compat Auth for authService.ts and App.tsx
-export const auth = app.auth();
-
-export default app;
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+export const db = getFirestore(app);
+export const auth = getAuth(app);

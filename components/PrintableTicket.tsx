@@ -1,97 +1,62 @@
-
 import React from 'react';
-import { Order, PaymentStatus } from '../types';
+import { Order } from '../types';
 
 interface PrintableTicketProps {
-    order: Order;
+  order: Order;
 }
 
 export default function PrintableTicket({ order }: PrintableTicketProps) {
-  const isDelivery = order.deliveryRequired;
-  const isPaid = order.paymentStatus === PaymentStatus.PAID;
-  const balance = order.amountCharged - (order.amountCollected || 0);
-  
-  // Check for platter in notes or items
-  const hasPlatterNote = (order.specialInstructions || '').includes('PARTY PLATTER');
-  const hasPlatterItem = order.items.some(i => i.name.toLowerCase().includes('platter'));
-  const isPartyPlatter = hasPlatterNote || hasPlatterItem;
+  const balanceDue = order.amountCharged - (order.amountCollected || 0);
 
   return (
-    <div className="font-mono text-black p-4 w-[3.5in] bg-white mx-auto leading-tight relative">
-      {/* Header */}
-      <div className="text-center mb-2">
-        <h1 className="text-2xl font-bold uppercase tracking-tight leading-none mb-1">{order.customerName}</h1>
-        <p className="text-lg font-bold">{order.pickupDate} @ {order.pickupTime}</p>
+    <div className="printable-ticket bg-white text-black p-2 font-mono text-[9pt] leading-snug h-full flex flex-col">
+      {/* Header section */}
+      <div className="text-center font-bold text-[10pt] mb-1.5">
+        <p className="break-words">{order.customerName}</p>
+        <p>{order.pickupDate} @ {order.pickupTime}</p>
       </div>
-
-      {/* Separator */}
-      <div className="border-b-2 border-dashed border-black my-2"></div>
-
-      {/* Party Platter Banner */}
-      {isPartyPlatter && (
-          <div className="text-center my-2">
-              <span className="block font-black text-xl border-2 border-black py-1 px-2 uppercase">*** PARTY PLATTER ***</span>
-          </div>
+      
+      {/* Delivery information */}
+      {order.deliveryRequired && (
+        <div className="border-t border-black border-dashed pt-1.5 mb-1.5">
+          <p className="font-bold">
+            DELIVERY TO:{order.deliveryFee > 0 && ` ($${order.deliveryFee.toFixed(2)})`}
+          </p>
+          {order.deliveryAddress && <p className="break-words">{order.deliveryAddress}</p>}
+          {order.phoneNumber && <p>Phone: {order.phoneNumber}</p>}
+        </div>
       )}
-
-      {/* Columns Header */}
-      <div className="flex justify-between font-bold text-lg mb-1">
-        <span>Item</span>
-        <span>Qty</span>
-      </div>
-
-      {/* Items List */}
-      <div className="space-y-1 text-lg">
-        {order.items.map((item, idx) => (
-          <div key={idx} className="flex justify-between items-start">
-            <span className="flex-grow pr-4 leading-snug">{item.name}</span>
-            <span className="font-bold">{item.quantity}</span>
+      
+      {/* Items list - this section will grow to fill available space */}
+      <div className="border-y border-black border-dashed py-1.5 flex-grow min-h-0 overflow-hidden">
+        <div className="grid grid-cols-4 font-bold">
+          <p className="col-span-3">Item</p>
+          <p className="text-right">Qty</p>
+        </div>
+        {order.items.map((item, index) => (
+          <div key={index} className="grid grid-cols-4">
+            <p className="col-span-3 break-words pr-1">{item.name}</p>
+            <p className="text-right">{item.quantity}</p>
           </div>
         ))}
       </div>
 
-      {/* Spacing for physical ticket length */}
-      <div className="h-8"></div>
-
-      {/* Notes / Delivery */}
-      {(order.specialInstructions || isDelivery) && (
-          <div className="mb-4 text-sm font-bold">
-              {isDelivery && (
-                  <div className="mb-2">
-                      <p className="uppercase underline">DELIVERY TO:</p>
-                      <p>{order.deliveryAddress}</p>
-                  </div>
-              )}
-              {order.specialInstructions && (
-                  <div>
-                      <p className="uppercase underline">NOTES:</p>
-                      <p className="whitespace-pre-wrap">{order.specialInstructions}</p>
-                  </div>
-              )}
-          </div>
-      )}
-
-      {/* Footer */}
-      <div className="mt-4">
-        <div className="border-t-2 border-dashed border-black mb-3"></div>
-        
+      {/* Footer section - pushed to the bottom by flex-grow above */}
+      <div className="mt-auto pt-1.5">
         <div className="text-center">
-            {isPaid ? (
-                <div className="text-xl font-bold uppercase border-2 border-black inline-block px-4 py-2">
-                    ** PAID IN FULL **
-                </div>
-            ) : (
-                <div>
-                    <div className="text-lg">Total: ${order.amountCharged.toFixed(2)}</div>
-                    <div className="text-2xl font-bold mt-1">** DUE: ${balance.toFixed(2)} **</div>
-                </div>
-            )}
+          {balanceDue > 0 ? (
+            <p className="font-bold text-[10pt]">BALANCE DUE: ${balanceDue.toFixed(2)}</p>
+          ) : (
+            <p className="font-bold text-[10pt]">** PAID IN FULL **</p>
+          )}
         </div>
-        
-        <div className="text-center mt-6 text-xs">
-            <p>Empanadas by Rose</p>
-            <p>Order #{order.id.slice(-6)}</p>
-        </div>
+
+        {order.specialInstructions && (
+          <div className="mt-1.5 border-t border-black border-dashed pt-1.5">
+              <p className="font-bold">NOTES:</p>
+              <p className="text-[8pt] whitespace-pre-wrap break-words">{order.specialInstructions}</p>
+          </div>
+        )}
       </div>
     </div>
   );
