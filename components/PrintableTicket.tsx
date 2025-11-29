@@ -1,81 +1,89 @@
-
 import React from 'react';
 import { Order } from '../types';
 
 interface PrintableTicketProps {
-  order: Order;
+    order: Order;
 }
 
 export default function PrintableTicket({ order }: PrintableTicketProps) {
-  const balanceDue = order.amountCharged - (order.amountCollected || 0);
-  const isPartyPlatter = (order.specialInstructions || '').includes("PARTY PLATTER");
+    const isPartyPlatter = (order.specialInstructions || '').includes("PARTY PLATTER");
+    
+    const items = order.items;
 
-  return (
-    <div className="w-full h-full bg-white text-black font-mono text-[11px] leading-tight p-1 flex flex-col box-border">
-      
-      {/* Header: Name and Date */}
-      <div className="text-center mb-1">
-        <h1 className="text-sm font-bold uppercase leading-none mb-1">{order.customerName}</h1>
-        <p className="font-bold">{order.pickupDate} @ {order.pickupTime}</p>
-        {order.deliveryRequired && <p className="font-bold mt-0.5 uppercase">** Delivery **</p>}
-      </div>
+    return (
+        <div className="ticket-container p-4 border border-gray-300 bg-white text-black font-mono text-sm max-w-[350px] mx-auto mb-8 break-inside-avoid">
+            {/* Header: Name and Date */}
+            <div className="text-center mb-2 border-b-2 border-black pb-2">
+                <h1 className="text-xl font-bold uppercase leading-tight mb-1">{order.customerName}</h1>
+                <p className="font-bold text-lg">{order.pickupDate} @ {order.pickupTime}</p>
+                {order.deliveryRequired && (
+                    <div className="mt-1 border border-black p-1 inline-block">
+                        <p className="font-bold uppercase text-lg">** DELIVERY **</p>
+                        <p className="text-xs break-words max-w-[250px]">{order.deliveryAddress}</p>
+                    </div>
+                )}
+            </div>
 
-      {/* Party Platter Banner */}
-      {isPartyPlatter && (
-          <div className="text-center font-black my-1 text-[12px] border-y border-black border-dashed py-0.5">
-              *** PARTY PLATTER ***
-          </div>
-      )}
+            {/* Party Platter Banner */}
+            {isPartyPlatter && (
+                <div className="text-center font-black my-2 text-sm border-y-2 border-black py-1 uppercase bg-gray-100">
+                    *** PARTY PLATTER ***
+                </div>
+            )}
 
-      {/* Dashed Separator */}
-      {!isPartyPlatter && <div className="border-b border-black border-dashed my-1 w-full" />}
+            {/* Items List */}
+            <table className="w-full mb-3 border-collapse">
+                <thead>
+                    <tr className="border-b border-black">
+                        <th className="text-left py-1 w-12">Qty</th>
+                        <th className="text-left py-1">Item</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {items.map((item, idx) => (
+                        <tr key={idx} className="border-b border-gray-300 border-dashed">
+                            <td className="py-1 align-top font-bold text-lg">{item.quantity}</td>
+                            <td className="py-1 align-top font-semibold">
+                                {item.name}
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+            
+            <div className="flex justify-between items-center font-bold text-lg border-t-2 border-black pt-2 mb-2">
+                <span>Total Items:</span>
+                <span>{order.totalMini + order.totalFullSize}</span>
+            </div>
 
-      {/* Columns Headers */}
-      <div className="flex justify-between font-bold mb-1">
-        <span>Item</span>
-        <span>Qty</span>
-      </div>
+            {/* Special Instructions */}
+            {order.specialInstructions && (
+                <div className="border border-black p-2 mb-2 bg-gray-50">
+                    <p className="font-bold underline text-xs uppercase mb-1">Notes:</p>
+                    <p className="whitespace-pre-wrap font-bold">{order.specialInstructions}</p>
+                </div>
+            )}
 
-      {/* Items List */}
-      <div className="flex-grow">
-        <ul className="space-y-1">
-            {order.items.map((item, index) => (
-                <li key={index} className="flex justify-between items-start leading-snug">
-                    <span className="pr-1 break-words max-w-[85%]">{item.name}</span>
-                    <span className="font-bold">{item.quantity}</span>
-                </li>
-            ))}
-        </ul>
-      </div>
-
-      {/* Footer */}
-      <div className="mt-2">
-          {/* Delivery Address */}
-          {order.deliveryRequired && order.deliveryAddress && (
-              <div className="mb-2 text-[10px] leading-3 border-l-2 border-black pl-1 my-1">
-                  <span className="font-bold block">DELIVER TO:</span>
-                  <span className="break-words">{order.deliveryAddress}</span>
-                  {order.phoneNumber && <span className="block mt-0.5">{order.phoneNumber}</span>}
-              </div>
-          )}
-
-          {/* Notes */}
-          {order.specialInstructions && (
-              <div className="mb-2 text-[10px] leading-3 border-l-2 border-black pl-1 my-1 italic">
-                  {order.specialInstructions}
-              </div>
-          )}
-
-          <div className="border-t border-black border-dashed my-1 w-full" />
-          
-          <div className="text-center font-bold text-xs py-1">
-              {balanceDue > 0.01 ? (
-                  <span>** BALANCE: ${balanceDue.toFixed(2)} **</span>
-              ) : (
-                  <span>** PAID IN FULL **</span>
-              )}
-          </div>
-      </div>
-    </div>
-  );
+            {/* Footer / Payment Info */}
+            <div className="text-center text-xs border-t border-black pt-2 mt-2">
+                <div className="flex justify-between mb-1">
+                    <span>Total:</span>
+                    <span>${order.amountCharged.toFixed(2)}</span>
+                </div>
+                {order.amountCollected && order.amountCollected > 0 ? (
+                   <div className="flex justify-between mb-1">
+                        <span>Paid:</span>
+                        <span>-${order.amountCollected.toFixed(2)}</span>
+                   </div> 
+                ) : null}
+                <div className="flex justify-between font-bold text-sm">
+                    <span>Due:</span>
+                    <span>${(order.amountCharged - (order.amountCollected || 0)).toFixed(2)}</span>
+                </div>
+                
+                <p className="mt-3 italic">Thank you for your order!</p>
+                <p className="font-bold">Empanadas by Rose</p>
+            </div>
+        </div>
+    );
 }
