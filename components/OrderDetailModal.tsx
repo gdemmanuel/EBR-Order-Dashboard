@@ -1,8 +1,9 @@
+
 import React, { useState, useCallback, useEffect } from 'react';
 import { Order, FollowUpStatus, ApprovalStatus, AppSettings, PaymentStatus } from '../types';
 import { generateMessageForOrder } from '../services/geminiService';
 import { subscribeToSettings } from '../services/dbService';
-import { CalendarIcon, ClockIcon, UserIcon, PhoneIcon, MapPinIcon, CurrencyDollarIcon, SparklesIcon, XMarkIcon, PencilIcon, ClipboardDocumentCheckIcon, PaperAirplaneIcon, CreditCardIcon, ArrowTopRightOnSquareIcon, InstagramIcon, ChatBubbleOvalLeftEllipsisIcon, FacebookIcon, CheckCircleIcon, XCircleIcon, TrashIcon, TruckIcon } from './icons/Icons';
+import { CalendarIcon, ClockIcon, UserIcon, PhoneIcon, MapPinIcon, CurrencyDollarIcon, SparklesIcon, XMarkIcon, PencilIcon, ClipboardDocumentCheckIcon, PaperAirplaneIcon, CreditCardIcon, ArrowTopRightOnSquareIcon, InstagramIcon, ChatBubbleOvalLeftEllipsisIcon, FacebookIcon, CheckCircleIcon, XCircleIcon, TrashIcon, TruckIcon, EnvelopeIcon } from './icons/Icons';
 
 interface OrderDetailModalProps {
   order: Order;
@@ -52,6 +53,8 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
   const mapsUrl = order.deliveryAddress ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.deliveryAddress)}` : '#';
 
   const isPartyPlatter = (order.specialInstructions || '').includes("PARTY PLATTER");
+
+  const emailDisplay = order.email || (order.contactMethod && order.contactMethod.includes('Email: ') ? order.contactMethod.split('Email: ')[1].replace(')', '').trim() : null);
 
   const handleGenerateMessage = useCallback(async () => {
     setLoadingAction('message');
@@ -268,6 +271,7 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
               <div className="space-y-4">
                   <DetailItem icon={<UserIcon className="w-5 h-5" />} label="Customer" value={`${order.customerName} ${order.items.length > 0 && order.id.length > 10 ? `(Ordered: ${new Date(parseInt(order.id)).toLocaleDateString()})` : ''}`} />
                   <DetailItem icon={<PhoneIcon className="w-5 h-5" />} label="Phone" value={order.phoneNumber} />
+                  <DetailItem icon={<EnvelopeIcon className="w-5 h-5" />} label="Email" value={emailDisplay} />
                   <DetailItem icon={<ChatBubbleOvalLeftEllipsisIcon className="w-5 h-5" />} label="Contact Method" value={order.contactMethod} />
                    {order.deliveryRequired && order.deliveryAddress && (
                       <div className="flex items-start space-x-3">

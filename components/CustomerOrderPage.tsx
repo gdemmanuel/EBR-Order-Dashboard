@@ -1,4 +1,5 @@
 
+// ... existing imports
 import React, { useState, useMemo, useEffect } from 'react';
 import { Order, Flavor, PricingSettings, AppSettings, ContactMethod, PaymentStatus, FollowUpStatus, ApprovalStatus, OrderItem, MenuPackage } from '../types';
 import { saveOrderToDb } from '../services/dbService';
@@ -11,6 +12,7 @@ import {
 } from './icons/Icons';
 import PackageBuilderModal from './PackageBuilderModal';
 
+// ... existing interfaces and helpers ...
 interface CustomerOrderPageProps {
     empanadaFlavors: Flavor[];
     fullSizeEmpanadaFlavors: Flavor[];
@@ -45,6 +47,7 @@ interface SelectedPackage {
     items: { name: string; quantity: number }[];
 }
 
+// ... existing PackageCard and FlavorCard components ...
 // Component for rendering a package card with "Empanadas by Rose" style
 const PackageCard = ({ pkg, onClick }: { pkg: MenuPackage; onClick: () => void }) => (
     <div 
@@ -333,6 +336,7 @@ export default function CustomerOrderPage({
                 id: Date.now().toString(),
                 customerName,
                 phoneNumber,
+                email: email, // Explicitly save email
                 contactMethod: email ? `Website (Email: ${email})` : 'Website Form',
                 pickupDate: formattedDate,
                 pickupTime: formattedTime || 'TBD',

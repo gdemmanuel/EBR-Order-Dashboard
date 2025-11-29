@@ -1,4 +1,5 @@
 
+// ... existing imports
 import React, { useState, useEffect, useMemo } from 'react';
 import { Order, OrderItem, ContactMethod, PaymentStatus, FollowUpStatus, ApprovalStatus, PricingSettings, Flavor, MenuPackage } from '../types';
 import { TrashIcon, PlusIcon, XMarkIcon, ShoppingBagIcon, CogIcon, ArrowUturnLeftIcon, ClockIcon, UserIcon } from './icons/Icons';
@@ -9,8 +10,7 @@ import PackageBuilderModal from './PackageBuilderModal';
 import { AppSettings } from '../services/dbService';
 import { generateTimeSlots, normalizeDateStr, parseOrderDateTime } from '../utils/dateUtils';
 
-// ... (Imports unchanged)
-
+// ... existing interfaces ...
 interface OrderFormModalProps {
     order?: Order;
     onClose: () => void;
@@ -24,7 +24,7 @@ interface OrderFormModalProps {
     existingOrders?: Order[]; // Needed for smart slot calc
 }
 
-// ... (Interfaces and Helpers unchanged)
+// ... existing helpers ...
 interface FormOrderItem {
     name: string;
     quantity: number | string;
@@ -216,9 +216,9 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         const customers = new Map<string, {name: string, phone: string | null, method: string, address: string | null, email?: string}>();
         existingOrders.forEach(o => {
             if (o.customerName && !customers.has(o.customerName.toLowerCase())) {
-                // Try to extract email from contactMethod if stored as "Website (Email: ...)"
-                let extractedEmail = '';
-                if (o.contactMethod && o.contactMethod.includes('Email: ')) {
+                // Check direct email first, then fallback to extraction
+                let extractedEmail = o.email || '';
+                if (!extractedEmail && o.contactMethod && o.contactMethod.includes('Email: ')) {
                     extractedEmail = o.contactMethod.split('Email: ')[1].replace(')', '').trim();
                 }
 
@@ -266,6 +266,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         setShowCustomerSuggestions(false);
     };
 
+    // ... existing handlers ...
     const handlePhoneNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const formatted = formatPhoneNumber(e.target.value);
         setPhoneNumber(formatted);
@@ -331,19 +332,24 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         setPickupTime(formatTimeToHHMM(data.pickupTime));
         const contact = data.contactMethod || '';
         
-        // Try to extract email if stored in contactMethod
-        if (contact.includes('Email: ')) {
-             const extractedEmail = contact.split('Email: ')[1].replace(')', '').trim();
-             setEmail(extractedEmail);
-             setContactMethod('Website Form'); 
+        // Priority: Explicit email field > Extracted from Contact Method
+        let emailVal = data.email || '';
+        if (!emailVal && contact.includes('Email: ')) {
+             emailVal = contact.split('Email: ')[1].replace(')', '').trim();
+        }
+        setEmail(emailVal);
+
+        if (Object.values(ContactMethod).includes(contact as ContactMethod)) {
+            setContactMethod(contact);
+            setCustomContactMethod('');
         } else {
-             setEmail('');
-             if (Object.values(ContactMethod).includes(contact as ContactMethod)) {
-                setContactMethod(contact);
-                setCustomContactMethod('');
+            // Check if it was "Website (Email...)" which is effectively website/other
+            if (contact.startsWith('Website')) {
+                 setContactMethod('Other');
+                 setCustomContactMethod('Website');
             } else {
-                setContactMethod('Other');
-                setCustomContactMethod(contact);
+                 setContactMethod('Other');
+                 setCustomContactMethod(contact);
             }
         }
 
@@ -382,6 +388,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         setInitialLoadComplete(true);
     };
 
+    // ... existing use effects ...
     useEffect(() => {
         if (order) populateForm(order);
         else { resetForm(); setInitialLoadComplete(true); }
@@ -442,7 +449,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         } else setPaymentStatus(PaymentStatus.PENDING);
     }, [amountCollected, amountCharged, pickupDate]);
     
-    // ... (addItem, removeItem, handleSalsaChange, handleDeleteClick, handlePackageConfirm, toggleAutoPrice, handleSubmit unchanged)
+    // ... existing helper functions (addItem, removeItem, etc.) ...
     const handleItemChange = (type: 'mini' | 'full' | 'special', index: number, field: keyof FormOrderItem, value: string | number) => {
         markDirty();
         let items: FormOrderItem[];
@@ -583,7 +590,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
 
         const finalContactMethod = contactMethod === 'Other' ? (customContactMethod.trim() || 'Other') : contactMethod;
         
-        // Append Email to Contact Method if available
+        // Use email if provided, otherwise check if it was already in contact method
         const finalContactString = email ? `${finalContactMethod} (Email: ${email})` : finalContactMethod;
 
         const orderDateObj = pickupDate ? new Date(`${pickupDate}T00:00:00`) : new Date();
@@ -592,6 +599,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         const orderData = {
             customerName,
             phoneNumber,
+            email: email || null, // Save explicit email field
             pickupDate: formattedDate,
             pickupTime: formattedTime,
             contactMethod: finalContactString,
@@ -658,6 +666,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                             <label className="block text-sm font-medium text-brand-brown/90">Email</label>
                             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown" />
                         </div>
+                        {/* ... Rest of form remains the same ... */}
                         <div>
                            <label className="block text-sm font-medium text-brand-brown/90">Contact Method</label>
                             <select value={contactMethod} onChange={e => setContactMethod(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown">
