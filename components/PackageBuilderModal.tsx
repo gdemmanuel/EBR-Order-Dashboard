@@ -1,19 +1,18 @@
-
 import React, { useState, useMemo } from 'react';
 import { MenuPackage, Flavor } from '../types';
 import { XMarkIcon, ChevronDownIcon, ArrowUturnLeftIcon, CheckCircleIcon } from './icons/Icons';
 
 interface PackageBuilderModalProps {
     pkg: MenuPackage;
-    standardFlavors: Flavor[];
-    specialFlavors: Flavor[];
+    standardFlavors?: Flavor[];
+    specialFlavors?: Flavor[];
     salsas?: Flavor[];
     onClose: () => void;
     onConfirm: (items: { name: string; quantity: number }[]) => void;
     className?: string;
 }
 
-export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavors, salsas = [], onClose, onConfirm, className = "h-auto" }: PackageBuilderModalProps) {
+export default function PackageBuilderModal({ pkg, standardFlavors = [], specialFlavors = [], salsas = [], onClose, onConfirm, className = "h-auto" }: PackageBuilderModalProps) {
     const [builderSelections, setBuilderSelections] = useState<{ [flavorName: string]: number }>({});
     const [salsaSelections, setSalsaSelections] = useState<{ [salsaName: string]: number }>({});
     const [flavorCategory, setFlavorCategory] = useState<'standard' | 'special'>('standard');

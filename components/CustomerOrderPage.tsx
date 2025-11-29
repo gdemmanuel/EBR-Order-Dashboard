@@ -744,8 +744,8 @@ export default function CustomerOrderPage({
                                 <ShoppingBagIcon className="w-6 h-6" />
                             </div>
                             <div>
-                                <h2 className="text-2xl font-serif text-brand-brown">Order Here</h2>
-                                <p className="text-xs text-gray-500 mt-1 font-medium">Choose a package below to start your order.</p>
+                                <h2 className="text-2xl font-serif text-brand-brown">Pre-Order Here</h2>
+                                <p className="text-xs text-gray-500 mt-1 font-medium">Choose a package below to start your order. Please allow 2-3 days pre-order.</p>
                             </div>
                         </div>
                         
