@@ -284,7 +284,7 @@ export default function OrderList({
                                                     </span>
                                                 )}
                                             </div>
-                                            <div className="text-xs text-gray-500 truncate max-w-[200px]">{itemsSummary}</div>
+                                            <div className="text-xs text-gray-500 whitespace-normal">{itemsSummary}</div>
                                         </td>
                                         <td className="px-4 py-4 whitespace-nowrap">
                                             <div className="font-medium text-brand-brown">${order.amountCharged.toFixed(2)}</div>
