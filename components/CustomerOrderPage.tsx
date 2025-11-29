@@ -100,50 +100,8 @@ const FlavorCard = ({ flavor }: { flavor: Flavor }) => (
     </div>
 );
 
+
 export default function CustomerOrderPage({
-
-  // Auto-resize iframe height for embedding
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const sendHeight = () => {
-      try {
-        const height = document.body.scrollHeight;
-        if (window.parent && window.parent !== window) {
-          window.parent.postMessage({ type: "embedHeight", height }, "*");
-        }
-      } catch (e) {
-        console.debug("Embed resize warning:", e);
-      }
-    };
-
-    let observer = null;
-
-    try {
-      if (typeof ResizeObserver !== 'undefined') {
-        observer = new ResizeObserver(sendHeight);
-        observer.observe(document.body);
-      } else {
-        window.addEventListener('resize', sendHeight);
-        const i = setInterval(sendHeight, 1000);
-        return () => {
-          window.removeEventListener('resize', sendHeight);
-          clearInterval(i);
-        };
-      }
-    } catch (e) {
-      console.warn("ResizeObserver init failed", e);
-    }
-
-    setTimeout(sendHeight, 100);
-    setTimeout(sendHeight, 1000);
-
-    return () => {
-      if (observer) observer.disconnect();
-    };
-  }, []);
-
-
     empanadaFlavors = [],
     fullSizeEmpanadaFlavors = [],
     pricing,
@@ -151,7 +109,6 @@ export default function CustomerOrderPage({
     busySlots,
     motd
 }: CustomerOrderPageProps) {
-    
     // Auto-resize iframe height for embedding - Robust Implementation
     useEffect(() => {
         if (typeof window === 'undefined') return;
@@ -196,7 +153,7 @@ export default function CustomerOrderPage({
         };
     }, []);
 
-    // --- State ---
+// --- State ---
     const [customerName, setCustomerName] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
     const [email, setEmail] = useState(''); 
