@@ -4,7 +4,7 @@ import { Order, Expense, AppSettings, WorkShift } from '../types';
 import { calculateSupplyCost } from '../utils/pricingUtils';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { parseOrderDateTime } from '../utils/dateUtils';
-import { TrashIcon, CurrencyDollarIcon, ShoppingBagIcon, UsersIcon, PresentationChartBarIcon, ChartPieIcon, ClockIcon, XMarkIcon, ListBulletIcon } from './icons/Icons';
+import { TrashIcon, CurrencyDollarIcon, ShoppingBagIcon, UsersIcon, PresentationChartBarIcon, ChartPieIcon, XMarkIcon } from './icons/Icons';
 
 interface ReportsViewProps {
     orders: Order[];
@@ -183,7 +183,20 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
     const handleLaborClick = (data: any) => { if (!data || !data.name) return; const employeeName = data.name; const relevantShifts = filteredData.shifts.filter(s => s.employeeName === employeeName); setDrillDownData({ isOpen: true, title: `Shift Details - ${employeeName}`, type: 'shifts', items: relevantShifts.sort((a, b) => b.date.localeCompare(a.date)) }); };
     const handleProductClick = (data: any) => { if (!data || !data.name) return; const productName = data.name; const relevantOrders = filteredData.orders.filter(o => o.items.some(i => i.name.includes(productName))); setDrillDownData({ isOpen: true, title: `Orders containing "${productName}"`, type: 'orders', items: relevantOrders }); };
     const handleDayClick = (data: any) => { if (!data || !data.name) return; const dayName = data.name; const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']; const dayIndex = days.indexOf(dayName); const relevantOrders = filteredData.orders.filter(o => { const d = parseOrderDateTime(o); return !isNaN(d.getTime()) && d.getDay() === dayIndex; }); setDrillDownData({ isOpen: true, title: `Orders for ${dayName}s`, type: 'orders', items: relevantOrders }); };
-    const handlePackageClick = (data: any) => { if (!data || !data.name) return; const pkgName = data.name; const relevantOrders = filteredData.orders.filter(o => o.originalPackages?.includes(pkgName)); setDrillDownData({ isOpen: true, title: `Orders with Package: "${pkgName}"`, type: 'orders', items: relevantOrders }); };
+    
+    // Updated Logic for Package Clicks (Handles both inferred and explicit)
+    const handlePackageClick = (data: any) => { 
+        if (!data || !data.name) return; 
+        const pkgName = data.name; 
+        const relevantOrders = filteredData.orders.filter(o => {
+            // Check explicit
+            if (o.originalPackages?.includes(pkgName)) return true;
+            // Check inferred
+            if (o.items.some(i => i.name === pkgName)) return true;
+            return false;
+        });
+        setDrillDownData({ isOpen: true, title: `Orders with Package: "${pkgName}"`, type: 'orders', items: relevantOrders }); 
+    };
 
     // --- Financials Logic ---
     const financials = useMemo(() => {
@@ -213,13 +226,24 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
     const productStats = useMemo(() => { const itemMap = new Map<string, number>(); filteredData.orders.forEach(order => { order.items.forEach(item => { const name = item.name.replace('Full ', '').replace(' (4oz)', '').replace(' (8oz)', ''); itemMap.set(name, (itemMap.get(name) || 0) + item.quantity); }); }); return Array.from(itemMap.entries()).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, 10); }, [filteredData.orders]);
     const dayStats = useMemo(() => { const dayCounts = { 'Sun': 0, 'Mon': 0, 'Tue': 0, 'Wed': 0, 'Thu': 0, 'Fri': 0, 'Sat': 0 }; const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']; filteredData.orders.forEach(order => { const date = parseOrderDateTime(order); if (!isNaN(date.getTime())) { const dayName = days[date.getDay()]; (dayCounts as any)[dayName] = ((dayCounts as any)[dayName] || 0) + 1; } }); return days.map(d => ({ name: d, count: (dayCounts as any)[d] })); }, [filteredData.orders]);
 
-    // --- Package Stats Logic ---
+    // --- Package Stats Logic (Enhanced) ---
     const packageStats = useMemo(() => {
         const pkgMap = new Map<string, number>();
+        const knownPackages = new Set((settings.pricing.packages || []).map(p => p.name));
+
         filteredData.orders.forEach(order => {
+            // 1. Check explicit "originalPackages" metadata (New Orders)
             if (order.originalPackages && order.originalPackages.length > 0) {
                 order.originalPackages.forEach(pkgName => {
                     pkgMap.set(pkgName, (pkgMap.get(pkgName) || 0) + 1);
+                });
+            } else {
+                // 2. Fallback: Check items for names that match Package Names (Legacy Orders)
+                // This infers package sales from historical data
+                order.items.forEach(item => {
+                    if (knownPackages.has(item.name)) {
+                        pkgMap.set(item.name, (pkgMap.get(item.name) || 0) + 1);
+                    }
                 });
             }
         });
@@ -227,7 +251,7 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
             .map(([name, count]) => ({ name, count }))
             .sort((a, b) => b.count - a.count)
             .slice(0, 10);
-    }, [filteredData.orders]);
+    }, [filteredData.orders, settings.pricing.packages]);
 
     // ... (Helpers, expenseBreakdownData, pnlChartData unchanged) ...
     const sortedExpenses = useMemo(() => { const items = [...filteredData.expenses]; items.sort((a, b) => { let aVal: any = a[sortConfig.key]; let bVal: any = b[sortConfig.key]; if (sortConfig.key === 'totalCost') { aVal = a.totalCost || 0; bVal = b.totalCost || 0; } if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1; if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1; return 0; }); return items; }, [filteredData.expenses, sortConfig]);
