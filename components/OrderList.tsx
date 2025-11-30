@@ -303,4 +303,34 @@ export default function OrderList({
                                                     <PrinterIcon className="w-5 h-5 mx-auto" />
                                                 </div>
                                             ) : (
-                                                <div className="text-gray-200 mx-auto" title="Not Printed
+                                                <div className="text-gray-200 mx-auto" title="Not Printed">
+                                                    <PrinterIcon className="w-5 h-5 mx-auto" />
+                                                </div>
+                                            )}
+                                        </td>
+                                        <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium" onClick={(e) => e.stopPropagation()}>
+                                            <div className="flex justify-end gap-2">
+                                                {onDelete && (
+                                                    <button 
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            if(window.confirm('Delete this order permanently?')) onDelete(order.id);
+                                                        }}
+                                                        className="text-gray-400 hover:text-red-600 p-1 hover:bg-red-50 rounded"
+                                                        title="Delete"
+                                                    >
+                                                        <TrashIcon className="w-5 h-5" />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })
+                        )}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+}
