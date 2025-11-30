@@ -210,20 +210,28 @@ export const softDeleteOrder = async (order: Order) => {
         deletedAt: new Date().toISOString()
     };
     
+    // Sanitize to remove any undefined fields before writing to Firestore
+    const safeOrder = JSON.parse(JSON.stringify(updatedOrder));
+    
     // Update the existing document
-    await setDoc(doc(db, ORDERS_COLLECTION, order.id), updatedOrder);
+    await setDoc(doc(db, ORDERS_COLLECTION, order.id), safeOrder);
 };
 
 // Restore: Unflag as deleted
 export const restoreOrder = async (order: Order | DeletedOrder) => {
     const { deleted, deletedAt, ...rest } = order;
+    
+    // Construct the restored order without the deleted flags
     const restoredOrder: Order = {
         ...rest,
-        deleted: false,
-        deletedAt: undefined
+        deleted: false
     };
     
-    await setDoc(doc(db, ORDERS_COLLECTION, order.id), restoredOrder);
+    // Sanitize to remove any undefined fields (like optional properties that aren't set)
+    // This prevents "FirebaseError: Unsupported field value: undefined"
+    const safeOrder = JSON.parse(JSON.stringify(restoredOrder));
+    
+    await setDoc(doc(db, ORDERS_COLLECTION, order.id), safeOrder);
 };
 
 // Cleanup: Delete flagged orders older than 7 days
