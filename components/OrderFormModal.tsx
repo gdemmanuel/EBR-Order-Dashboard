@@ -449,7 +449,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         } else setPaymentStatus(PaymentStatus.PENDING);
     }, [amountCollected, amountCharged, pickupDate]);
     
-    // ... existing helper functions (addItem, removeItem, etc.) ...
+    // ... existing helper functions (addItem, removeItem, etc. unchanged) ...
     const handleItemChange = (type: 'mini' | 'full' | 'special', index: number, field: keyof FormOrderItem, value: string | number) => {
         markDirty();
         let items: FormOrderItem[];

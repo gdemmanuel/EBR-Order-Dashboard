@@ -49,7 +49,7 @@ interface SelectedPackage {
 
 // ... existing PackageCard and FlavorCard components ...
 // Component for rendering a package card with "Empanadas by Rose" style
-const PackageCard = ({ pkg, onClick }: { pkg: MenuPackage; onClick: () => void }) => (
+const PackageCard: React.FC<{ pkg: MenuPackage; onClick: () => void }> = ({ pkg, onClick }) => (
     <div 
         className="group relative bg-white border border-brand-tan rounded-xl p-4 hover:shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between h-full overflow-hidden hover:border-brand-orange/30" 
         onClick={onClick}
@@ -79,7 +79,7 @@ const PackageCard = ({ pkg, onClick }: { pkg: MenuPackage; onClick: () => void }
 );
 
 // Component for Flavor Card
-const FlavorCard = ({ flavor }: { flavor: Flavor }) => (
+const FlavorCard: React.FC<{ flavor: Flavor }> = ({ flavor }) => (
     <div className="flex flex-col p-3 bg-white border border-brand-tan/40 rounded-lg shadow-sm hover:shadow-md transition-shadow h-full">
         <div className="flex items-start justify-between gap-2">
             <span className="font-serif font-bold text-brand-brown text-base leading-tight break-words">{flavor.name}</span>
@@ -231,7 +231,7 @@ export default function CustomerOrderPage({
                 if (existing) { existing.quantity += pkgItem.quantity; } else { flatItems.push({ name: pkgItem.name, quantity: pkgItem.quantity }); }
             });
         });
-        Object.entries(cartSalsas).forEach(([name, quantity]) => {
+        Object.entries(cartSalsas).forEach(([name, quantity]: [string, number]) => {
             if (quantity > 0) {
                 flatItems.push({ name, quantity });
                 const salsaDef = pricing?.salsas?.find(s => s.name === name);
@@ -490,7 +490,7 @@ export default function CustomerOrderPage({
                     {(cartPackages.length > 0 || Object.keys(cartSalsas).length > 0) && (
                         <div className="flex items-center gap-3 animate-fade-in cursor-pointer group" onClick={scrollToSelection} title="View Your Selection">
                             <div className="text-right hidden sm:block"><span className="block text-xs text-gray-500 uppercase tracking-wider group-hover:text-brand-orange transition-colors">Estimated Total</span><span className="block text-lg font-serif font-bold text-brand-orange leading-none">{formatPrice(estimatedTotal)}</span></div>
-                            <div className="bg-brand-orange text-white px-3 py-2 rounded-lg shadow-sm flex items-center gap-2 group-hover:bg-opacity-90 transition-all"><ShoppingBagIcon className="w-5 h-5" /><span className="font-bold">{cartPackages.length + Object.values(cartSalsas).reduce((a,b)=>a+b, 0)}</span></div>
+                            <div className="bg-brand-orange text-white px-3 py-2 rounded-lg shadow-sm flex items-center gap-2 group-hover:bg-opacity-90 transition-all"><ShoppingBagIcon className="w-5 h-5" /><span className="font-bold">{cartPackages.length + Object.values(cartSalsas).reduce((a: number, b: number) => a + b, 0)}</span></div>
                         </div>
                     )}
                 </div>
