@@ -111,34 +111,38 @@ export default function AdminDashboard({
 
     // --- Derived Data ---
 
-    const allOrders = useMemo(() => orders, [orders]);
+    // Split orders into Active and Deleted lists
+    const { visibleOrders, deletedOrders } = useMemo(() => {
+        return {
+            visibleOrders: orders.filter(o => !o.deleted),
+            deletedOrders: orders.filter(o => o.deleted)
+        };
+    }, [orders]);
 
-    // 1. Pending Orders
+    // 1. Pending Orders (from visible only)
     const pendingOrders = useMemo(() => 
-        allOrders.filter(o => o.approvalStatus === ApprovalStatus.PENDING)
-    , [allOrders]);
+        visibleOrders.filter(o => o.approvalStatus === ApprovalStatus.PENDING)
+    , [visibleOrders]);
 
-    // 2. Cancelled Orders
+    // 2. Cancelled Orders (from visible only)
     const cancelledOrders = useMemo(() => 
-        allOrders.filter(o => o.approvalStatus === ApprovalStatus.CANCELLED || o.approvalStatus === ApprovalStatus.DENIED)
-    , [allOrders]);
+        visibleOrders.filter(o => o.approvalStatus === ApprovalStatus.CANCELLED || o.approvalStatus === ApprovalStatus.DENIED)
+    , [visibleOrders]);
 
-    // 3. Active Orders (Approved)
+    // 3. Active Orders (Approved, from visible only)
     const activeOrders = useMemo(() => 
-        allOrders.filter(o => o.approvalStatus === ApprovalStatus.APPROVED)
-    , [allOrders]);
+        visibleOrders.filter(o => o.approvalStatus === ApprovalStatus.APPROVED)
+    , [visibleOrders]);
 
     // 4. Date-Filtered Active Orders (For Dashboard Stats & Prep List)
     const dateFilteredDashboardOrders = useMemo(() => {
         let result = activeOrders;
         if (dateRange.start) {
-            // Explicitly parse YYYY-MM-DD to local time components to avoid UTC offsets
             const [y, m, d] = dateRange.start.split('-').map(Number);
             const start = new Date(y, m - 1, d, 0, 0, 0, 0);
             result = result.filter(o => parseOrderDateTime(o) >= start);
         }
         if (dateRange.end) {
-            // Explicitly parse YYYY-MM-DD to local time components
             const [y, m, d] = dateRange.end.split('-').map(Number);
             const end = new Date(y, m - 1, d, 23, 59, 59, 999);
             result = result.filter(o => parseOrderDateTime(o) <= end);
@@ -200,7 +204,7 @@ export default function AdminDashboard({
     };
 
     const handleDeleteOrder = async (id: string) => {
-        const orderToDelete = allOrders.find(o => o.id === id);
+        const orderToDelete = visibleOrders.find(o => o.id === id);
         if (orderToDelete) {
             await softDeleteOrder(orderToDelete);
             
@@ -213,14 +217,14 @@ export default function AdminDashboard({
     };
 
     const handleUpdateStatus = async (id: string, status: FollowUpStatus, updates?: Partial<Order>) => {
-        const order = allOrders.find(o => o.id === id);
+        const order = visibleOrders.find(o => o.id === id);
         if (order) {
             await saveOrderToDb({ ...order, ...updates, followUpStatus: status });
         }
     };
 
     const handleApproval = async (id: string, approved: boolean) => {
-        const order = allOrders.find(o => o.id === id);
+        const order = visibleOrders.find(o => o.id === id);
         if (!order) return;
         const newStatus = approved ? ApprovalStatus.APPROVED : ApprovalStatus.DENIED;
         await saveOrderToDb({ ...order, approvalStatus: newStatus });
@@ -580,6 +584,7 @@ export default function AdminDashboard({
 
             {isTrashOpen && (
                 <TrashBinModal 
+                    deletedOrders={deletedOrders}
                     onClose={() => setIsTrashOpen(false)}
                 />
             )}

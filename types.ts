@@ -58,6 +58,10 @@ export interface Order {
   specialInstructions: string | null;
   approvalStatus: ApprovalStatus;
   hasPrinted?: boolean; // Track if ticket has been printed
+  
+  // Soft Delete Flags
+  deleted?: boolean;
+  deletedAt?: string;
 }
 
 export interface DeletedOrder extends Order {

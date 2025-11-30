@@ -1,38 +1,22 @@
-
 import React, { useEffect, useState } from 'react';
-import { DeletedOrder } from '../types';
-import { restoreOrder, cleanupTrash, subscribeToDeletedOrders } from '../services/dbService';
-import { XMarkIcon, TrashIcon, ArrowUturnLeftIcon, ExclamationCircleIcon, ClockIcon } from './icons/Icons';
+import { Order } from '../types';
+import { restoreOrder, cleanupTrash } from '../services/dbService';
+import { XMarkIcon, TrashIcon, ArrowUturnLeftIcon, ClockIcon } from './icons/Icons';
 
 interface TrashBinModalProps {
+    deletedOrders: Order[];
     onClose: () => void;
 }
 
-export default function TrashBinModal({ onClose }: TrashBinModalProps) {
-    const [deletedOrders, setDeletedOrders] = useState<DeletedOrder[]>([]);
+export default function TrashBinModal({ deletedOrders, onClose }: TrashBinModalProps) {
     const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        // Subscribe to deleted orders collection
-        const unsubscribe = subscribeToDeletedOrders(
-            (orders) => {
-                setDeletedOrders(orders);
-                setError(null);
-            },
-            (err) => {
-                console.error("Trash Bin Error:", err);
-                setError("Failed to load trash bin contents.");
-            }
-        );
-        
-        // Trigger auto-cleanup on open
+        // Trigger cleanup on open to keep trash tidy
         cleanupTrash();
-
-        return () => unsubscribe();
     }, []);
 
-    const handleRestore = async (order: DeletedOrder) => {
+    const handleRestore = async (order: Order) => {
         setIsLoading(true);
         try {
             await restoreOrder(order);
@@ -44,7 +28,8 @@ export default function TrashBinModal({ onClose }: TrashBinModalProps) {
         }
     };
 
-    const getDaysRemaining = (deletedAt: string) => {
+    const getDaysRemaining = (deletedAt?: string) => {
+        if (!deletedAt) return 7;
         const deleteDate = new Date(deletedAt);
         const expiryDate = new Date(deleteDate);
         expiryDate.setDate(deleteDate.getDate() + 7);
@@ -56,10 +41,12 @@ export default function TrashBinModal({ onClose }: TrashBinModalProps) {
         return Math.max(0, diffDays);
     };
 
-    // Sort orders: Newest deleted first
-    const sortedOrders = [...deletedOrders].sort((a, b) => 
-        new Date(b.deletedAt).getTime() - new Date(a.deletedAt).getTime()
-    );
+    // Sort: Newest deleted first
+    const sortedOrders = [...deletedOrders].sort((a, b) => {
+        const da = a.deletedAt ? new Date(a.deletedAt).getTime() : 0;
+        const db = b.deletedAt ? new Date(b.deletedAt).getTime() : 0;
+        return db - da;
+    });
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[90] p-4 animate-fade-in">
@@ -80,12 +67,6 @@ export default function TrashBinModal({ onClose }: TrashBinModalProps) {
                 </header>
 
                 <div className="overflow-y-auto p-6 flex-grow bg-gray-50/50">
-                    {error && (
-                        <div className="bg-red-50 text-red-600 p-3 rounded mb-4 flex items-center gap-2 text-sm border border-red-200">
-                            <ExclamationCircleIcon className="w-5 h-5" /> {error}
-                        </div>
-                    )}
-
                     {sortedOrders.length === 0 ? (
                         <div className="text-center py-12 text-gray-400">
                             <TrashIcon className="w-12 h-12 mx-auto mb-3 opacity-20" />

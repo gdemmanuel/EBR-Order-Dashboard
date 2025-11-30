@@ -91,22 +91,11 @@ export const subscribeToOrders = (
     status: ApprovalStatus = ApprovalStatus.APPROVED,
     onError?: (error: FirestoreError) => void
 ) => {
+    // We fetch ALL orders (including deleted ones) so the client can filter/display them
     const q = query(collection(db, ORDERS_COLLECTION));
     return onSnapshot(q, (snapshot: QuerySnapshot<DocumentData>) => {
         const orders: Order[] = [];
         snapshot.forEach((doc) => orders.push(doc.data() as Order));
-        onUpdate(orders);
-    }, onError);
-};
-
-export const subscribeToDeletedOrders = (
-    onUpdate: (orders: DeletedOrder[]) => void,
-    onError?: (error: FirestoreError) => void
-) => {
-    const q = query(collection(db, DELETED_ORDERS_COLLECTION));
-    return onSnapshot(q, (snapshot: QuerySnapshot<DocumentData>) => {
-        const orders: DeletedOrder[] = [];
-        snapshot.forEach((doc) => orders.push(doc.data() as DeletedOrder));
         onUpdate(orders);
     }, onError);
 };
@@ -213,43 +202,48 @@ export const deleteOrderFromDb = async (orderId: string) => {
     await deleteDoc(doc(db, ORDERS_COLLECTION, orderId));
 };
 
-// Soft Delete: Move to deleted_orders with timestamp
+// Soft Delete: Flag as deleted in the main collection
 export const softDeleteOrder = async (order: Order) => {
-    const deletedOrder: DeletedOrder = {
+    const updatedOrder: Order = {
         ...order,
+        deleted: true,
         deletedAt: new Date().toISOString()
     };
     
-    const batch = writeBatch(db);
-    batch.set(doc(db, DELETED_ORDERS_COLLECTION, order.id), deletedOrder);
-    batch.delete(doc(db, ORDERS_COLLECTION, order.id));
-    await batch.commit();
+    // Update the existing document
+    await setDoc(doc(db, ORDERS_COLLECTION, order.id), updatedOrder);
 };
 
-// Restore: Move back to orders
-export const restoreOrder = async (order: DeletedOrder) => {
-    const { deletedAt, ...originalOrder } = order;
+// Restore: Unflag as deleted
+export const restoreOrder = async (order: Order | DeletedOrder) => {
+    const { deleted, deletedAt, ...rest } = order;
+    const restoredOrder: Order = {
+        ...rest,
+        deleted: false,
+        deletedAt: undefined
+    };
     
-    const batch = writeBatch(db);
-    batch.set(doc(db, ORDERS_COLLECTION, originalOrder.id), originalOrder);
-    batch.delete(doc(db, DELETED_ORDERS_COLLECTION, originalOrder.id));
-    await batch.commit();
+    await setDoc(doc(db, ORDERS_COLLECTION, order.id), restoredOrder);
 };
 
-// Cleanup: Delete orders older than 7 days from trash
+// Cleanup: Delete flagged orders older than 7 days
 export const cleanupTrash = async () => {
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
     
-    const q = query(collection(db, DELETED_ORDERS_COLLECTION));
+    // Query items flagged as deleted
+    // Note: This query requires an index on 'deleted' if it gets large, 
+    // but works fine for small datasets without one in client-side filtering.
+    // For now, we fetch and filter to be safe without index config.
+    const q = query(collection(db, ORDERS_COLLECTION), where("deleted", "==", true));
     const snapshot = await getDocs(q);
     
     const batch = writeBatch(db);
     let count = 0;
     
     snapshot.forEach(docSnap => {
-        const data = docSnap.data() as DeletedOrder;
-        if (new Date(data.deletedAt) < sevenDaysAgo) {
+        const data = docSnap.data() as Order;
+        if (data.deletedAt && new Date(data.deletedAt) < sevenDaysAgo) {
             batch.delete(docSnap.ref);
             count++;
         }
