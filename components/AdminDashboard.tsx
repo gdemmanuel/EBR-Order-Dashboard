@@ -25,7 +25,7 @@ import TrashBinModal from './TrashBinModal';
 import { 
     ChartPieIcon, ListBulletIcon, CalendarDaysIcon, PresentationChartBarIcon, 
     PlusIcon, CogIcon, ScaleIcon, CurrencyDollarIcon, 
-    ClockIcon, TrashIcon
+    ClockIcon, TrashIcon, CheckCircleIcon
 } from './icons/Icons';
 
 interface AdminDashboardProps {
@@ -91,12 +91,23 @@ export default function AdminDashboard({
     // Printing State
     const [ordersToPrint, setOrdersToPrint] = useState<Order[]>([]);
 
+    // Notification State
+    const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
+
     // Subscribe to Expenses and Shifts
     useEffect(() => {
         const unsubExpenses = subscribeToExpenses(setExpenses);
         const unsubShifts = subscribeToShifts(setShifts);
         return () => { unsubExpenses(); unsubShifts(); };
     }, []);
+
+    // Clear notification after 3 seconds
+    useEffect(() => {
+        if (notification) {
+            const timer = setTimeout(() => setNotification(null), 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [notification]);
 
     // --- Derived Data ---
 
@@ -192,6 +203,10 @@ export default function AdminDashboard({
         const orderToDelete = allOrders.find(o => o.id === id);
         if (orderToDelete) {
             await softDeleteOrder(orderToDelete);
+            
+            // Show Feedback
+            setNotification({ message: "Order moved to Trash Bin", type: 'success' });
+
             if (selectedOrder?.id === id) setSelectedOrder(null);
             if (editingOrder?.id === id) setIsOrderFormOpen(false);
         }
@@ -475,6 +490,14 @@ export default function AdminDashboard({
                     />
                 )}
             </main>
+
+            {/* Notification Toast */}
+            {notification && (
+                <div className={`fixed bottom-4 right-4 px-6 py-3 rounded-lg shadow-xl z-[100] animate-slide-up flex items-center gap-3 border ${notification.type === 'success' ? 'bg-white border-green-200 text-green-800' : 'bg-white border-red-200 text-red-800'}`}>
+                    {notification.type === 'success' && <CheckCircleIcon className="w-5 h-5 text-green-600" />}
+                    <span className="font-medium">{notification.message}</span>
+                </div>
+            )}
 
             {/* MODALS */}
             
