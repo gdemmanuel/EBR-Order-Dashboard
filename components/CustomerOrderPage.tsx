@@ -341,6 +341,8 @@ export default function CustomerOrderPage({
                 pickupDate: formattedDate,
                 pickupTime: formattedTime || 'TBD',
                 items: finalItems,
+                // Capture the original package names for reporting
+                originalPackages: cartPackages.map(p => p.name),
                 totalMini,
                 totalFullSize: totalFull,
                 amountCharged: estimatedTotal,

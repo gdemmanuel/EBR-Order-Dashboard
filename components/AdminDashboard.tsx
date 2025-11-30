@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import firebase from 'firebase/compat/app';
 import { Order, AppSettings, PricingSettings, Flavor, FollowUpStatus, ApprovalStatus, Expense, WorkShift } from '../types';
-import { saveOrderToDb, deleteOrderFromDb, saveOrdersBatch, saveExpenseToDb, deleteExpenseFromDb, saveShiftToDb, subscribeToExpenses, subscribeToShifts, updateSettingsInDb, deleteShiftFromDb } from '../services/dbService';
+import { saveOrderToDb, softDeleteOrder, saveOrdersBatch, saveExpenseToDb, deleteExpenseFromDb, saveShiftToDb, subscribeToExpenses, subscribeToShifts, updateSettingsInDb, deleteShiftFromDb } from '../services/dbService';
 import { parseOrderDateTime } from '../utils/dateUtils';
 
 import Header from './Header';
@@ -20,11 +20,12 @@ import PrepListModal from './PrepListModal';
 import ExpenseModal from './ExpenseModal';
 import ShiftLogModal from './ShiftLogModal';
 import PrintPreviewPage from './PrintPreviewPage';
+import TrashBinModal from './TrashBinModal';
 
 import { 
     ChartPieIcon, ListBulletIcon, CalendarDaysIcon, PresentationChartBarIcon, 
     PlusIcon, CogIcon, ScaleIcon, CurrencyDollarIcon, 
-    ClockIcon
+    ClockIcon, TrashIcon
 } from './icons/Icons';
 
 interface AdminDashboardProps {
@@ -85,6 +86,7 @@ export default function AdminDashboard({
     const [isPrepListOpen, setIsPrepListOpen] = useState(false);
     const [isExpenseOpen, setIsExpenseOpen] = useState(false);
     const [isShiftLogOpen, setIsShiftLogOpen] = useState(false);
+    const [isTrashOpen, setIsTrashOpen] = useState(false);
     
     // Printing State
     const [ordersToPrint, setOrdersToPrint] = useState<Order[]>([]);
@@ -187,9 +189,12 @@ export default function AdminDashboard({
     };
 
     const handleDeleteOrder = async (id: string) => {
-        await deleteOrderFromDb(id);
-        if (selectedOrder?.id === id) setSelectedOrder(null);
-        if (editingOrder?.id === id) setIsOrderFormOpen(false);
+        const orderToDelete = allOrders.find(o => o.id === id);
+        if (orderToDelete) {
+            await softDeleteOrder(orderToDelete);
+            if (selectedOrder?.id === id) setSelectedOrder(null);
+            if (editingOrder?.id === id) setIsOrderFormOpen(false);
+        }
     };
 
     const handleUpdateStatus = async (id: string, status: FollowUpStatus, updates?: Partial<Order>) => {
@@ -353,14 +358,23 @@ export default function AdminDashboard({
                                 <span className="text-xs sm:text-sm font-medium">Log Shift</span>
                             </button>
                             
-                            <button 
-                                onClick={() => setIsSettingsOpen(true)} 
-                                className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-all"
-                                title="Settings"
-                            >
-                                <CogIcon className="w-5 h-5 sm:w-4 sm:h-4" />
-                                <span className="text-xs sm:text-sm font-medium">Config</span>
-                            </button>
+                            <div className="flex gap-2">
+                                <button 
+                                    onClick={() => setIsSettingsOpen(true)} 
+                                    className="flex-1 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-all"
+                                    title="Settings"
+                                >
+                                    <CogIcon className="w-5 h-5 sm:w-4 sm:h-4" />
+                                    <span className="hidden sm:inline text-xs sm:text-sm font-medium">Config</span>
+                                </button>
+                                <button 
+                                    onClick={() => setIsTrashOpen(true)} 
+                                    className="flex-1 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-all"
+                                    title="Trash Bin"
+                                >
+                                    <TrashIcon className="w-5 h-5 sm:w-4 sm:h-4" />
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -538,6 +552,12 @@ export default function AdminDashboard({
                     employees={settings.employees || []}
                     onClose={() => setIsShiftLogOpen(false)}
                     onSave={saveShiftToDb}
+                />
+            )}
+
+            {isTrashOpen && (
+                <TrashBinModal 
+                    onClose={() => setIsTrashOpen(false)}
                 />
             )}
         </div>

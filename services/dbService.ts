@@ -14,11 +14,12 @@ import {
     DocumentData
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
-import { Order, ApprovalStatus, PricingSettings, Flavor, Expense, AppSettings, WorkShift, FollowUpStatus } from "../types";
+import { Order, ApprovalStatus, PricingSettings, Flavor, Expense, AppSettings, WorkShift, FollowUpStatus, DeletedOrder } from "../types";
 import { initialEmpanadaFlavors, initialFullSizeEmpanadaFlavors } from "../data/mockData";
 
 // Collection References
 const ORDERS_COLLECTION = "orders";
+const DELETED_ORDERS_COLLECTION = "deleted_orders";
 const EXPENSES_COLLECTION = "expenses";
 const SETTINGS_COLLECTION = "app_settings";
 const GENERAL_SETTINGS_DOC = "general";
@@ -94,6 +95,18 @@ export const subscribeToOrders = (
     return onSnapshot(q, (snapshot: QuerySnapshot<DocumentData>) => {
         const orders: Order[] = [];
         snapshot.forEach((doc) => orders.push(doc.data() as Order));
+        onUpdate(orders);
+    }, onError);
+};
+
+export const subscribeToDeletedOrders = (
+    onUpdate: (orders: DeletedOrder[]) => void,
+    onError?: (error: FirestoreError) => void
+) => {
+    const q = query(collection(db, DELETED_ORDERS_COLLECTION));
+    return onSnapshot(q, (snapshot: QuerySnapshot<DocumentData>) => {
+        const orders: DeletedOrder[] = [];
+        snapshot.forEach((doc) => orders.push(doc.data() as DeletedOrder));
         onUpdate(orders);
     }, onError);
 };
@@ -198,6 +211,54 @@ export const saveOrdersBatch = async (orders: Order[]) => {
 
 export const deleteOrderFromDb = async (orderId: string) => {
     await deleteDoc(doc(db, ORDERS_COLLECTION, orderId));
+};
+
+// Soft Delete: Move to deleted_orders with timestamp
+export const softDeleteOrder = async (order: Order) => {
+    const deletedOrder: DeletedOrder = {
+        ...order,
+        deletedAt: new Date().toISOString()
+    };
+    
+    const batch = writeBatch(db);
+    batch.set(doc(db, DELETED_ORDERS_COLLECTION, order.id), deletedOrder);
+    batch.delete(doc(db, ORDERS_COLLECTION, order.id));
+    await batch.commit();
+};
+
+// Restore: Move back to orders
+export const restoreOrder = async (order: DeletedOrder) => {
+    const { deletedAt, ...originalOrder } = order;
+    
+    const batch = writeBatch(db);
+    batch.set(doc(db, ORDERS_COLLECTION, originalOrder.id), originalOrder);
+    batch.delete(doc(db, DELETED_ORDERS_COLLECTION, originalOrder.id));
+    await batch.commit();
+};
+
+// Cleanup: Delete orders older than 7 days from trash
+export const cleanupTrash = async () => {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    
+    const q = query(collection(db, DELETED_ORDERS_COLLECTION));
+    const snapshot = await getDocs(q);
+    
+    const batch = writeBatch(db);
+    let count = 0;
+    
+    snapshot.forEach(docSnap => {
+        const data = docSnap.data() as DeletedOrder;
+        if (new Date(data.deletedAt) < sevenDaysAgo) {
+            batch.delete(docSnap.ref);
+            count++;
+        }
+    });
+    
+    if (count > 0) {
+        await batch.commit();
+        console.log(`Cleaned up ${count} expired items from trash.`);
+    }
 };
 
 export const saveExpenseToDb = async (expense: Expense) => {

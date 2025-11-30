@@ -42,6 +42,8 @@ export interface Order {
   phoneNumber: string | null;
   email?: string | null; // Added email field
   items: OrderItem[];
+  // New field to track which packages were ordered for reporting
+  originalPackages?: string[]; 
   totalFullSize: number;
   totalMini: number;
   amountCharged: number;
@@ -56,6 +58,10 @@ export interface Order {
   specialInstructions: string | null;
   approvalStatus: ApprovalStatus;
   hasPrinted?: boolean; // Track if ticket has been printed
+}
+
+export interface DeletedOrder extends Order {
+    deletedAt: string; // ISO Date string
 }
 
 export interface Expense {

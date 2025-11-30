@@ -183,6 +183,7 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
     const handleLaborClick = (data: any) => { if (!data || !data.name) return; const employeeName = data.name; const relevantShifts = filteredData.shifts.filter(s => s.employeeName === employeeName); setDrillDownData({ isOpen: true, title: `Shift Details - ${employeeName}`, type: 'shifts', items: relevantShifts.sort((a, b) => b.date.localeCompare(a.date)) }); };
     const handleProductClick = (data: any) => { if (!data || !data.name) return; const productName = data.name; const relevantOrders = filteredData.orders.filter(o => o.items.some(i => i.name.includes(productName))); setDrillDownData({ isOpen: true, title: `Orders containing "${productName}"`, type: 'orders', items: relevantOrders }); };
     const handleDayClick = (data: any) => { if (!data || !data.name) return; const dayName = data.name; const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']; const dayIndex = days.indexOf(dayName); const relevantOrders = filteredData.orders.filter(o => { const d = parseOrderDateTime(o); return !isNaN(d.getTime()) && d.getDay() === dayIndex; }); setDrillDownData({ isOpen: true, title: `Orders for ${dayName}s`, type: 'orders', items: relevantOrders }); };
+    const handlePackageClick = (data: any) => { if (!data || !data.name) return; const pkgName = data.name; const relevantOrders = filteredData.orders.filter(o => o.originalPackages?.includes(pkgName)); setDrillDownData({ isOpen: true, title: `Orders with Package: "${pkgName}"`, type: 'orders', items: relevantOrders }); };
 
     // --- Financials Logic ---
     const financials = useMemo(() => {
@@ -211,6 +212,22 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
     const laborStats = useMemo(() => { const stats = new Map<string, { name: string; hours: number; pay: number; shiftCount: number }>(); filteredData.shifts.forEach(shift => { const key = shift.employeeName; const current = stats.get(key) || { name: key, hours: 0, pay: 0, shiftCount: 0 }; current.hours += shift.hours; current.pay += shift.totalPay; current.shiftCount += 1; stats.set(key, current); }); return Array.from(stats.values()).sort((a, b) => b.hours - a.hours); }, [filteredData.shifts]);
     const productStats = useMemo(() => { const itemMap = new Map<string, number>(); filteredData.orders.forEach(order => { order.items.forEach(item => { const name = item.name.replace('Full ', '').replace(' (4oz)', '').replace(' (8oz)', ''); itemMap.set(name, (itemMap.get(name) || 0) + item.quantity); }); }); return Array.from(itemMap.entries()).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, 10); }, [filteredData.orders]);
     const dayStats = useMemo(() => { const dayCounts = { 'Sun': 0, 'Mon': 0, 'Tue': 0, 'Wed': 0, 'Thu': 0, 'Fri': 0, 'Sat': 0 }; const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']; filteredData.orders.forEach(order => { const date = parseOrderDateTime(order); if (!isNaN(date.getTime())) { const dayName = days[date.getDay()]; (dayCounts as any)[dayName] = ((dayCounts as any)[dayName] || 0) + 1; } }); return days.map(d => ({ name: d, count: (dayCounts as any)[d] })); }, [filteredData.orders]);
+
+    // --- Package Stats Logic ---
+    const packageStats = useMemo(() => {
+        const pkgMap = new Map<string, number>();
+        filteredData.orders.forEach(order => {
+            if (order.originalPackages && order.originalPackages.length > 0) {
+                order.originalPackages.forEach(pkgName => {
+                    pkgMap.set(pkgName, (pkgMap.get(pkgName) || 0) + 1);
+                });
+            }
+        });
+        return Array.from(pkgMap.entries())
+            .map(([name, count]) => ({ name, count }))
+            .sort((a, b) => b.count - a.count)
+            .slice(0, 10);
+    }, [filteredData.orders]);
 
     // ... (Helpers, expenseBreakdownData, pnlChartData unchanged) ...
     const sortedExpenses = useMemo(() => { const items = [...filteredData.expenses]; items.sort((a, b) => { let aVal: any = a[sortConfig.key]; let bVal: any = b[sortConfig.key]; if (sortConfig.key === 'totalCost') { aVal = a.totalCost || 0; bVal = b.totalCost || 0; } if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1; if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1; return 0; }); return items; }, [filteredData.expenses, sortConfig]);
@@ -506,6 +523,32 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
                             </ResponsiveContainer>
                         </div>
 
+                        {/* Top Packages - NEW CHART */}
+                        <div className="bg-white p-6 rounded-lg border border-brand-tan shadow-sm">
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-2">
+                                    <ShoppingBagIcon className="w-5 h-5 text-purple-600" />
+                                    <h3 className="text-lg font-semibold text-brand-brown">Top Selling Packages</h3>
+                                </div>
+                                <span className="text-xs text-gray-400 italic">Click for orders</span>
+                            </div>
+                            {packageStats.length > 0 ? (
+                                <ResponsiveContainer width="100%" height={350}>
+                                    <BarChart data={packageStats} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
+                                        <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
+                                        <XAxis type="number" />
+                                        <YAxis dataKey="name" type="category" width={120} tick={{fontSize: 11}} interval={0} />
+                                        <Tooltip cursor={{fill: 'transparent'}} />
+                                        <Bar dataKey="count" fill="#8b5cf6" radius={[0, 4, 4, 0]} name="Orders" barSize={20} onClick={handlePackageClick} cursor="pointer" />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            ) : (
+                                <div className="h-[350px] flex items-center justify-center text-gray-400 italic bg-gray-50 rounded border border-dashed border-gray-200">
+                                    No package sales data available yet.
+                                </div>
+                            )}
+                        </div>
+
                         {/* Busiest Days */}
                         <div className="bg-white p-6 rounded-lg border border-brand-tan shadow-sm">
                             <div className="flex items-center justify-between mb-4">
@@ -527,7 +570,7 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
                         </div>
                     </div>
 
-                    {/* NEW: Ingredient Price Trend Chart */}
+                    {/* Ingredient Price Trend Chart */}
                     <div className="bg-white p-6 rounded-lg border border-brand-tan shadow-sm">
                         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                             <div>

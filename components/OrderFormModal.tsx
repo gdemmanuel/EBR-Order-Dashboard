@@ -176,6 +176,9 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
     const [salsaItems, setSalsaItems] = useState<DynamicSalsaState[]>([]);
     const [email, setEmail] = useState('');
     
+    // New: Track packages added in this session for reporting
+    const [addedPackages, setAddedPackages] = useState<string[]>([]);
+    
     const [amountCharged, setAmountCharged] = useState<number | string>(0);
     const [isAutoPrice, setIsAutoPrice] = useState(true); 
 
@@ -322,6 +325,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         setSalsaItems((pricing.salsas || []).map(s => ({ id: s.id, name: s.name, checked: false, quantity: 1 })));
         setSpecialInstructions('');
         setEmail('');
+        setAddedPackages([]);
         setInitialLoadComplete(false);
     };
     
@@ -371,6 +375,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         setAmountCollected(data.amountCollected || 0);
         setPaymentMethod(data.paymentMethod || '');
         setSpecialInstructions(data.specialInstructions || '');
+        setAddedPackages(data.originalPackages || []);
 
         const currentSalsas = (pricing.salsas || []).map(product => {
             const foundItem = items.find(i => i.name === product.name || i.name.includes(product.name));
@@ -532,6 +537,9 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         });
         updateFn(combinedItems);
 
+        // Track package addition
+        setAddedPackages(prev => [...prev, activePackageBuilder?.name || 'Package']);
+
         // Automatically inject Party Platter marker into notes for Admin visibility
         if (activePackageBuilder.isSpecial) {
             const marker = "*** PARTY PLATTER ***";
@@ -604,6 +612,8 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
             pickupTime: formattedTime,
             contactMethod: finalContactString,
             items: allItems,
+            // Preserve existing packages if editing, append new ones
+            originalPackages: order ? [...(order.originalPackages || []), ...addedPackages] : addedPackages,
             amountCharged: Number(amountCharged),
             totalCost: snapshotCost, // Save cost snapshot
             totalFullSize: finalTotalFull,
@@ -634,6 +644,8 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                 </header>
 
                 <form onSubmit={handleSubmit} className="overflow-y-auto p-6 space-y-6 flex-grow">
+                    {/* ... rest of the form ... */}
+                    {/* This part of the code is unchanged from the previous version, just re-rendering inside the full component block */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                         <div className="md:col-span-2 relative">
                              <label className="block text-sm font-medium text-brand-brown/90">Customer Name</label>
@@ -657,7 +669,6 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                                 </div>
                             )}
                         </div>
-                        {/* ... (Rest of form fields unchanged) ... */}
                         <div>
                             <label className="block text-sm font-medium text-brand-brown/90">Phone Number</label>
                             <input type="tel" value={phoneNumber} onChange={handlePhoneNumberChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown" />
@@ -666,7 +677,6 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                             <label className="block text-sm font-medium text-brand-brown/90">Email</label>
                             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown" />
                         </div>
-                        {/* ... Rest of form remains the same ... */}
                         <div>
                            <label className="block text-sm font-medium text-brand-brown/90">Contact Method</label>
                             <select value={contactMethod} onChange={e => setContactMethod(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown">
