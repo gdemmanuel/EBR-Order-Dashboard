@@ -478,6 +478,15 @@ export default function CustomerOrderPage({
             };
 
             await saveOrderToDb(newOrder);
+            
+            // --- Send Alert Email/Text (Fire and Forget) ---
+            fetch('/api/order-alert', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newOrder)
+            }).catch(err => console.error("Failed to send email alert:", err));
+            // ----------------------------------------------
+
             setLastOrder(newOrder);
             setIsSubmitted(true);
             setIsReviewing(false);
@@ -1018,12 +1027,19 @@ export default function CustomerOrderPage({
 
                         <button
                             onClick={() => handleFinalSubmit()}
+                            disabled={isSubmitting}
                             className="w-full bg-brand-orange text-white font-bold text-lg py-3 rounded-xl shadow-lg hover:bg-opacity-90 disabled:opacity-70 disabled:cursor-not-allowed transition-all transform active:scale-[0.99] flex justify-center items-center gap-3 uppercase tracking-widest mt-2"
                         >
-                            <span>Submit Order</span>
-                            <span className="bg-white/20 px-3 py-0.5 rounded text-base font-serif">
-                                ${estimatedTotal.toFixed(2)}
-                            </span>
+                            {isSubmitting ? (
+                                <span>Submitting...</span>
+                            ) : (
+                                <>
+                                    <span>Submit Order</span>
+                                    <span className="bg-white/20 px-3 py-0.5 rounded text-base font-serif">
+                                        ${estimatedTotal.toFixed(2)}
+                                    </span>
+                                </>
+                            )}
                         </button>
                     </section>
                 )}
