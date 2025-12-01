@@ -181,12 +181,25 @@ export default function CustomerOrderPage({
     // Scroll success message into view when submitted (inside iframe)
     useEffect(() => {
         if (isSubmitted) {
+            // Wait for DOM to update and render the success div
             setTimeout(() => {
                 const el = document.getElementById("order-success");
                 if (el) {
+                    // 1. Internal Scroll (fallback for mobile/direct view)
                     el.scrollIntoView({ behavior: "smooth", block: "start" });
+
+                    // 2. Notify Parent (iframe embedding)
+                    // We calculate how far down the element is inside the iframe
+                    const offsetTop = el.offsetTop;
+                    
+                    if (typeof window !== "undefined" && window.parent) {
+                        window.parent.postMessage({ 
+                            type: "orderSubmitted",
+                            offsetTop: offsetTop // Send the exact position to parent script
+                        }, "*");
+                    }
                 }
-            }, 50);
+            }, 100);
         }
     }, [isSubmitted]);
 
@@ -473,16 +486,15 @@ export default function CustomerOrderPage({
 
             await saveOrderToDb(newOrder);
             setLastOrder(newOrder);
+            
+            // NOTE: We trigger isSubmitted state here.
+            // The useEffect hook at the top of the component watches this state
+            // and handles the scrolling and postMessage to the parent iframe.
             setIsSubmitted(true);
-
-            // Notify parent iframe that order was submitted
-            if (typeof window !== "undefined" && window.parent) {
-                window.parent.postMessage({ type: "orderSubmitted" }, "*");
-            }
 
             setIsReviewing(false);
             
-            // Fallback: scroll inside iframe to top (in case success div isn't found yet)
+            // Fallback: scroll inside iframe to top immediately (before success view renders)
             window.scrollTo({ top: 0, behavior: 'smooth' });
 
         } catch (err: any) {
