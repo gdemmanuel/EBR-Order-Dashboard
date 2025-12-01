@@ -193,10 +193,10 @@ export default function CustomerOrderPage({
     }, [pricing]);
 
     // Categorize Packages
-    const miniPackages = useMemo(() => availablePackages.filter(p => p.itemType === 'mini' && !p.isSpecial && !p.isPlatter), [availablePackages]);
-    const fullPackages = useMemo(() => availablePackages.filter(p => p.itemType === 'full' && !p.isSpecial && !p.isPlatter), [availablePackages]);
-    const specialPackages = useMemo(() => availablePackages.filter(p => p.isSpecial && !p.isPlatter), [availablePackages]);
-    const platterPackages = useMemo(() => availablePackages.filter(p => p.isPlatter), [availablePackages]);
+    const miniPackages = useMemo(() => availablePackages.filter(p => p.itemType === 'mini' && !p.isSpecial && !p.isPartyPlatter), [availablePackages]);
+    const fullPackages = useMemo(() => availablePackages.filter(p => p.itemType === 'full' && !p.isSpecial && !p.isPartyPlatter), [availablePackages]);
+    const specialPackages = useMemo(() => availablePackages.filter(p => p.isSpecial && !p.isPartyPlatter), [availablePackages]);
+    const platterPackages = useMemo(() => availablePackages.filter(p => p.isPartyPlatter), [availablePackages]);
 
     const availableSalsas = useMemo(() => {
         return (pricing?.salsas || []).filter(s => s.visible);
@@ -932,7 +932,7 @@ export default function CustomerOrderPage({
                     </div>
 
                     <button
-                        onClick={(e) => handleFinalSubmit(e)
+                        onClick={(e) => handleFinalSubmit()}
                         className="w-full bg-brand-orange text-white font-bold text-lg py-3 rounded-xl shadow-lg hover:bg-opacity-90 disabled:opacity-70 disabled:cursor-not-allowed transition-all transform active:scale-[0.99] flex justify-center items-center gap-3 uppercase tracking-widest mt-2"
                     >
                         <span>Submit Order</span>
