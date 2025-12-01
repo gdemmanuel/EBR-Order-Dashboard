@@ -52,7 +52,9 @@ export async function generateMessageForOrder(order: Order, templates?: { follow
         } else {
             itemsText = `${order.totalMini} mini and ${order.totalFullSize} full-size empanadas`;
         }
-        const itemsList = order.items.map(item => `${item.quantity} ${item.name}`).join('\n');
+        
+        // Auto-format items as a list with dashes
+        const itemsList = order.items.map(item => `- ${item.quantity} ${item.name}`).join('\n');
         
         // Smart Address Replacement
         let text = template;
@@ -108,7 +110,7 @@ export async function generateMessageForOrder(order: Order, templates?: { follow
             } else {
                 totalsText = `${order.totalMini} mini and ${order.totalFullSize} full-size empanadas`;
             }
-            const itemsList = order.items.map(item => `${item.quantity} ${item.name}`).join('\n');
+            const itemsList = order.items.map(item => `- ${item.quantity} ${item.name}`).join('\n');
             return `Hi ${firstName}! This is Rose from Empanadas by Rose. Thank you for placing an order. Please confirm your order for ${deliveryType} on ${dateString} at ${order.pickupTime} as follows:\n${totalsText}\n${itemsList}`;
         }
 

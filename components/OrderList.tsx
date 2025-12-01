@@ -29,7 +29,7 @@ const StatusBadge = ({ status, approvalStatus, colors }: { status: FollowUpStatu
     const textColor = '#1f2937'; 
     const borderColor = 'rgba(0,0,0,0.05)';
 
-    return <span className="text-xs font-medium px-2.5 py-0.5 rounded border whitespace-nowrap" style={{ backgroundColor: bgColor, color: textColor, borderColor }}>{status}</span>;
+    return <span className="text-xs font-medium px-2.5 py-0.5 rounded border whitespace-nowrap block text-center truncate" style={{ backgroundColor: bgColor, color: textColor, borderColor }}>{status}</span>;
 };
 
 const getPaymentStatusBadge = (status: PaymentStatus) => {
@@ -41,6 +41,16 @@ const getPaymentStatusBadge = (status: PaymentStatus) => {
     return <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-800 border border-red-200 whitespace-nowrap">
         {label}
     </span>;
+};
+
+const formatDateDisplay = (dateStr: string) => {
+    if (!dateStr) return '';
+    // If YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+        const [y, m, d] = dateStr.split('-');
+        return `${m}/${d}/${y}`;
+    }
+    return dateStr;
 };
 
 export default function OrderList({ 
@@ -185,7 +195,7 @@ export default function OrderList({
             </div>
 
             <div className="overflow-x-auto flex-grow">
-                <table className="min-w-full divide-y divide-brand-tan/30">
+                <table className="min-w-full divide-y divide-brand-tan/30 table-fixed">
                     <thead className="bg-gray-50">
                         <tr>
                             {/* Checkbox */}
@@ -199,37 +209,37 @@ export default function OrderList({
                             </th>
 
                             {/* Date */}
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange" onClick={() => handleSort('pickupDateObj')}>
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange w-32" onClick={() => handleSort('pickupDateObj')}>
                                 Date {sortConfig.key === 'pickupDateObj' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                             </th>
 
-                            {/* Customer */}
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange" onClick={() => handleSort('customerName')}>
+                            {/* Customer - Constrained width */}
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange w-48" onClick={() => handleSort('customerName')}>
                                 Customer {sortConfig.key === 'customerName' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                             </th>
 
-                            {/* Items */}
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            {/* Items - Flexible width, takes remaining space */}
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-auto">
                                 Items
                             </th>
 
-                            {/* Total / Payment */}
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange" onClick={() => handleSort('amountCharged')}>
+                            {/* Total / Payment - Fixed width */}
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange w-28" onClick={() => handleSort('amountCharged')}>
                                 Total {sortConfig.key === 'amountCharged' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                             </th>
 
-                            {/* Status */}
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange" onClick={() => handleSort('followUpStatus')}>
+                            {/* Status - Tightened width */}
+                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange w-32" onClick={() => handleSort('followUpStatus')}>
                                 Status {sortConfig.key === 'followUpStatus' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                             </th>
 
-                            {/* Printed */}
-                            <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            {/* Printed - Fixed width */}
+                            <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
                                 <PrinterIcon className="w-4 h-4 mx-auto" title="Printed Status" />
                             </th>
 
-                            {/* Action */}
-                            <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            {/* Action - Fixed width for buttons */}
+                            <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
                                 Actions
                             </th>
                         </tr>
@@ -263,7 +273,7 @@ export default function OrderList({
                                             />
                                         </td>
                                         <td className="px-4 py-4 whitespace-nowrap text-brand-brown">
-                                            <div className="font-medium">{order.pickupDate}</div>
+                                            <div className="font-medium">{formatDateDisplay(order.pickupDate)}</div>
                                             <div className="text-xs text-gray-500">{order.pickupTime}</div>
                                             {order.deliveryRequired && (
                                                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800 mt-1 border border-blue-200">
@@ -271,20 +281,20 @@ export default function OrderList({
                                                 </span>
                                             )}
                                         </td>
-                                        <td className="px-4 py-4 whitespace-nowrap">
-                                            <div className="font-medium text-brand-brown" title={order.customerName}>{order.customerName}</div>
-                                            <div className="text-xs text-gray-500 mt-0.5" title={order.contactMethod}>{order.contactMethod}</div>
+                                        <td className="px-4 py-4 truncate max-w-[12rem]">
+                                            <div className="font-medium text-brand-brown truncate" title={order.customerName}>{order.customerName}</div>
+                                            <div className="text-xs text-gray-500 mt-0.5 truncate" title={order.contactMethod}>{order.contactMethod}</div>
                                         </td>
                                         <td className="px-4 py-4">
                                             <div className="text-brand-brown font-medium whitespace-nowrap flex items-center gap-2">
                                                 {totalItems} items
                                                 {isPartyPlatter && (
                                                     <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-200 text-purple-800 border border-purple-300 uppercase tracking-wide">
-                                                        <SparklesIcon className="w-3 h-3 mr-1"/> Party Platter
+                                                        <SparklesIcon className="w-3 h-3 mr-1"/> Platter
                                                     </span>
                                                 )}
                                             </div>
-                                            <div className="text-xs text-gray-500 whitespace-normal">{itemsSummary}</div>
+                                            <div className="text-xs text-gray-500 whitespace-normal leading-snug">{itemsSummary}</div>
                                         </td>
                                         <td className="px-4 py-4 whitespace-nowrap">
                                             <div className="font-medium text-brand-brown">${order.amountCharged.toFixed(2)}</div>
@@ -316,7 +326,7 @@ export default function OrderList({
                                                             e.stopPropagation();
                                                             if(window.confirm('Delete this order permanently?')) onDelete(order.id);
                                                         }}
-                                                        className="text-gray-400 hover:text-red-600 p-1 hover:bg-red-50 rounded"
+                                                        className="text-gray-400 hover:text-red-600 p-1.5 hover:bg-red-50 rounded transition-colors"
                                                         title="Delete"
                                                     >
                                                         <TrashIcon className="w-5 h-5" />
