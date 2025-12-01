@@ -178,28 +178,15 @@ export default function CustomerOrderPage({
     const [activePackageBuilder, setActivePackageBuilder] = useState<MenuPackage | null>(null);
     const [showSpecialtyMenu, setShowSpecialtyMenu] = useState(false);
 
-    // Scroll success message into view when submitted (inside iframe)
+    // Scroll success message into view when submitted (inside iframe / direct view)
     useEffect(() => {
         if (isSubmitted) {
-            // Wait for DOM to update and render the success div
             setTimeout(() => {
                 const el = document.getElementById("order-success");
                 if (el) {
-                    // 1. Internal Scroll (fallback for mobile/direct view)
                     el.scrollIntoView({ behavior: "smooth", block: "start" });
-
-                    // 2. Notify Parent (iframe embedding)
-                    // We calculate how far down the element is inside the iframe
-                    const offsetTop = el.offsetTop;
-                    
-                    if (typeof window !== "undefined" && window.parent) {
-                        window.parent.postMessage({ 
-                            type: "orderSubmitted",
-                            offsetTop: offsetTop // Send the exact position to parent script
-                        }, "*");
-                    }
                 }
-            }, 100);
+            }, 50);
         }
     }, [isSubmitted]);
 
@@ -375,11 +362,9 @@ export default function CustomerOrderPage({
         setActivePackageBuilder(null);
         
         // Smoothly scroll to the "Your Selection" area so user sees the added item and form on mobile
-        // Increased timeout slightly to ensure layout stability
         setTimeout(() => {
             const section = document.getElementById('your-selection');
             if (section) {
-                // Scroll to 'start' to ensure the summary is at the top, making the form below visible
                 section.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
         }, 500);
@@ -486,16 +471,32 @@ export default function CustomerOrderPage({
 
             await saveOrderToDb(newOrder);
             setLastOrder(newOrder);
-            
-            // NOTE: We trigger isSubmitted state here.
-            // The useEffect hook at the top of the component watches this state
-            // and handles the scrolling and postMessage to the parent iframe.
             setIsSubmitted(true);
-
             setIsReviewing(false);
-            
-            // Fallback: scroll inside iframe to top immediately (before success view renders)
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+
+            // After success screen is rendered, compute its offset and tell parent
+            setTimeout(() => {
+                if (typeof window === 'undefined') return;
+
+                const successEl = document.getElementById('order-success');
+                const successTop = successEl
+                    ? successEl.getBoundingClientRect().top + window.scrollY
+                    : 0;
+
+                if (window.parent && window.parent !== window) {
+                    window.parent.postMessage(
+                        { type: 'orderSubmitted', successTop },
+                        '*'
+                    );
+                } else {
+                    // Direct view fallback: scroll this window to the success section
+                    if (successEl) {
+                        successEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    } else {
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
+                }
+            }, 100);
 
         } catch (err: any) {
             console.error(err);
