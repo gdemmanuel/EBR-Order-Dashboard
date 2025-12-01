@@ -214,8 +214,8 @@ export default function OrderList({
                                 Date {sortConfig.key === 'pickupDateObj' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                             </th>
 
-                            {/* Customer: Smaller Fixed Width */}
-                            <th scope="col" className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange w-32" onClick={() => handleSort('customerName')}>
+                            {/* Customer: Wider Fixed Width, no truncation desired */}
+                            <th scope="col" className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange w-48" onClick={() => handleSort('customerName')}>
                                 Customer {sortConfig.key === 'customerName' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                             </th>
 
@@ -283,8 +283,8 @@ export default function OrderList({
                                             )}
                                         </td>
                                         <td className="px-2 py-3">
-                                            <div className="font-medium text-brand-brown truncate w-28" title={order.customerName}>{order.customerName}</div>
-                                            <div className="text-xs text-gray-500 mt-0.5 truncate w-28" title={order.contactMethod}>{order.contactMethod}</div>
+                                            <div className="font-medium text-brand-brown whitespace-normal">{order.customerName}</div>
+                                            <div className="text-xs text-gray-500 mt-0.5 whitespace-normal">{order.contactMethod}</div>
                                         </td>
                                         <td className="px-2 py-3">
                                             <div className="text-brand-brown font-medium whitespace-nowrap flex items-center gap-2">
