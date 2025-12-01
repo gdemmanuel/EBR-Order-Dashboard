@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Order, Flavor, PricingSettings, AppSettings, PaymentStatus, FollowUpStatus, ApprovalStatus, OrderItem, MenuPackage } from '../types';
 import { saveOrderToDb } from '../services/dbService';
@@ -182,16 +181,12 @@ export default function CustomerOrderPage({
     // Scroll success message into view when submitted (inside iframe / direct view)
     useEffect(() => {
         if (isSubmitted) {
-            // Small delay to ensure rendering and iframe resize have processed
             setTimeout(() => {
                 const el = document.getElementById("order-success");
                 if (el) {
                     el.scrollIntoView({ behavior: "smooth", block: "start" });
-                    // Explicitly focus the element. Browsers often scroll the parent window
-                    // to bring the focused element into view, solving the iframe scroll issue.
-                    el.focus({ preventScroll: false }); 
                 }
-            }, 150);
+            }, 50);
         }
     }, [isSubmitted]);
 
@@ -521,12 +516,7 @@ export default function CustomerOrderPage({
 
     if (isSubmitted && lastOrder) {
         return (
-            <div 
-                id="order-success" 
-                className="bg-brand-cream flex items-center justify-center p-4 py-12"
-                tabIndex={-1}
-                style={{ outline: 'none', minHeight: '400px' }}
-            >
+            <div id="order-success" className="min-h-screen bg-brand-cream flex items-center justify-center p-4 pb-20">
                 <div className="bg-white max-w-lg w-full rounded-xl shadow-2xl p-8 text-center border border-brand-tan">
                     <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
                         <CheckCircleIcon className="w-10 h-10 text-green-700" />
