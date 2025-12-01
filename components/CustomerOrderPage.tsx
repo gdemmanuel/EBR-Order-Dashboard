@@ -408,7 +408,12 @@ export default function CustomerOrderPage({
 
         if (cartPackages.length === 0 && Object.keys(cartSalsas).length === 0) {
             setError("Please add items to your order.");
-            window.scrollTo(0,0);
+            setTimeout(() => {
+        const el = document.getElementById('order-success');
+        if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }, 50);
             return;
         }
 
@@ -483,7 +488,7 @@ export default function CustomerOrderPage({
 
     if (isSubmitted && lastOrder) {
         return (
-            <div className="min-h-screen bg-brand-cream flex items-center justify-center p-4 pb-20">
+            <div id="order-success" className="min-h-screen bg-brand-cream flex items-center justify-center p-4 pb-20">
                 <div className="bg-white max-w-lg w-full rounded-xl shadow-2xl p-8 text-center border border-brand-tan">
                     <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
                         <CheckCircleIcon className="w-10 h-10 text-green-700" />
