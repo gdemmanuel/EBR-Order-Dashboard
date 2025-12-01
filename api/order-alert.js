@@ -49,10 +49,12 @@ export default async function handler(req, res) {
     }
 
     // 3. Send the Email
-    // Note: 'onboarding@resend.dev' works for testing. 
-    // For production with your own domain, verify it in Resend dashboard.
+    // If RESEND_FROM is not set in Vercel, it defaults to the testing address.
+    // If you verify your domain, add RESEND_FROM='orders@empanadasbyrose.com' in Vercel.
+    const fromAddress = process.env.RESEND_FROM || 'Empanada Orders <onboarding@resend.dev>';
+
     const { data, error } = await resend.emails.send({
-      from: 'Empanada Orders <onboarding@resend.dev>',
+      from: fromAddress,
       to: process.env.OWNER_EMAIL, 
       subject: `New Order: ${customerName}`,
       text: msgBody,
