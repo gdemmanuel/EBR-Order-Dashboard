@@ -1,14 +1,12 @@
 
-// ... existing imports
 import React, { useState, useEffect, useMemo } from 'react';
 import { Order, OrderItem, ContactMethod, PaymentStatus, FollowUpStatus, ApprovalStatus, PricingSettings, Flavor, MenuPackage } from '../types';
-import { TrashIcon, PlusIcon, XMarkIcon, ShoppingBagIcon, CogIcon, ArrowUturnLeftIcon, ClockIcon, UserIcon } from './icons/Icons';
+import { TrashIcon, PlusIcon, XMarkIcon, ShoppingBagIcon, ClockIcon, ArrowUturnLeftIcon } from './icons/Icons';
 import { getAddressSuggestions } from '../services/geminiService';
 import { calculateOrderTotal, calculateSupplyCost } from '../utils/pricingUtils';
-import { SalsaSize } from '../config';
 import PackageBuilderModal from './PackageBuilderModal';
 import { AppSettings } from '../services/dbService';
-import { generateTimeSlots, normalizeDateStr, parseOrderDateTime } from '../utils/dateUtils';
+import { generateTimeSlots, normalizeDateStr } from '../utils/dateUtils';
 
 // ... existing interfaces ...
 interface OrderFormModalProps {
@@ -222,7 +220,10 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                 // Check direct email first, then fallback to extraction
                 let extractedEmail = o.email || '';
                 if (!extractedEmail && o.contactMethod && o.contactMethod.includes('Email: ')) {
-                    extractedEmail = o.contactMethod.split('Email: ')[1].replace(')', '').trim();
+                    const matches = o.contactMethod.match(/Email:\s*([^)]+)/);
+                    if (matches && matches[1]) {
+                        extractedEmail = matches[1].trim();
+                    }
                 }
 
                 customers.set(o.customerName.toLowerCase(), {
@@ -255,12 +256,15 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         if (customer.phone) setPhoneNumber(customer.phone);
         if (customer.email) setEmail(customer.email);
         
-        if (Object.values(ContactMethod).includes(customer.method as ContactMethod)) {
-            setContactMethod(customer.method);
+        // Clean contact method of emails for selection logic
+        const rawMethod = customer.method.replace(/\s*\(Email:\s*[^)]+\)/g, '').trim();
+
+        if (Object.values(ContactMethod).includes(rawMethod as ContactMethod)) {
+            setContactMethod(rawMethod);
             setCustomContactMethod('');
         } else {
             setContactMethod('Other');
-            setCustomContactMethod(customer.method);
+            setCustomContactMethod(rawMethod);
         }
         if (customer.address) {
             setDeliveryAddress(customer.address);
@@ -334,26 +338,38 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         setPhoneNumber(data.phoneNumber || '');
         setPickupDate(formatDateToYYYYMMDD(data.pickupDate));
         setPickupTime(formatTimeToHHMM(data.pickupTime));
+        
         const contact = data.contactMethod || '';
+        const emailRegex = /\s*\(Email:\s*[^)]+\)/g;
         
         // Priority: Explicit email field > Extracted from Contact Method
         let emailVal = data.email || '';
         if (!emailVal && contact.includes('Email: ')) {
-             emailVal = contact.split('Email: ')[1].replace(')', '').trim();
+             // Extract any instance of email, taking the cleanest match
+             const matches = contact.match(/Email:\s*([^)]+)/g);
+             if (matches && matches.length > 0) {
+                 // Clean up "Email: " and ")" from the last match found
+                 const raw = matches[matches.length - 1]; 
+                 emailVal = raw.replace('Email:', '').replace(')', '').trim();
+             }
         }
         setEmail(emailVal);
 
-        if (Object.values(ContactMethod).includes(contact as ContactMethod)) {
-            setContactMethod(contact);
+        // CLEAN THE CONTACT METHOD
+        // Remove all instances of "(Email: ...)" pattern to get the raw method
+        const rawMethod = contact.replace(emailRegex, '').trim();
+
+        if (Object.values(ContactMethod).includes(rawMethod as ContactMethod)) {
+            setContactMethod(rawMethod);
             setCustomContactMethod('');
         } else {
-            // Check if it was "Website (Email...)" which is effectively website/other
-            if (contact.startsWith('Website')) {
+            // Check if it was "Website" (legacy)
+            if (rawMethod.startsWith('Website')) {
                  setContactMethod('Other');
                  setCustomContactMethod('Website');
             } else {
                  setContactMethod('Other');
-                 setCustomContactMethod(contact);
+                 setCustomContactMethod(rawMethod);
             }
         }
 
@@ -633,6 +649,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         else onSave(orderData);
     };
 
+    // ... Render code (unchanged)
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fade-in">
             <div className="bg-white rounded-lg shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col border border-brand-tan relative overflow-hidden">
@@ -644,8 +661,6 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                 </header>
 
                 <form onSubmit={handleSubmit} className="overflow-y-auto p-6 space-y-6 flex-grow">
-                    {/* ... rest of the form ... */}
-                    {/* This part of the code is unchanged from the previous version, just re-rendering inside the full component block */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                         <div className="md:col-span-2 relative">
                              <label className="block text-sm font-medium text-brand-brown/90">Customer Name</label>
@@ -687,6 +702,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                                 <input type="text" value={customContactMethod} onChange={e => setCustomContactMethod(e.target.value)} placeholder="Enter contact source" className="mt-2 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange bg-white text-brand-brown" required />
                             )}
                         </div>
+                        {/* ... rest of the form ... */}
                         <div>
                             <label className="block text-sm font-medium text-brand-brown/90">Pickup Date</label>
                             <div className="flex gap-2">

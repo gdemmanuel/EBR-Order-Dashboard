@@ -1,4 +1,4 @@
-
+// ... existing imports
 import React, { useState, useMemo } from 'react';
 import { Order, PaymentStatus, FollowUpStatus, ApprovalStatus, AppSettings } from '../types';
 import { TrashIcon, PrinterIcon, MagnifyingGlassIcon, XMarkIcon, ChevronDownIcon, TruckIcon, SparklesIcon } from './icons/Icons';
@@ -45,12 +45,14 @@ const getPaymentStatusBadge = (status: PaymentStatus) => {
 
 const formatDateDisplay = (dateStr: string) => {
     if (!dateStr) return '';
-    // If YYYY-MM-DD
+    // Always replace hyphens with slashes for consistency, handling both YYYY-MM-DD and MM-DD-YYYY
+    // Example: 2025-12-06 -> 12/06/2025 (via split)
+    // Example: 12-05-2025 -> 12/05/2025 (via replace)
+    
     if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
         const [y, m, d] = dateStr.split('-');
         return `${m}/${d}/${y}`;
     }
-    // Replace any remaining hyphens with slashes (e.g. 12-05-2025 -> 12/05/2025)
     return dateStr.replace(/-/g, '/');
 };
 
@@ -209,13 +211,13 @@ export default function OrderList({
                                 />
                             </th>
 
-                            {/* Date: Fixed Width (approx 112px for 28rem unit) */}
+                            {/* Date: Fixed Width */}
                             <th scope="col" className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange w-28" onClick={() => handleSort('pickupDateObj')}>
                                 Date {sortConfig.key === 'pickupDateObj' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                             </th>
 
-                            {/* Customer: Wider Fixed Width, no truncation desired */}
-                            <th scope="col" className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange w-48" onClick={() => handleSort('customerName')}>
+                            {/* Customer: Wider Fixed Width to reduce wrapping/truncation issues */}
+                            <th scope="col" className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange w-64" onClick={() => handleSort('customerName')}>
                                 Customer {sortConfig.key === 'customerName' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                             </th>
 
