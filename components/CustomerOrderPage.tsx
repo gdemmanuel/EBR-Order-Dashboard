@@ -152,6 +152,19 @@ export default function CustomerOrderPage({
         };
     }, []);
 
+    
+    // Scroll success message into view when submitted (inside iframe)
+    useEffect(() => {
+        if (isSubmitted) {
+            setTimeout(() => {
+                const el = document.getElementById("order-success");
+                if (el) {
+                    el.scrollIntoView({ behavior: "smooth", block: "start" });
+                }
+            }, 50);
+        }
+    }, [isSubmitted]);
+    
     // --- State ---
     const [customerName, setCustomerName] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
@@ -408,12 +421,7 @@ export default function CustomerOrderPage({
 
         if (cartPackages.length === 0 && Object.keys(cartSalsas).length === 0) {
             setError("Please add items to your order.");
-            setTimeout(() => {
-        const el = document.getElementById('order-success');
-        if (el) {
-            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-    }, 50);
+            window.scrollTo(0,0);
             return;
         }
 
@@ -465,6 +473,11 @@ export default function CustomerOrderPage({
             await saveOrderToDb(newOrder);
             setLastOrder(newOrder);
             setIsSubmitted(true);
+
+// Notify parent iframe that order was submitted
+if (typeof window !== "undefined" && window.parent) {
+    window.parent.postMessage({ type: "orderSubmitted" }, "*");
+}
             setIsReviewing(false);
             
             // FIX: Scroll to top to allow user to see success message and navigate
