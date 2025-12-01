@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Order, Flavor, PricingSettings, AppSettings, ContactMethod, PaymentStatus, FollowUpStatus, ApprovalStatus, OrderItem, MenuPackage } from '../types';
+import { Order, Flavor, PricingSettings, AppSettings, PaymentStatus, FollowUpStatus, ApprovalStatus, OrderItem, MenuPackage } from '../types';
 import { saveOrderToDb } from '../services/dbService';
 import { generateTimeSlots, normalizeDateStr } from '../utils/dateUtils';
 import { getAddressSuggestions } from '../services/geminiService';
@@ -169,7 +169,7 @@ export default function CustomerOrderPage({
     const [cartPackages, setCartPackages] = useState<SelectedPackage[]>([]);
     const [cartSalsas, setCartSalsas] = useState<Record<string, number>>({});
     
-    const [isReviewing, setIsReviewing] = useState(false);
+    const [isReviewing, setIsReviewing] = useState(false); // kept for layout compatibility
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [lastOrder, setLastOrder] = useState<Order | null>(null);
@@ -185,8 +185,6 @@ export default function CustomerOrderPage({
                 const el = document.getElementById("order-success");
                 if (el) {
                     el.scrollIntoView({ behavior: "smooth", block: "start" });
-                } else if (typeof window !== "undefined") {
-                    window.scrollTo({ top: 0, behavior: "smooth" });
                 }
             }, 50);
         }
@@ -237,7 +235,7 @@ export default function CustomerOrderPage({
         // If it's a closed day, customHours might be undefined, so we fallback to global. 
         // This ensures times are "available" even on closed days as requested.
         const start = override?.customHours?.start || scheduling.startTime;
-        the end = override?.customHours?.end || scheduling.endTime;
+        const end = override?.customHours?.end || scheduling.endTime;
         
         const allSlots = generateTimeSlots(dateStr, start, end, scheduling.intervalMinutes);
         
@@ -297,8 +295,13 @@ export default function CustomerOrderPage({
         });
 
         // Counts
-        const miniCount = flatItems.filter(i => !i.name.startsWith('Full ') && !pricing?.salsas?.some(s => s.name === i.name)).reduce((sum, i) => sum + i.quantity, 0);
-        const fullCount = flatItems.filter(i => i.name.startsWith('Full ')).reduce((sum, i) => sum + i.quantity, 0);
+        const miniCount = flatItems
+            .filter(i => !i.name.startsWith('Full ') && !pricing?.salsas?.some(s => s.name === i.name))
+            .reduce((sum, i) => sum + i.quantity, 0);
+
+        const fullCount = flatItems
+            .filter(i => i.name.startsWith('Full '))
+            .reduce((sum, i) => sum + i.quantity, 0);
 
         return { finalItems: flatItems, totalMini: miniCount, totalFull: fullCount, estimatedTotal: runningTotal };
     }, [cartPackages, cartSalsas, pricing]);
@@ -407,7 +410,7 @@ export default function CustomerOrderPage({
         }
     };
 
-    // NOTE: handleReview is still here but your button now goes straight to final submit
+    // (Review handler kept but not used; your button now goes straight to final submit)
     const handleReview = (e?: React.SyntheticEvent) => {
         if (e) e.preventDefault();
         setError(null);
@@ -446,7 +449,6 @@ export default function CustomerOrderPage({
             const formattedTime = pickupTime; 
             const formattedDate = normalizeDateStr(pickupDate);
 
-            // Package details are NOT appended to special instructions; only user notes.
             const newOrder: Order = {
                 id: Date.now().toString(),
                 customerName,
@@ -479,6 +481,9 @@ export default function CustomerOrderPage({
             }
 
             setIsReviewing(false);
+            
+            // Fallback: scroll inside iframe to top (in case success div isn't found yet)
+            window.scrollTo({ top: 0, behavior: 'smooth' });
 
         } catch (err: any) {
             console.error(err);
@@ -554,7 +559,7 @@ export default function CustomerOrderPage({
                 <div className="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
                     <div className="flex items-center gap-2">
                         {/* Use logo image if available, else text */}
-                        <img src="/logo.png" alt="EBR" className="h-10 w-auto object-contain hidden sm:block" onError={(e) => e.currentTarget.style.display = 'none'} />
+                        <img src="/logo.png" alt="EBR" className="h-10 w-auto object-contain hidden sm:block" onError={(e) => (e.currentTarget.style.display = 'none')} />
                         <h1 className="text-2xl font-serif text-brand-brown font-bold tracking-tight">Empanadas by Rose</h1>
                     </div>
                     
@@ -831,127 +836,170 @@ export default function CustomerOrderPage({
                 {/* 4. Customer Details Form - TIGHTER */}
                 {!activePackageBuilder && (
                     <section className="bg-white p-4 rounded-xl shadow-lg border-t-4 border-brand-brown">
-                    {error && !isReviewing && (
-                        <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-3 rounded mb-4 flex items-start gap-2">
-                            <ExclamationCircleIcon className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                            <p className="text-xs font-medium">{error}</p>
-                        </div>
-                    )}
-                    <div className="flex items-center gap-2 mb-4">
-                        <div className="bg-brand-brown text-white p-1 rounded-lg">
-                            <UserIcon className="w-4 h-4" />
-                        </div>
-                        <h2 className="text-lg font-serif text-brand-brown">Your Details</h2>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-                        <div className="space-y-0.5">
-                            <label className="block text-[10px] font-bold text-brand-brown uppercase tracking-wider">Full Name <span className="text-red-500">*</span></label>
-                            <input type="text" required value={customerName} onChange={e => setCustomerName(e.target.value)} className="w-full rounded border-gray-300 focus:ring-brand-orange focus:border-brand-orange bg-brand-cream/30 py-1.5 text-sm" placeholder="Enter your name" />
-                        </div>
-                        <div className="space-y-0.5">
-                            <label className="block text-[10px] font-bold text-brand-brown uppercase tracking-wider">Phone Number <span className="text-red-500">*</span></label>
-                            <input type="tel" required value={phoneNumber} onChange={handlePhoneNumberChange} className="w-full rounded border-gray-300 focus:ring-brand-orange focus:border-brand-orange bg-brand-cream/30 py-1.5 text-sm" placeholder="(555) 123-4567" />
-                        </div>
-                        <div className="md:col-span-2 space-y-0.5">
-                            <label className="block text-[10px] font-bold text-brand-brown uppercase tracking-wider">Email</label>
-                            <input type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full rounded border-gray-300 focus:ring-brand-orange focus:border-brand-orange bg-brand-cream/30 py-1.5 text-sm" placeholder="For order confirmation" />
-                        </div>
-                    </div>
-
-                    <div className="border-t border-gray-100 my-4 pt-4">
-                        <div className="flex items-center gap-2 mb-3">
-                            <div className="bg-brand-brown text-white p-1 rounded-lg">
-                                <CalendarIcon className="w-4 h-4" />
+                        {error && !isReviewing && (
+                            <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-3 rounded mb-4 flex items-start gap-2">
+                                <ExclamationCircleIcon className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                                <p className="text-xs font-medium">{error}</p>
                             </div>
-                            <h2 className="text-lg font-serif text-brand-brown">Pickup & Delivery</h2>
+                        )}
+                        <div className="flex items-center gap-2 mb-4">
+                            <div className="bg-brand-brown text-white p-1 rounded-lg">
+                                <UserIcon className="w-4 h-4" />
+                            </div>
+                            <h2 className="text-lg font-serif text-brand-brown">Your Details</h2>
                         </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                             <div className="space-y-0.5">
-                                <label className="block text-[10px] font-bold text-brand-brown uppercase tracking-wider">Date <span className="text-red-500">*</span></label>
-                                <input 
-                                    type="date" 
-                                    required 
-                                    value={pickupDate} 
-                                    onChange={e => { setPickupDate(e.target.value); setPickupTime(''); }} 
-                                    min={new Date().toISOString().split('T')[0]}
-                                    className="w-full rounded border-gray-300 focus:ring-brand-orange focus:border-brand-orange bg-brand-cream/30 py-1.5 text-sm" 
+                                <label className="block text-[10px] font-bold text-brand-brown uppercase tracking-wider">
+                                    Full Name <span className="text-red-500">*</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    required
+                                    value={customerName}
+                                    onChange={e => setCustomerName(e.target.value)}
+                                    className="w-full rounded border-gray-300 focus:ring-brand-orange focus:border-brand-orange bg-brand-cream/30 py-1.5 text-sm"
+                                    placeholder="Enter your name"
                                 />
                             </div>
                             <div className="space-y-0.5">
-                                <label className="block text-[10px] font-bold text-brand-brown uppercase tracking-wider">Time <span className="text-red-500">*</span></label>
-                                <select 
-                                    required 
-                                    value={pickupTime} 
-                                    onChange={e => setPickupTime(e.target.value)} 
-                                    disabled={!pickupDate}
-                                    className="w-full rounded border-gray-300 focus:ring-brand-orange focus:border-brand-orange bg-brand-cream/30 py-1.5 text-sm disabled:bg-gray-100 disabled:text-gray-400"
-                                >
-                                    <option value="">Select Time</option>
-                                    {timeSlots.map(slot => (
-                                        <option key={slot} value={slot}>{slot}</option>
-                                    ))}
-                                </select>
-                                {/* WARNING MESSAGE FOR RESTRICTED DATES */}
-                                {pickupDate && isDateRestricted && (
-                                    <p className="text-[10px] text-red-500 mt-0.5 font-medium bg-red-50 p-1 rounded border border-red-100">
-                                        Limited availability! We will contact you for availability.
-                                    </p>
-                                )}
-                            </div>
-                            
-                            <div className="md:col-span-2 pt-1">
-                                <label className="flex items-center gap-2 cursor-pointer p-2 border border-brand-tan rounded hover:bg-brand-cream transition-colors">
-                                    <input type="checkbox" checked={deliveryRequired} onChange={e => setDeliveryRequired(e.target.checked)} className="h-4 w-4 rounded text-brand-orange focus:ring-brand-orange border-gray-300" />
-                                    <span className="font-bold text-brand-brown text-sm">Request Delivery?</span>
+                                <label className="block text-[10px] font-bold text-brand-brown uppercase tracking-wider">
+                                    Phone Number <span className="text-red-500">*</span>
                                 </label>
-                                
-                                {deliveryRequired && (
-                                    <div className="relative mt-2 animate-fade-in">
-                                        <label className="block text-[10px] font-bold text-brand-brown uppercase tracking-wider mb-0.5">Delivery Address <span className="text-red-500">*</span></label>
-                                        <input 
-                                            type="text" 
-                                            required={deliveryRequired} 
-                                            value={deliveryAddress} 
-                                            onChange={handleAddressChange}
-                                            placeholder="123 Main St, Town, NY"
-                                            className="w-full rounded border-gray-300 focus:ring-brand-orange focus:border-brand-orange bg-brand-cream/30 py-1.5 text-sm" 
-                                        />
-                                        {addressSuggestions.length > 0 && (
-                                            <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-b shadow-xl max-h-40 overflow-y-auto mt-0.5">
-                                                {addressSuggestions.map((s, i) => (
-                                                    <li key={i} onClick={() => { setDeliveryAddress(s); setAddressSuggestions([]); }} className="px-3 py-2 hover:bg-brand-cream cursor-pointer text-xs border-b border-gray-50 last:border-0 text-gray-700">
-                                                        {s}
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        )}
-                                    </div>
-                                )}
+                                <input
+                                    type="tel"
+                                    required
+                                    value={phoneNumber}
+                                    onChange={handlePhoneNumberChange}
+                                    className="w-full rounded border-gray-300 focus:ring-brand-orange focus:border-brand-orange bg-brand-cream/30 py-1.5 text-sm"
+                                    placeholder="(555) 123-4567"
+                                />
+                            </div>
+                            <div className="md:col-span-2 space-y-0.5">
+                                <label className="block text-[10px] font-bold text-brand-brown uppercase tracking-wider">Email</label>
+                                <input
+                                    type="email"
+                                    value={email}
+                                    onChange={e => setEmail(e.target.value)}
+                                    className="w-full rounded border-gray-300 focus:ring-brand-orange focus:border-brand-orange bg-brand-cream/30 py-1.5 text-sm"
+                                    placeholder="For order confirmation"
+                                />
                             </div>
                         </div>
-                    </div>
 
-                    <div className="border-t border-gray-100 my-4 pt-4">
-                        <label className="block text-[10px] font-bold text-brand-brown uppercase tracking-wider mb-1">Special Instructions / Allergies</label>
-                        <textarea 
-                            rows={2} 
-                            value={specialInstructions}
-                            onChange={e => setSpecialInstructions(e.target.value)}
-                            className="w-full rounded border-gray-300 focus:ring-brand-orange focus:border-brand-orange bg-brand-cream/30 p-2 text-sm"
-                            placeholder="Let us know if you have any special requests..."
-                        />
-                    </div>
+                        <div className="border-t border-gray-100 my-4 pt-4">
+                            <div className="flex items-center gap-2 mb-3">
+                                <div className="bg-brand-brown text-white p-1 rounded-lg">
+                                    <CalendarIcon className="w-4 h-4" />
+                                </div>
+                                <h2 className="text-lg font-serif text-brand-brown">Pickup & Delivery</h2>
+                            </div>
 
-                    <button
-                        onClick={() => handleFinalSubmit()}
-                        className="w-full bg-brand-orange text-white font-bold text-lg py-3 rounded-xl shadow-lg hover:bg-opacity-90 disabled:opacity-70 disabled:cursor-not-allowed transition-all transform active:scale-[0.99] flex justify-center items-center gap-3 uppercase tracking-widest mt-2"
-                    >
-                        <span>Submit Order</span>
-                        <span className="bg-white/20 px-3 py-0.5 rounded text-base font-serif">${estimatedTotal.toFixed(2)}</span>
-                    </button>
-                </section>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div className="space-y-0.5">
+                                    <label className="block text-[10px] font-bold text-brand-brown uppercase tracking-wider">
+                                        Date <span className="text-red-500">*</span>
+                                    </label>
+                                    <input 
+                                        type="date" 
+                                        required 
+                                        value={pickupDate} 
+                                        onChange={e => { setPickupDate(e.target.value); setPickupTime(''); }} 
+                                        min={new Date().toISOString().split('T')[0]}
+                                        className="w-full rounded border-gray-300 focus:ring-brand-orange focus:border-brand-orange bg-brand-cream/30 py-1.5 text-sm" 
+                                    />
+                                </div>
+                                <div className="space-y-0.5">
+                                    <label className="block text-[10px] font-bold text-brand-brown uppercase tracking-wider">
+                                        Time <span className="text-red-500">*</span>
+                                    </label>
+                                    <select 
+                                        required 
+                                        value={pickupTime} 
+                                        onChange={e => setPickupTime(e.target.value)} 
+                                        disabled={!pickupDate}
+                                        className="w-full rounded border-gray-300 focus:ring-brand-orange focus:border-brand-orange bg-brand-cream/30 py-1.5 text-sm disabled:bg-gray-100 disabled:text-gray-400"
+                                    >
+                                        <option value="">Select Time</option>
+                                        {timeSlots.map(slot => (
+                                            <option key={slot} value={slot}>{slot}</option>
+                                        ))}
+                                    </select>
+                                    {/* WARNING MESSAGE FOR RESTRICTED DATES */}
+                                    {pickupDate && isDateRestricted && (
+                                        <p className="text-[10px] text-red-500 mt-0.5 font-medium bg-red-50 p-1 rounded border border-red-100">
+                                            Limited availability! We will contact you for availability.
+                                        </p>
+                                    )}
+                                </div>
+                                
+                                <div className="md:col-span-2 pt-1">
+                                    <label className="flex items-center gap-2 cursor-pointer p-2 border border-brand-tan rounded hover:bg-brand-cream transition-colors">
+                                        <input
+                                            type="checkbox"
+                                            checked={deliveryRequired}
+                                            onChange={e => setDeliveryRequired(e.target.checked)}
+                                            className="h-4 w-4 rounded text-brand-orange focus:ring-brand-orange border-gray-300"
+                                        />
+                                        <span className="font-bold text-brand-brown text-sm">Request Delivery?</span>
+                                    </label>
+                                    
+                                    {deliveryRequired && (
+                                        <div className="relative mt-2 animate-fade-in">
+                                            <label className="block text-[10px] font-bold text-brand-brown uppercase tracking-wider mb-0.5">
+                                                Delivery Address <span className="text-red-500">*</span>
+                                            </label>
+                                            <input 
+                                                type="text" 
+                                                required={deliveryRequired} 
+                                                value={deliveryAddress} 
+                                                onChange={handleAddressChange}
+                                                placeholder="123 Main St, Town, NY"
+                                                className="w-full rounded border-gray-300 focus:ring-brand-orange focus:border-brand-orange bg-brand-cream/30 py-1.5 text-sm" 
+                                            />
+                                            {addressSuggestions.length > 0 && (
+                                                <ul className="absolute z-10 w-full bg-white border border-gray-300 rounded-b shadow-xl max-h-40 overflow-y-auto mt-0.5">
+                                                    {addressSuggestions.map((s, i) => (
+                                                        <li
+                                                            key={i}
+                                                            onClick={() => { setDeliveryAddress(s); setAddressSuggestions([]); }}
+                                                            className="px-3 py-2 hover:bg-brand-cream cursor-pointer text-xs border-b border-gray-50 last:border-0 text-gray-700"
+                                                        >
+                                                            {s}
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="border-t border-gray-100 my-4 pt-4">
+                            <label className="block text-[10px] font-bold text-brand-brown uppercase tracking-wider mb-1">
+                                Special Instructions / Allergies
+                            </label>
+                            <textarea 
+                                rows={2} 
+                                value={specialInstructions}
+                                onChange={e => setSpecialInstructions(e.target.value)}
+                                className="w-full rounded border-gray-300 focus:ring-brand-orange focus:border-brand-orange bg-brand-cream/30 p-2 text-sm"
+                                placeholder="Let us know if you have any special requests..."
+                            />
+                        </div>
+
+                        <button
+                            onClick={() => handleFinalSubmit()}
+                            className="w-full bg-brand-orange text-white font-bold text-lg py-3 rounded-xl shadow-lg hover:bg-opacity-90 disabled:opacity-70 disabled:cursor-not-allowed transition-all transform active:scale-[0.99] flex justify-center items-center gap-3 uppercase tracking-widest mt-2"
+                        >
+                            <span>Submit Order</span>
+                            <span className="bg-white/20 px-3 py-0.5 rounded text-base font-serif">
+                                ${estimatedTotal.toFixed(2)}
+                            </span>
+                        </button>
+                    </section>
                 )}
 
             </main>
