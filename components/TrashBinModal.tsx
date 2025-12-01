@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Order } from '../types';
 import { restoreOrder, cleanupTrash } from '../services/dbService';
@@ -13,7 +14,15 @@ export default function TrashBinModal({ deletedOrders, onClose }: TrashBinModalP
 
     useEffect(() => {
         // Trigger cleanup on open to keep trash tidy
-        cleanupTrash();
+        // Wrap in try/catch to ensure it never crashes the modal
+        const runCleanup = async () => {
+            try {
+                await cleanupTrash();
+            } catch (e) {
+                console.warn("Cleanup failed silently", e);
+            }
+        };
+        runCleanup();
     }, []);
 
     const handleRestore = async (order: Order) => {

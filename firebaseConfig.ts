@@ -18,7 +18,8 @@ const firebaseConfig = {
 const app = !firebase.apps.length ? firebase.initializeApp(firebaseConfig) : firebase.app();
 
 // Export Modular Firestore for dbService.ts
-export const db = getFirestore(); 
+// Explicitly passing 'app' ensures it uses the initialized instance, preventing race conditions
+export const db = getFirestore(app as any); 
 
 // Export Compat Auth for authService.ts and App.tsx
 export const auth = app.auth();

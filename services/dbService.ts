@@ -236,30 +236,32 @@ export const restoreOrder = async (order: Order | DeletedOrder) => {
 
 // Cleanup: Delete flagged orders older than 7 days
 export const cleanupTrash = async () => {
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    
-    // Query items flagged as deleted
-    // Note: This query requires an index on 'deleted' if it gets large, 
-    // but works fine for small datasets without one in client-side filtering.
-    // For now, we fetch and filter to be safe without index config.
-    const q = query(collection(db, ORDERS_COLLECTION), where("deleted", "==", true));
-    const snapshot = await getDocs(q);
-    
-    const batch = writeBatch(db);
-    let count = 0;
-    
-    snapshot.forEach(docSnap => {
-        const data = docSnap.data() as Order;
-        if (data.deletedAt && new Date(data.deletedAt) < sevenDaysAgo) {
-            batch.delete(docSnap.ref);
-            count++;
+    try {
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        
+        // Query items flagged as deleted
+        const q = query(collection(db, ORDERS_COLLECTION), where("deleted", "==", true));
+        const snapshot = await getDocs(q);
+        
+        const batch = writeBatch(db);
+        let count = 0;
+        
+        snapshot.forEach(docSnap => {
+            const data = docSnap.data() as Order;
+            if (data.deletedAt && new Date(data.deletedAt) < sevenDaysAgo) {
+                batch.delete(docSnap.ref);
+                count++;
+            }
+        });
+        
+        if (count > 0) {
+            await batch.commit();
+            console.log(`Cleaned up ${count} expired items from trash.`);
         }
-    });
-    
-    if (count > 0) {
-        await batch.commit();
-        console.log(`Cleaned up ${count} expired items from trash.`);
+    } catch (e) {
+        // Silently fail cleanup if permissions error or offline, to avoid crashing app
+        console.warn("Cleanup skipped:", e);
     }
 };
 
