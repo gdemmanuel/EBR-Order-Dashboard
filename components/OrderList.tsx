@@ -50,7 +50,8 @@ const formatDateDisplay = (dateStr: string) => {
         const [y, m, d] = dateStr.split('-');
         return `${m}/${d}/${y}`;
     }
-    return dateStr;
+    // Replace any remaining hyphens with slashes (e.g. 12-05-2025 -> 12/05/2025)
+    return dateStr.replace(/-/g, '/');
 };
 
 export default function OrderList({ 
