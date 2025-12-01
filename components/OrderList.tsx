@@ -29,7 +29,7 @@ const StatusBadge = ({ status, approvalStatus, colors }: { status: FollowUpStatu
     const textColor = '#1f2937'; 
     const borderColor = 'rgba(0,0,0,0.05)';
 
-    return <span className="text-xs font-medium px-2.5 py-0.5 rounded border whitespace-nowrap block text-center truncate" style={{ backgroundColor: bgColor, color: textColor, borderColor }}>{status}</span>;
+    return <span className="text-[10px] sm:text-xs font-medium px-2 py-0.5 rounded border whitespace-nowrap block text-center truncate" style={{ backgroundColor: bgColor, color: textColor, borderColor }}>{status}</span>;
 };
 
 const getPaymentStatusBadge = (status: PaymentStatus) => {
@@ -199,7 +199,7 @@ export default function OrderList({
                     <thead className="bg-gray-50">
                         <tr>
                             {/* Checkbox */}
-                            <th scope="col" className="px-4 py-3 text-left w-12">
+                            <th scope="col" className="px-3 py-3 text-left w-10">
                                 <input 
                                     type="checkbox" 
                                     className="rounded border-gray-300 text-brand-orange focus:ring-brand-orange"
@@ -208,39 +208,39 @@ export default function OrderList({
                                 />
                             </th>
 
-                            {/* Date */}
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange w-32" onClick={() => handleSort('pickupDateObj')}>
+                            {/* Date: Fixed Width (approx 112px for 28rem unit) */}
+                            <th scope="col" className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange w-28" onClick={() => handleSort('pickupDateObj')}>
                                 Date {sortConfig.key === 'pickupDateObj' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                             </th>
 
-                            {/* Customer - Constrained width */}
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange w-48" onClick={() => handleSort('customerName')}>
+                            {/* Customer: Smaller Fixed Width */}
+                            <th scope="col" className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange w-32" onClick={() => handleSort('customerName')}>
                                 Customer {sortConfig.key === 'customerName' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                             </th>
 
-                            {/* Items - Flexible width, takes remaining space */}
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-auto">
+                            {/* Items: Takes Remaining Space */}
+                            <th scope="col" className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-auto">
                                 Items
                             </th>
 
-                            {/* Total / Payment - Fixed width */}
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange w-28" onClick={() => handleSort('amountCharged')}>
+                            {/* Total: Small Fixed Width */}
+                            <th scope="col" className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange w-20" onClick={() => handleSort('amountCharged')}>
                                 Total {sortConfig.key === 'amountCharged' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                             </th>
 
-                            {/* Status - Tightened width */}
-                            <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange w-32" onClick={() => handleSort('followUpStatus')}>
+                            {/* Status: Small Fixed Width */}
+                            <th scope="col" className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-brand-orange w-28" onClick={() => handleSort('followUpStatus')}>
                                 Status {sortConfig.key === 'followUpStatus' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                             </th>
 
-                            {/* Printed - Fixed width */}
-                            <th scope="col" className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-16">
+                            {/* Printed: Icon width */}
+                            <th scope="col" className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
                                 <PrinterIcon className="w-4 h-4 mx-auto" title="Printed Status" />
                             </th>
 
-                            {/* Action - Fixed width for buttons */}
-                            <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
-                                Actions
+                            {/* Action: Button width */}
+                            <th scope="col" className="px-2 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-14">
+                                
                             </th>
                         </tr>
                     </thead>
@@ -263,7 +263,7 @@ export default function OrderList({
                                         className={`transition-colors group cursor-pointer ${isPartyPlatter ? 'bg-purple-50 hover:bg-purple-100 border-l-4 border-l-purple-500' : 'hover:bg-gray-50'}`}
                                         onClick={() => onSelectOrder(order)}
                                     >
-                                        <td className="px-4 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                                        <td className="px-3 py-3 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                                             <input 
                                                 type="checkbox" 
                                                 className="rounded border-gray-300 text-brand-orange focus:ring-brand-orange"
@@ -272,7 +272,7 @@ export default function OrderList({
                                                 onClick={(e) => e.stopPropagation()}
                                             />
                                         </td>
-                                        <td className="px-4 py-4 whitespace-nowrap text-brand-brown">
+                                        <td className="px-2 py-3 whitespace-nowrap text-brand-brown">
                                             <div className="font-medium">{formatDateDisplay(order.pickupDate)}</div>
                                             <div className="text-xs text-gray-500">{order.pickupTime}</div>
                                             {order.deliveryRequired && (
@@ -281,11 +281,11 @@ export default function OrderList({
                                                 </span>
                                             )}
                                         </td>
-                                        <td className="px-4 py-4 truncate max-w-[12rem]">
-                                            <div className="font-medium text-brand-brown truncate" title={order.customerName}>{order.customerName}</div>
-                                            <div className="text-xs text-gray-500 mt-0.5 truncate" title={order.contactMethod}>{order.contactMethod}</div>
+                                        <td className="px-2 py-3">
+                                            <div className="font-medium text-brand-brown truncate w-28" title={order.customerName}>{order.customerName}</div>
+                                            <div className="text-xs text-gray-500 mt-0.5 truncate w-28" title={order.contactMethod}>{order.contactMethod}</div>
                                         </td>
-                                        <td className="px-4 py-4">
+                                        <td className="px-2 py-3">
                                             <div className="text-brand-brown font-medium whitespace-nowrap flex items-center gap-2">
                                                 {totalItems} items
                                                 {isPartyPlatter && (
@@ -294,42 +294,42 @@ export default function OrderList({
                                                     </span>
                                                 )}
                                             </div>
-                                            <div className="text-xs text-gray-500 whitespace-normal leading-snug">{itemsSummary}</div>
+                                            <div className="text-xs text-gray-500 whitespace-normal leading-snug line-clamp-2" title={itemsSummary}>{itemsSummary}</div>
                                         </td>
-                                        <td className="px-4 py-4 whitespace-nowrap">
+                                        <td className="px-2 py-3 whitespace-nowrap">
                                             <div className="font-medium text-brand-brown">${order.amountCharged.toFixed(2)}</div>
                                             {getPaymentStatusBadge(order.paymentStatus)}
                                         </td>
-                                        <td className="px-4 py-4 whitespace-nowrap">
+                                        <td className="px-2 py-3 whitespace-nowrap">
                                             <StatusBadge 
                                                 status={order.followUpStatus} 
                                                 approvalStatus={order.approvalStatus} 
                                                 colors={settings?.statusColors}
                                             />
                                         </td>
-                                        <td className="px-4 py-4 whitespace-nowrap text-center">
+                                        <td className="px-2 py-3 whitespace-nowrap text-center">
                                             {order.hasPrinted ? (
                                                 <div className="text-green-600 mx-auto" title="Printed">
-                                                    <PrinterIcon className="w-5 h-5 mx-auto" />
+                                                    <PrinterIcon className="w-4 h-4 mx-auto" />
                                                 </div>
                                             ) : (
                                                 <div className="text-gray-200 mx-auto" title="Not Printed">
-                                                    <PrinterIcon className="w-5 h-5 mx-auto" />
+                                                    <PrinterIcon className="w-4 h-4 mx-auto" />
                                                 </div>
                                             )}
                                         </td>
-                                        <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium" onClick={(e) => e.stopPropagation()}>
-                                            <div className="flex justify-end gap-2">
+                                        <td className="px-2 py-3 whitespace-nowrap text-right text-sm font-medium" onClick={(e) => e.stopPropagation()}>
+                                            <div className="flex justify-end gap-1">
                                                 {onDelete && (
                                                     <button 
                                                         onClick={(e) => {
                                                             e.stopPropagation();
                                                             if(window.confirm('Delete this order permanently?')) onDelete(order.id);
                                                         }}
-                                                        className="text-gray-400 hover:text-red-600 p-1.5 hover:bg-red-50 rounded transition-colors"
+                                                        className="text-gray-400 hover:text-red-600 p-1 hover:bg-red-50 rounded transition-colors"
                                                         title="Delete"
                                                     >
-                                                        <TrashIcon className="w-5 h-5" />
+                                                        <TrashIcon className="w-4 h-4" />
                                                     </button>
                                                 )}
                                             </div>

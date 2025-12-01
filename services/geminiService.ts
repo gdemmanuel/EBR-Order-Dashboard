@@ -53,7 +53,8 @@ export async function generateMessageForOrder(order: Order, templates?: { follow
             itemsText = `${order.totalMini} mini and ${order.totalFullSize} full-size empanadas`;
         }
         
-        // Auto-format items as a list with dashes
+        // Auto-format items as a list with dashes for clarity
+        // Format: "- 2 Beef"
         const itemsList = order.items.map(item => `- ${item.quantity} ${item.name}`).join('\n');
         
         // Smart Address Replacement

@@ -182,16 +182,19 @@ export default function CustomerOrderPage({
     // Scroll success message into view when submitted (inside iframe / direct view)
     useEffect(() => {
         if (isSubmitted) {
+            // Scroll internal window to top immediately
+            window.scrollTo(0, 0);
+            
             // Small delay to ensure rendering and iframe resize have processed
             setTimeout(() => {
                 const el = document.getElementById("order-success");
                 if (el) {
-                    el.scrollIntoView({ behavior: "smooth", block: "start" });
+                    el.scrollIntoView({ behavior: "auto", block: "start" });
                     // Explicitly focus the element. Browsers often scroll the parent window
                     // to bring the focused element into view, solving the iframe scroll issue.
                     el.focus({ preventScroll: false }); 
                 }
-            }, 150);
+            }, 100);
         }
     }, [isSubmitted]);
 
@@ -525,7 +528,7 @@ export default function CustomerOrderPage({
                 id="order-success" 
                 className="bg-brand-cream flex items-center justify-center p-4 py-12"
                 tabIndex={-1}
-                style={{ outline: 'none', minHeight: '400px' }}
+                style={{ outline: 'none', minHeight: '500px' }} // Ensures enough space for focus, but not full screen
             >
                 <div className="bg-white max-w-lg w-full rounded-xl shadow-2xl p-8 text-center border border-brand-tan">
                     <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
