@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Order, Flavor, PricingSettings, AppSettings, ContactMethod, PaymentStatus, FollowUpStatus, ApprovalStatus, OrderItem, MenuPackage } from '../types';
 import { saveOrderToDb } from '../services/dbService';
@@ -152,19 +151,6 @@ export default function CustomerOrderPage({
         };
     }, []);
 
-    
-    // Scroll success message into view when submitted (inside iframe)
-    useEffect(() => {
-        if (isSubmitted) {
-            setTimeout(() => {
-                const el = document.getElementById("order-success");
-                if (el) {
-                    el.scrollIntoView({ behavior: "smooth", block: "start" });
-                }
-            }, 50);
-        }
-    }, [isSubmitted]);
-    
     // --- State ---
     const [customerName, setCustomerName] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
@@ -191,6 +177,20 @@ export default function CustomerOrderPage({
 
     const [activePackageBuilder, setActivePackageBuilder] = useState<MenuPackage | null>(null);
     const [showSpecialtyMenu, setShowSpecialtyMenu] = useState(false);
+
+    // Scroll success message into view when submitted (inside iframe)
+    useEffect(() => {
+        if (isSubmitted) {
+            setTimeout(() => {
+                const el = document.getElementById("order-success");
+                if (el) {
+                    el.scrollIntoView({ behavior: "smooth", block: "start" });
+                } else if (typeof window !== "undefined") {
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                }
+            }, 50);
+        }
+    }, [isSubmitted]);
 
     // --- Derived Data ---
     const { regularFlavors, specialFlavors } = useMemo(() => {
@@ -237,7 +237,7 @@ export default function CustomerOrderPage({
         // If it's a closed day, customHours might be undefined, so we fallback to global. 
         // This ensures times are "available" even on closed days as requested.
         const start = override?.customHours?.start || scheduling.startTime;
-        const end = override?.customHours?.end || scheduling.endTime;
+        the end = override?.customHours?.end || scheduling.endTime;
         
         const allSlots = generateTimeSlots(dateStr, start, end, scheduling.intervalMinutes);
         
@@ -407,7 +407,7 @@ export default function CustomerOrderPage({
         }
     };
 
-    // Step 1: Review - Navigational
+    // NOTE: handleReview is still here but your button now goes straight to final submit
     const handleReview = (e?: React.SyntheticEvent) => {
         if (e) e.preventDefault();
         setError(null);
@@ -425,12 +425,11 @@ export default function CustomerOrderPage({
             return;
         }
 
-        // Allow navigation to review even if details are missing
         setIsReviewing(true);
         window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    // Step 2: Final Submit - Validation
+    // Final Submit - Validation
     const handleFinalSubmit = async () => {
         setError(null);
 
@@ -474,14 +473,12 @@ export default function CustomerOrderPage({
             setLastOrder(newOrder);
             setIsSubmitted(true);
 
-// Notify parent iframe that order was submitted
-if (typeof window !== "undefined" && window.parent) {
-    window.parent.postMessage({ type: "orderSubmitted" }, "*");
-}
+            // Notify parent iframe that order was submitted
+            if (typeof window !== "undefined" && window.parent) {
+                window.parent.postMessage({ type: "orderSubmitted" }, "*");
+            }
+
             setIsReviewing(false);
-            
-            // FIX: Scroll to top to allow user to see success message and navigate
-            window.scrollTo({ top: 0, behavior: 'smooth' });
 
         } catch (err: any) {
             console.error(err);
@@ -549,8 +546,6 @@ if (typeof window !== "undefined" && window.parent) {
             </div>
         );
     }
-
-    
 
     return (
         <div className="min-h-screen bg-brand-cream font-sans">
@@ -757,20 +752,20 @@ if (typeof window !== "undefined" && window.parent) {
                     <section id="your-selection" className="bg-white rounded-xl shadow-2xl border-4 border-brand-orange/30 relative overflow-hidden animate-fade-in ring-4 ring-brand-orange/10 transform transition-all duration-300">
                         {/* Distinct Header - TIGHTER (p-3) */}
                         <div className="bg-brand-orange/10 p-3 border-b border-brand-orange/20 flex items-center gap-3 relative z-10">
-                            <div className="bg-brand-orange text-white p-2 rounded-full shadow-lg"> {/* Smaller padding on icon */}
-                                <ListBulletIcon className="w-5 h-5" /> {/* Smaller icon */}
+                            <div className="bg-brand-orange text-white p-2 rounded-full shadow-lg">
+                                <ListBulletIcon className="w-5 h-5" />
                             </div>
-                            <h2 className="text-xl font-serif text-brand-brown font-bold">Your Selection</h2> {/* Smaller text */}
+                            <h2 className="text-xl font-serif text-brand-brown font-bold">Your Selection</h2>
                         </div>
                         
-                        <div className="p-3 md:p-4 relative z-10"> {/* TIGHTER padding */}
+                        <div className="p-3 md:p-4 relative z-10">
                             {/* Packages List - TIGHTER spacing */}
                             <div className="space-y-2 mb-3">
                                 {cartPackages.map((pkg) => (
-                                    <div key={pkg.internalId} className="bg-gray-50 rounded-lg p-2 border border-gray-200 shadow-sm relative group"> {/* Smaller padding */}
+                                    <div key={pkg.internalId} className="bg-gray-50 rounded-lg p-2 border border-gray-200 shadow-sm relative group">
                                         <div className="flex justify-between items-start mb-1">
                                             <div>
-                                                <h4 className="font-serif font-bold text-brand-brown text-sm">{pkg.name}</h4> {/* Smaller text */}
+                                                <h4 className="font-serif font-bold text-brand-brown text-sm">{pkg.name}</h4>
                                                 <span className="text-xs font-bold text-brand-orange">{formatPrice(pkg.totalPrice)}</span>
                                             </div>
                                             <button 
@@ -950,7 +945,7 @@ if (typeof window !== "undefined" && window.parent) {
                     </div>
 
                     <button
-                        onClick={(e) => handleFinalSubmit()}
+                        onClick={() => handleFinalSubmit()}
                         className="w-full bg-brand-orange text-white font-bold text-lg py-3 rounded-xl shadow-lg hover:bg-opacity-90 disabled:opacity-70 disabled:cursor-not-allowed transition-all transform active:scale-[0.99] flex justify-center items-center gap-3 uppercase tracking-widest mt-2"
                     >
                         <span>Submit Order</span>
