@@ -35,13 +35,53 @@ export default async function handler(req, res) {
         deliveryRequired,
         deliveryAddress,
         id,
-        originalPackages 
+        packages 
     } = order;
 
-    // 1. Format Items List
-    const itemList = items
-        .map(i => `${i.quantity}x ${i.name}`)
-        .join('\n');
+    // --- Build structured item list ---
+    let itemsBody = '';
+
+    // 1. Packages
+    if (packages && packages.length > 0) {
+        itemsBody += `PACKAGES:\n`;
+        packages.forEach(pkg => {
+            itemsBody += `  ${pkg.name}:\n`;
+            pkg.items.forEach(item => {
+                itemsBody += `    - ${item.quantity}x ${item.name.replace('Full ', '')}\n`;
+            });
+            itemsBody += `\n`; // Spacer between packages
+        });
+    }
+
+    // 2. Extras (Loose Items)
+    // Re-calculate loose items here since we don't have access to shared utils in API function easily
+    // Copy total counts
+    const itemMap = new Map();
+    items.forEach(i => itemMap.set(i.name, (itemMap.get(i.name) || 0) + i.quantity));
+    
+    // Subtract packages
+    if (packages && packages.length > 0) {
+        packages.forEach(pkg => {
+            pkg.items.forEach(pkgItem => {
+                const current = itemMap.get(pkgItem.name) || 0;
+                itemMap.set(pkgItem.name, Math.max(0, current - pkgItem.quantity));
+            });
+        });
+    }
+
+    const looseItems = [];
+    itemMap.forEach((qty, name) => { if (qty > 0) looseItems.push({ name, quantity: qty }); });
+
+    if (looseItems.length > 0) {
+        if (packages && packages.length > 0) itemsBody += `EXTRAS:\n`;
+        else itemsBody += `ITEMS:\n`;
+        
+        looseItems.forEach(item => {
+            itemsBody += `  - ${item.quantity}x ${item.name}\n`;
+        });
+    }
+
+    // --- End Build structured list ---
 
     // 2. Build the Message Body
     let msgBody = `NEW ORDER #${id.slice(-4)}\n`;
@@ -55,19 +95,13 @@ export default async function handler(req, res) {
         msgBody += `DELIVERY: ${deliveryAddress}\n`;
     }
 
-    if (originalPackages && originalPackages.length > 0) {
-        msgBody += `\nPACKAGES:\n${originalPackages.map(p => `• ${p}`).join('\n')}\n`;
-    }
-    
-    msgBody += `\nITEMS:\n${itemList}`;
+    msgBody += `\n${itemsBody}`;
     
     if (specialInstructions) {
-        msgBody += `\n\nNOTE: ${specialInstructions}`;
+        msgBody += `\nNOTE: ${specialInstructions}`;
     }
 
     // 3. Determine Sender Address (Production)
-    // Now that your domain is verified, we use it by default.
-    // If RESEND_FROM is set in Vercel, we use that. Otherwise, we default to orders@empanadasbyrose.com
     let fromAddress = process.env.RESEND_FROM;
     
     if (!fromAddress) {

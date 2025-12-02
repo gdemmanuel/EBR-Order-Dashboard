@@ -3,6 +3,7 @@ import React from 'react';
 import { Order } from '../types';
 import { CheckCircleIcon, XCircleIcon } from './icons/Icons';
 import { formatDateForDisplay } from '../utils/dateUtils';
+import { groupOrderItems } from '../utils/orderUtils';
 
 const PendingOrderItem: React.FC<{ 
     order: Order; 
@@ -11,18 +12,15 @@ const PendingOrderItem: React.FC<{
     onSelectOrder: (order: Order) => void;
 }> = ({ order, onApprove, onDeny, onSelectOrder }) => {
     const totalItems = order.items.reduce((sum, item) => sum + item.quantity, 0);
-    const packageLabel = order.originalPackages && order.originalPackages.length > 0 
-        ? order.originalPackages.join(', ') 
-        : null;
+    const { packages, looseItems } = groupOrderItems(order);
 
     // Helper to format ID timestamp
     const getOrderTimestamp = (id: string) => {
-        // Check if ID is likely a timestamp (13 digits)
         if (/^\d{13}$/.test(id)) {
             const date = new Date(parseInt(id));
             return date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
         }
-        return ''; // Fallback for legacy IDs
+        return '';
     };
 
     return (
@@ -34,29 +32,58 @@ const PendingOrderItem: React.FC<{
             onKeyPress={(e) => { if (e.key === 'Enter' || e.key === ' ') onSelectOrder(order); }}
             aria-label={`View details for order from ${order.customerName}`}
         >
-            <div className="flex-grow">
+            <div className="flex-grow w-full">
                 <p className="font-semibold text-brand-brown">{order.customerName}</p>
                 <div className="flex flex-col mt-1 gap-1">
                     <p className="text-sm text-gray-500">
                         Pickup: <span className="font-medium text-gray-700">{formatDateForDisplay(order.pickupDate)} @ {order.pickupTime}</span>
                     </p>
                     
-                    {packageLabel && (
-                        <p className="text-sm font-bold text-brand-orange">
-                            Package: {packageLabel}
-                        </p>
-                    )}
+                    {/* HIERARCHICAL DISPLAY */}
+                    <div className="mt-2 text-sm text-brand-brown">
+                        {packages.length > 0 && (
+                            <div className="space-y-2 mb-2">
+                                {packages.map((pkg, idx) => (
+                                    <div key={idx} className="bg-brand-tan/20 p-2 rounded">
+                                        <p className="font-bold text-brand-orange">{pkg.name}</p>
+                                        <ul className="pl-1 space-y-0.5 text-xs text-gray-600 mt-1">
+                                            {pkg.items.map((item, i) => (
+                                                <li key={i} className="flex justify-between">
+                                                    <span>{item.name.replace('Full ', '')}</span>
+                                                    <span className="font-medium">x {item.quantity}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        
+                        {looseItems.length > 0 && (
+                            <div className="mt-1">
+                                {packages.length > 0 && <p className="font-bold text-xs text-gray-500 mb-1">Extras:</p>}
+                                <ul className="pl-1 space-y-0.5 text-xs text-gray-600">
+                                    {looseItems.map((item, i) => (
+                                        <li key={i} className="flex justify-between">
+                                            <span>{item.name}</span>
+                                            <span className="font-medium">x {item.quantity}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+                    </div>
 
-                    <p className="text-sm text-gray-500">
-                        {totalItems} item{totalItems !== 1 ? 's' : ''} total
+                    <p className="text-xs text-gray-400 mt-1 font-medium border-t border-gray-100 pt-1">
+                        {totalItems} items total
                     </p>
                 </div>
-                {/* Timestamp */}
+                
                 <p className="text-xs text-gray-400 mt-1.5 font-medium">
                     Placed: {getOrderTimestamp(order.id)}
                 </p>
             </div>
-            <div className="flex items-center gap-2 flex-shrink-0 w-full sm:w-auto">
+            <div className="flex items-center gap-2 flex-shrink-0 w-full sm:w-auto mt-2 sm:mt-0">
                 <button
                     onClick={(e) => { e.stopPropagation(); onDeny(order.id); }}
                     className="w-1/2 sm:w-auto flex items-center justify-center gap-2 bg-red-100 text-red-700 font-semibold px-3 py-2 rounded-lg hover:bg-red-200 transition-colors"

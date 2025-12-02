@@ -33,6 +33,12 @@ export interface OrderItem {
   quantity: number;
 }
 
+export interface OrderPackageSelection {
+    instanceId: string; // Unique ID for this specific package instance in the order
+    name: string;
+    items: OrderItem[];
+}
+
 export interface Order {
   id: string;
   pickupDate: string;
@@ -44,6 +50,8 @@ export interface Order {
   items: OrderItem[];
   // New field to track which packages were ordered for reporting
   originalPackages?: string[]; 
+  // New field to store the full structure of selected packages and their specific items
+  packages?: OrderPackageSelection[];
   totalFullSize: number;
   totalMini: number;
   amountCharged: number;

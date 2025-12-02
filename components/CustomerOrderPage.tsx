@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Order, Flavor, PricingSettings, AppSettings, PaymentStatus, FollowUpStatus, ApprovalStatus, OrderItem, MenuPackage } from '../types';
+import { Order, Flavor, PricingSettings, AppSettings, PaymentStatus, FollowUpStatus, ApprovalStatus, OrderItem, MenuPackage, OrderPackageSelection } from '../types';
 import { saveOrderToDb } from '../services/dbService';
 import { generateTimeSlots, normalizeDateStr, formatDateForDisplay } from '../utils/dateUtils';
 import { getAddressSuggestions } from '../services/geminiService';
@@ -455,8 +455,15 @@ export default function CustomerOrderPage({
             const formattedTime = pickupTime; 
             const formattedDate = normalizeDateStr(pickupDate);
 
-            // Extract package names to save to DB
+            // Extract package names to save to DB (legacy field)
             const packageNames = cartPackages.map(p => p.name);
+            
+            // Construct structured package data
+            const orderPackages: OrderPackageSelection[] = cartPackages.map(p => ({
+                instanceId: p.internalId,
+                name: p.name,
+                items: p.items
+            }));
 
             const newOrder: Order = {
                 id: Date.now().toString(),
@@ -468,6 +475,7 @@ export default function CustomerOrderPage({
                 items: finalItems,
                 // Add the selected packages here
                 originalPackages: packageNames,
+                packages: orderPackages, // New Structured Field
                 totalMini,
                 totalFullSize: totalFull,
                 amountCharged: estimatedTotal,
@@ -537,6 +545,9 @@ export default function CustomerOrderPage({
     // --- Render ---
 
     if (isSubmitted && lastOrder) {
+        // Calculate remaining loose items for display (salsas)
+        const salsas = lastOrder.items.filter(i => pricing?.salsas?.some(s => s.name === i.name));
+
         return (
             <div 
                 id="order-success" 
@@ -563,32 +574,49 @@ export default function CustomerOrderPage({
                             <span className="font-medium text-brand-brown">{formatDateForDisplay(lastOrder.pickupDate)} @ {lastOrder.pickupTime}</span>
                         </div>
                         
-                        {/* PACKAGE SECTION (Added before Items) */}
-                        {lastOrder.originalPackages && lastOrder.originalPackages.length > 0 && (
-                            <div className="mb-4 pt-4 border-t border-brand-tan/30">
-                                <span className="text-xs text-gray-500 uppercase tracking-wide mb-1 block font-bold">Package Selection</span>
-                                <ul className="space-y-1 text-sm text-brand-brown font-medium">
-                                    {lastOrder.originalPackages.map((pkg, idx) => (
-                                        <li key={idx}>• {pkg}</li>
-                                    ))}
-                                </ul>
-                            </div>
-                        )}
-                        
-                        {/* Final Receipt Summary */}
-                        <div className={lastOrder.originalPackages && lastOrder.originalPackages.length > 0 ? "my-2" : "border-t border-brand-tan/30 my-4 pt-4"}>
-                            <span className="text-xs text-gray-500 uppercase tracking-wide mb-2 block font-bold">Items Ordered</span>
-                            <ul className="space-y-1 text-sm text-brand-brown">
-                                {lastOrder.items.map((item, idx) => (
-                                    <li key={idx} className="flex justify-between">
-                                        <span>{item.name}</span>
-                                        <span className="font-medium">x {item.quantity}</span>
-                                    </li>
+                        {/* HIERARCHICAL ITEMS DISPLAY */}
+                        <div className="mt-4 pt-4 border-t border-brand-tan/30">
+                            <span className="text-xs text-gray-500 uppercase tracking-wide mb-2 block font-bold">Your Selection</span>
+                            <div className="space-y-3">
+                                {/* Packages */}
+                                {lastOrder.packages && lastOrder.packages.map((pkg, idx) => (
+                                    <div key={idx}>
+                                        <p className="font-bold text-brand-brown text-sm">{pkg.name}</p>
+                                        <ul className="pl-2 space-y-0.5 text-xs text-gray-600 mt-0.5">
+                                            {pkg.items.map((item, i) => (
+                                                <li key={i} className="flex justify-between">
+                                                    <span>{item.name.replace('Full ', '')}</span>
+                                                    <span className="font-medium">x {item.quantity}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
                                 ))}
-                            </ul>
+                                
+                                {/* Fallback if no structured packages found but has legacy list */}
+                                {(!lastOrder.packages || lastOrder.packages.length === 0) && lastOrder.items.filter(i => !pricing?.salsas?.some(s => s.name === i.name)).map((item, idx) => (
+                                    <div key={idx} className="flex justify-between text-sm">
+                                        <span className="text-brand-brown">{item.name}</span>
+                                        <span className="font-medium">x {item.quantity}</span>
+                                    </div>
+                                ))}
+
+                                {/* Extras (Salsas) */}
+                                {salsas.length > 0 && (
+                                    <div className="pt-2 border-t border-dashed border-brand-tan/50 mt-2">
+                                        <p className="font-bold text-brand-brown text-xs mb-1">Extras</p>
+                                        {salsas.map((item, idx) => (
+                                            <div key={idx} className="flex justify-between text-xs text-gray-600">
+                                                <span>{item.name}</span>
+                                                <span className="font-medium">x {item.quantity}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
-                        <div className="border-t border-brand-tan/30 my-2 pt-2 flex justify-between items-center">
+                        <div className="border-t border-brand-tan/30 my-2 pt-2 flex justify-between items-center mt-4">
                             <span className="text-sm text-gray-500 uppercase tracking-wide">Total Est.</span>
                             <span className="text-xl font-serif font-bold text-brand-orange">${lastOrder.amountCharged.toFixed(2)}</span>
                         </div>

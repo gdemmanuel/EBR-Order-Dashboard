@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Order, OrderItem, ContactMethod, PaymentStatus, FollowUpStatus, ApprovalStatus, PricingSettings, Flavor, MenuPackage } from '../types';
+import { Order, OrderItem, ContactMethod, PaymentStatus, FollowUpStatus, ApprovalStatus, PricingSettings, Flavor, MenuPackage, OrderPackageSelection } from '../types';
 import { TrashIcon, PlusIcon, XMarkIcon, ShoppingBagIcon, ClockIcon, ArrowUturnLeftIcon } from './icons/Icons';
 import { getAddressSuggestions } from '../services/geminiService';
 import { calculateOrderTotal, calculateSupplyCost } from '../utils/pricingUtils';
@@ -177,6 +177,9 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
     // New: Track packages added in this session for reporting
     const [addedPackages, setAddedPackages] = useState<string[]>([]);
     
+    // New: Preserve existing structured packages when editing
+    const [preservedPackages, setPreservedPackages] = useState<OrderPackageSelection[]>([]);
+    
     const [amountCharged, setAmountCharged] = useState<number | string>(0);
     const [isAutoPrice, setIsAutoPrice] = useState(true); 
 
@@ -330,6 +333,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         setSpecialInstructions('');
         setEmail('');
         setAddedPackages([]);
+        setPreservedPackages([]);
         setInitialLoadComplete(false);
     };
     
@@ -356,7 +360,6 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         setEmail(emailVal);
 
         // CLEAN THE CONTACT METHOD
-        // Remove all instances of "(Email: ...)" pattern to get the raw method
         const rawMethod = contact.replace(emailRegex, '').trim();
 
         if (Object.values(ContactMethod).includes(rawMethod as ContactMethod)) {
@@ -392,6 +395,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         setPaymentMethod(data.paymentMethod || '');
         setSpecialInstructions(data.specialInstructions || '');
         setAddedPackages(data.originalPackages || []);
+        setPreservedPackages(data.packages || []); // Preserve existing structured packages
 
         const currentSalsas = (pricing.salsas || []).map(product => {
             const foundItem = items.find(i => i.name === product.name || i.name.includes(product.name));
@@ -553,10 +557,12 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         });
         updateFn(combinedItems);
 
-        // Track package addition
+        // Track package addition (legacy)
         setAddedPackages(prev => [...prev, activePackageBuilder?.name || 'Package']);
+        
+        // Note: We currently don't build structure in Admin form, so newly added packages in Admin won't have structure 
+        // until we refactor Admin form fully. For now, we rely on flattening but preserve existing structure below.
 
-        // Automatically inject Party Platter marker into notes for Admin visibility
         if (activePackageBuilder.isSpecial) {
             const marker = "*** PARTY PLATTER ***";
             if (!specialInstructions.includes("PARTY PLATTER")) {
@@ -613,25 +619,29 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         }
 
         const finalContactMethod = contactMethod === 'Other' ? (customContactMethod.trim() || 'Other') : contactMethod;
-        
-        // Use email if provided, otherwise check if it was already in contact method
         const finalContactString = email ? `${finalContactMethod} (Email: ${email})` : finalContactMethod;
 
         const orderDateObj = pickupDate ? new Date(`${pickupDate}T00:00:00`) : new Date();
         const snapshotCost = calculateSupplyCost(allItems, settings, orderDateObj);
 
+        // When saving, we try to preserve existing package structure if possible
+        // If we heavily edited items, the structure might be out of sync, but better to keep than lose.
+        const currentPackages = order ? [...(order.packages || [])] : [];
+        // Note: New packages added via Admin form currently don't generate structure because Admin Form logic flattens immediately.
+        // Implementing full structured support in Admin Form is a future task.
+
         const orderData = {
             customerName,
             phoneNumber,
-            email: email || null, // Save explicit email field
+            email: email || null,
             pickupDate: formattedDate,
             pickupTime: formattedTime,
             contactMethod: finalContactString,
             items: allItems,
-            // Preserve existing packages if editing, append new ones
             originalPackages: order ? [...(order.originalPackages || []), ...addedPackages] : addedPackages,
+            packages: preservedPackages, // Keep existing structure so we don't wipe it out on admin edits
             amountCharged: Number(amountCharged),
-            totalCost: snapshotCost, // Save cost snapshot
+            totalCost: snapshotCost,
             totalFullSize: finalTotalFull,
             totalMini: finalTotalMini,
             deliveryRequired,
