@@ -10,6 +10,9 @@ const PendingOrderItem: React.FC<{
     onSelectOrder: (order: Order) => void;
 }> = ({ order, onApprove, onDeny, onSelectOrder }) => {
     const totalItems = order.items.reduce((sum, item) => sum + item.quantity, 0);
+    const packageLabel = order.originalPackages && order.originalPackages.length > 0 
+        ? order.originalPackages.join(', ') 
+        : null;
 
     // Helper to format ID timestamp
     const getOrderTimestamp = (id: string) => {
@@ -32,12 +35,19 @@ const PendingOrderItem: React.FC<{
         >
             <div className="flex-grow">
                 <p className="font-semibold text-brand-brown">{order.customerName}</p>
-                <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1">
+                <div className="flex flex-col mt-1 gap-1">
                     <p className="text-sm text-gray-500">
                         Pickup: <span className="font-medium text-gray-700">{order.pickupDate} @ {order.pickupTime}</span>
                     </p>
+                    
+                    {packageLabel && (
+                        <p className="text-sm font-bold text-brand-orange">
+                            Package: {packageLabel}
+                        </p>
+                    )}
+
                     <p className="text-sm text-gray-500">
-                        {totalItems} item{totalItems !== 1 ? 's' : ''}
+                        {totalItems} item{totalItems !== 1 ? 's' : ''} total
                     </p>
                 </div>
                 {/* Timestamp */}

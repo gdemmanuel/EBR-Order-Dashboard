@@ -24,7 +24,8 @@ export default async function handler(req, res) {
         specialInstructions,
         deliveryRequired,
         deliveryAddress,
-        id
+        id,
+        originalPackages 
     } = order;
 
     // 1. Format Items List
@@ -42,6 +43,10 @@ export default async function handler(req, res) {
     
     if (deliveryRequired) {
         msgBody += `DELIVERY: ${deliveryAddress}\n`;
+    }
+
+    if (originalPackages && originalPackages.length > 0) {
+        msgBody += `\nPACKAGE: ${originalPackages.join(', ')}\n`;
     }
     
     msgBody += `\nITEMS:\n${itemList}`;
