@@ -23,7 +23,8 @@ export default async function handler(req, res) {
         amountCharged,
         specialInstructions,
         deliveryRequired,
-        deliveryAddress
+        deliveryAddress,
+        id
     } = order;
 
     // 1. Format Items List
@@ -31,11 +32,12 @@ export default async function handler(req, res) {
         .map(i => `${i.quantity}x ${i.name}`)
         .join('\n');
 
-    // 2. Build the Message Body (Optimized for SMS readability)
-    let msgBody = `NEW ORDER ($${Number(amountCharged).toFixed(2)})\n`;
+    // 2. Build the Message Body
+    let msgBody = `NEW ORDER #${id.slice(-4)}\n`;
     msgBody += `----------------\n`;
     msgBody += `${customerName}\n`;
     msgBody += `${phoneNumber}\n`;
+    msgBody += `Total: $${Number(amountCharged).toFixed(2)}\n`;
     msgBody += `\nPickup: ${pickupDate} @ ${pickupTime}\n`;
     
     if (deliveryRequired) {
@@ -48,26 +50,40 @@ export default async function handler(req, res) {
         msgBody += `\n\nNOTE: ${specialInstructions}`;
     }
 
-    // 3. Send the Email
-    // If RESEND_FROM is not set in Vercel, it defaults to the testing address.
-    // If you verify your domain, add RESEND_FROM='orders@empanadasbyrose.com' in Vercel.
-    const fromAddress = process.env.RESEND_FROM || 'Empanada Orders <onboarding@resend.dev>';
+    // 3. Determine Sender Address (Production)
+    // Now that your domain is verified, we use it by default.
+    // If RESEND_FROM is set in Vercel, we use that. Otherwise, we default to orders@empanadasbyrose.com
+    let fromAddress = process.env.RESEND_FROM;
+    
+    if (!fromAddress) {
+        fromAddress = 'Empanadas by Rose <orders@empanadasbyrose.com>';
+    }
 
+    // 4. Determine Receiver Address
+    const toAddress = process.env.OWNER_EMAIL;
+
+    if (!toAddress) {
+        console.error("Missing OWNER_EMAIL environment variable");
+        return res.status(500).json({ error: "Server config error: Missing OWNER_EMAIL" });
+    }
+
+    // 5. Send the Email
     const { data, error } = await resend.emails.send({
       from: fromAddress,
-      to: process.env.OWNER_EMAIL, 
-      subject: `New Order: ${customerName}`,
+      to: toAddress,
+      subject: `Order #${id.slice(-4)}: ${customerName}`, 
       text: msgBody,
     });
 
     if (error) {
-      console.error("Resend Error:", error);
+      console.error("Resend API Error:", JSON.stringify(error, null, 2));
       return res.status(400).json({ error });
     }
 
+    console.log(`Email sent successfully from ${fromAddress} to ${toAddress}`);
     return res.status(200).json(data);
   } catch (error) {
-    console.error("Server Error:", error);
+    console.error("Server Internal Error:", error);
     return res.status(500).json({ error: error.message });
   }
 }
