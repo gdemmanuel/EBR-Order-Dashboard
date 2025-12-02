@@ -3,7 +3,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { Order, FollowUpStatus, ApprovalStatus, AppSettings, PaymentStatus } from '../types';
 import { generateMessageForOrder } from '../services/geminiService';
 import { subscribeToSettings } from '../services/dbService';
-import { CalendarIcon, ClockIcon, UserIcon, PhoneIcon, MapPinIcon, CurrencyDollarIcon, SparklesIcon, XMarkIcon, PencilIcon, ClipboardDocumentCheckIcon, PaperAirplaneIcon, CreditCardIcon, ArrowTopRightOnSquareIcon, InstagramIcon, ChatBubbleOvalLeftEllipsisIcon, FacebookIcon, CheckCircleIcon, XCircleIcon, TrashIcon, TruckIcon, EnvelopeIcon } from './icons/Icons';
+import { CalendarIcon, ClockIcon, UserIcon, PhoneIcon, MapPinIcon, CurrencyDollarIcon, SparklesIcon, XMarkIcon, PencilIcon, ClipboardDocumentCheckIcon, PaperAirplaneIcon, CreditCardIcon, ArrowTopRightOnSquareIcon, InstagramIcon, ChatBubbleOvalLeftEllipsisIcon, FacebookIcon, CheckCircleIcon, XCircleIcon, TrashIcon, TruckIcon, EnvelopeIcon, DocumentTextIcon } from './icons/Icons';
 import { formatDateForDisplay } from '../utils/dateUtils';
 import { groupOrderItems } from '../utils/orderUtils';
 
@@ -16,6 +16,7 @@ interface OrderDetailModalProps {
   onDeny?: (orderId: string) => void;
   onDelete?: (orderId: string) => void;
   onDeductInventory?: (order: Order, updates?: Partial<Order>) => Promise<void>;
+  onGenerateInvoice?: () => void;
 }
 
 const DetailItem: React.FC<{ icon: React.ReactNode; label: string; value: string | number | null | undefined }> = ({ icon, label, value }) => {
@@ -31,7 +32,7 @@ const DetailItem: React.FC<{ icon: React.ReactNode; label: string; value: string
     );
 };
 
-export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onEdit, onApprove, onDeny, onDelete, onDeductInventory }: OrderDetailModalProps) {
+export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onEdit, onApprove, onDeny, onDelete, onDeductInventory, onGenerateInvoice }: OrderDetailModalProps) {
   // Local state for status to ensure immediate UI update
   const [localStatus, setLocalStatus] = useState<FollowUpStatus>(order.followUpStatus);
   
@@ -207,6 +208,9 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
               )}
               {onDelete && order.approvalStatus !== ApprovalStatus.PENDING && (
                   <button onClick={handleDeleteClick} className="flex items-center gap-2 bg-white text-red-600 font-semibold px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors border border-gray-300" title="Delete this order"><TrashIcon className="w-4 h-4" /> Delete</button>
+              )}
+              {onGenerateInvoice && order.approvalStatus !== ApprovalStatus.PENDING && (
+                  <button onClick={onGenerateInvoice} className="flex items-center gap-2 bg-white text-brand-brown font-semibold px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors border border-gray-300" title="Generate Invoice"><DocumentTextIcon className="w-4 h-4" /> Invoice</button>
               )}
               {order.approvalStatus !== ApprovalStatus.CANCELLED && (
                   <button onClick={() => onEdit(order)} className="flex items-center gap-2 bg-white text-brand-brown font-semibold px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors border border-gray-300"><PencilIcon className="w-4 h-4" /> Edit</button>

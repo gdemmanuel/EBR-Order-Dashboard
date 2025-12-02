@@ -20,6 +20,7 @@ import PrepListModal from './PrepListModal';
 import ExpenseModal from './ExpenseModal';
 import ShiftLogModal from './ShiftLogModal';
 import PrintPreviewPage from './PrintPreviewPage';
+import InvoicePreviewPage from './InvoicePreviewPage';
 import TrashBinModal from './TrashBinModal';
 
 import { 
@@ -52,7 +53,7 @@ export default function AdminDashboard({
     settings
 }: AdminDashboardProps) {
     // View State
-    const [view, setView] = useState<'dashboard' | 'list' | 'calendar' | 'reports' | 'print'>('dashboard');
+    const [view, setView] = useState<'dashboard' | 'list' | 'calendar' | 'reports' | 'print' | 'invoice'>('dashboard');
     
     // Data State (Expenses & Shifts loaded locally here)
     const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -88,8 +89,9 @@ export default function AdminDashboard({
     const [isShiftLogOpen, setIsShiftLogOpen] = useState(false);
     const [isTrashOpen, setIsTrashOpen] = useState(false);
     
-    // Printing State
+    // Printing & Invoice State
     const [ordersToPrint, setOrdersToPrint] = useState<Order[]>([]);
+    const [invoiceOrder, setInvoiceOrder] = useState<Order | null>(null);
 
     // Notification State
     const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
@@ -258,6 +260,12 @@ export default function AdminDashboard({
         setView('print');
     };
 
+    const handleGenerateInvoice = (order: Order) => {
+        setInvoiceOrder(order);
+        setView('invoice');
+        setSelectedOrder(null); // Close modal
+    };
+
     const markOrdersPrinted = async () => {
         // Only update orders that aren't already marked as printed to avoid unnecessary writes
         const toUpdate = ordersToPrint.filter(o => !o.hasPrinted).map(o => ({ ...o, hasPrinted: true }));
@@ -290,13 +298,22 @@ export default function AdminDashboard({
         await updateSettingsInDb({ ingredients: updatedIngredients });
     };
 
-    // Render
+    // Render Views
     if (view === 'print') {
         return (
             <PrintPreviewPage 
                 orders={ordersToPrint} 
                 onExit={() => setView('list')} 
                 onMarkAsPrinted={markOrdersPrinted}
+            />
+        );
+    }
+
+    if (view === 'invoice' && invoiceOrder) {
+        return (
+            <InvoicePreviewPage 
+                order={invoiceOrder}
+                onExit={() => { setView('list'); setInvoiceOrder(null); }}
             />
         );
     }
@@ -542,6 +559,7 @@ export default function AdminDashboard({
                     onDeny={(id) => handleApproval(id, false)}
                     onDelete={handleDeleteOrder}
                     onDeductInventory={handleDeductInventory}
+                    onGenerateInvoice={() => handleGenerateInvoice(selectedOrder)}
                 />
             )}
 
