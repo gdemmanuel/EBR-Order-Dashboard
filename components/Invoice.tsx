@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Order } from '../types';
 import { formatDateForDisplay } from '../utils/dateUtils';
 import { groupOrderItems } from '../utils/orderUtils';
@@ -9,6 +9,7 @@ interface InvoiceProps {
 }
 
 export default function Invoice({ order }: InvoiceProps) {
+  const [logoError, setLogoError] = useState(false);
   const today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const { packages, looseItems } = groupOrderItems(order);
 
@@ -16,29 +17,25 @@ export default function Invoice({ order }: InvoiceProps) {
   const subtotal = (order.amountCharged || 0) - (order.deliveryFee || 0);
   const total = order.amountCharged || 0;
   
-  // Attempt to calculate a discrepancy if manual price overrides exist (e.g. CC fees added manually to total)
-  // We calculate what the items *should* cost vs the subtotal
-  let calculatedItemTotal = 0;
-  // This is an estimation for display. In a real scenario we'd track line item prices strictly.
-  // For now, we rely on the total stored in the order.
-
   return (
     <div className="w-[8.5in] min-h-[11in] bg-white text-brand-brown p-12 mx-auto box-border relative flex flex-col font-sans">
       {/* Header Section */}
       <div className="flex flex-col items-center mb-8">
         {/* Logo */}
-        <div className="mb-4">
-             <img 
-                src="/logo.png" 
-                alt="Empanadas by Rose" 
-                className="h-24 w-auto object-contain"
-                onError={(e) => { e.currentTarget.style.display = 'none'; }}
-            />
-            {/* Text Fallback if image fails */}
-            <h1 className="text-4xl font-serif font-bold tracking-widest text-center hidden">EMPANADAS BY ROSE</h1>
+        <div className="mb-6 h-32 w-full flex items-center justify-center">
+             {!logoError ? (
+                 <img 
+                    src="/logo.png" 
+                    alt="Empanadas by Rose" 
+                    className="h-full w-auto object-contain"
+                    onError={() => setLogoError(true)}
+                />
+             ) : (
+                <h1 className="text-4xl font-serif font-bold tracking-widest text-center text-brand-brown uppercase">EMPANADAS BY ROSE</h1>
+             )}
         </div>
         
-        <h2 className="text-2xl font-light tracking-[0.2em] text-brand-brown/80 uppercase mt-4">Receipt</h2>
+        <h2 className="text-2xl font-light tracking-[0.2em] text-brand-brown/80 uppercase mt-2">Receipt</h2>
       </div>
 
       <div className="w-full h-px bg-brand-tan mb-8"></div>
@@ -88,13 +85,6 @@ export default function Invoice({ order }: InvoiceProps) {
             <tbody className="divide-y divide-gray-100">
                 {/* Packages */}
                 {packages.map((pkg, idx) => {
-                    // Estimate package unit price: (Total Order Price / Packages Count) is naive.
-                    // Instead, we just list it. Since we don't store historical package price in the order object strictly,
-                    // we might leave Unit Price blank or calculated if possible. 
-                    // For this MVP, we will show the total for the line and leave unit blank if quantity > 1 to avoid math errors, 
-                    // or assume the order total is distributed.
-                    
-                    // Actually, let's list contents for clarity
                     return (
                         <React.Fragment key={`pkg-${idx}`}>
                             <tr>
@@ -109,8 +99,6 @@ export default function Invoice({ order }: InvoiceProps) {
                                 </td>
                                 <td className="py-3 align-top text-right text-gray-400">-</td>
                                 <td className="py-3 align-top text-right font-medium">-</td> 
-                                {/* Note: We hide price per package here because the system often calculates a grand total 
-                                    that includes discounts or manual overrides. We put the full weight on Subtotal. */}
                             </tr>
                         </React.Fragment>
                     );
@@ -154,7 +142,6 @@ export default function Invoice({ order }: InvoiceProps) {
                 </div>
             )}
 
-            {/* If there is a difference between (Sub + Delivery) and Total Charged, show as Adjustment/Tax/CC Fee */}
             {Math.abs(total - (subtotal + order.deliveryFee)) > 0.01 && (
                  <div className="flex justify-between items-center text-sm">
                     <span className="font-bold uppercase tracking-wider text-brand-brown/60">Fees / Adj</span>
