@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Order, Flavor, PricingSettings, AppSettings, PaymentStatus, FollowUpStatus, ApprovalStatus, OrderItem, MenuPackage } from '../types';
 import { saveOrderToDb } from '../services/dbService';
-import { generateTimeSlots, normalizeDateStr } from '../utils/dateUtils';
+import { generateTimeSlots, normalizeDateStr, formatDateForDisplay } from '../utils/dateUtils';
 import { getAddressSuggestions } from '../services/geminiService';
 import { 
     ShoppingBagIcon, CalendarIcon, UserIcon, CheckCircleIcon, 
@@ -560,12 +560,24 @@ export default function CustomerOrderPage({
                         </div>
                         <div className="flex justify-between items-center mb-2">
                             <span className="text-sm text-gray-500 uppercase tracking-wide">Pickup</span>
-                            <span className="font-medium text-brand-brown">{lastOrder.pickupDate} @ {lastOrder.pickupTime}</span>
+                            <span className="font-medium text-brand-brown">{formatDateForDisplay(lastOrder.pickupDate)} @ {lastOrder.pickupTime}</span>
                         </div>
                         
+                        {/* PACKAGE SECTION (Added before Items) */}
+                        {lastOrder.originalPackages && lastOrder.originalPackages.length > 0 && (
+                            <div className="mb-4 pt-4 border-t border-brand-tan/30">
+                                <span className="text-xs text-gray-500 uppercase tracking-wide mb-1 block font-bold">Package Selection</span>
+                                <ul className="space-y-1 text-sm text-brand-brown font-medium">
+                                    {lastOrder.originalPackages.map((pkg, idx) => (
+                                        <li key={idx}>• {pkg}</li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+                        
                         {/* Final Receipt Summary */}
-                        <div className="border-t border-brand-tan/30 my-4 pt-4">
-                            <span className="text-xs text-gray-500 uppercase tracking-wide mb-2 block font-bold">Order Summary</span>
+                        <div className={lastOrder.originalPackages && lastOrder.originalPackages.length > 0 ? "my-2" : "border-t border-brand-tan/30 my-4 pt-4"}>
+                            <span className="text-xs text-gray-500 uppercase tracking-wide mb-2 block font-bold">Items Ordered</span>
                             <ul className="space-y-1 text-sm text-brand-brown">
                                 {lastOrder.items.map((item, idx) => (
                                     <li key={idx} className="flex justify-between">

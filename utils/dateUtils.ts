@@ -99,3 +99,20 @@ export const normalizeDateStr = (input: string): string => {
     }
     return input;
 };
+
+export const formatDateForDisplay = (dateStr: string): string => {
+    if (!dateStr) return '';
+    
+    // Handle YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+        const [y, m, d] = dateStr.split('-');
+        return `${m}/${d}/${y}`;
+    }
+    
+    // Handle MM-DD-YYYY or other hyphenated formats by converting to slashes
+    if (dateStr.includes('-')) {
+        return dateStr.replace(/-/g, '/');
+    }
+    
+    return dateStr;
+};

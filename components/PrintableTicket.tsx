@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { Order } from '../types';
+import { formatDateForDisplay } from '../utils/dateUtils';
 
 interface PrintableTicketProps {
   order: Order;
@@ -16,7 +17,7 @@ export default function PrintableTicket({ order }: PrintableTicketProps) {
       {/* Header: Name and Date */}
       <div className="text-center mb-1">
         <h1 className="text-sm font-bold uppercase leading-none mb-1">{order.customerName}</h1>
-        <p className="font-bold">{order.pickupDate} @ {order.pickupTime}</p>
+        <p className="font-bold">{formatDateForDisplay(order.pickupDate)} @ {order.pickupTime}</p>
         {order.deliveryRequired && <p className="font-bold mt-0.5 uppercase">** Delivery **</p>}
       </div>
 
@@ -27,8 +28,15 @@ export default function PrintableTicket({ order }: PrintableTicketProps) {
           </div>
       )}
 
-      {/* Dashed Separator */}
-      {!isPartyPlatter && <div className="border-b border-black border-dashed my-1 w-full" />}
+      {/* Package Info (if exists) */}
+      {order.originalPackages && order.originalPackages.length > 0 && (
+          <div className="text-center font-bold my-1 text-[10px] border-y border-black border-dashed py-0.5">
+              PKG: {order.originalPackages.join(', ')}
+          </div>
+      )}
+
+      {/* Dashed Separator if no package/platter banner above to separate header */}
+      {!isPartyPlatter && (!order.originalPackages || order.originalPackages.length === 0) && <div className="border-b border-black border-dashed my-1 w-full" />}
 
       {/* Columns Headers */}
       <div className="flex justify-between font-bold mb-1">

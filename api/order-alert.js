@@ -4,6 +4,16 @@ import { Resend } from 'resend';
 // Initialize Resend with the API Key from Vercel Environment Variables
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+// Helper to format date as MM/DD/YYYY
+const formatDate = (dateStr) => {
+    if (!dateStr) return '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+        const [y, m, d] = dateStr.split('-');
+        return `${m}/${d}/${y}`;
+    }
+    return dateStr.replace(/-/g, '/');
+};
+
 export default async function handler(req, res) {
   // Ensure we only accept POST requests
   if (req.method !== 'POST') {
@@ -39,14 +49,14 @@ export default async function handler(req, res) {
     msgBody += `${customerName}\n`;
     msgBody += `${phoneNumber}\n`;
     msgBody += `Total: $${Number(amountCharged).toFixed(2)}\n`;
-    msgBody += `\nPickup: ${pickupDate} @ ${pickupTime}\n`;
+    msgBody += `\nPickup: ${formatDate(pickupDate)} @ ${pickupTime}\n`;
     
     if (deliveryRequired) {
         msgBody += `DELIVERY: ${deliveryAddress}\n`;
     }
 
     if (originalPackages && originalPackages.length > 0) {
-        msgBody += `\nPACKAGE: ${originalPackages.join(', ')}\n`;
+        msgBody += `\nPACKAGES:\n${originalPackages.map(p => `• ${p}`).join('\n')}\n`;
     }
     
     msgBody += `\nITEMS:\n${itemList}`;

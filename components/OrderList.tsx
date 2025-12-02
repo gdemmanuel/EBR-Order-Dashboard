@@ -1,8 +1,9 @@
+
 // ... existing imports
 import React, { useState, useMemo } from 'react';
 import { Order, PaymentStatus, FollowUpStatus, ApprovalStatus, AppSettings } from '../types';
 import { TrashIcon, PrinterIcon, MagnifyingGlassIcon, XMarkIcon, ChevronDownIcon, TruckIcon, SparklesIcon } from './icons/Icons';
-import { parseOrderDateTime } from '../utils/dateUtils';
+import { parseOrderDateTime, formatDateForDisplay } from '../utils/dateUtils';
 
 interface OrderListProps {
     orders: Order[];
@@ -41,19 +42,6 @@ const getPaymentStatusBadge = (status: PaymentStatus) => {
     return <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-800 border border-red-200 whitespace-nowrap">
         {label}
     </span>;
-};
-
-const formatDateDisplay = (dateStr: string) => {
-    if (!dateStr) return '';
-    // Always replace hyphens with slashes for consistency, handling both YYYY-MM-DD and MM-DD-YYYY
-    // Example: 2025-12-06 -> 12/06/2025 (via split)
-    // Example: 12-05-2025 -> 12/05/2025 (via replace)
-    
-    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-        const [y, m, d] = dateStr.split('-');
-        return `${m}/${d}/${y}`;
-    }
-    return dateStr.replace(/-/g, '/');
 };
 
 export default function OrderList({ 
@@ -276,7 +264,7 @@ export default function OrderList({
                                             />
                                         </td>
                                         <td className="px-2 py-3 whitespace-nowrap text-brand-brown">
-                                            <div className="font-medium">{formatDateDisplay(order.pickupDate)}</div>
+                                            <div className="font-medium">{formatDateForDisplay(order.pickupDate)}</div>
                                             <div className="text-xs text-gray-500">{order.pickupTime}</div>
                                             {order.deliveryRequired && (
                                                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800 mt-1 border border-blue-200">

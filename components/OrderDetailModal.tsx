@@ -4,6 +4,7 @@ import { Order, FollowUpStatus, ApprovalStatus, AppSettings, PaymentStatus } fro
 import { generateMessageForOrder } from '../services/geminiService';
 import { subscribeToSettings } from '../services/dbService';
 import { CalendarIcon, ClockIcon, UserIcon, PhoneIcon, MapPinIcon, CurrencyDollarIcon, SparklesIcon, XMarkIcon, PencilIcon, ClipboardDocumentCheckIcon, PaperAirplaneIcon, CreditCardIcon, ArrowTopRightOnSquareIcon, InstagramIcon, ChatBubbleOvalLeftEllipsisIcon, FacebookIcon, CheckCircleIcon, XCircleIcon, TrashIcon, TruckIcon, EnvelopeIcon } from './icons/Icons';
+import { formatDateForDisplay } from '../utils/dateUtils';
 
 interface OrderDetailModalProps {
   order: Order;
@@ -293,12 +294,26 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
                   )}
               </div>
               <div className="space-y-4">
-                  <DetailItem icon={<CalendarIcon className="w-5 h-5" />} label="Pickup Date" value={order.pickupDate} />
+                  <DetailItem icon={<CalendarIcon className="w-5 h-5" />} label="Pickup Date" value={formatDateForDisplay(order.pickupDate)} />
                   <DetailItem icon={<ClockIcon className="w-5 h-5" />} label="Pickup Time" value={order.pickupTime} />
                   <DetailItem icon={<CurrencyDollarIcon className="w-5 h-5" />} label="Amount Charged" value={`$${order.amountCharged.toFixed(2)}`} />
                    {order.deliveryRequired && <DetailItem icon={<CurrencyDollarIcon className="w-5 h-5" />} label="Delivery Fee" value={`$${order.deliveryFee.toFixed(2)}`} />}
               </div>
             </div>
+
+            {/* Packages Section - Added Here */}
+            {order.originalPackages && order.originalPackages.length > 0 && (
+                <div>
+                    <h3 className="text-lg font-semibold text-brand-brown/90 mb-2">Packages</h3>
+                    <div className="bg-brand-orange/10 p-3 rounded-lg border border-brand-orange/20">
+                        <ul className="list-disc list-inside text-brand-brown font-medium space-y-1">
+                            {order.originalPackages.map((pkg, i) => (
+                                <li key={i}>{pkg}</li>
+                            ))}
+                        </ul>
+                    </div>
+                </div>
+            )}
 
             {/* Items Ordered */}
             <div>
@@ -357,7 +372,7 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
               <div className="flex justify-between items-start mb-3">
                   <h3 className="text-lg font-semibold text-brand-brown/90">Order Status & Actions</h3>
                   
-                  {/* CANCEL BUTTON - Positioned Here */}
+                  {/* CANCEL BUTTON */}
                   {order.approvalStatus === ApprovalStatus.APPROVED && onDeny && (
                       <button 
                         onClick={handleCancelOrder} 

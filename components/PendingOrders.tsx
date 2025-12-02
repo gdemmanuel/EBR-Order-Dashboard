@@ -2,6 +2,7 @@
 import React from 'react';
 import { Order } from '../types';
 import { CheckCircleIcon, XCircleIcon } from './icons/Icons';
+import { formatDateForDisplay } from '../utils/dateUtils';
 
 const PendingOrderItem: React.FC<{ 
     order: Order; 
@@ -37,7 +38,7 @@ const PendingOrderItem: React.FC<{
                 <p className="font-semibold text-brand-brown">{order.customerName}</p>
                 <div className="flex flex-col mt-1 gap-1">
                     <p className="text-sm text-gray-500">
-                        Pickup: <span className="font-medium text-gray-700">{order.pickupDate} @ {order.pickupTime}</span>
+                        Pickup: <span className="font-medium text-gray-700">{formatDateForDisplay(order.pickupDate)} @ {order.pickupTime}</span>
                     </p>
                     
                     {packageLabel && (
