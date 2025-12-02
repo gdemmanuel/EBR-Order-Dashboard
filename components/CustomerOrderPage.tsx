@@ -455,6 +455,9 @@ export default function CustomerOrderPage({
             const formattedTime = pickupTime; 
             const formattedDate = normalizeDateStr(pickupDate);
 
+            // Extract package names to save to DB
+            const packageNames = cartPackages.map(p => p.name);
+
             const newOrder: Order = {
                 id: Date.now().toString(),
                 customerName,
@@ -463,6 +466,8 @@ export default function CustomerOrderPage({
                 pickupDate: formattedDate,
                 pickupTime: formattedTime || 'TBD',
                 items: finalItems,
+                // Add the selected packages here
+                originalPackages: packageNames,
                 totalMini,
                 totalFullSize: totalFull,
                 amountCharged: estimatedTotal,
