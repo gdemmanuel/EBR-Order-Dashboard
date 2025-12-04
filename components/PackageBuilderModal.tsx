@@ -219,7 +219,7 @@ export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavo
                 </div>
 
                 {/* Salsas Section */}
-                {salsas.length > 0 && (
+                {salsas.length > 0 && !pkg.isPartyPlatter && (
                     <div className="p-3 bg-orange-50/50 border-t border-orange-100 mb-20">
                         <h4 className="font-bold text-brand-brown mb-1 text-sm">Add Dipping Sauces</h4>
                         <div className="space-y-0.5">
