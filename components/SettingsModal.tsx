@@ -532,8 +532,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                             </div>
                         )}
                         
-                        {/* 6. Recipes Tab (unchanged from provided code, omitted for brevity as changes were in Pricing tab) */}
-                        {/* ... Rest of tabs ... */}
+                        {/* 6. Recipes Tab */}
                         {activeTab === 'recipes' && (
                             <div className="max-w-5xl mx-auto space-y-8">
                                 {/* Master Ingredient List */}
@@ -667,7 +666,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                             </div>
                         )}
 
-                        {/* ... Rest of existing tabs ... */}
+                        {/* 7. Costs Tab */}
                         {activeTab === 'costs' && (
                             <div className="max-w-4xl space-y-8">
                                 <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
@@ -685,7 +684,201 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                 </div>
                             </div>
                         )}
-                        {/* ... (truncated for brevity, logic follows pattern) ... */}
+
+                        {/* 8. Employees Tab */}
+                        {activeTab === 'employees' && (
+                            <div className="max-w-4xl space-y-8">
+                                <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+                                    <h3 className="font-bold text-brand-brown mb-4">Staff Management</h3>
+                                    <div className="bg-white p-4 rounded border border-gray-200 mb-6">
+                                        <h4 className="text-sm font-bold text-gray-700 mb-3">Add New Employee</h4>
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
+                                            <div className="col-span-2">
+                                                <label className="block text-xs font-bold text-gray-500 mb-1">Name</label>
+                                                <input type="text" value={newEmployee.name} onChange={(e) => setNewEmployee({...newEmployee, name: e.target.value})} className="w-full rounded-md border-gray-300 text-sm" placeholder="John Doe" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-bold text-gray-500 mb-1">Wage ($/hr)</label>
+                                                <input type="number" value={newEmployee.hourlyWage} onChange={(e) => setNewEmployee({...newEmployee, hourlyWage: parseFloat(e.target.value)})} className="w-full rounded-md border-gray-300 text-sm" />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-bold text-gray-500 mb-1">Rate (Mini/Hr)</label>
+                                                <input type="number" value={newEmployee.productionRates?.mini} onChange={(e) => setNewEmployee({...newEmployee, productionRates: {...(newEmployee.productionRates || {mini:0,full:0}), mini: parseFloat(e.target.value)}})} className="w-full rounded-md border-gray-300 text-sm" />
+                                            </div>
+                                        </div>
+                                        <div className="flex justify-end mt-3">
+                                            <button onClick={addEmployee} className="bg-brand-orange text-white px-4 py-2 rounded-md text-sm font-bold hover:bg-opacity-90">Add Employee</button>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        {employees.map(emp => (
+                                            <div key={emp.id} className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg">
+                                                <div>
+                                                    <input type="text" value={emp.name} onChange={(e) => updateEmployee(emp.id, 'name', e.target.value)} className="font-bold text-brand-brown border-none p-0 focus:ring-0 text-sm" />
+                                                    <div className="flex gap-4 text-xs text-gray-500 mt-1">
+                                                        <label className="flex items-center gap-1">Wage: $<input type="number" value={emp.hourlyWage} onChange={(e) => updateEmployee(emp.id, 'hourlyWage', e.target.value)} className="w-12 p-0 border-none bg-transparent border-b border-gray-300 text-xs" /></label>
+                                                        <label className="flex items-center gap-1">Mini Rate: <input type="number" value={emp.productionRates?.mini} onChange={(e) => updateEmployee(emp.id, 'productionRates.mini', e.target.value)} className="w-10 p-0 border-none bg-transparent border-b border-gray-300 text-xs" /></label>
+                                                    </div>
+                                                </div>
+                                                <button onClick={() => removeEmployee(emp.id)} className="text-red-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 9. Expenses Tab */}
+                        {activeTab === 'expenses' && (
+                            <div className="max-w-2xl mx-auto space-y-6">
+                                <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
+                                    <h3 className="font-bold text-brand-brown mb-4">Expense Categories</h3>
+                                    <div className="flex gap-2 mb-4">
+                                        <input type="text" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} placeholder="New Category" className="flex-grow rounded-md border-gray-300 text-sm" />
+                                        <button onClick={addCategory} className="bg-brand-orange text-white px-4 py-2 rounded-md text-sm font-bold">Add</button>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                        {expenseCategories.map(cat => (
+                                            <span key={cat} className="inline-flex items-center gap-1 bg-white px-3 py-1 rounded-full border border-gray-300 text-sm text-gray-700">
+                                                {cat}
+                                                <button onClick={() => removeCategory(cat)} className="text-gray-400 hover:text-red-500 ml-1"><XMarkIcon className="w-3 h-3" /></button>
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 10. Scheduling Tab */}
+                        {activeTab === 'scheduling' && (
+                            <div className="max-w-5xl mx-auto space-y-8">
+                                <div className="bg-white p-6 rounded-lg border border-brand-tan shadow-sm">
+                                    <div className="flex justify-between items-start mb-6">
+                                        <div>
+                                            <h3 className="font-bold text-xl text-brand-brown">Scheduling Rules</h3>
+                                            <p className="text-sm text-gray-500">Configure pickup times and blackout dates.</p>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <span className="text-sm font-medium text-gray-700">Enable Scheduling</span>
+                                                <div className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${scheduling.enabled ? 'bg-green-500' : 'bg-gray-200'}`} onClick={() => setScheduling({...scheduling, enabled: !scheduling.enabled})}>
+                                                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${scheduling.enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                                                </div>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                        {/* Global Settings */}
+                                        <div className="space-y-4">
+                                            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                                <h4 className="font-bold text-sm text-gray-700 mb-3">Default Hours</h4>
+                                                <div className="grid grid-cols-2 gap-4 mb-3">
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-gray-500 mb-1">Start Time</label>
+                                                        <input type="time" value={scheduling.startTime} onChange={(e) => setScheduling({...scheduling, startTime: e.target.value})} className="w-full rounded-md border-gray-300 text-sm" />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-gray-500 mb-1">End Time</label>
+                                                        <input type="time" value={scheduling.endTime} onChange={(e) => setScheduling({...scheduling, endTime: e.target.value})} className="w-full rounded-md border-gray-300 text-sm" />
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs font-bold text-gray-500 mb-1">Interval (Minutes)</label>
+                                                    <input type="number" value={scheduling.intervalMinutes} onChange={(e) => setScheduling({...scheduling, intervalMinutes: parseInt(e.target.value)})} className="w-full rounded-md border-gray-300 text-sm" />
+                                                </div>
+                                            </div>
+
+                                            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                                <h4 className="font-bold text-sm text-gray-700 mb-3">Regularly Closed Days</h4>
+                                                <div className="flex flex-wrap gap-2">
+                                                    {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, idx) => (
+                                                        <button 
+                                                            key={day}
+                                                            onClick={() => toggleClosedDay(idx)}
+                                                            className={`px-3 py-1.5 rounded-md text-sm font-medium border transition-colors ${scheduling.closedDays?.includes(idx) ? 'bg-red-100 border-red-300 text-red-700' : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'}`}
+                                                        >
+                                                            {day}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Calendar Overrides */}
+                                        <div className="bg-white border border-gray-200 rounded-lg p-4">
+                                            <div className="flex justify-between items-center mb-4">
+                                                <button onClick={handlePrevMonth} className="p-1 hover:bg-gray-100 rounded"><ChevronLeftIcon className="w-5 h-5"/></button>
+                                                <h4 className="font-bold text-brand-brown">{calendarViewDate.toLocaleDateString('default', { month: 'long', year: 'numeric' })}</h4>
+                                                <button onClick={handleNextMonth} className="p-1 hover:bg-gray-100 rounded"><ChevronRightIcon className="w-5 h-5"/></button>
+                                            </div>
+                                            
+                                            <div className="grid grid-cols-7 text-center text-xs font-bold text-gray-400 mb-2">
+                                                {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => <div key={d}>{d}</div>)}
+                                            </div>
+                                            
+                                            <div className="grid grid-cols-7 gap-1">
+                                                {calendarGrid.map((date, i) => {
+                                                    if (!date) return <div key={i} className="h-8"></div>;
+                                                    
+                                                    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+                                                    const override = scheduling.dateOverrides?.[dateStr];
+                                                    const isClosedDay = scheduling.closedDays?.includes(date.getDay());
+                                                    const isSelected = selectedDate === dateStr;
+                                                    
+                                                    let bgClass = "bg-gray-50 text-gray-700 hover:bg-gray-100";
+                                                    if (override?.isClosed) bgClass = "bg-red-100 text-red-700 font-bold";
+                                                    else if (override?.isFull) bgClass = "bg-orange-100 text-orange-700 font-bold";
+                                                    else if (override?.customHours) bgClass = "bg-blue-100 text-blue-700 font-bold";
+                                                    else if (isClosedDay) bgClass = "bg-gray-200 text-gray-400"; // Inherently closed
+                                                    
+                                                    if (isSelected) bgClass += " ring-2 ring-brand-orange z-10";
+
+                                                    return (
+                                                        <button 
+                                                            key={i} 
+                                                            onClick={() => handleDateClick(dateStr)}
+                                                            className={`h-8 rounded flex items-center justify-center text-xs transition-all ${bgClass}`}
+                                                        >
+                                                            {date.getDate()}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+
+                                            {selectedDate && (
+                                                <div className="mt-4 pt-4 border-t border-gray-100 animate-fade-in">
+                                                    <p className="text-xs font-bold text-gray-500 mb-2">Settings for {selectedDate}:</p>
+                                                    <div className="flex flex-wrap gap-2 mb-2">
+                                                        <button onClick={() => updateDateOverride(selectedDate, 'default')} className="px-2 py-1 text-xs bg-gray-100 hover:bg-gray-200 rounded">Default</button>
+                                                        <button onClick={() => updateDateOverride(selectedDate, 'closed')} className="px-2 py-1 text-xs bg-red-100 text-red-700 hover:bg-red-200 rounded">Closed</button>
+                                                        <button onClick={() => updateDateOverride(selectedDate, 'full')} className="px-2 py-1 text-xs bg-orange-100 text-orange-700 hover:bg-orange-200 rounded">Full</button>
+                                                    </div>
+                                                    <div className="bg-blue-50 p-2 rounded">
+                                                        <p className="text-xs text-blue-800 font-bold mb-1">Custom Hours</p>
+                                                        <div className="flex gap-2">
+                                                            <input 
+                                                                type="time" 
+                                                                value={scheduling.dateOverrides?.[selectedDate]?.customHours?.start || scheduling.startTime} 
+                                                                onChange={(e) => updateDateOverride(selectedDate, 'custom', e.target.value, scheduling.dateOverrides?.[selectedDate]?.customHours?.end)}
+                                                                className="w-full text-xs rounded border-blue-200"
+                                                            />
+                                                            <input 
+                                                                type="time" 
+                                                                value={scheduling.dateOverrides?.[selectedDate]?.customHours?.end || scheduling.endTime}
+                                                                onChange={(e) => updateDateOverride(selectedDate, 'custom', scheduling.dateOverrides?.[selectedDate]?.customHours?.start, e.target.value)}
+                                                                className="w-full text-xs rounded border-blue-200"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
 
