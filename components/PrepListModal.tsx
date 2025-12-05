@@ -96,9 +96,13 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
             
             const stock = inventory[flavor] || { mini: 0, full: 0 };
             
-            // Need to Make = Ordered - Stock. Cannot be less than 0.
-            const miniToMake = Math.max(0, miniOrd - stock.mini);
-            const fullToMake = Math.max(0, fullOrd - stock.full);
+            // Calculate Net (Positive = Make, Negative = Surplus)
+            const miniNet = miniOrd - stock.mini;
+            const fullNet = fullOrd - stock.full;
+
+            // Need to Make = Ordered - Stock. Cannot be less than 0 for cost calculations.
+            const miniToMake = Math.max(0, miniNet);
+            const fullToMake = Math.max(0, fullNet);
 
             // --- INGREDIENT CALCULATION (New Recipe Logic) ---
             const recipes = settings.prepSettings?.recipes || {};
@@ -151,9 +155,11 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
                 flavor,
                 miniOrd,
                 miniStock: stock.mini,
+                miniNet,
                 miniToMake,
                 fullOrd,
                 fullStock: stock.full,
+                fullNet,
                 fullToMake,
                 rowCost
             };
@@ -374,7 +380,6 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
                                         <tr key={row.flavor} className="hover:bg-gray-50">
                                             <td className="px-3 py-2 font-medium text-gray-900 sticky left-0 bg-white">
                                                 {row.flavor}
-                                                {/* Optional: Add marker for Special flavors? The sort puts them at bottom now. */}
                                             </td>
                                             
                                             {/* Mini */}
@@ -387,7 +392,9 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
                                                     className="w-16 text-center text-xs border-gray-300 rounded shadow-sm focus:ring-blue-500 focus:border-blue-500 p-1"
                                                 />
                                             </td>
-                                            <td className="px-2 py-2 text-center font-bold text-blue-700 bg-blue-50/30 border-r border-gray-100">{row.miniToMake}</td>
+                                            <td className={`px-2 py-2 text-center font-bold border-r border-gray-100 ${row.miniNet > 0 ? 'text-red-600 bg-red-50/30' : (row.miniNet < 0 ? 'text-green-600 bg-green-50/30' : 'text-gray-300')}`}>
+                                                {row.miniNet > 0 ? row.miniNet : (row.miniNet < 0 ? `+${Math.abs(row.miniNet)}` : '-')}
+                                            </td>
 
                                             {/* Full */}
                                             <td className="px-2 py-2 text-center">{row.fullOrd}</td>
@@ -399,7 +406,9 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
                                                     className="w-16 text-center text-xs border-gray-300 rounded shadow-sm focus:ring-purple-500 focus:border-purple-500 p-1"
                                                 />
                                             </td>
-                                            <td className="px-2 py-2 text-center font-bold text-purple-700 bg-purple-50/30 border-r border-gray-100">{row.fullToMake}</td>
+                                            <td className={`px-2 py-2 text-center font-bold border-r border-gray-100 ${row.fullNet > 0 ? 'text-red-600 bg-red-50/30' : (row.fullNet < 0 ? 'text-green-600 bg-green-50/30' : 'text-gray-300')}`}>
+                                                {row.fullNet > 0 ? row.fullNet : (row.fullNet < 0 ? `+${Math.abs(row.fullNet)}` : '-')}
+                                            </td>
 
                                             <td className="px-3 py-2 text-right text-green-700 font-medium">
                                                 {row.rowCost > 0 ? `$${row.rowCost.toFixed(2)}` : '-'}
