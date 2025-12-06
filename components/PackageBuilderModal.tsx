@@ -18,20 +18,20 @@ export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavo
     const [salsaSelections, setSalsaSelections] = useState<{ [salsaName: string]: number }>({});
     const [flavorCategory, setFlavorCategory] = useState<'standard' | 'special'>('standard');
     
-    // Default increment to 10 if not set to preserve legacy behavior for existing packages,
-    // or utilize the configured increment.
     const step = pkg.increment || 1;
 
     const activeFlavors = flavorCategory === 'standard' ? standardFlavors : specialFlavors;
 
     // --- Empanada Logic (Counts towards limit) ---
-    const updateBuilderSelection = (flavorName: string, change: number) => {
+    const updateBuilderSelection = (flavor: Flavor, change: number) => {
+        const flavorName = flavor.name;
         const currentQty = builderSelections[flavorName] || 0;
         const totalSelected = (Object.values(builderSelections) as number[]).reduce((a, b) => a + b, 0);
         const distinctFlavors = Object.keys(builderSelections).filter(k => builderSelections[k] > 0).length;
         const remaining = pkg.quantity - totalSelected;
         
         let actualChange = change;
+        const minQty = flavor.minimumQuantity || 0;
 
         // Logic for adding
         if (change > 0) {
@@ -40,16 +40,30 @@ export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavo
             // Check flavor limit (only if this is a NEW flavor for this selection)
             if (currentQty === 0 && distinctFlavors >= pkg.maxFlavors) return; 
 
-            // Cap change at remaining amount (e.g., if +10 but only 4 left, add 4)
+            // Logic to enforce minimum quantity on first add
+            if (currentQty === 0 && minQty > 0) {
+                // If adding from 0, must jump to minQty
+                actualChange = minQty;
+            }
+
+            // Cap change at remaining amount
             if (actualChange > remaining) {
                 actualChange = remaining;
+            }
+            
+            // If the calculated change is less than minQty when starting from 0 (because of lack of remaining slots),
+            // prevent addition unless partials are allowed (assuming strict min for now).
+            if (currentQty === 0 && minQty > 0 && actualChange < minQty) {
+                return; // Cannot add because not enough space for minimum
             }
         }
 
         // Logic for removing
         if (change < 0) {
-            // Don't go below 0
-            if (currentQty + change < 0) {
+            // Check minimum boundary. If reducing goes below min, drop to 0.
+            if (currentQty + change < minQty && minQty > 0) {
+                actualChange = -currentQty; // Reset to 0
+            } else if (currentQty + change < 0) {
                 actualChange = -currentQty;
             }
         }
@@ -63,10 +77,12 @@ export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavo
         setBuilderSelections(newSelections);
     };
 
-    const setBuilderQuantity = (flavorName: string, quantity: number) => {
+    const setBuilderQuantity = (flavor: Flavor, quantity: number) => {
+        const flavorName = flavor.name;
         const currentQty = builderSelections[flavorName] || 0;
         const totalOthers = (Object.values(builderSelections) as number[]).reduce((a, b) => a + b, 0) - currentQty;
         const distinctFlavors = Object.keys(builderSelections).filter(k => k !== flavorName && builderSelections[k] > 0).length;
+        const minQty = flavor.minimumQuantity || 0;
 
         // Rules
         const maxAvailable = pkg.quantity - totalOthers;
@@ -76,17 +92,39 @@ export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavo
         if (finalQty > 0 && currentQty === 0 && distinctFlavors >= pkg.maxFlavors) {
             return; // New flavor but max distinct reached
         }
+        
+        // Enforce Min Qty logic only if user isn't clearing it (0 is always allowed)
+        if (finalQty > 0 && finalQty < minQty) {
+            // Could auto-correct to minQty, but for now let's just ignore invalid inputs or set to 0
+            // UX decision: if typing, maybe allow intermediate? But here we'll strict enforce on blur logic essentially
+            // If they type 3 and min is 5, we could force 5.
+            finalQty = minQty;
+            if (finalQty > maxAvailable) finalQty = 0; // Can't fit min
+        }
 
         const newSelections = { ...builderSelections, [flavorName]: finalQty };
         if (finalQty === 0) delete newSelections[flavorName];
         setBuilderSelections(newSelections);
     };
 
-    const fillRemaining = (flavorName: string) => {
+    const fillRemaining = (flavor: Flavor) => {
+        const flavorName = flavor.name;
+        const currentQty = builderSelections[flavorName] || 0;
         const totalSelected = (Object.values(builderSelections) as number[]).reduce((a, b) => a + b, 0);
         const remaining = pkg.quantity - totalSelected;
+        const minQty = flavor.minimumQuantity || 0;
+
         if (remaining > 0) {
-            updateBuilderSelection(flavorName, remaining);
+            // Check if adding remaining satisfies minQty condition if current is 0
+            if (currentQty === 0 && minQty > 0 && remaining < minQty) {
+                return; // Can't fill
+            }
+            // Just update by adding remaining. logic inside updateBuilderSelection handles min logic check mostly for steps,
+            // but here we force a specific amount.
+            
+            const newQty = currentQty + remaining;
+            const newSelections = { ...builderSelections, [flavorName]: newQty };
+            setBuilderSelections(newSelections);
         }
     };
 
@@ -159,16 +197,20 @@ export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavo
                             .map(flavor => {
                                 const qty = builderSelections[flavor.name] || 0;
                                 const distinctSelected = Object.keys(builderSelections).filter(k => builderSelections[k] > 0).length;
+                                const minQty = flavor.minimumQuantity || 0;
                                 
                                 // Determine if we can add ANY amount of this flavor
-                                const canAdd = remaining > 0 && (qty > 0 || distinctSelected < pkg.maxFlavors);
+                                // Must fit either the step OR the minQty if starting from 0
+                                const incrementNeeded = (qty === 0 && minQty > 0) ? minQty : step;
+                                const canAdd = remaining >= incrementNeeded && (qty > 0 || distinctSelected < pkg.maxFlavors);
 
                                 return (
                                     <div key={flavor.name} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
-                                        <div className="flex-grow pr-2 min-w-0" onClick={() => canAdd && updateBuilderSelection(flavor.name, step)}>
+                                        <div className="flex-grow pr-2 min-w-0" onClick={() => canAdd && updateBuilderSelection(flavor, step)}>
                                             <p className="font-medium text-brand-brown text-sm whitespace-normal break-words leading-snug">
                                                 {flavor.name} 
                                                 {flavor.isSpecial && <span className="ml-1 text-[10px] bg-purple-100 text-purple-700 px-1 rounded">Special</span>}
+                                                {minQty > 1 && <span className="ml-1 text-[10px] bg-red-100 text-red-700 px-1 rounded font-bold">Min {minQty}</span>}
                                             </p>
                                             {flavor.description && <p className="text-[10px] text-gray-500 whitespace-normal break-words leading-tight mt-0.5">{flavor.description}</p>}
                                         </div>
@@ -176,7 +218,7 @@ export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavo
                                             {/* Max Button */}
                                             <button
                                                 type="button"
-                                                onClick={() => fillRemaining(flavor.name)}
+                                                onClick={() => fillRemaining(flavor)}
                                                 disabled={!canAdd}
                                                 className="text-[10px] font-bold text-brand-orange hover:text-brand-brown disabled:opacity-30 mr-1 uppercase tracking-wide bg-brand-orange/10 px-2 py-1 rounded"
                                             >
@@ -185,7 +227,7 @@ export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavo
 
                                             <button 
                                                 type="button"
-                                                onClick={() => updateBuilderSelection(flavor.name, -step)}
+                                                onClick={() => updateBuilderSelection(flavor, -step)}
                                                 disabled={qty === 0}
                                                 className="w-8 h-8 rounded-md bg-gray-100 border border-gray-300 text-gray-600 text-lg font-bold flex items-center justify-center hover:bg-gray-200 disabled:opacity-30 touch-manipulation"
                                             >
@@ -199,13 +241,13 @@ export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavo
                                                 max={pkg.quantity}
                                                 value={qty > 0 ? qty : ''}
                                                 placeholder="0"
-                                                onChange={(e) => setBuilderQuantity(flavor.name, parseInt(e.target.value) || 0)}
+                                                onChange={(e) => setBuilderQuantity(flavor, parseInt(e.target.value) || 0)}
                                                 className="w-10 h-8 text-center font-bold border-gray-300 rounded p-0 text-sm focus:border-brand-orange focus:ring-brand-orange"
                                             />
                                             
                                             <button 
                                                 type="button"
-                                                onClick={() => updateBuilderSelection(flavor.name, step)}
+                                                onClick={() => updateBuilderSelection(flavor, step)}
                                                 disabled={!canAdd}
                                                 className="w-8 h-8 rounded-md bg-brand-orange text-white text-lg font-bold flex items-center justify-center hover:bg-brand-orange/90 disabled:bg-gray-300 disabled:cursor-not-allowed touch-manipulation"
                                             >

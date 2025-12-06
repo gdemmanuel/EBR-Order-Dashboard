@@ -95,6 +95,7 @@ export interface Flavor {
     description?: string;
     surcharge?: number; // Additional cost per unit
     isSpecial?: boolean; // Belongs in "Specials" section
+    minimumQuantity?: number; // Minimum items required to order this flavor
 }
 
 export interface MenuPackage {

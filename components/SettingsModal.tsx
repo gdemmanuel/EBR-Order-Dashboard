@@ -212,6 +212,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
     const updateFlavorDescription = (i:number,v:string) => {const u=[...empanadaFlavors];u[i].description=v;setEmpanadaFlavors(u)};
     const updateFlavorName = (i:number,v:string) => {const u=[...empanadaFlavors];u[i].name=v;setEmpanadaFlavors(u)};
     const updateFlavorSurcharge = (i:number,v:string) => {const u=[...empanadaFlavors];u[i].surcharge=parseFloat(v);setEmpanadaFlavors(u)};
+    const updateFlavorMinQty = (i:number,v:string) => {const u=[...empanadaFlavors];u[i].minimumQuantity=parseInt(v)||0;setEmpanadaFlavors(u)};
     const removeFlavor = (i:number) => {setEmpanadaFlavors(empanadaFlavors.filter((_,idx)=>idx!==i))};
     const addCategory = () => { if (newCategory.trim() && !expenseCategories.includes(newCategory.trim())) { setExpenseCategories([...expenseCategories, newCategory.trim()]); setNewCategory(''); } };
     const removeCategory = (cat: string) => { setExpenseCategories(expenseCategories.filter(c => c !== cat)); };
@@ -374,6 +375,17 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                                 </div>
                                                 
                                                 <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
+                                                    <div className="flex items-center gap-1" title="Minimum Quantity per Order">
+                                                        <span className="text-xs text-gray-500 font-bold">Min:</span>
+                                                        <input 
+                                                            type="number" 
+                                                            min="0"
+                                                            value={flavor.minimumQuantity || 0} 
+                                                            onChange={(e) => updateFlavorMinQty(index, e.target.value)} 
+                                                            className="w-12 h-8 text-sm border-gray-300 rounded-md text-center"
+                                                        />
+                                                    </div>
+
                                                     <div className="flex items-center gap-1" title="Extra cost per unit">
                                                         <span className="text-xs text-gray-500 font-bold">+$</span>
                                                         <input 
