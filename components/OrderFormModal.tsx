@@ -302,7 +302,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
             .map(i => ({ name: i.name === 'Full Other' ? `Full ${i.customName!}` : `Full ${i.name}`, quantity: Number(i.quantity) }));
 
         const currentSalsaItems: OrderItem[] = salsaItems
-            .filter(s => s.checked && s.quantity > 0)
+            .filter(s => s.checked && Number(s.quantity) > 0)
             .map(s => ({ name: s.name, quantity: Number(s.quantity) }));
 
         const allItems = [...currentMiniItems, ...currentFullItems, ...currentSalsaItems];
@@ -422,7 +422,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
             });
 
         const currentSalsaItems: OrderItem[] = salsaItems
-            .filter(s => s.checked && s.quantity > 0)
+            .filter(s => s.checked && Number(s.quantity) > 0)
             .map(s => ({ name: s.name, quantity: Number(s.quantity) }));
 
         const allItems = [...currentMiniItems, ...currentFullItems, ...currentSalsaItems];

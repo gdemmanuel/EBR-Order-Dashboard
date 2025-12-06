@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { MenuPackage, Flavor } from '../types';
 import { XMarkIcon, ChevronDownIcon, ArrowUturnLeftIcon, CheckCircleIcon } from './icons/Icons';
@@ -153,7 +152,11 @@ export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavo
                 <div className="flex-grow">
                     <h3 className="text-lg font-bold text-brand-brown">Customize {pkg.name}</h3>
                     <p className="text-xs text-gray-500">
-                        Pick {pkg.quantity} empanadas (Up to {pkg.maxFlavors} flavors)
+                        {remaining === 0 
+                            ? <span className="text-green-600 font-bold">Package Full!</span>
+                            : <span>Select <span className="font-bold text-brand-orange">{remaining}</span> more</span>
+                        }
+                        <span className="mx-1">•</span> Up to {pkg.maxFlavors} flavors
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -211,6 +214,7 @@ export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavo
                                                 {flavor.name} 
                                                 {flavor.isSpecial && <span className="ml-1 text-[10px] bg-purple-100 text-purple-700 px-1 rounded">Special</span>}
                                                 {minQty > 1 && <span className="ml-1 text-[10px] bg-red-100 text-red-700 px-1 rounded font-bold">Min {minQty}</span>}
+                                                {flavor.surcharge ? <span className="ml-1 text-[10px] text-brand-orange font-bold uppercase tracking-wider">+ Fee</span> : null}
                                             </p>
                                             {flavor.description && <p className="text-[10px] text-gray-500 whitespace-normal break-words leading-tight mt-0.5">{flavor.description}</p>}
                                         </div>

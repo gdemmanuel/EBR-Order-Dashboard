@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Order, Flavor, PricingSettings, AppSettings, PaymentStatus, FollowUpStatus, ApprovalStatus, OrderItem, MenuPackage, OrderPackageSelection } from '../types';
 import { saveOrderToDb } from '../services/dbService';
@@ -93,7 +92,7 @@ const FlavorCard = ({ flavor }: { flavor: Flavor }) => (
         )}
         {flavor.surcharge ? (
             <span className="text-[10px] text-brand-orange font-bold mt-auto pt-1 self-start uppercase tracking-wider">
-                +{formatPrice(flavor.surcharge)} Extra
+                + Extra Fee
             </span>
         ) : null}
     </div>

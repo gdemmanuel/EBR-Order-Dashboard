@@ -246,7 +246,11 @@ export default function OrderList({
                             sortedOrders.map((order) => {
                                 const totalItems = order.totalMini + order.totalFullSize;
                                 const itemsSummary = order.items.map(i => `${i.quantity} ${i.name}`).join(', ');
-                                const isPartyPlatter = (order.specialInstructions || '').includes("PARTY PLATTER");
+                                
+                                // Enhanced Party Platter Detection
+                                const hasPlatterPackage = order.originalPackages && order.originalPackages.some(p => p.toLowerCase().includes('platter'));
+                                const hasPlatterInstruction = (order.specialInstructions || '').includes("PARTY PLATTER");
+                                const isPartyPlatter = hasPlatterPackage || hasPlatterInstruction;
                                 
                                 return (
                                     <tr 
