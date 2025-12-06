@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { MenuPackage, Flavor } from '../types';
 import { XMarkIcon, ChevronDownIcon, ArrowUturnLeftIcon, CheckCircleIcon } from './icons/Icons';
@@ -17,27 +18,31 @@ export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavo
     const [salsaSelections, setSalsaSelections] = useState<{ [salsaName: string]: number }>({});
     const [flavorCategory, setFlavorCategory] = useState<'standard' | 'special'>('standard');
     
-    const step = pkg.increment || 1;
+    // Ensure numbers
+    const packageQty = Number(pkg.quantity);
+    const maxFlavors = Number(pkg.maxFlavors);
+    const step = Number(pkg.increment) || 1;
 
     const activeFlavors = flavorCategory === 'standard' ? standardFlavors : specialFlavors;
+
+    const totalSelected = (Object.values(builderSelections) as number[]).reduce((a, b) => a + b, 0);
+    const remaining = packageQty - totalSelected;
 
     // --- Empanada Logic (Counts towards limit) ---
     const updateBuilderSelection = (flavor: Flavor, change: number) => {
         const flavorName = flavor.name;
         const currentQty = builderSelections[flavorName] || 0;
-        const totalSelected = (Object.values(builderSelections) as number[]).reduce((a, b) => a + b, 0);
         const distinctFlavors = Object.keys(builderSelections).filter(k => builderSelections[k] > 0).length;
-        const remaining = pkg.quantity - totalSelected;
         
         let actualChange = change;
         const minQty = flavor.minimumQuantity || 0;
 
         // Logic for adding
         if (change > 0) {
-            if (remaining === 0) return; // Full
+            if (remaining <= 0) return; // Full
             
             // Check flavor limit (only if this is a NEW flavor for this selection)
-            if (currentQty === 0 && distinctFlavors >= pkg.maxFlavors) return; 
+            if (currentQty === 0 && distinctFlavors >= maxFlavors) return; 
 
             // Logic to enforce minimum quantity on first add
             if (currentQty === 0 && minQty > 0) {
@@ -51,9 +56,9 @@ export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavo
             }
             
             // If the calculated change is less than minQty when starting from 0 (because of lack of remaining slots),
-            // prevent addition unless partials are allowed (assuming strict min for now).
+            // prevent addition.
             if (currentQty === 0 && minQty > 0 && actualChange < minQty) {
-                return; // Cannot add because not enough space for minimum
+                return; 
             }
         }
 
@@ -79,24 +84,21 @@ export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavo
     const setBuilderQuantity = (flavor: Flavor, quantity: number) => {
         const flavorName = flavor.name;
         const currentQty = builderSelections[flavorName] || 0;
-        const totalOthers = (Object.values(builderSelections) as number[]).reduce((a, b) => a + b, 0) - currentQty;
+        const totalOthers = totalSelected - currentQty;
         const distinctFlavors = Object.keys(builderSelections).filter(k => k !== flavorName && builderSelections[k] > 0).length;
         const minQty = flavor.minimumQuantity || 0;
 
         // Rules
-        const maxAvailable = pkg.quantity - totalOthers;
+        const maxAvailable = packageQty - totalOthers;
         let finalQty = Math.min(quantity, maxAvailable);
         finalQty = Math.max(0, finalQty);
 
-        if (finalQty > 0 && currentQty === 0 && distinctFlavors >= pkg.maxFlavors) {
+        if (finalQty > 0 && currentQty === 0 && distinctFlavors >= maxFlavors) {
             return; // New flavor but max distinct reached
         }
         
         // Enforce Min Qty logic only if user isn't clearing it (0 is always allowed)
         if (finalQty > 0 && finalQty < minQty) {
-            // Could auto-correct to minQty, but for now let's just ignore invalid inputs or set to 0
-            // UX decision: if typing, maybe allow intermediate? But here we'll strict enforce on blur logic essentially
-            // If they type 3 and min is 5, we could force 5.
             finalQty = minQty;
             if (finalQty > maxAvailable) finalQty = 0; // Can't fit min
         }
@@ -109,8 +111,6 @@ export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavo
     const fillRemaining = (flavor: Flavor) => {
         const flavorName = flavor.name;
         const currentQty = builderSelections[flavorName] || 0;
-        const totalSelected = (Object.values(builderSelections) as number[]).reduce((a, b) => a + b, 0);
-        const remaining = pkg.quantity - totalSelected;
         const minQty = flavor.minimumQuantity || 0;
 
         if (remaining > 0) {
@@ -118,8 +118,6 @@ export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavo
             if (currentQty === 0 && minQty > 0 && remaining < minQty) {
                 return; // Can't fill
             }
-            // Just update by adding remaining. logic inside updateBuilderSelection handles min logic check mostly for steps,
-            // but here we force a specific amount.
             
             const newQty = currentQty + remaining;
             const newSelections = { ...builderSelections, [flavorName]: newQty };
@@ -142,9 +140,6 @@ export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavo
         const salsaItems = Object.entries(salsaSelections).map(([name, quantity]) => ({ name, quantity: quantity as number }));
         onConfirm([...empanadaItems, ...salsaItems]);
     };
-
-    const totalSelected = (Object.values(builderSelections) as number[]).reduce((a, b) => a + b, 0);
-    const remaining = pkg.quantity - totalSelected;
     
     return (
         <div className={`bg-white rounded-xl shadow-lg border border-brand-tan w-full animate-fade-in flex flex-col ${className}`}>
@@ -154,16 +149,16 @@ export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavo
                     <p className="text-xs text-gray-500">
                         {remaining === 0 
                             ? <span className="text-green-600 font-bold">Package Full!</span>
-                            : <span>Select <span className="font-bold text-brand-orange">{remaining}</span> more</span>
+                            : <span>Remaining: <span className="font-bold text-brand-orange text-sm">{remaining}</span></span>
                         }
-                        <span className="mx-1">•</span> Up to {pkg.maxFlavors} flavors
+                        <span className="mx-1">•</span> Up to {maxFlavors} flavors
                     </p>
                 </div>
                 <div className="flex items-center gap-2">
                     {/* Top "Add" Button for easy access */}
                     <button 
                         onClick={handleConfirm}
-                        disabled={totalSelected !== pkg.quantity}
+                        disabled={totalSelected !== packageQty}
                         className="bg-brand-orange text-white text-xs font-bold px-3 py-1.5 rounded shadow-sm hover:bg-opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 transition-all"
                     >
                         <CheckCircleIcon className="w-4 h-4" /> Add
@@ -205,7 +200,11 @@ export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavo
                                 // Determine if we can add ANY amount of this flavor
                                 // Must fit either the step OR the minQty if starting from 0
                                 const incrementNeeded = (qty === 0 && minQty > 0) ? minQty : step;
-                                const canAdd = remaining >= incrementNeeded && (qty > 0 || distinctSelected < pkg.maxFlavors);
+                                
+                                // Can add if:
+                                // 1. We have enough remaining slots for the increment needed
+                                // 2. AND (we already have this flavor OR we haven't hit max distinct flavors)
+                                const canAdd = remaining >= incrementNeeded && (qty > 0 || distinctSelected < maxFlavors);
 
                                 return (
                                     <div key={flavor.name} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
@@ -214,7 +213,7 @@ export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavo
                                                 {flavor.name} 
                                                 {flavor.isSpecial && <span className="ml-1 text-[10px] bg-purple-100 text-purple-700 px-1 rounded">Special</span>}
                                                 {minQty > 1 && <span className="ml-1 text-[10px] bg-red-100 text-red-700 px-1 rounded font-bold">Min {minQty}</span>}
-                                                {flavor.surcharge ? <span className="ml-1 text-[10px] text-brand-orange font-bold uppercase tracking-wider">+ Fee</span> : null}
+                                                {flavor.surcharge ? <span className="ml-1 text-[10px] text-brand-orange font-bold uppercase tracking-wider">+ Extra Fee</span> : null}
                                             </p>
                                             {flavor.description && <p className="text-[10px] text-gray-500 whitespace-normal break-words leading-tight mt-0.5">{flavor.description}</p>}
                                         </div>
@@ -223,10 +222,10 @@ export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavo
                                             <button
                                                 type="button"
                                                 onClick={() => fillRemaining(flavor)}
-                                                disabled={!canAdd}
+                                                disabled={!canAdd && remaining < incrementNeeded} // Disable only if strictly impossible to add
                                                 className="text-[10px] font-bold text-brand-orange hover:text-brand-brown disabled:opacity-30 mr-1 uppercase tracking-wide bg-brand-orange/10 px-2 py-1 rounded"
                                             >
-                                                Max
+                                                MAX
                                             </button>
 
                                             <button 
@@ -242,7 +241,7 @@ export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavo
                                             <input
                                                 type="number"
                                                 min="0"
-                                                max={pkg.quantity}
+                                                max={packageQty}
                                                 value={qty > 0 ? qty : ''}
                                                 placeholder="0"
                                                 onChange={(e) => setBuilderQuantity(flavor, parseInt(e.target.value) || 0)}
@@ -311,13 +310,13 @@ export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavo
                     <span className="text-xs font-medium text-gray-600">
                         Remaining: <span className="font-bold text-brand-brown">{remaining}</span>
                     </span>
-                    <span className={`font-bold text-sm ${totalSelected === pkg.quantity ? 'text-green-600' : 'text-brand-orange'}`}>
-                        Selected: {totalSelected} / {pkg.quantity}
+                    <span className={`font-bold text-sm ${totalSelected === packageQty ? 'text-green-600' : 'text-brand-orange'}`}>
+                        Selected: {totalSelected} / {packageQty}
                     </span>
                 </div>
                 <button 
                     onClick={handleConfirm}
-                    disabled={totalSelected !== pkg.quantity}
+                    disabled={totalSelected !== packageQty}
                     className="w-full bg-brand-orange text-white font-bold py-3 rounded-lg shadow-md hover:bg-opacity-90 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex justify-center items-center gap-2 text-base touch-manipulation"
                 >
                     <CheckCircleIcon className="w-5 h-5" />

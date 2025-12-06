@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Order } from '../types';
 import { formatDateForDisplay } from '../utils/dateUtils';
@@ -80,9 +81,9 @@ export default function PrintableTicket({ order }: PrintableTicketProps) {
           )}
 
           {/* Contact Info - NEW */}
-          <div className="mb-2 text-[10px] leading-3">
-              {order.phoneNumber && <span className="block">Ph: {order.phoneNumber}</span>}
-              {order.contactMethod && <span className="block text-[9px] text-gray-600">Via: {order.contactMethod}</span>}
+          <div className="mb-2 text-[10px] leading-3 text-gray-800 border-t border-black border-dotted pt-1">
+              {order.phoneNumber && <span className="block font-medium">{order.phoneNumber}</span>}
+              {order.contactMethod && <span className="block text-[9px]">Via: {order.contactMethod}</span>}
           </div>
 
           {/* Notes */}

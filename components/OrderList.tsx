@@ -249,7 +249,7 @@ export default function OrderList({
                                 
                                 // Enhanced Party Platter Detection
                                 const hasPlatterPackage = order.originalPackages && order.originalPackages.some(p => p.toLowerCase().includes('platter'));
-                                const hasPlatterInstruction = (order.specialInstructions || '').includes("PARTY PLATTER");
+                                const hasPlatterInstruction = (order.specialInstructions || '').toLowerCase().includes("party platter");
                                 const isPartyPlatter = hasPlatterPackage || hasPlatterInstruction;
                                 
                                 return (
