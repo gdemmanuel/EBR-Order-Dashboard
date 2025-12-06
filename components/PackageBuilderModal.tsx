@@ -41,9 +41,6 @@ export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavo
         if (change > 0) {
             if (remaining <= 0) return; // Full
             
-            // Check flavor limit (only if this is a NEW flavor for this selection)
-            if (currentQty === 0 && distinctFlavors >= maxFlavors) return; 
-
             // Logic to enforce minimum quantity on first add
             if (currentQty === 0 && minQty > 0) {
                 // If adding from 0, must jump to minQty
@@ -55,10 +52,11 @@ export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavo
                 actualChange = remaining;
             }
             
-            // If the calculated change is less than minQty when starting from 0 (because of lack of remaining slots),
-            // prevent addition.
-            if (currentQty === 0 && minQty > 0 && actualChange < minQty) {
-                return; 
+            // Validating limits BEFORE state update
+            // 1. If starting from 0, check flavor slots and if we can fit minQty
+            if (currentQty === 0) {
+                if (distinctFlavors >= maxFlavors) return; // No flavor slots
+                if (minQty > 0 && actualChange < minQty) return; // Can't fit min
             }
         }
 
@@ -197,14 +195,13 @@ export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavo
                                 const distinctSelected = Object.keys(builderSelections).filter(k => builderSelections[k] > 0).length;
                                 const minQty = flavor.minimumQuantity || 0;
                                 
-                                // Determine if we can add ANY amount of this flavor
-                                // Must fit either the step OR the minQty if starting from 0
+                                // Revised logic for enabling the Add button
+                                // Case 1: We already have this flavor (qty > 0). We just need to fit the step.
+                                // Case 2: We don't have it (qty == 0). We need to fit minQty (or step) AND have a distinct flavor slot.
                                 const incrementNeeded = (qty === 0 && minQty > 0) ? minQty : step;
                                 
-                                // Can add if:
-                                // 1. We have enough remaining slots for the increment needed
-                                // 2. AND (we already have this flavor OR we haven't hit max distinct flavors)
-                                const canAdd = remaining >= incrementNeeded && (qty > 0 || distinctSelected < maxFlavors);
+                                const canAdd = (qty > 0 && remaining >= step) || 
+                                               (qty === 0 && remaining >= incrementNeeded && distinctSelected < maxFlavors);
 
                                 return (
                                     <div key={flavor.name} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0 hover:bg-gray-50 transition-colors">
@@ -222,7 +219,7 @@ export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavo
                                             <button
                                                 type="button"
                                                 onClick={() => fillRemaining(flavor)}
-                                                disabled={!canAdd && remaining < incrementNeeded} // Disable only if strictly impossible to add
+                                                disabled={!canAdd}
                                                 className="text-[10px] font-bold text-brand-orange hover:text-brand-brown disabled:opacity-30 mr-1 uppercase tracking-wide bg-brand-orange/10 px-2 py-1 rounded"
                                             >
                                                 MAX
