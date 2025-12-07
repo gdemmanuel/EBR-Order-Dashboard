@@ -57,7 +57,8 @@ const ItemInputSection: React.FC<{
     onAddPackage: (pkg: MenuPackage) => void;
     bgColor?: string;
 }> = ({ title, items, flavors, onItemChange, onAddItem, onRemoveItem, itemType, availablePackages, onAddPackage, bgColor = "bg-white" }) => {
-    const otherOption = itemType === 'mini' ? 'Other' : 'Full Other';
+    // Standardize 'Other' check since we strip 'Full ' prefix for display in full size lists
+    const otherOption = 'Other'; 
     const [isPackageMenuOpen, setIsPackageMenuOpen] = useState(false);
 
     return (
@@ -202,12 +203,6 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
             // Handle Contact Method
             const stdMethods = Object.values(ContactMethod) as string[];
             let method = order.contactMethod;
-            // Try to parse out email if stored in contact method string
-            if (method && method.includes('Email: ')) {
-                // e.g. "Website (Email: foo@bar.com)"
-                // We typically just set the dropdown. The email state is handled separately.
-                // If the email field on order object was empty, we could extract it here, but we trust order.email mostly.
-            }
             
             if (stdMethods.includes(method)) {
                 setContactMethod(method);
@@ -231,16 +226,6 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
             }
 
             // Filter out package items if they are structured, otherwise load all
-            // Ideally for admin editing we might want to flatten everything to allow easy modification
-            // OR keep them separated. Flattening is easier for quick edits.
-            // Let's load loose items. If we have packages, we keep them in `preservedPackages`.
-            // Any items NOT in packages should be loaded into the inputs.
-            
-            // To simplify Admin Edit: We will Flatten everything into the inputs. 
-            // Warning: This "breaks" the package structure visually in the modal, 
-            // but ensures all items are accounted for and editable.
-            // If the user saves, it will be saved as loose items + potentially preserved package metadata if we don't clear it.
-            // Decision: Flatten for editing. Clear preserved packages to avoid double counting or confusion upon re-save.
             setPreservedPackages([]); 
             setAddedPackages([]); 
 
@@ -254,7 +239,15 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                 }
 
                 if (item.name.startsWith('Full ')) {
-                    fulls.push({ name: item.name.replace('Full ', ''), quantity: item.quantity });
+                    // For Full Size items, strip "Full " prefix and handle "Other"
+                    let cleanName = item.name.replace('Full ', '');
+                    // Handle legacy "Full Other" if it exists, though "Other" is cleaner in UI
+                    if (cleanName === 'Other' && !fullSizeEmpanadaFlavors.some(f => f.name === 'Full Other')) {
+                        // If it was custom, we might lose the specific custom name unless it was stored differently.
+                        // Ideally "Other" items should have been saved with their specific name if possible, 
+                        // but here we map back to the UI state.
+                    }
+                    fulls.push({ name: cleanName, quantity: item.quantity });
                 } else {
                     minis.push({ name: item.name, quantity: item.quantity });
                 }
@@ -297,9 +290,10 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
             .filter(i => i.quantity && (i.name !== 'Other' || i.customName))
             .map(i => ({ name: i.name === 'Other' ? i.customName! : i.name, quantity: Number(i.quantity) }));
 
+        // Correctly handle "Other" for Full Size items in pricing calculation
         const currentFullItems: OrderItem[] = fullSizeItems
-            .filter(i => i.quantity && (i.name !== 'Full Other' || i.customName))
-            .map(i => ({ name: i.name === 'Full Other' ? `Full ${i.customName!}` : `Full ${i.name}`, quantity: Number(i.quantity) }));
+            .filter(i => i.quantity && (i.name !== 'Other' || i.customName))
+            .map(i => ({ name: i.name === 'Other' ? `Full ${i.customName!}` : `Full ${i.name}`, quantity: Number(i.quantity) }));
 
         const currentSalsaItems: OrderItem[] = salsaItems
             .filter(s => s.checked && Number(s.quantity) > 0)
@@ -307,10 +301,6 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
 
         const allItems = [...currentMiniItems, ...currentFullItems, ...currentSalsaItems];
         
-        // Note: Preserved packages are not easily editable in this view if we flattened them.
-        // If we didn't flatten them (see above logic), we would need to add their value.
-        // Since we flattened them on load, allItems covers everything.
-
         const delivery = Number(deliveryFee) || 0;
         const total = calculateOrderTotal(allItems, delivery, pricing, empanadaFlavors, fullSizeEmpanadaFlavors);
         setAmountCharged(total);
@@ -339,7 +329,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         setMiniItems(newItems);
     };
 
-    const addFullItem = () => setFullSizeItems([...fullSizeItems, { name: fullSizeEmpanadaFlavors[0]?.name || 'Full Beef', quantity: 1 }]);
+    const addFullItem = () => setFullSizeItems([...fullSizeItems, { name: fullSizeEmpanadaFlavors[0]?.name.replace('Full ', '') || 'Beef', quantity: 1 }]);
     const removeFullItem = (idx: number) => setFullSizeItems(fullSizeItems.filter((_, i) => i !== idx));
     const updateFullItem = (idx: number, field: keyof FormOrderItem, value: any) => {
         const newItems = [...fullSizeItems];
@@ -361,6 +351,9 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         const newFulls = [...fullSizeItems];
         const newSalsas = [...salsaItems];
 
+        // Determine if the package is explicitly Full Size
+        const isFullPackage = activePackageBuilder.itemType === 'full';
+
         items.forEach(item => {
             // Check if salsa
             const salsaIdx = newSalsas.findIndex(s => s.name === item.name);
@@ -370,20 +363,26 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                 return;
             }
 
-            if (item.name.startsWith('Full ')) {
+            // Determine if item should go to Full or Mini list
+            // 1. If item name starts with "Full ", it's always full.
+            // 2. If the package type is Full, it's full (unless explicit salsa).
+            const isFullItem = item.name.startsWith('Full ') || isFullPackage;
+            const cleanName = item.name.replace('Full ', '');
+
+            if (isFullItem) {
                 // Check if already exists to merge
-                const existing = newFulls.find(i => i.name === item.name.replace('Full ', ''));
+                const existing = newFulls.find(i => i.name === cleanName);
                 if (existing) {
                     existing.quantity = Number(existing.quantity) + item.quantity;
                 } else {
-                    newFulls.push({ name: item.name.replace('Full ', ''), quantity: item.quantity });
+                    newFulls.push({ name: cleanName, quantity: item.quantity });
                 }
             } else {
-                const existing = newMinis.find(i => i.name === item.name);
+                const existing = newMinis.find(i => i.name === cleanName);
                 if (existing) {
                     existing.quantity = Number(existing.quantity) + item.quantity;
                 } else {
-                    newMinis.push({ name: item.name, quantity: item.quantity });
+                    newMinis.push({ name: cleanName, quantity: item.quantity });
                 }
             }
         });
@@ -406,18 +405,15 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
             .filter(i => i.quantity && (i.name !== 'Other' || i.customName))
             .map(i => {
                 if (i.name === 'Other' && i.customName && onAddNewFlavor) {
-                    // Trigger add new flavor callback if needed, 
-                    // though usually we just save the name. 
-                    // To register it globally:
-                    // onAddNewFlavor(i.customName, 'mini'); 
+                    // Trigger add new flavor callback if needed
                 }
                 return { name: i.name === 'Other' ? i.customName! : i.name, quantity: Number(i.quantity) };
             });
 
         const currentFullItems: OrderItem[] = fullSizeItems
-            .filter(i => i.quantity && (i.name !== 'Full Other' || i.customName))
+            .filter(i => i.quantity && (i.name !== 'Other' || i.customName))
             .map(i => {
-                const cleanName = i.name === 'Full Other' ? i.customName! : i.name;
+                const cleanName = i.name === 'Other' ? i.customName! : i.name;
                 return { name: `Full ${cleanName}`, quantity: Number(i.quantity) };
             });
 
@@ -454,9 +450,6 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
             approvalStatus: order?.approvalStatus || ApprovalStatus.APPROVED,
             // Track packages
             originalPackages: addedPackages.length > 0 ? addedPackages : (order?.originalPackages || []),
-            // We are NOT reconstructing structured packages here because we flattened them.
-            // If we wanted to preserve, we would merge `preservedPackages` but since we edited items, sync is hard.
-            // Sending empty packages array or undefined implies "Custom/Mixed" or purely flat list.
             packages: [], 
         };
 
