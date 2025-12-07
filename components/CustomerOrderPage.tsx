@@ -342,14 +342,18 @@ export default function CustomerOrderPage({
             const isFullSizePackage = activePackageBuilder.itemType === 'full' && !activePackageBuilder.isSpecial;
             const isSpecialFlavor = specialFlavors.some(f => f.name === item.name); // Don't prepend Full to Specials if they are already unique
             
+            // Check if item is a salsa
+            const isSalsa = salsaListForModal.some(s => s.name === item.name);
+
             // Standardize name for "Full" if needed
-            if (isFullSizePackage && !item.name.startsWith('Full ') && !isSpecialFlavor) {
+            if (isFullSizePackage && !item.name.startsWith('Full ') && !isSpecialFlavor && !isSalsa) {
                 flavorName = `Full ${item.name}`;
             }
 
             // Find surcharge info
             // We check both the raw name and the display name
-            const flavorDef = [...empanadaFlavors, ...fullSizeEmpanadaFlavors].find(f => f.name === item.name || f.name === flavorName);
+            // We MUST include salsaListForModal here because salsas have their price mapped to 'surcharge' in that list.
+            const flavorDef = [...empanadaFlavors, ...fullSizeEmpanadaFlavors, ...salsaListForModal].find(f => f.name === item.name || f.name === flavorName);
             if (flavorDef && flavorDef.surcharge) {
                 surchargeTotal += (item.quantity * flavorDef.surcharge);
             }
