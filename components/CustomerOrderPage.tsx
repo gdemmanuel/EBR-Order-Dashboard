@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Order, Flavor, PricingSettings, AppSettings, PaymentStatus, FollowUpStatus, ApprovalStatus, OrderItem, MenuPackage, OrderPackageSelection } from '../types';
 import { saveOrderToDb } from '../services/dbService';
@@ -339,21 +338,28 @@ export default function CustomerOrderPage({
         const normalizedItems = items.map(item => {
             // Check for Full Size naming convention
             let flavorName = item.name;
-            const isFullSizePackage = activePackageBuilder.itemType === 'full' && !activePackageBuilder.isSpecial;
-            const isSpecialFlavor = specialFlavors.some(f => f.name === item.name); // Don't prepend Full to Specials if they are already unique
+            const isFullSizePackage = activePackageBuilder.itemType === 'full';
             
             // Check if item is a salsa
             const isSalsa = salsaListForModal.some(s => s.name === item.name);
 
             // Standardize name for "Full" if needed
-            if (isFullSizePackage && !item.name.startsWith('Full ') && !isSpecialFlavor && !isSalsa) {
+            // Only prepend if not already there and not a salsa
+            if (isFullSizePackage && !item.name.startsWith('Full ') && !isSalsa) {
                 flavorName = `Full ${item.name}`;
             }
 
             // Find surcharge info
-            // We check both the raw name and the display name
-            // We MUST include salsaListForModal here because salsas have their price mapped to 'surcharge' in that list.
-            const flavorDef = [...empanadaFlavors, ...fullSizeEmpanadaFlavors, ...salsaListForModal].find(f => f.name === item.name || f.name === flavorName);
+            const allDefinitions = [...fullSizeEmpanadaFlavors, ...empanadaFlavors, ...salsaListForModal];
+            
+            // 1. Try exact match on computed name (e.g. "Full Rainbow")
+            let flavorDef = allDefinitions.find(f => f.name === flavorName);
+            
+            // 2. Fallback to input name (e.g. "Rainbow") if exact match fails
+            if (!flavorDef) {
+                flavorDef = allDefinitions.find(f => f.name === item.name);
+            }
+
             if (flavorDef && flavorDef.surcharge) {
                 surchargeTotal += (item.quantity * flavorDef.surcharge);
             }
