@@ -735,8 +735,15 @@ export default function CustomerOrderPage({
                             <div className="animate-fade-in">
                                 <PackageBuilderModal 
                                     pkg={activePackageBuilder}
-                                    standardFlavors={empanadaFlavors.filter(f => !f.isSpecial)}
-                                    specialFlavors={empanadaFlavors.filter(f => f.isSpecial)}
+                                    // Pass correct flavor list based on package type (with names normalized for display)
+                                    standardFlavors={activePackageBuilder.itemType === 'full' 
+                                        ? fullSizeEmpanadaFlavors.filter(f => !f.isSpecial).map(f => ({...f, name: f.name.replace('Full ', '')}))
+                                        : empanadaFlavors.filter(f => !f.isSpecial)
+                                    }
+                                    specialFlavors={activePackageBuilder.itemType === 'full' 
+                                        ? fullSizeEmpanadaFlavors.filter(f => f.isSpecial).map(f => ({...f, name: f.name.replace('Full ', '')}))
+                                        : empanadaFlavors.filter(f => f.isSpecial)
+                                    }
                                     salsas={salsaListForModal} 
                                     onClose={() => setActivePackageBuilder(null)}
                                     onConfirm={handlePackageConfirm}

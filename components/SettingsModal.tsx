@@ -124,7 +124,14 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                 cost: Number(i.cost) || 0
             }));
 
-            const syncedFullFlavors: Flavor[] = empanadaFlavors.map(f => ({ ...f, name: `Full ${f.name}` }));
+            // Generate Full Size Flavors List with specific overrides
+            const syncedFullFlavors: Flavor[] = empanadaFlavors.map(f => ({ 
+                ...f, 
+                name: `Full ${f.name}`,
+                // Apply Full Size specific settings to the standard fields for the Full flavor object
+                surcharge: f.fullSurcharge || 0,
+                minimumQuantity: f.fullMinimumQuantity || 0
+            }));
 
             await updateSettingsInDb({
                 motd,
@@ -213,6 +220,10 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
     const updateFlavorName = (i:number,v:string) => {const u=[...empanadaFlavors];u[i].name=v;setEmpanadaFlavors(u)};
     const updateFlavorSurcharge = (i:number,v:string) => {const u=[...empanadaFlavors];u[i].surcharge=parseFloat(v);setEmpanadaFlavors(u)};
     const updateFlavorMinQty = (i:number,v:string) => {const u=[...empanadaFlavors];u[i].minimumQuantity=parseInt(v)||0;setEmpanadaFlavors(u)};
+    // New Updaters for Full Size
+    const updateFlavorFullSurcharge = (i:number,v:string) => {const u=[...empanadaFlavors];u[i].fullSurcharge=parseFloat(v);setEmpanadaFlavors(u)};
+    const updateFlavorFullMinQty = (i:number,v:string) => {const u=[...empanadaFlavors];u[i].fullMinimumQuantity=parseInt(v)||0;setEmpanadaFlavors(u)};
+    
     const removeFlavor = (i:number) => {setEmpanadaFlavors(empanadaFlavors.filter((_,idx)=>idx!==i))};
     const addCategory = () => { if (newCategory.trim() && !expenseCategories.includes(newCategory.trim())) { setExpenseCategories([...expenseCategories, newCategory.trim()]); setNewCategory(''); } };
     const removeCategory = (cat: string) => { setExpenseCategories(expenseCategories.filter(c => c !== cat)); };
@@ -354,68 +365,95 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                     
                                     <div className="space-y-4">
                                         {empanadaFlavors.map((flavor, index) => (
-                                            <div key={index} className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                                                <div className="flex-grow space-y-2 w-full">
-                                                    <div className="flex items-center gap-2">
+                                            <div key={index} className="flex flex-col gap-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                                                {/* Header Row: Name & Toggles */}
+                                                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 justify-between">
+                                                    <div className="flex items-center gap-2 flex-grow">
                                                         <input 
                                                             type="text" 
                                                             value={flavor.name} 
                                                             onChange={(e) => updateFlavorName(index, e.target.value)} 
                                                             className="font-bold text-brand-brown bg-transparent border-none p-0 focus:ring-0 w-full sm:w-auto"
                                                         />
-                                                        {flavor.isSpecial && <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-bold uppercase">Special</span>}
+                                                        <button 
+                                                            onClick={() => toggleFlavorSpecial(index)} 
+                                                            className={`p-1 px-2 rounded-full transition-colors text-xs font-bold uppercase ${flavor.isSpecial ? 'bg-purple-100 text-purple-600' : 'bg-gray-200 text-gray-400'}`}
+                                                            title="Toggle Special/Seasonal"
+                                                        >
+                                                            Special
+                                                        </button>
                                                     </div>
-                                                    <input 
-                                                        type="text" 
-                                                        value={flavor.description || ''} 
-                                                        onChange={(e) => updateFlavorDescription(index, e.target.value)} 
-                                                        placeholder="Description (ingredients, taste profile...)" 
-                                                        className="w-full text-xs text-gray-600 border-gray-300 rounded-md bg-white h-8"
-                                                    />
+                                                    
+                                                    <div className="flex items-center gap-3">
+                                                        <button 
+                                                            onClick={() => toggleFlavorVisibility(index)} 
+                                                            className={`p-2 rounded-full transition-colors ${flavor.visible ? 'bg-green-100 text-green-600' : 'bg-gray-200 text-gray-400'}`}
+                                                            title="Toggle Visibility"
+                                                        >
+                                                            <CheckCircleIcon className="w-4 h-4" />
+                                                        </button>
+                                                        <button onClick={() => removeFlavor(index)} className="text-red-400 hover:text-red-600 p-2">
+                                                            <TrashIcon className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
                                                 </div>
+
+                                                {/* Description */}
+                                                <input 
+                                                    type="text" 
+                                                    value={flavor.description || ''} 
+                                                    onChange={(e) => updateFlavorDescription(index, e.target.value)} 
+                                                    placeholder="Description (ingredients, taste profile...)" 
+                                                    className="w-full text-xs text-gray-600 border-gray-300 rounded-md bg-white h-8"
+                                                />
                                                 
-                                                <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
-                                                    <div className="flex items-center gap-1" title="Minimum Quantity per Order">
-                                                        <span className="text-xs text-gray-500 font-bold">Min:</span>
-                                                        <input 
-                                                            type="number" 
-                                                            min="0"
-                                                            value={flavor.minimumQuantity || 0} 
-                                                            onChange={(e) => updateFlavorMinQty(index, e.target.value)} 
-                                                            className="w-12 h-8 text-sm border-gray-300 rounded-md text-center"
-                                                        />
+                                                {/* Settings Grid */}
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-1 bg-white p-3 rounded border border-gray-200">
+                                                    {/* Mini Settings */}
+                                                    <div className="flex items-center gap-3">
+                                                        <span className="text-xs font-bold text-gray-500 uppercase w-8">Mini</span>
+                                                        <label className="flex items-center gap-1 text-xs text-gray-600" title="Minimum Quantity per Order (Mini)">
+                                                            Min:
+                                                            <input 
+                                                                type="number" min="0"
+                                                                value={flavor.minimumQuantity || 0} 
+                                                                onChange={(e) => updateFlavorMinQty(index, e.target.value)} 
+                                                                className="w-12 h-7 text-sm border-gray-300 rounded text-center"
+                                                            />
+                                                        </label>
+                                                        <label className="flex items-center gap-1 text-xs text-gray-600" title="Extra cost per unit (Mini)">
+                                                            +$
+                                                            <input 
+                                                                type="number" step="0.01"
+                                                                value={flavor.surcharge || 0} 
+                                                                onChange={(e) => updateFlavorSurcharge(index, e.target.value)} 
+                                                                className="w-14 h-7 text-sm border-gray-300 rounded text-right"
+                                                            />
+                                                        </label>
                                                     </div>
 
-                                                    <div className="flex items-center gap-1" title="Extra cost per unit">
-                                                        <span className="text-xs text-gray-500 font-bold">+$</span>
-                                                        <input 
-                                                            type="number" 
-                                                            step="0.01" 
-                                                            value={flavor.surcharge || 0} 
-                                                            onChange={(e) => updateFlavorSurcharge(index, e.target.value)} 
-                                                            className="w-16 h-8 text-sm border-gray-300 rounded-md text-right"
-                                                        />
+                                                    {/* Full Settings */}
+                                                    <div className="flex items-center gap-3 sm:border-l sm:pl-4 border-gray-100">
+                                                        <span className="text-xs font-bold text-gray-500 uppercase w-8">Full</span>
+                                                        <label className="flex items-center gap-1 text-xs text-gray-600" title="Minimum Quantity per Order (Full)">
+                                                            Min:
+                                                            <input 
+                                                                type="number" min="0"
+                                                                value={flavor.fullMinimumQuantity || 0} 
+                                                                onChange={(e) => updateFlavorFullMinQty(index, e.target.value)} 
+                                                                className="w-12 h-7 text-sm border-gray-300 rounded text-center"
+                                                            />
+                                                        </label>
+                                                        <label className="flex items-center gap-1 text-xs text-gray-600" title="Extra cost per unit (Full)">
+                                                            +$
+                                                            <input 
+                                                                type="number" step="0.01"
+                                                                value={flavor.fullSurcharge || 0} 
+                                                                onChange={(e) => updateFlavorFullSurcharge(index, e.target.value)} 
+                                                                className="w-14 h-7 text-sm border-gray-300 rounded text-right"
+                                                            />
+                                                        </label>
                                                     </div>
-                                                    
-                                                    <button 
-                                                        onClick={() => toggleFlavorSpecial(index)} 
-                                                        className={`p-2 rounded-full transition-colors ${flavor.isSpecial ? 'bg-purple-100 text-purple-600' : 'bg-gray-200 text-gray-400'}`}
-                                                        title="Toggle Special/Seasonal"
-                                                    >
-                                                        <SparklesIcon className="w-4 h-4" />
-                                                    </button>
-                                                    
-                                                    <button 
-                                                        onClick={() => toggleFlavorVisibility(index)} 
-                                                        className={`p-2 rounded-full transition-colors ${flavor.visible ? 'bg-green-100 text-green-600' : 'bg-gray-200 text-gray-400'}`}
-                                                        title="Toggle Visibility"
-                                                    >
-                                                        <CheckCircleIcon className="w-4 h-4" />
-                                                    </button>
-                                                    
-                                                    <button onClick={() => removeFlavor(index)} className="text-red-400 hover:text-red-600 p-2">
-                                                        <TrashIcon className="w-4 h-4" />
-                                                    </button>
                                                 </div>
                                             </div>
                                         ))}

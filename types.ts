@@ -93,9 +93,13 @@ export interface Flavor {
     name: string;
     visible: boolean;
     description?: string;
-    surcharge?: number; // Additional cost per unit
+    surcharge?: number; // Additional cost per unit (Mini)
     isSpecial?: boolean; // Belongs in "Specials" section
-    minimumQuantity?: number; // Minimum items required to order this flavor
+    minimumQuantity?: number; // Minimum items required to order this flavor (Mini)
+    
+    // Full Size Specific Overrides
+    fullSurcharge?: number; // Additional cost per unit (Full)
+    fullMinimumQuantity?: number; // Minimum items required to order this flavor (Full)
 }
 
 export interface MenuPackage {
