@@ -61,6 +61,38 @@ export const formatTime12Hour = (date: Date): string => {
 };
 
 /**
+ * Ensures a time string is displayed in 12-hour format (e.g. 2:00 PM).
+ * Handles inputs like "14:00" or "2:00 PM".
+ */
+export const formatTimeDisplay = (timeStr: string | undefined | null): string => {
+    if (!timeStr) return '';
+    
+    // Normalize clean string
+    const cleanStr = timeStr.trim();
+    
+    // Check if already AM/PM
+    if (cleanStr.toLowerCase().match(/[a-z]/)) return cleanStr;
+
+    // Assume 24h HH:MM
+    const parts = cleanStr.split(':');
+    if (parts.length < 2) return cleanStr;
+
+    const [hoursStr, minutesStr] = parts;
+    let hours = parseInt(hoursStr, 10);
+    const minutes = parseInt(minutesStr, 10);
+
+    if (isNaN(hours) || isNaN(minutes)) return cleanStr;
+
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? hours : 12; 
+    
+    const minStr = minutes < 10 ? '0' + minutes : minutes;
+    
+    return `${hours}:${minStr} ${ampm}`;
+};
+
+/**
  * Generates a list of time slots (Date objects) between start and end times.
  * @param dateStr YYYY-MM-DD
  * @param startTime "HH:MM" (24h)
@@ -103,15 +135,33 @@ export const normalizeDateStr = (input: string): string => {
 export const formatDateForDisplay = (dateStr: string): string => {
     if (!dateStr) return '';
     
+    let y, m, d;
+
     // Handle YYYY-MM-DD
     if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-        const [y, m, d] = dateStr.split('-');
-        return `${m}/${d}/${y}`;
+        [y, m, d] = dateStr.split('-');
+    } 
+    // Handle MM/DD/YYYY or M/D/YYYY
+    else if (dateStr.includes('/')) {
+        [m, d, y] = dateStr.split('/');
     }
-    
-    // Handle MM-DD-YYYY or other hyphenated formats by converting to slashes
-    if (dateStr.includes('-')) {
-        return dateStr.replace(/-/g, '/');
+    // Handle MM-DD-YYYY or other hyphenated
+    else if (dateStr.includes('-')) {
+        const parts = dateStr.split('-');
+        // Check if first part is year (YYYY-MM-DD was handled by regex, this catches malformed or other ISO-like)
+        if (parts[0].length === 4) {
+             [y, m, d] = parts;
+        } else {
+             // Assume MM-DD-YYYY
+             [m, d, y] = parts;
+        }
+    } else {
+        return dateStr;
+    }
+
+    if (y && m && d) {
+         // Force 2-digit padding and standard format MM/DD/YYYY
+         return `${m.toString().padStart(2, '0')}/${d.toString().padStart(2, '0')}/${y}`;
     }
     
     return dateStr;

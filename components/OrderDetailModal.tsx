@@ -1,10 +1,9 @@
-
 import React, { useState, useCallback, useEffect } from 'react';
 import { Order, FollowUpStatus, ApprovalStatus, AppSettings, PaymentStatus } from '../types';
 import { generateMessageForOrder } from '../services/geminiService';
 import { subscribeToSettings } from '../services/dbService';
 import { CalendarIcon, ClockIcon, UserIcon, PhoneIcon, MapPinIcon, CurrencyDollarIcon, SparklesIcon, XMarkIcon, PencilIcon, ClipboardDocumentCheckIcon, PaperAirplaneIcon, CreditCardIcon, ArrowTopRightOnSquareIcon, InstagramIcon, ChatBubbleOvalLeftEllipsisIcon, FacebookIcon, CheckCircleIcon, XCircleIcon, TrashIcon, TruckIcon, EnvelopeIcon, DocumentTextIcon } from './icons/Icons';
-import { formatDateForDisplay } from '../utils/dateUtils';
+import { formatDateForDisplay, formatTimeDisplay } from '../utils/dateUtils';
 import { groupOrderItems } from '../utils/orderUtils';
 
 interface OrderDetailModalProps {
@@ -246,7 +245,7 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
               </div>
               <div className="space-y-4">
                   <DetailItem icon={<CalendarIcon className="w-5 h-5" />} label="Pickup Date" value={formatDateForDisplay(order.pickupDate)} />
-                  <DetailItem icon={<ClockIcon className="w-5 h-5" />} label="Pickup Time" value={order.pickupTime} />
+                  <DetailItem icon={<ClockIcon className="w-5 h-5" />} label="Pickup Time" value={formatTimeDisplay(order.pickupTime)} />
                   <DetailItem icon={<CurrencyDollarIcon className="w-5 h-5" />} label="Amount Charged" value={`$${order.amountCharged.toFixed(2)}`} />
                    {order.deliveryRequired && <DetailItem icon={<CurrencyDollarIcon className="w-5 h-5" />} label="Delivery Fee" value={`$${order.deliveryFee.toFixed(2)}`} />}
               </div>

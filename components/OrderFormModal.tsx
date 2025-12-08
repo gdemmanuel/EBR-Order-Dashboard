@@ -515,7 +515,13 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                                         <div className="grid grid-cols-2 gap-2">
                                             <div>
                                                 <label className="block text-xs font-bold text-gray-500 uppercase">Phone</label>
-                                                <input type="text" required value={phoneNumber} onChange={e => setPhoneNumber(formatPhoneNumber(e.target.value))} className="w-full rounded border-gray-300" />
+                                                <input 
+                                                    type="text" 
+                                                    value={phoneNumber} 
+                                                    onChange={e => setPhoneNumber(formatPhoneNumber(e.target.value))} 
+                                                    className="w-full rounded border-gray-300" 
+                                                    placeholder="Optional"
+                                                />
                                             </div>
                                             <div>
                                                 <label className="block text-xs font-bold text-gray-500 uppercase">Email</label>

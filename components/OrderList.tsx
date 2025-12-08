@@ -1,9 +1,8 @@
 
-// ... existing imports
 import React, { useState, useMemo } from 'react';
 import { Order, PaymentStatus, FollowUpStatus, ApprovalStatus, AppSettings } from '../types';
 import { TrashIcon, PrinterIcon, MagnifyingGlassIcon, XMarkIcon, ChevronDownIcon, TruckIcon, SparklesIcon } from './icons/Icons';
-import { parseOrderDateTime, formatDateForDisplay } from '../utils/dateUtils';
+import { parseOrderDateTime, formatDateForDisplay, formatTimeDisplay } from '../utils/dateUtils';
 
 interface OrderListProps {
     orders: Order[];
@@ -269,7 +268,7 @@ export default function OrderList({
                                         </td>
                                         <td className="px-2 py-3 whitespace-nowrap text-brand-brown">
                                             <div className="font-medium">{formatDateForDisplay(order.pickupDate)}</div>
-                                            <div className="text-xs text-gray-500">{order.pickupTime}</div>
+                                            <div className="text-xs text-gray-500">{formatTimeDisplay(order.pickupTime)}</div>
                                             {order.deliveryRequired && (
                                                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-800 mt-1 border border-blue-200">
                                                     <TruckIcon className="w-3 h-3" /> Delivery

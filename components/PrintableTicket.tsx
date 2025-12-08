@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Order } from '../types';
-import { formatDateForDisplay } from '../utils/dateUtils';
+import { formatDateForDisplay, formatTimeDisplay } from '../utils/dateUtils';
 import { groupOrderItems } from '../utils/orderUtils';
 
 interface PrintableTicketProps {
@@ -19,7 +19,7 @@ export default function PrintableTicket({ order }: PrintableTicketProps) {
       {/* Header: Name and Date */}
       <div className="text-center mb-1">
         <h1 className="text-sm font-bold uppercase leading-none mb-1">{order.customerName}</h1>
-        <p className="font-bold">{formatDateForDisplay(order.pickupDate)} @ {order.pickupTime}</p>
+        <p className="font-bold">{formatDateForDisplay(order.pickupDate)} @ {formatTimeDisplay(order.pickupTime)}</p>
         {order.deliveryRequired && <p className="font-bold mt-0.5 uppercase">** Delivery **</p>}
       </div>
 
