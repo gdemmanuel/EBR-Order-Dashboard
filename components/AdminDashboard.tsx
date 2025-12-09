@@ -86,7 +86,10 @@ export default function AdminDashboard({
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isPrepListOpen, setIsPrepListOpen] = useState(false);
     const [isExpenseOpen, setIsExpenseOpen] = useState(false);
+    
     const [isShiftLogOpen, setIsShiftLogOpen] = useState(false);
+    const [editingShift, setEditingShift] = useState<WorkShift | null>(null);
+
     const [isTrashOpen, setIsTrashOpen] = useState(false);
     
     // Printing & Invoice State
@@ -298,6 +301,21 @@ export default function AdminDashboard({
         await updateSettingsInDb({ ingredients: updatedIngredients });
     };
 
+    const handleEditShift = (shift: WorkShift) => {
+        setEditingShift(shift);
+        setIsShiftLogOpen(true);
+    };
+
+    const handleDeleteShift = async (shiftId: string) => {
+        try {
+            await deleteShiftFromDb(shiftId);
+            setNotification({ message: "Shift deleted successfully", type: 'success' });
+        } catch (e) {
+            console.error(e);
+            setNotification({ message: "Failed to delete shift", type: 'error' });
+        }
+    };
+
     // Render Views
     if (view === 'print') {
         return (
@@ -497,6 +515,8 @@ export default function AdminDashboard({
                         onPrintSelected={handlePrint}
                         onDelete={handleDeleteOrder}
                         settings={settings}
+                        onEditShift={handleEditShift}
+                        onDeleteShift={handleDeleteShift}
                     />
                 )}
 
@@ -508,6 +528,8 @@ export default function AdminDashboard({
                         settings={settings}
                         dateRange={dateRange}
                         onDeleteExpense={deleteExpenseFromDb}
+                        onEditShift={handleEditShift}
+                        onDeleteShift={handleDeleteShift}
                     />
                 )}
             </main>
@@ -592,11 +614,13 @@ export default function AdminDashboard({
                 />
             )}
 
-            {isShiftLogOpen && (
+            {(isShiftLogOpen || editingShift) && (
                 <ShiftLogModal 
                     employees={settings.employees || []}
-                    onClose={() => setIsShiftLogOpen(false)}
+                    onClose={() => { setIsShiftLogOpen(false); setEditingShift(null); }}
                     onSave={saveShiftToDb}
+                    initialShift={editingShift}
+                    onDelete={handleDeleteShift}
                 />
             )}
 

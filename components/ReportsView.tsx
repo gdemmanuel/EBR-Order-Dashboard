@@ -4,7 +4,7 @@ import { Order, Expense, AppSettings, WorkShift } from '../types';
 import { calculateSupplyCost } from '../utils/pricingUtils';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { parseOrderDateTime } from '../utils/dateUtils';
-import { TrashIcon, CurrencyDollarIcon, ShoppingBagIcon, UsersIcon, PresentationChartBarIcon, ChartPieIcon, XMarkIcon, ClockIcon } from './icons/Icons';
+import { TrashIcon, CurrencyDollarIcon, ShoppingBagIcon, UsersIcon, PresentationChartBarIcon, ChartPieIcon, XMarkIcon, ClockIcon, PencilIcon } from './icons/Icons';
 
 interface ReportsViewProps {
     orders: Order[];
@@ -13,6 +13,8 @@ interface ReportsViewProps {
     settings: AppSettings;
     dateRange: { start?: string; end?: string };
     onDeleteExpense?: (id: string) => void;
+    onEditShift?: (shift: WorkShift) => void;
+    onDeleteShift?: (shiftId: string) => void;
 }
 
 const COLORS = ['#c8441c', '#eab308', '#3b82f6', '#a855f7', '#10b981', '#6366f1', '#ef4444', '#f97316'];
@@ -25,12 +27,16 @@ const DrillDownModal = ({
     title, 
     items, 
     type, 
-    onClose 
+    onClose,
+    onEditShift,
+    onDeleteShift
 }: { 
     title: string, 
     items: any[], 
     type: 'orders' | 'expenses' | 'shifts' | 'mixed', 
-    onClose: () => void 
+    onClose: () => void,
+    onEditShift?: (shift: WorkShift) => void,
+    onDeleteShift?: (shiftId: string) => void
 }) => {
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4 animate-fade-in">
@@ -51,11 +57,12 @@ const DrillDownModal = ({
                                 </th>
                                 <th className="px-4 py-3 text-left font-medium text-gray-500">Details</th>
                                 <th className="px-4 py-3 text-right font-medium text-gray-500">Amount</th>
+                                {(type === 'shifts' && (onEditShift || onDeleteShift)) && <th className="px-4 py-3 text-right font-medium text-gray-500">Action</th>}
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-100">
                             {items.length === 0 ? (
-                                <tr><td colSpan={4} className="px-4 py-8 text-center text-gray-500">No records found.</td></tr>
+                                <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-500">No records found.</td></tr>
                             ) : (
                                 items.map((item, idx) => {
                                     // Normalize Data for display
@@ -64,6 +71,7 @@ const DrillDownModal = ({
                                     let details = '';
                                     let amount = 0;
                                     let amountColor = 'text-gray-900';
+                                    let isShift = false;
 
                                     if (type === 'orders') {
                                         date = item.pickupDate;
@@ -72,6 +80,7 @@ const DrillDownModal = ({
                                         amount = item.amountCharged;
                                         amountColor = 'text-green-600';
                                     } else if (type === 'shifts') {
+                                        isShift = true;
                                         date = item.date;
                                         name = item.employeeName;
                                         details = `${item.hours.toFixed(1)} hrs (${item.startTime}-${item.endTime})`;
@@ -79,6 +88,7 @@ const DrillDownModal = ({
                                         amountColor = 'text-red-600';
                                     } else if (type === 'expenses' || type === 'mixed') {
                                         if (item.employeeName) { // It's a shift
+                                            isShift = true;
                                             date = item.date;
                                             name = item.employeeName;
                                             details = `Labor: ${item.hours.toFixed(1)} hrs`;
@@ -100,6 +110,22 @@ const DrillDownModal = ({
                                             <td className={`px-4 py-3 text-right font-bold ${amountColor}`}>
                                                 {type === 'orders' ? '+' : '-'}${amount.toFixed(2)}
                                             </td>
+                                            {(type === 'shifts' && (onEditShift || onDeleteShift)) && (
+                                                <td className="px-4 py-3 text-right">
+                                                    <div className="flex justify-end gap-1">
+                                                        {onEditShift && (
+                                                            <button onClick={() => onEditShift(item)} className="p-1 hover:bg-blue-100 rounded text-blue-600" title="Edit Shift">
+                                                                <PencilIcon className="w-4 h-4"/>
+                                                            </button>
+                                                        )}
+                                                        {onDeleteShift && (
+                                                            <button onClick={() => { if(confirm('Delete shift?')) onDeleteShift(item.id); onClose(); }} className="p-1 hover:bg-red-100 rounded text-red-600" title="Delete Shift">
+                                                                <TrashIcon className="w-4 h-4"/>
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            )}
                                         </tr>
                                     );
                                 })
@@ -141,7 +167,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
     return null;
 };
 
-export default function ReportsView({ orders, expenses, shifts = [], settings, dateRange, onDeleteExpense }: ReportsViewProps) {
+export default function ReportsView({ orders, expenses, shifts = [], settings, dateRange, onDeleteExpense, onEditShift, onDeleteShift }: ReportsViewProps) {
     const [activeTab, setActiveTab] = useState<ReportTab>('financials');
     const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' }>({ key: 'date', direction: 'desc' });
     const [drillDownData, setDrillDownData] = useState<{
@@ -655,7 +681,9 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
                     title={drillDownData.title} 
                     items={drillDownData.items} 
                     type={drillDownData.type} 
-                    onClose={() => setDrillDownData(null)} 
+                    onClose={() => setDrillDownData(null)}
+                    onEditShift={onEditShift}
+                    onDeleteShift={onDeleteShift}
                 />
             )}
         </div>

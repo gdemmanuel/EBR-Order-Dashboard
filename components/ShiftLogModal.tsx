@@ -1,24 +1,46 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Employee, WorkShift } from '../types';
-import { XMarkIcon, ClockIcon, CurrencyDollarIcon } from './icons/Icons';
+import { XMarkIcon, ClockIcon, CurrencyDollarIcon, TrashIcon } from './icons/Icons';
 
 interface ShiftLogModalProps {
     employees: Employee[];
+    initialShift?: WorkShift | null;
     onClose: () => void;
     onSave: (shift: WorkShift) => Promise<void>;
+    onDelete?: (shiftId: string) => Promise<void>;
 }
 
-export default function ShiftLogModal({ employees, onClose, onSave }: ShiftLogModalProps) {
-    const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
-    const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-    const [startTime, setStartTime] = useState('09:00');
-    const [endTime, setEndTime] = useState('17:00');
-    const [notes, setNotes] = useState('');
+export default function ShiftLogModal({ employees, initialShift, onClose, onSave, onDelete }: ShiftLogModalProps) {
+    const [selectedEmployeeId, setSelectedEmployeeId] = useState(initialShift?.employeeId || '');
+    const [date, setDate] = useState(initialShift?.date || new Date().toISOString().split('T')[0]);
+    const [startTime, setStartTime] = useState(initialShift?.startTime || '09:00');
+    const [endTime, setEndTime] = useState(initialShift?.endTime || '17:00');
+    const [notes, setNotes] = useState(initialShift?.notes || '');
     
     const [isSaving, setIsSaving] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     
+    // Update state if initialShift changes (e.g. if modal is reused)
+    useEffect(() => {
+        if (initialShift) {
+            setSelectedEmployeeId(initialShift.employeeId);
+            setDate(initialShift.date);
+            setStartTime(initialShift.startTime);
+            setEndTime(initialShift.endTime);
+            setNotes(initialShift.notes || '');
+        } else {
+            // Reset if switching to "New" mode, though usually component unmounts
+            // This ensures clean state if the parent keeps it mounted but changes props
+            setSelectedEmployeeId('');
+            setDate(new Date().toISOString().split('T')[0]);
+            setStartTime('09:00');
+            setEndTime('17:00');
+            setNotes('');
+        }
+    }, [initialShift]);
+
     // Derived values
     const selectedEmployee = employees.find(e => e.id === selectedEmployeeId);
     
@@ -43,7 +65,8 @@ export default function ShiftLogModal({ employees, onClose, onSave }: ShiftLogMo
     };
     
     const hours = calculateHours(startTime, endTime);
-    const wage = selectedEmployee?.hourlyWage || 0;
+    // Use the wage from the shift if editing (to preserve historical wage), otherwise current employee wage
+    const wage = initialShift ? initialShift.hourlyWage : (selectedEmployee?.hourlyWage || 0);
     const totalPay = hours * wage;
 
     const handleSave = async (e: React.FormEvent) => {
@@ -67,7 +90,7 @@ export default function ShiftLogModal({ employees, onClose, onSave }: ShiftLogMo
         try {
             // Sanitize object to ensure no undefined values are passed to Firestore
             const shift: WorkShift = {
-                id: Date.now().toString(),
+                id: initialShift?.id || Date.now().toString(),
                 employeeId: selectedEmployee.id,
                 employeeName: selectedEmployee.name || 'Unknown',
                 date: date || new Date().toISOString().split('T')[0],
@@ -79,7 +102,6 @@ export default function ShiftLogModal({ employees, onClose, onSave }: ShiftLogMo
                 notes: notes || ''
             };
             
-            console.log("Saving shift:", shift); // Debug log
             await onSave(shift);
             onClose();
         } catch (error: any) {
@@ -90,6 +112,22 @@ export default function ShiftLogModal({ employees, onClose, onSave }: ShiftLogMo
         }
     };
 
+    const handleDelete = async () => {
+        if (!initialShift || !onDelete) return;
+        if (!window.confirm("Are you sure you want to delete this shift record?")) return;
+
+        setIsDeleting(true);
+        try {
+            await onDelete(initialShift.id);
+            onClose();
+        } catch (error: any) {
+            console.error("Delete Error:", error);
+            setError(error.message || "Failed to delete shift.");
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
     const isValid = selectedEmployee && hours > 0 && !isNaN(totalPay);
 
     return (
@@ -97,11 +135,23 @@ export default function ShiftLogModal({ employees, onClose, onSave }: ShiftLogMo
             <div className="bg-white rounded-lg shadow-2xl w-full max-w-md flex flex-col border border-brand-tan">
                 <header className="p-5 border-b border-brand-tan flex justify-between items-center bg-gray-50 rounded-t-lg">
                     <h2 className="text-xl font-bold text-brand-brown flex items-center gap-2">
-                        <ClockIcon className="w-5 h-5 text-brand-orange" /> Log Work Hours
+                        <ClockIcon className="w-5 h-5 text-brand-orange" /> {initialShift ? 'Edit Shift' : 'Log Work Hours'}
                     </h2>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-                        <XMarkIcon className="w-6 h-6" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                        {initialShift && onDelete && (
+                            <button 
+                                onClick={handleDelete}
+                                disabled={isDeleting || isSaving}
+                                className="text-red-400 hover:text-red-600 p-1 hover:bg-red-50 rounded transition-colors"
+                                title="Delete Shift"
+                            >
+                                <TrashIcon className="w-5 h-5" />
+                            </button>
+                        )}
+                        <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+                            <XMarkIcon className="w-6 h-6" />
+                        </button>
+                    </div>
                 </header>
                 
                 <form onSubmit={handleSave} className="p-6 space-y-5">
@@ -125,9 +175,10 @@ export default function ShiftLogModal({ employees, onClose, onSave }: ShiftLogMo
                                     value={selectedEmployeeId}
                                     onChange={e => setSelectedEmployeeId(e.target.value)}
                                     className="w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm bg-white py-2"
+                                    disabled={!!initialShift} // Maybe discourage changing employee on edit, or allow it. Allowing it for now.
                                 >
                                     <option value="">Select Employee...</option>
-                                    {employees.filter(e => e.isActive).map(e => (
+                                    {employees.filter(e => e.isActive || e.id === selectedEmployeeId).map(e => (
                                         <option key={e.id} value={e.id}>{e.name}</option>
                                     ))}
                                 </select>
@@ -196,14 +247,14 @@ export default function ShiftLogModal({ employees, onClose, onSave }: ShiftLogMo
                             <div className="pt-2">
                                 <button 
                                     type="submit" 
-                                    disabled={isSaving || !isValid}
+                                    disabled={isSaving || isDeleting || !isValid}
                                     className="w-full bg-brand-orange text-white font-bold py-3 rounded-lg shadow-md hover:bg-opacity-90 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex justify-center items-center gap-2"
                                 >
                                     {isSaving ? (
                                         <>Saving...</> 
                                     ) : (
                                         <>
-                                            <ClockIcon className="w-5 h-5" /> Log Shift
+                                            <ClockIcon className="w-5 h-5" /> {initialShift ? 'Update Shift' : 'Log Shift'}
                                         </>
                                     )}
                                 </button>

@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { Order, PaymentStatus, WorkShift } from '../types';
 import { parseOrderDateTime, generateTimeSlots, normalizeDateStr } from '../utils/dateUtils';
-import { ChevronLeftIcon, ChevronRightIcon, BriefcaseIcon } from './icons/Icons';
+import { ChevronLeftIcon, ChevronRightIcon, BriefcaseIcon, PencilIcon, TrashIcon } from './icons/Icons';
 import DayOrdersModal from './DayOrdersModal';
 import { getUSHolidays } from '../utils/holidayUtils';
 import { AppSettings } from '../services/dbService';
@@ -14,11 +14,13 @@ interface CalendarViewProps {
     onPrintSelected: (orders: Order[]) => void;
     onDelete?: (orderId: string) => void;
     settings: AppSettings;
+    onEditShift?: (shift: WorkShift) => void;
+    onDeleteShift?: (shiftId: string) => void;
 }
 
 const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-export default function CalendarView({ orders, shifts = [], onSelectOrder, onPrintSelected, onDelete, settings }: CalendarViewProps) {
+export default function CalendarView({ orders, shifts = [], onSelectOrder, onPrintSelected, onDelete, settings, onEditShift, onDeleteShift }: CalendarViewProps) {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [viewMode, setViewMode] = useState<'month' | 'week' | 'day'>('month');
     const [selectedDay, setSelectedDay] = useState<{ date: Date; orders: Order[] } | null>(null);
@@ -222,13 +224,21 @@ export default function CalendarView({ orders, shifts = [], onSelectOrder, onPri
                             </h4>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 {dailyShifts.map(shift => (
-                                    <div key={shift.id} className="bg-blue-50 border border-blue-200 p-3 rounded-lg flex justify-between items-center">
+                                    <div key={shift.id} className="bg-blue-50 border border-blue-200 p-3 rounded-lg flex justify-between items-center group relative">
                                         <div>
                                             <p className="font-bold text-blue-900">{shift.employeeName}</p>
                                             <p className="text-xs text-blue-700">{shift.startTime} - {shift.endTime} ({shift.hours.toFixed(1)} hrs)</p>
                                         </div>
-                                        <div className="text-right text-xs text-blue-600">
-                                            ${shift.totalPay.toFixed(2)}
+                                        <div className="flex items-center gap-3">
+                                             <div className="text-right text-xs text-blue-600 font-bold">
+                                                ${shift.totalPay.toFixed(2)}
+                                            </div>
+                                            {onEditShift && onDeleteShift && (
+                                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button onClick={(e) => {e.stopPropagation(); onEditShift(shift);}} className="p-1 hover:bg-blue-200 rounded text-blue-700" title="Edit Shift"><PencilIcon className="w-3 h-3"/></button>
+                                                    <button onClick={(e) => {e.stopPropagation(); if(confirm('Delete shift?')) onDeleteShift(shift.id);}} className="p-1 hover:bg-red-200 rounded text-red-700" title="Delete Shift"><TrashIcon className="w-3 h-3"/></button>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 ))}
