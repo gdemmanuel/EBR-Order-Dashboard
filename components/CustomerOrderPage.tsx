@@ -688,7 +688,7 @@ export default function CustomerOrderPage({
                 </div>
             )}
 
-            <main className="max-w-4xl mx-auto p-4 sm:p-6 space-y-10 pb-[600px]">
+            <main className="max-w-4xl mx-auto p-4 sm:p-6 space-y-10 pb-32">
                 
                 {/* 1. Menu & Flavors (Visual) */}
                 <section className="space-y-6">
