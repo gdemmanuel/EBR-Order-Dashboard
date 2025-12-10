@@ -141,7 +141,7 @@ export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavo
     
     return (
         <div className={`bg-white rounded-xl shadow-lg border border-brand-tan w-full animate-fade-in flex flex-col ${className}`}>
-            <header className="p-3 border-b border-gray-200 flex justify-between items-center bg-brand-tan/10 rounded-t-xl flex-shrink-0 sticky top-0 z-20 backdrop-blur-sm bg-brand-tan/10">
+            <header className="p-3 border-b border-gray-200 flex justify-between items-center bg-brand-tan/10 rounded-t-xl flex-shrink-0">
                 <div className="flex-grow">
                     <h3 className="text-lg font-bold text-brand-brown">Customize {pkg.name}</h3>
                     <p className="text-xs text-gray-500">

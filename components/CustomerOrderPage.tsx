@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Order, Flavor, PricingSettings, AppSettings, PaymentStatus, FollowUpStatus, ApprovalStatus, OrderItem, MenuPackage, OrderPackageSelection } from '../types';
 import { saveOrderToDb } from '../services/dbService';
@@ -111,11 +112,16 @@ export default function CustomerOrderPage({
     useEffect(() => {
         if (typeof window === 'undefined') return;
 
+        let lastHeight = 0;
         const sendHeight = () => {
             try {
                 const height = document.body.scrollHeight;
-                if (window.parent && window.parent !== window) {
-                    window.parent.postMessage({ type: "embedHeight", height }, "*");
+                // Only send update if height changed significantly (>10px) to prevent scroll jitter loops
+                if (Math.abs(height - lastHeight) > 10) {
+                    if (window.parent && window.parent !== window) {
+                        window.parent.postMessage({ type: "embedHeight", height }, "*");
+                    }
+                    lastHeight = height;
                 }
             } catch (e) {
                 // Ignore cross-origin errors if parent is restricted
@@ -130,24 +136,21 @@ export default function CustomerOrderPage({
                 observer = new ResizeObserver(sendHeight);
                 observer.observe(document.body);
             } else {
-                // Fallback for older browsers
+                // Fallback only if ResizeObserver is missing (very old browsers)
                 window.addEventListener('resize', sendHeight);
-                const i = setInterval(sendHeight, 1000);
-                return () => {
-                    window.removeEventListener('resize', sendHeight);
-                    clearInterval(i);
-                };
+                // Removed interval loop to prevent constant scroll resets on mobile
             }
         } catch (e) {
             console.warn("ResizeObserver init failed", e);
         }
 
-        // Initial send with delay to ensure rendering
+        // Initial send
         setTimeout(sendHeight, 100);
         setTimeout(sendHeight, 1000);
 
         return () => {
             if (observer) observer.disconnect();
+            window.removeEventListener('resize', sendHeight);
         };
     }, []);
 
@@ -654,10 +657,11 @@ export default function CustomerOrderPage({
                     </div>
                     
                     {(cartPackages.length > 0 || Object.keys(cartSalsas).length > 0) && (
-                        <div 
-                            className="flex items-center gap-3 animate-fade-in cursor-pointer group" 
+                        <button 
+                            className="flex items-center gap-3 animate-fade-in cursor-pointer group focus:outline-none" 
                             onClick={scrollToSelection}
                             title="View Your Selection"
+                            type="button"
                         >
                             <div className="text-right hidden sm:block">
                                 <span className="block text-xs text-gray-500 uppercase tracking-wider group-hover:text-brand-orange transition-colors">Estimated Total</span>
@@ -667,7 +671,7 @@ export default function CustomerOrderPage({
                                 <ShoppingBagIcon className="w-5 h-5" />
                                 <span className="font-bold">{cartPackages.length + Object.values(cartSalsas).reduce((a,b)=>a+b, 0)}</span>
                             </div>
-                        </div>
+                        </button>
                     )}
                 </div>
             </div>
