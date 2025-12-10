@@ -138,6 +138,7 @@ export default function CustomerOrderPage({
             } else {
                 // Fallback only if ResizeObserver is missing (very old browsers)
                 window.addEventListener('resize', sendHeight);
+                // Removed interval loop to prevent constant scroll resets on mobile
             }
         } catch (e) {
             console.warn("ResizeObserver init failed", e);
@@ -176,17 +177,6 @@ export default function CustomerOrderPage({
     const [isSubmitted, setIsSubmitted] = useState(false);
     const [lastOrder, setLastOrder] = useState<Order | null>(null);
     const [error, setError] = useState<string | null>(null);
-
-    // Notification State
-    const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
-
-    // Clear notification after 3 seconds
-    useEffect(() => {
-        if (notification) {
-            const timer = setTimeout(() => setNotification(null), 3000);
-            return () => clearTimeout(timer);
-        }
-    }, [notification]);
 
     const [activePackageBuilder, setActivePackageBuilder] = useState<MenuPackage | null>(null);
     const [showSpecialtyMenu, setShowSpecialtyMenu] = useState(false);
@@ -390,11 +380,15 @@ export default function CustomerOrderPage({
         };
 
         setCartPackages(prev => [...prev, newPackage]);
-        
-        // Show Feedback via Toast instead of scrolling
-        setNotification({ message: `${activePackageBuilder.name} added!`, type: 'success' });
-        
         setActivePackageBuilder(null);
+        
+        // Smoothly scroll to the "Your Selection" area so user sees the added item and form on mobile
+        setTimeout(() => {
+            const section = document.getElementById('your-selection');
+            if (section) {
+                section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }, 500);
     };
 
     const removePackageFromCart = (internalId: string) => {
@@ -1117,14 +1111,6 @@ export default function CustomerOrderPage({
                 )}
 
             </main>
-
-            {/* Notification Toast */}
-            {notification && (
-                <div className={`fixed bottom-4 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-lg shadow-xl z-[100] animate-fade-in flex items-center gap-3 border ${notification.type === 'success' ? 'bg-white border-green-200 text-green-800' : 'bg-white border-red-200 text-red-800'}`}>
-                    {notification.type === 'success' && <CheckCircleIcon className="w-5 h-5 text-green-600" />}
-                    <span className="font-medium whitespace-nowrap">{notification.message}</span>
-                </div>
-            )}
         </div>
     );
 }
