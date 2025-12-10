@@ -11,9 +11,19 @@ interface PackageBuilderModalProps {
     onClose: () => void;
     onConfirm: (items: { name: string; quantity: number }[]) => void;
     className?: string;
+    scrollable?: boolean; // Control internal scrolling
 }
 
-export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavors, salsas = [], onClose, onConfirm, className = "h-auto" }: PackageBuilderModalProps) {
+export default function PackageBuilderModal({ 
+    pkg, 
+    standardFlavors, 
+    specialFlavors, 
+    salsas = [], 
+    onClose, 
+    onConfirm, 
+    className = "h-auto",
+    scrollable = false 
+}: PackageBuilderModalProps) {
     const [builderSelections, setBuilderSelections] = useState<{ [flavorName: string]: number }>({});
     const [salsaSelections, setSalsaSelections] = useState<{ [salsaName: string]: number }>({});
     const [flavorCategory, setFlavorCategory] = useState<'standard' | 'special'>('standard');
@@ -167,7 +177,8 @@ export default function PackageBuilderModal({ pkg, standardFlavors, specialFlavo
                 </div>
             </header>
             
-            <div className="flex-grow overflow-y-auto">
+            {/* If scrollable is true, we apply overflow-y-auto. If false (inline), we let it expand naturally. */}
+            <div className={`flex-grow ${scrollable ? 'overflow-y-auto' : ''}`}>
                 {/* Empanadas Section */}
                 <div className="p-3">
                     <div className="flex justify-between items-center mb-2 border-b border-gray-200 pb-2">

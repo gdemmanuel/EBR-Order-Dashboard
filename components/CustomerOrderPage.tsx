@@ -138,7 +138,6 @@ export default function CustomerOrderPage({
             } else {
                 // Fallback only if ResizeObserver is missing (very old browsers)
                 window.addEventListener('resize', sendHeight);
-                // Removed interval loop to prevent constant scroll resets on mobile
             }
         } catch (e) {
             console.warn("ResizeObserver init failed", e);
@@ -764,6 +763,7 @@ export default function CustomerOrderPage({
                                     salsas={salsaListForModal} 
                                     onClose={() => setActivePackageBuilder(null)}
                                     onConfirm={handlePackageConfirm}
+                                    scrollable={false} // Disable internal scroll for inline view to fix double scrollbar
                                 />
                             </div>
                         ) : (

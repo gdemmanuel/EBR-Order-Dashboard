@@ -497,6 +497,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                                 onClose={() => setActivePackageBuilder(null)}
                                 onConfirm={handlePackageConfirm}
                                 className="max-w-2xl max-h-[80vh]"
+                                scrollable={true}
                             />
                         </div>
                     )}
