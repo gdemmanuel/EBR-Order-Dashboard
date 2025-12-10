@@ -335,7 +335,8 @@ export default function PackageBuilderModal({
                 )}
             </div>
 
-            <footer className="p-3 border-t border-gray-200 bg-white rounded-b-xl flex-shrink-0 sticky bottom-0 z-30 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+            {/* Footer - Only sticky if scrollable (modal mode). Otherwise static (inline/iframe mode) to prevent loop. */}
+            <footer className={`p-3 border-t border-gray-200 bg-white rounded-b-xl flex-shrink-0 z-30 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] ${scrollable ? 'sticky bottom-0' : 'mt-auto'}`}>
                 <div className="flex justify-between items-center mb-2">
                     <span className="text-xs font-medium text-gray-600">
                         Remaining: <span className="font-bold text-brand-brown">{remaining}</span>

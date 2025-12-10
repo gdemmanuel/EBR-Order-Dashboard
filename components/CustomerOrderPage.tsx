@@ -651,8 +651,9 @@ export default function CustomerOrderPage({
         );
     }
 
+    // REMOVED min-h-screen to prevent double scroll bar when content fits or iframe resizes
     return (
-        <div className="min-h-screen bg-brand-cream font-sans">
+        <div className="bg-brand-cream font-sans">
             {/* Elegant Header */}
             <div className="bg-white shadow-sm border-b border-brand-tan sticky top-0 z-30">
                 <div className="max-w-4xl mx-auto px-4 py-3 flex justify-between items-center">
