@@ -6,6 +6,7 @@ import { ChevronLeftIcon, ChevronRightIcon, BriefcaseIcon, PencilIcon, TrashIcon
 import DayOrdersModal from './DayOrdersModal';
 import { getUSHolidays } from '../utils/holidayUtils';
 import { AppSettings } from '../services/dbService';
+import { groupOrderItems } from '../utils/orderUtils';
 
 interface CalendarViewProps {
     orders: Order[];
@@ -249,40 +250,77 @@ export default function CalendarView({ orders, shifts = [], onSelectOrder, onPri
                     {sortedOrders.length === 0 ? (
                         <div className="text-center text-gray-400 py-10 italic">No orders scheduled for this day.</div>
                     ) : (
-                        sortedOrders.map(order => (
-                            <div key={order.id} className="flex gap-4 group">
-                                <div className="w-24 text-right pt-2 font-bold text-brand-orange text-sm shrink-0">
-                                    {order.pickupTime}
-                                </div>
-                                <div className="relative pb-8 border-l-2 border-gray-200 pl-6 flex-grow last:border-0">
-                                    <div className="absolute -left-[9px] top-2 w-4 h-4 rounded-full bg-brand-orange border-2 border-white shadow-sm"></div>
-                                    <div 
-                                        onClick={() => onSelectOrder(order)}
-                                        className="bg-white border border-gray-200 p-4 rounded-lg shadow-sm hover:shadow-md hover:border-brand-orange transition-all cursor-pointer"
-                                    >
-                                        <div className="flex justify-between items-start mb-1">
-                                            <h4 className="font-bold text-brand-brown text-lg">{order.customerName}</h4>
-                                            <span className={`text-xs font-bold px-2 py-1 rounded ${order.paymentStatus === PaymentStatus.PAID ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                                                {order.paymentStatus}
-                                            </span>
-                                        </div>
-                                        <p className="text-sm text-gray-600 mb-2">{order.phoneNumber}</p>
-                                        <div className="text-sm bg-gray-50 p-2 rounded border border-gray-100">
-                                            {order.items.map((item, idx) => (
-                                                <span key={idx} className="block text-gray-700">
-                                                    {item.quantity}x {item.name}
+                        sortedOrders.map(order => {
+                            const { packages, looseItems } = groupOrderItems(order);
+                            return (
+                                <div key={order.id} className="flex gap-4 group">
+                                    <div className="w-24 text-right pt-2 font-bold text-brand-orange text-sm shrink-0">
+                                        {order.pickupTime}
+                                    </div>
+                                    <div className="relative pb-8 border-l-2 border-gray-200 pl-6 flex-grow last:border-0">
+                                        <div className="absolute -left-[9px] top-2 w-4 h-4 rounded-full bg-brand-orange border-2 border-white shadow-sm"></div>
+                                        <div 
+                                            onClick={() => onSelectOrder(order)}
+                                            className="bg-white border border-gray-200 p-4 rounded-lg shadow-sm hover:shadow-md hover:border-brand-orange transition-all cursor-pointer"
+                                        >
+                                            <div className="flex justify-between items-start mb-1">
+                                                <h4 className="font-bold text-brand-brown text-lg">{order.customerName}</h4>
+                                                <span className={`text-xs font-bold px-2 py-1 rounded ${order.paymentStatus === PaymentStatus.PAID ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                                    {order.paymentStatus}
                                                 </span>
-                                            ))}
-                                        </div>
-                                        {order.deliveryRequired && (
-                                            <div className="mt-2 text-xs text-blue-600 font-medium flex items-center gap-1">
-                                                Delivery to: {order.deliveryAddress}
                                             </div>
-                                        )}
+                                            <p className="text-sm text-gray-600 mb-2">{order.phoneNumber}</p>
+                                            
+                                            {/* Order Details: Hierarchical Display */}
+                                            <div className="text-sm bg-gray-50 p-2 rounded border border-gray-100">
+                                                {packages.map((pkg, idx) => (
+                                                    <div key={idx} className="mb-2 last:mb-0">
+                                                        <div className="font-bold text-xs text-brand-orange uppercase mb-0.5">{pkg.name}</div>
+                                                        <ul className="pl-2 border-l-2 border-brand-orange/20 space-y-0.5">
+                                                            {pkg.items.map((item, i) => (
+                                                                <li key={i} className="text-gray-700 text-xs">
+                                                                    {item.quantity}x {item.name.replace('Full ', '')}
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    </div>
+                                                ))}
+                                                
+                                                {looseItems.length > 0 && (
+                                                    <div className={packages.length > 0 ? "mt-2 pt-2 border-t border-gray-200" : ""}>
+                                                        {packages.length > 0 && <div className="font-bold text-xs text-gray-500 uppercase mb-0.5">Extras</div>}
+                                                        <ul className="space-y-0.5">
+                                                            {looseItems.map((item, idx) => (
+                                                                <li key={idx} className="text-gray-700">
+                                                                    {item.quantity}x {item.name}
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    </div>
+                                                )}
+                                                
+                                                {/* Fallback for legacy data consistency */}
+                                                {packages.length === 0 && looseItems.length === 0 && order.items.length > 0 && (
+                                                     <ul className="space-y-0.5">
+                                                        {order.items.map((item, idx) => (
+                                                            <li key={idx} className="text-gray-700">
+                                                                {item.quantity}x {item.name}
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                )}
+                                            </div>
+
+                                            {order.deliveryRequired && (
+                                                <div className="mt-2 text-xs text-blue-600 font-medium flex items-center gap-1">
+                                                    Delivery to: {order.deliveryAddress}
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))
+                            );
+                        })
                     )}
                 </div>
             </div>
