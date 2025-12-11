@@ -82,7 +82,10 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
         });
 
         let totalEstimatedCost = 0; // Supply Cost (Ingredients + Discos)
-        const ingredientAggregates = new Map<string, number>(); // Ingredient ID -> Total Amount needed
+        
+        // Track totals AND breakdown by flavor for ingredients
+        // Map<IngredientID, { total: number, breakdown: Map<FlavorName, number> }>
+        const ingredientAggregates = new Map<string, { total: number, breakdown: Map<string, number> }>();
 
         // Disco Multipliers & Pack Sizes
         const miniDiscosPer = settings.prepSettings?.discosPer?.mini ?? 1;
@@ -125,8 +128,16 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
                         const totalAmount = miniAmount + fullAmount;
 
                         // Aggregate for Total Ingredients View
-                        const currentAgg = ingredientAggregates.get(ing.ingredientId) || 0;
-                        ingredientAggregates.set(ing.ingredientId, currentAgg + totalAmount);
+                        const currentAgg = ingredientAggregates.get(ing.ingredientId) || { total: 0, breakdown: new Map<string, number>() };
+                        
+                        // Update Total
+                        currentAgg.total += totalAmount;
+                        
+                        // Update Breakdown
+                        const currentBreakdown = currentAgg.breakdown.get(flavor) || 0;
+                        currentAgg.breakdown.set(flavor, currentBreakdown + totalAmount);
+                        
+                        ingredientAggregates.set(ing.ingredientId, currentAgg);
 
                         // Add to cost
                         fillingCost += totalAmount * ingredientDef.cost;
@@ -189,13 +200,20 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
         const totalBatchCost = totalEstimatedCost + totalLaborCost;
 
         // Resolve Ingredient Aggregates to View Models
-        const ingredientList = Array.from(ingredientAggregates.entries()).map(([id, amount]) => {
+        const ingredientList = Array.from(ingredientAggregates.entries()).map(([id, data]) => {
             const def = settings.ingredients?.find(i => i.id === id);
+            
+            // Convert breakdown map to array for display, sorted by amount desc
+            const breakdown = Array.from(data.breakdown.entries())
+                .map(([flavor, amount]) => ({ flavor, amount }))
+                .sort((a, b) => b.amount - a.amount);
+
             return {
                 name: def?.name || 'Unknown Ingredient',
-                amount,
+                amount: data.total,
                 unit: def?.unit || 'units',
-                cost: amount * (def?.cost || 0)
+                cost: data.total * (def?.cost || 0),
+                breakdown
             };
         }).sort((a, b) => b.cost - a.cost);
 
@@ -327,12 +345,26 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
                             <h4 className="font-bold text-orange-900 mb-3">Ingredient Requirements (Aggregated)</h4>
                             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                                 {prepData.ingredientList.map((ing, idx) => (
-                                    <div key={idx} className="bg-white p-2 rounded shadow-sm border border-orange-100">
-                                        <span className="block text-xs font-bold text-gray-700 mb-1 truncate" title={ing.name}>{ing.name}</span>
-                                        <div className="flex justify-between items-end">
-                                            <span className="text-lg font-bold text-brand-orange leading-none">{ing.amount.toFixed(1)}</span>
-                                            <span className="text-xs text-gray-500">{ing.unit}</span>
+                                    <div key={idx} className="bg-white p-2 rounded shadow-sm border border-orange-100 flex flex-col h-full">
+                                        <div className="flex-grow">
+                                            <span className="block text-xs font-bold text-gray-700 mb-1 truncate" title={ing.name}>{ing.name}</span>
+                                            <div className="flex justify-between items-end mb-2">
+                                                <span className="text-lg font-bold text-brand-orange leading-none">{ing.amount.toFixed(1)}</span>
+                                                <span className="text-xs text-gray-500">{ing.unit}</span>
+                                            </div>
                                         </div>
+                                        
+                                        {/* BREAKDOWN DISPLAY */}
+                                        {ing.breakdown && ing.breakdown.length > 0 && (
+                                            <div className="mt-1 pt-1 border-t border-gray-100 text-[10px] text-gray-500 space-y-0.5 overflow-y-auto max-h-20 scrollbar-thin">
+                                                {ing.breakdown.map(b => (
+                                                    <div key={b.flavor} className="flex justify-between items-center">
+                                                        <span className="truncate max-w-[65%] text-gray-600" title={b.flavor}>{b.flavor}:</span>
+                                                        <span className="font-medium text-gray-800">{b.amount.toFixed(1)}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>
