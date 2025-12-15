@@ -46,7 +46,7 @@ interface SelectedPackage {
 }
 
 // Component for rendering a package card with "Empanadas by Rose" style
-const PackageCard = ({ pkg, onClick }: { pkg: MenuPackage; onClick: () => void }) => (
+const PackageCard: React.FC<{ pkg: MenuPackage; onClick: () => void }> = ({ pkg, onClick }) => (
     <div 
         className="group relative bg-white border border-brand-tan rounded-xl p-4 hover:shadow-xl transition-all duration-300 cursor-pointer flex flex-col justify-between h-full overflow-hidden hover:border-brand-orange/30" 
         onClick={onClick}
@@ -76,7 +76,7 @@ const PackageCard = ({ pkg, onClick }: { pkg: MenuPackage; onClick: () => void }
 );
 
 // Component for Flavor Card
-const FlavorCard = ({ flavor }: { flavor: Flavor }) => (
+const FlavorCard: React.FC<{ flavor: Flavor }> = ({ flavor }) => (
     <div className="flex flex-col p-3 bg-white border border-brand-tan/40 rounded-lg shadow-sm hover:shadow-md transition-shadow h-full">
         <div className="flex items-start justify-between gap-2">
             <span className="font-serif font-bold text-brand-brown text-base leading-tight break-words">{flavor.name}</span>
@@ -305,11 +305,12 @@ export default function CustomerOrderPage({
 
         // Process Salsas
         Object.entries(cartSalsas).forEach(([name, quantity]) => {
-            if (quantity > 0) {
-                flatItems.push({ name, quantity });
+            const qty = quantity as number;
+            if (qty > 0) {
+                flatItems.push({ name, quantity: qty });
                 const salsaDef = pricing?.salsas?.find(s => s.name === name);
                 if (salsaDef) {
-                    runningTotal += quantity * salsaDef.price;
+                    runningTotal += qty * salsaDef.price;
                 }
             }
         });
@@ -676,7 +677,7 @@ export default function CustomerOrderPage({
                             </div>
                             <div className="bg-brand-orange text-white px-3 py-2 rounded-lg shadow-sm flex items-center gap-2 group-hover:bg-opacity-90 transition-all">
                                 <ShoppingBagIcon className="w-5 h-5" />
-                                <span className="font-bold">{cartPackages.length + Object.values(cartSalsas).reduce((a,b)=>a+b, 0)}</span>
+                                <span className="font-bold">{cartPackages.length + Object.values(cartSalsas).reduce((a,b)=>a+(b as number), 0)}</span>
                             </div>
                         </button>
                     )}
@@ -919,7 +920,7 @@ export default function CustomerOrderPage({
                                                     >
                                                         <MinusIcon className="w-2.5 h-2.5"/>
                                                     </button>
-                                                    <span className="font-bold text-brand-brown w-3 text-center text-xs">{quantity}</span>
+                                                    <span className="font-bold text-brand-brown w-3 text-center text-xs">{quantity as number}</span>
                                                     <button 
                                                         onClick={() => updateSalsaCart(name, 1)} 
                                                         className="w-5 h-5 flex items-center justify-center bg-white border border-gray-300 rounded text-brand-orange hover:bg-orange-50"

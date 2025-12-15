@@ -1,7 +1,8 @@
 
+
 import React, { useState, useMemo, useEffect } from 'react';
 import firebase from 'firebase/compat/app';
-import { Order, AppSettings, PricingSettings, Flavor, FollowUpStatus, ApprovalStatus, Expense, WorkShift } from '../types';
+import { Order, AppSettings, PricingSettings, Flavor, FollowUpStatus, ApprovalStatus, Expense, WorkShift, PaymentStatus } from '../types';
 import { saveOrderToDb, softDeleteOrder, saveOrdersBatch, saveExpenseToDb, deleteExpenseFromDb, saveShiftToDb, subscribeToExpenses, subscribeToShifts, updateSettingsInDb, deleteShiftFromDb } from '../services/dbService';
 import { parseOrderDateTime } from '../utils/dateUtils';
 
@@ -22,11 +23,12 @@ import ShiftLogModal from './ShiftLogModal';
 import PrintPreviewPage from './PrintPreviewPage';
 import InvoicePreviewPage from './InvoicePreviewPage';
 import TrashBinModal from './TrashBinModal';
+import ImportOrderModal from './ImportOrderModal';
 
 import { 
     ChartPieIcon, ListBulletIcon, CalendarDaysIcon, PresentationChartBarIcon, 
     PlusIcon, CogIcon, ScaleIcon, CurrencyDollarIcon, 
-    ClockIcon, TrashIcon, CheckCircleIcon
+    ClockIcon, TrashIcon, CheckCircleIcon, ArrowDownTrayIcon
 } from './icons/Icons';
 
 interface AdminDashboardProps {
@@ -86,6 +88,7 @@ export default function AdminDashboard({
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isPrepListOpen, setIsPrepListOpen] = useState(false);
     const [isExpenseOpen, setIsExpenseOpen] = useState(false);
+    const [isImportOpen, setIsImportOpen] = useState(false);
     
     const [isShiftLogOpen, setIsShiftLogOpen] = useState(false);
     const [editingShift, setEditingShift] = useState<WorkShift | null>(null);
@@ -316,6 +319,48 @@ export default function AdminDashboard({
         }
     };
 
+    const handleOrdersImported = async (newOrders: Partial<Order>[], newSignatures: string[]) => {
+        // 1. Convert Partial<Order> to Order
+        const ordersToSave: Order[] = newOrders.map(p => {
+            return {
+                id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+                pickupDate: p.pickupDate || getTodayStr(),
+                pickupTime: p.pickupTime || '12:00',
+                customerName: p.customerName || 'Unknown',
+                contactMethod: p.contactMethod || 'Imported',
+                phoneNumber: p.phoneNumber || '',
+                items: p.items || [],
+                totalMini: p.totalMini || 0,
+                totalFullSize: p.totalFullSize || 0,
+                amountCharged: p.amountCharged || 0,
+                amountCollected: 0,
+                deliveryRequired: p.deliveryRequired || false,
+                deliveryFee: p.deliveryFee || 0,
+                paymentStatus: PaymentStatus.PENDING,
+                followUpStatus: FollowUpStatus.NEEDED,
+                approvalStatus: ApprovalStatus.APPROVED, // Auto-approve imported historical data
+                specialInstructions: p.specialInstructions || null,
+                ...p
+            } as Order;
+        });
+
+        if (ordersToSave.length > 0) {
+            await saveOrdersBatch(ordersToSave);
+            
+            // Update signatures setting
+            const updatedSignatures = new Set([...Array.from(importedSignatures), ...newSignatures]);
+            await updateSettingsInDb({ 
+                importedSignatures: Array.from(updatedSignatures),
+                sheetUrl: sheetUrl // Ensure URL is saved if updated
+            });
+            
+            setNotification({ message: `Imported ${ordersToSave.length} orders successfully!`, type: 'success' });
+        } else {
+            setNotification({ message: `No new orders found to import.`, type: 'success' });
+        }
+        setIsImportOpen(false);
+    };
+
     // Render Views
     if (view === 'print') {
         return (
@@ -383,6 +428,15 @@ export default function AdminDashboard({
                             >
                                 <PlusIcon className="w-5 h-5 sm:w-4 sm:h-4" /> 
                                 <span className="text-xs sm:text-sm font-bold">New Order</span>
+                            </button>
+
+                            <button 
+                                onClick={() => setIsImportOpen(true)} 
+                                className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-3 py-2 bg-white border border-brand-tan hover:border-brand-orange hover:text-brand-orange text-brand-brown rounded-lg transition-all"
+                                title="Import from Sheet"
+                            >
+                                <ArrowDownTrayIcon className="w-5 h-5 sm:w-4 sm:h-4" />
+                                <span className="text-xs sm:text-sm font-medium">Import</span>
                             </button>
                             
                             <button 
@@ -565,6 +619,15 @@ export default function AdminDashboard({
                     pricing={pricing}
                     settings={settings}
                     existingOrders={activeOrders}
+                />
+            )}
+
+            {isImportOpen && (
+                <ImportOrderModal 
+                    onClose={() => setIsImportOpen(false)}
+                    onOrdersImported={handleOrdersImported}
+                    onUpdateSheetUrl={(url) => updateSettingsInDb({ sheetUrl: url })}
+                    existingSignatures={importedSignatures}
                 />
             )}
 
