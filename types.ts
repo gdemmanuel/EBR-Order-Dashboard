@@ -211,10 +211,16 @@ export interface AppSettings {
         endTime: string;
         blockedDates: string[];
         closedDays: number[];
-        dateOverrides: Record<string, { isClosed: boolean; isFull?: boolean; customHours?: { start: string; end: string; }; }>; 
+        dateOverrides: Record<string, { 
+            isClosed: boolean; 
+            isFull?: boolean; 
+            allowOrders?: boolean; // If true, show warning but allow submission
+            customHours?: { start: string; end: string; }; 
+        }>; 
         statusMessages?: {
             closed: string;
             full: string;
+            fullAccepting?: string; // Message for "Full but Open"
         };
     };
     messageTemplates: {

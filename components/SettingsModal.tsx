@@ -238,7 +238,24 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
     const toggleSalsaVisibility = (id: string) => { setPricing({...pricing, salsas: pricing.salsas.map(s => s.id === id ? {...s, visible: !s.visible} : s)}); };
     const toggleClosedDay = (dayIndex: number) => { const current = scheduling.closedDays || []; if (current.includes(dayIndex)) { setScheduling({ ...scheduling, closedDays: current.filter(d => d !== dayIndex) }); } else { setScheduling({ ...scheduling, closedDays: [...current, dayIndex].sort() }); } };
     const handleDateClick = (dateStr: string) => { setSelectedDate(dateStr); };
-    const updateDateOverride = (dateStr: string, type: 'default' | 'closed' | 'full' | 'custom', start?: string, end?: string) => { const newOverrides = { ...(scheduling.dateOverrides || {}) }; if (type === 'default') delete newOverrides[dateStr]; else if (type === 'closed') newOverrides[dateStr] = { isClosed: true }; else if (type === 'full') newOverrides[dateStr] = { isClosed: false, isFull: true }; else if (type === 'custom') newOverrides[dateStr] = { isClosed: false, customHours: { start: start || scheduling.startTime, end: end || scheduling.endTime } }; setScheduling({ ...scheduling, dateOverrides: newOverrides }); };
+    const updateDateOverride = (dateStr: string, type: 'default' | 'closed' | 'full' | 'custom' | 'allowOrders', value?: any, start?: string, end?: string) => { 
+        const newOverrides = { ...(scheduling.dateOverrides || {}) }; 
+        if (type === 'default') {
+            delete newOverrides[dateStr]; 
+        } else if (type === 'closed') {
+            newOverrides[dateStr] = { isClosed: true }; 
+        } else if (type === 'full') {
+            newOverrides[dateStr] = { isClosed: false, isFull: true, allowOrders: false }; 
+        } else if (type === 'custom') {
+            newOverrides[dateStr] = { isClosed: false, customHours: { start: start || scheduling.startTime, end: end || scheduling.endTime } }; 
+        } else if (type === 'allowOrders') {
+            if (newOverrides[dateStr]) {
+                newOverrides[dateStr] = { ...newOverrides[dateStr], allowOrders: value };
+            }
+        }
+        setScheduling({ ...scheduling, dateOverrides: newOverrides }); 
+    };
+    
     const calendarGrid = useMemo(() => { const year = calendarViewDate.getFullYear(); const month = calendarViewDate.getMonth(); const daysInMonth = new Date(year, month + 1, 0).getDate(); const firstDayOfWeek = new Date(year, month, 1).getDay(); const cells = []; for (let i = 0; i < firstDayOfWeek; i++) cells.push(null); for (let i = 1; i <= daysInMonth; i++) cells.push(new Date(year, month, i)); return cells; }, [calendarViewDate]);
     const handlePrevMonth = () => setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() - 1, 1));
     const handleNextMonth = () => setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() + 1, 1));
@@ -871,13 +888,23 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                                         />
                                                     </div>
                                                     <div>
-                                                        <label className="block text-xs font-bold text-gray-500 mb-1">Full Capacity Message</label>
+                                                        <label className="block text-xs font-bold text-gray-500 mb-1">Full (Closed) Message</label>
                                                         <input 
                                                             type="text" 
                                                             value={scheduling.statusMessages?.full || ''} 
                                                             onChange={(e) => setScheduling({...scheduling, statusMessages: { ...scheduling.statusMessages, full: e.target.value, closed: scheduling.statusMessages?.closed || '' } })} 
                                                             className="w-full rounded-md border-gray-300 text-sm"
                                                             placeholder="Fully booked for today."
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-gray-500 mb-1">Full (Accepting Orders) Message</label>
+                                                        <input 
+                                                            type="text" 
+                                                            value={scheduling.statusMessages?.fullAccepting || ''} 
+                                                            onChange={(e) => setScheduling({...scheduling, statusMessages: { ...scheduling.statusMessages, fullAccepting: e.target.value, full: scheduling.statusMessages?.full || '', closed: scheduling.statusMessages?.closed || '' } })} 
+                                                            className="w-full rounded-md border-gray-300 text-sm"
+                                                            placeholder="We are nearing full capacity."
                                                         />
                                                     </div>
                                                 </div>
@@ -907,7 +934,10 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                                     
                                                     let bgClass = "bg-gray-50 text-gray-700 hover:bg-gray-100";
                                                     if (override?.isClosed) bgClass = "bg-red-100 text-red-700 font-bold";
-                                                    else if (override?.isFull) bgClass = "bg-orange-100 text-orange-700 font-bold";
+                                                    else if (override?.isFull) {
+                                                        if (override.allowOrders) bgClass = "bg-yellow-100 text-yellow-800 font-bold";
+                                                        else bgClass = "bg-orange-100 text-orange-700 font-bold";
+                                                    }
                                                     else if (override?.customHours) bgClass = "bg-blue-100 text-blue-700 font-bold";
                                                     else if (isClosedDay) bgClass = "bg-gray-200 text-gray-400"; // Inherently closed
                                                     
@@ -933,19 +963,34 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                                         <button onClick={() => updateDateOverride(selectedDate, 'closed')} className="px-2 py-1 text-xs bg-red-100 text-red-700 hover:bg-red-200 rounded">Closed</button>
                                                         <button onClick={() => updateDateOverride(selectedDate, 'full')} className="px-2 py-1 text-xs bg-orange-100 text-orange-700 hover:bg-orange-200 rounded">Full</button>
                                                     </div>
+                                                    
+                                                    {scheduling.dateOverrides?.[selectedDate]?.isFull && (
+                                                        <div className="mb-2">
+                                                            <label className="flex items-center text-xs text-gray-700 bg-yellow-50 p-1.5 rounded border border-yellow-200 cursor-pointer">
+                                                                <input 
+                                                                    type="checkbox" 
+                                                                    checked={!!scheduling.dateOverrides?.[selectedDate]?.allowOrders} 
+                                                                    onChange={(e) => updateDateOverride(selectedDate, 'allowOrders', e.target.checked)}
+                                                                    className="mr-2 rounded text-brand-orange focus:ring-brand-orange"
+                                                                />
+                                                                Still accept orders?
+                                                            </label>
+                                                        </div>
+                                                    )}
+
                                                     <div className="bg-blue-50 p-2 rounded">
                                                         <p className="text-xs text-blue-800 font-bold mb-1">Custom Hours</p>
                                                         <div className="flex gap-2">
                                                             <input 
                                                                 type="time" 
                                                                 value={scheduling.dateOverrides?.[selectedDate]?.customHours?.start || scheduling.startTime} 
-                                                                onChange={(e) => updateDateOverride(selectedDate, 'custom', e.target.value, scheduling.dateOverrides?.[selectedDate]?.customHours?.end)}
+                                                                onChange={(e) => updateDateOverride(selectedDate, 'custom', undefined, e.target.value, scheduling.dateOverrides?.[selectedDate]?.customHours?.end)}
                                                                 className="w-full text-xs rounded border-blue-200"
                                                             />
                                                             <input 
                                                                 type="time" 
                                                                 value={scheduling.dateOverrides?.[selectedDate]?.customHours?.end || scheduling.endTime}
-                                                                onChange={(e) => updateDateOverride(selectedDate, 'custom', scheduling.dateOverrides?.[selectedDate]?.customHours?.start, e.target.value)}
+                                                                onChange={(e) => updateDateOverride(selectedDate, 'custom', undefined, scheduling.dateOverrides?.[selectedDate]?.customHours?.start, e.target.value)}
                                                                 className="w-full text-xs rounded border-blue-200"
                                                             />
                                                         </div>

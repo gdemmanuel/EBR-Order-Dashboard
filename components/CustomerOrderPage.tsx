@@ -1,3 +1,5 @@
+
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Order, Flavor, PricingSettings, AppSettings, PaymentStatus, FollowUpStatus, ApprovalStatus, OrderItem, MenuPackage, OrderPackageSelection } from '../types';
 import { saveOrderToDb } from '../services/dbService';
@@ -250,8 +252,9 @@ export default function CustomerOrderPage({
         const dateStr = normalizeDateStr(pickupDate);
         const override = scheduling.dateOverrides?.[dateStr];
         
-        // If date is fully closed, return no slots
-        if (override?.isClosed || override?.isFull) return [];
+        // If date is closed or fully booked AND orders are blocked, return no slots
+        if (override?.isClosed) return [];
+        if (override?.isFull && !override.allowOrders) return [];
 
         // Generate slots
         // If it's a closed day, customHours might be undefined, so we fallback to global. 
@@ -276,7 +279,10 @@ export default function CustomerOrderPage({
         const override = scheduling.dateOverrides?.[dateStr];
         
         if (override?.isClosed) return 'closed';
-        if (override?.isFull) return 'full';
+        if (override?.isFull) {
+            // New logic: Check if orders are allowed even if full
+            return override.allowOrders ? 'full_open' : 'full_blocked';
+        }
 
         // Check regular closed days (e.g., Sundays)
         const dateObj = new Date(dateStr + 'T00:00:00');
@@ -471,7 +477,7 @@ export default function CustomerOrderPage({
         if (!pickupDate) { setError("Please select a pickup date."); return; }
         
         // Re-check Date Restriction to prevent bypass
-        if (dateRestrictionStatus) {
+        if (dateRestrictionStatus === 'closed' || dateRestrictionStatus === 'full_blocked') {
             setError("Selected date is unavailable. Please choose another date.");
             return;
         }
@@ -1035,25 +1041,33 @@ export default function CustomerOrderPage({
                                         Time <span className="text-red-500">*</span>
                                     </label>
                                     {/* Handle Closed/Full Messages in UI */}
-                                    {(dateRestrictionStatus === 'closed' || dateRestrictionStatus === 'full') ? (
+                                    {(dateRestrictionStatus === 'closed' || dateRestrictionStatus === 'full_blocked') ? (
                                         <div className={`text-sm p-2 rounded border font-medium ${dateRestrictionStatus === 'closed' ? 'bg-red-50 border-red-200 text-red-700' : 'bg-orange-50 border-orange-200 text-orange-800'}`}>
                                             {dateRestrictionStatus === 'closed' 
                                                 ? (scheduling.statusMessages?.closed || "Sorry, we are closed on this date.") 
                                                 : (scheduling.statusMessages?.full || "Sorry, fully booked for this date.")}
                                         </div>
                                     ) : (
-                                        <select 
-                                            required 
-                                            value={pickupTime} 
-                                            onChange={e => setPickupTime(e.target.value)} 
-                                            disabled={!pickupDate}
-                                            className="w-full rounded border-gray-300 focus:ring-brand-orange focus:border-brand-orange bg-brand-cream/30 py-1.5 text-sm disabled:bg-gray-100 disabled:text-gray-400"
-                                        >
-                                            <option value="">Select Time</option>
-                                            {timeSlots.map(slot => (
-                                                <option key={slot} value={slot}>{slot}</option>
-                                            ))}
-                                        </select>
+                                        <>
+                                            {/* Render warning message if "Full but Open" */}
+                                            {dateRestrictionStatus === 'full_open' && (
+                                                <div className="text-xs bg-yellow-50 text-yellow-800 border border-yellow-200 p-1.5 rounded mb-1 font-medium">
+                                                    {scheduling.statusMessages?.fullAccepting || "We are nearing full capacity."}
+                                                </div>
+                                            )}
+                                            <select 
+                                                required 
+                                                value={pickupTime} 
+                                                onChange={e => setPickupTime(e.target.value)} 
+                                                disabled={!pickupDate}
+                                                className="w-full rounded border-gray-300 focus:ring-brand-orange focus:border-brand-orange bg-brand-cream/30 py-1.5 text-sm disabled:bg-gray-100 disabled:text-gray-400"
+                                            >
+                                                <option value="">Select Time</option>
+                                                {timeSlots.map(slot => (
+                                                    <option key={slot} value={slot}>{slot}</option>
+                                                ))}
+                                            </select>
+                                        </>
                                     )}
                                 </div>
                                 
@@ -1115,12 +1129,12 @@ export default function CustomerOrderPage({
 
                         <button
                             onClick={() => handleFinalSubmit()}
-                            disabled={isSubmitting || !!dateRestrictionStatus}
+                            disabled={isSubmitting || (dateRestrictionStatus === 'closed' || dateRestrictionStatus === 'full_blocked')}
                             className="w-full bg-brand-orange text-white font-bold text-lg py-3 rounded-xl shadow-lg hover:bg-opacity-90 disabled:opacity-70 disabled:cursor-not-allowed transition-all transform active:scale-[0.99] flex justify-center items-center gap-3 uppercase tracking-widest mt-2"
                         >
                             {isSubmitting ? (
                                 <span>Submitting...</span>
-                            ) : !!dateRestrictionStatus ? (
+                            ) : (dateRestrictionStatus === 'closed' || dateRestrictionStatus === 'full_blocked') ? (
                                 <span>Ordering Unavailable</span>
                             ) : (
                                 <>

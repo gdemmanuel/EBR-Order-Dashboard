@@ -64,7 +64,8 @@ const DEFAULT_SETTINGS: AppSettings = {
         dateOverrides: {},
         statusMessages: {
             closed: "We are currently closed for orders on this date.",
-            full: "We have reached full capacity for this date. Please select another day."
+            full: "We have reached full capacity for this date. Please select another day.",
+            fullAccepting: "We are nearing full capacity but still accepting orders."
         }
     },
     messageTemplates: {
