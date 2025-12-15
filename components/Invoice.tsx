@@ -1,7 +1,8 @@
 
+
 import React from 'react';
 import { Order } from '../types';
-import { formatDateForDisplay } from '../utils/dateUtils';
+import { formatDateForDisplay, formatDateStandard } from '../utils/dateUtils';
 import { groupOrderItems } from '../utils/orderUtils';
 
 interface InvoiceProps {
@@ -38,7 +39,7 @@ export default function Invoice({ order }: InvoiceProps) {
           <h2 className="text-5xl font-extralight text-gray-300 uppercase tracking-widest mb-4">Invoice</h2>
           <div className="space-y-1 text-sm">
             <p><span className="font-bold text-gray-600">Invoice #:</span> {order.id.slice(-6).toUpperCase()}</p>
-            <p><span className="font-bold text-gray-600">Date:</span> {new Date().toLocaleDateString()}</p>
+            <p><span className="font-bold text-gray-600">Date:</span> {formatDateStandard(new Date())}</p>
             <p><span className="font-bold text-gray-600">Pickup Date:</span> {formatDateForDisplay(order.pickupDate)}</p>
           </div>
         </div>

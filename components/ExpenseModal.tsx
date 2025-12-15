@@ -1,7 +1,9 @@
 
+
 import React, { useState, useMemo } from 'react';
 import { Expense, Ingredient } from '../types';
 import { XMarkIcon, PlusIcon, TrashIcon, CalendarIcon, CurrencyDollarIcon, DocumentTextIcon, ListBulletIcon } from './icons/Icons';
+import { formatDateForDisplay } from '../utils/dateUtils';
 
 interface ExpenseModalProps {
     expenses: Expense[];
@@ -307,7 +309,7 @@ export default function ExpenseModal({ expenses, categories, ingredients = [], o
                                         <tbody className="bg-white divide-y divide-gray-200 text-sm">
                                             {sortedExpenses.map((expense) => (
                                                 <tr key={expense.id} className="hover:bg-gray-50 transition-colors">
-                                                    <td className="px-4 py-3 whitespace-nowrap text-gray-900 font-medium">{expense.date}</td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-gray-900 font-medium">{formatDateForDisplay(expense.date)}</td>
                                                     <td className="px-4 py-3 whitespace-nowrap text-gray-700">{expense.vendor}</td>
                                                     <td className="px-4 py-3 whitespace-nowrap"><span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">{expense.category}</span></td>
                                                     <td className="px-4 py-3 text-gray-600"><div className="font-medium">{expense.item}</div><div className="text-xs text-gray-500 flex items-center gap-1"><span>${(expense.pricePerUnit || 0).toFixed(2)} / {expense.unitName}</span><span className="text-gray-300">|</span><span>Qty: {expense.quantity}</span></div>{expense.description && <div className="text-xs text-gray-400 italic">{expense.description}</div>}</td>

@@ -1,7 +1,8 @@
 
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { Order, Expense, FollowUpStatus } from '../types';
-import { parseOrderDateTime } from '../utils/dateUtils';
+import { parseOrderDateTime, formatDateForDisplay } from '../utils/dateUtils';
 
 // Safe API Key retrieval for Vite/Vercel deployments
 const getApiKey = () => {
@@ -31,12 +32,12 @@ export async function generateMessageForOrder(order: Order, templates?: { follow
     const deliveryType = order.deliveryRequired ? 'delivery' : 'pick up';
     
     // Get formatted Date with Day of Week
-    let dateString = order.pickupDate;
+    let dateString = formatDateForDisplay(order.pickupDate);
     try {
         const dateObj = parseOrderDateTime(order);
         if (!isNaN(dateObj.getTime())) {
             const dayOfWeek = dateObj.toLocaleDateString('en-US', { weekday: 'long' });
-            dateString = `${dayOfWeek}, ${order.pickupDate}`;
+            dateString = `${dayOfWeek}, ${dateString}`;
         }
     } catch (e) {
         console.warn("Date parsing error", e);

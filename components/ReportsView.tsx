@@ -1,9 +1,10 @@
 
+
 import React, { useMemo, useState } from 'react';
 import { Order, Expense, AppSettings, WorkShift } from '../types';
 import { calculateSupplyCost } from '../utils/pricingUtils';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
-import { parseOrderDateTime } from '../utils/dateUtils';
+import { parseOrderDateTime, formatDateForDisplay } from '../utils/dateUtils';
 import { TrashIcon, CurrencyDollarIcon, ShoppingBagIcon, UsersIcon, PresentationChartBarIcon, ChartPieIcon, XMarkIcon, ClockIcon, PencilIcon } from './icons/Icons';
 
 interface ReportsViewProps {
@@ -74,14 +75,14 @@ const DrillDownModal = ({
                                     let isShift = false;
 
                                     if (type === 'orders') {
-                                        date = item.pickupDate;
+                                        date = formatDateForDisplay(item.pickupDate);
                                         name = item.customerName;
                                         details = `${item.totalMini + item.totalFullSize} items (${item.items.length} types)`;
                                         amount = item.amountCharged;
                                         amountColor = 'text-green-600';
                                     } else if (type === 'shifts') {
                                         isShift = true;
-                                        date = item.date;
+                                        date = formatDateForDisplay(item.date);
                                         name = item.employeeName;
                                         details = `${item.hours.toFixed(1)} hrs (${item.startTime}-${item.endTime})`;
                                         amount = item.totalPay;
@@ -89,12 +90,12 @@ const DrillDownModal = ({
                                     } else if (type === 'expenses' || type === 'mixed') {
                                         if (item.employeeName) { // It's a shift
                                             isShift = true;
-                                            date = item.date;
+                                            date = formatDateForDisplay(item.date);
                                             name = item.employeeName;
                                             details = `Labor: ${item.hours.toFixed(1)} hrs`;
                                             amount = item.totalPay;
                                         } else { // It's an expense
-                                            date = item.date;
+                                            date = formatDateForDisplay(item.date);
                                             name = item.vendor;
                                             details = `${item.category}: ${item.item}`;
                                             amount = item.totalCost;
@@ -307,7 +308,7 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
             }
             
             return {
-                date: entry.date,
+                date: formatDateForDisplay(entry.date),
                 price: entry.price,
                 changePercent,
                 changeDiff,
@@ -465,7 +466,7 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
                                     ) : (
                                         sortedExpenses.map((expense) => (
                                             <tr key={expense.id}>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{expense.date}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">{formatDateForDisplay(expense.date)}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{expense.vendor}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500"><span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{expense.category}</span></td>
                                                 <td className="px-6 py-4 text-sm text-gray-500"><div className="font-medium text-brand-brown">{expense.item}</div><div className="text-xs">({expense.quantity} {expense.unitName} @ ${expense.pricePerUnit})</div></td>

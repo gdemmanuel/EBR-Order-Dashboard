@@ -1,4 +1,5 @@
 
+
 import { Order } from '../types';
 
 /**
@@ -61,7 +62,7 @@ export const formatTime12Hour = (date: Date): string => {
 };
 
 /**
- * Ensures a time string is displayed in 12-hour format (e.g. 2:00 PM).
+ * Ensures a time string is displayed in 12-hour format (e.g. 12:00 PM).
  * Handles inputs like "14:00" or "2:00 PM".
  */
 export const formatTimeDisplay = (timeStr: string | undefined | null): string => {
@@ -70,8 +71,11 @@ export const formatTimeDisplay = (timeStr: string | undefined | null): string =>
     // Normalize clean string
     const cleanStr = timeStr.trim();
     
-    // Check if already AM/PM
-    if (cleanStr.toLowerCase().match(/[a-z]/)) return cleanStr;
+    // Check if already AM/PM but ensure consistent spacing/casing
+    if (cleanStr.toLowerCase().match(/[a-z]/)) {
+        // Just capitalize AM/PM and ensure space
+        return cleanStr.replace(/\s*(am|pm)/i, ' $1').toUpperCase();
+    }
 
     // Assume 24h HH:MM
     const parts = cleanStr.split(':');
@@ -101,8 +105,9 @@ export const formatTimeDisplay = (timeStr: string | undefined | null): string =>
  */
 export const generateTimeSlots = (dateStr: string, startTime: string, endTime: string, intervalMinutes: number): string[] => {
     const slots: string[] = [];
-    const [startH, startM] = startTime.split(':').map(Number);
-    const [endH, endM] = endTime.split(':').map(Number);
+    
+    // Safety check for inputs
+    if (!startTime || !endTime) return [];
 
     const current = new Date(`${dateStr}T${startTime}:00`);
     const end = new Date(`${dateStr}T${endTime}:00`);
@@ -127,11 +132,15 @@ export const normalizeDateStr = (input: string): string => {
     
     const parts = input.split('/');
     if (parts.length === 3) {
+        // Assuming Input is MM/DD/YYYY
         return `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
     }
     return input;
 };
 
+/**
+ * Standardizes any date string (YYYY-MM-DD or MM/DD/YYYY) to MM/DD/YYYY
+ */
 export const formatDateForDisplay = (dateStr: string): string => {
     if (!dateStr) return '';
     
@@ -148,7 +157,7 @@ export const formatDateForDisplay = (dateStr: string): string => {
     // Handle MM-DD-YYYY or other hyphenated
     else if (dateStr.includes('-')) {
         const parts = dateStr.split('-');
-        // Check if first part is year (YYYY-MM-DD was handled by regex, this catches malformed or other ISO-like)
+        // Check if first part is year
         if (parts[0].length === 4) {
              [y, m, d] = parts;
         } else {
@@ -156,6 +165,11 @@ export const formatDateForDisplay = (dateStr: string): string => {
              [m, d, y] = parts;
         }
     } else {
+        // Fallback for Date.toString() or other formats if passed
+        const dateObj = new Date(dateStr);
+        if (!isNaN(dateObj.getTime())) {
+            return formatDateStandard(dateObj);
+        }
         return dateStr;
     }
 
@@ -166,3 +180,14 @@ export const formatDateForDisplay = (dateStr: string): string => {
     
     return dateStr;
 };
+
+/**
+ * Formats a Date object to MM/DD/YYYY
+ */
+export const formatDateStandard = (date: Date): string => {
+    if (isNaN(date.getTime())) return '';
+    const m = (date.getMonth() + 1).toString().padStart(2, '0');
+    const d = date.getDate().toString().padStart(2, '0');
+    const y = date.getFullYear();
+    return `${m}/${d}/${y}`;
+}
