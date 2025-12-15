@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Order, Flavor, PricingSettings, AppSettings, PaymentStatus, FollowUpStatus, ApprovalStatus, OrderItem, MenuPackage, OrderPackageSelection } from '../types';
 import { saveOrderToDb } from '../services/dbService';
@@ -251,9 +250,11 @@ export default function CustomerOrderPage({
         const dateStr = normalizeDateStr(pickupDate);
         const override = scheduling.dateOverrides?.[dateStr];
         
-        // Generate slots even if closed/full to populate dropdown (warning shown separately)
+        // If date is fully closed, return no slots
+        if (override?.isClosed || override?.isFull) return [];
+
+        // Generate slots
         // If it's a closed day, customHours might be undefined, so we fallback to global. 
-        // This ensures times are "available" even on closed days as requested.
         const start = override?.customHours?.start || scheduling.startTime;
         const end = override?.customHours?.end || scheduling.endTime;
         
@@ -267,20 +268,22 @@ export default function CustomerOrderPage({
     }, [pickupDate, scheduling, busySlots]);
     
     // Check if date is restricted for UI warning
-    const isDateRestricted = useMemo(() => {
-        if (!pickupDate || !scheduling?.enabled) return false;
+    const dateRestrictionStatus = useMemo(() => {
+        if (!pickupDate || !scheduling?.enabled) return null;
         
         // Check overrides
         const dateStr = normalizeDateStr(pickupDate);
         const override = scheduling.dateOverrides?.[dateStr];
-        if (override?.isClosed || override?.isFull) return true;
+        
+        if (override?.isClosed) return 'closed';
+        if (override?.isFull) return 'full';
 
         // Check regular closed days (e.g., Sundays)
         const dateObj = new Date(dateStr + 'T00:00:00');
         const dayIndex = dateObj.getDay();
-        if (scheduling.closedDays?.includes(dayIndex) && !override) return true;
+        if (scheduling.closedDays?.includes(dayIndex) && !override) return 'closed'; // Inherently closed
 
-        return false;
+        return null;
     }, [pickupDate, scheduling]);
 
     // Totals Calculation
@@ -293,7 +296,7 @@ export default function CustomerOrderPage({
         cartPackages.forEach(pkg => {
             runningTotal += pkg.totalPrice;
             pkg.items.forEach(pkgItem => {
-                // Check if this flavor already exists in flatItems to merge counts (good for database compactness)
+                // Check if this flavor already exists to merge counts (good for database compactness)
                 const existing = flatItems.find(i => i.name === pkgItem.name);
                 if (existing) {
                     existing.quantity += pkgItem.quantity;
@@ -466,6 +469,13 @@ export default function CustomerOrderPage({
         if (!customerName.trim()) { setError("Please enter your name."); return; }
         if (!phoneNumber.trim()) { setError("Please enter your phone number."); return; }
         if (!pickupDate) { setError("Please select a pickup date."); return; }
+        
+        // Re-check Date Restriction to prevent bypass
+        if (dateRestrictionStatus) {
+            setError("Selected date is unavailable. Please choose another date.");
+            return;
+        }
+
         if (!pickupTime) { setError("Please select a pickup time."); return; }
         if (deliveryRequired && !deliveryAddress.trim()) { setError("Please enter a delivery address."); return; }
 
@@ -677,7 +687,7 @@ export default function CustomerOrderPage({
                             </div>
                             <div className="bg-brand-orange text-white px-3 py-2 rounded-lg shadow-sm flex items-center gap-2 group-hover:bg-opacity-90 transition-all">
                                 <ShoppingBagIcon className="w-5 h-5" />
-                                <span className="font-bold">{cartPackages.length + Object.values(cartSalsas).reduce((a,b)=>a+(b as number), 0)}</span>
+                                <span className="font-bold">{cartPackages.length + Object.values(cartSalsas).reduce((a: number, b) => a + (b as number), 0)}</span>
                             </div>
                         </button>
                     )}
@@ -1024,23 +1034,26 @@ export default function CustomerOrderPage({
                                     <label className="block text-[10px] font-bold text-brand-brown uppercase tracking-wider">
                                         Time <span className="text-red-500">*</span>
                                     </label>
-                                    <select 
-                                        required 
-                                        value={pickupTime} 
-                                        onChange={e => setPickupTime(e.target.value)} 
-                                        disabled={!pickupDate}
-                                        className="w-full rounded border-gray-300 focus:ring-brand-orange focus:border-brand-orange bg-brand-cream/30 py-1.5 text-sm disabled:bg-gray-100 disabled:text-gray-400"
-                                    >
-                                        <option value="">Select Time</option>
-                                        {timeSlots.map(slot => (
-                                            <option key={slot} value={slot}>{slot}</option>
-                                        ))}
-                                    </select>
-                                    {/* WARNING MESSAGE FOR RESTRICTED DATES */}
-                                    {pickupDate && isDateRestricted && (
-                                        <p className="text-[10px] text-red-500 mt-0.5 font-medium bg-red-50 p-1 rounded border border-red-100">
-                                            Limited availability! We will contact you for availability.
-                                        </p>
+                                    {/* Handle Closed/Full Messages in UI */}
+                                    {(dateRestrictionStatus === 'closed' || dateRestrictionStatus === 'full') ? (
+                                        <div className={`text-sm p-2 rounded border font-medium ${dateRestrictionStatus === 'closed' ? 'bg-red-50 border-red-200 text-red-700' : 'bg-orange-50 border-orange-200 text-orange-800'}`}>
+                                            {dateRestrictionStatus === 'closed' 
+                                                ? (scheduling.statusMessages?.closed || "Sorry, we are closed on this date.") 
+                                                : (scheduling.statusMessages?.full || "Sorry, fully booked for this date.")}
+                                        </div>
+                                    ) : (
+                                        <select 
+                                            required 
+                                            value={pickupTime} 
+                                            onChange={e => setPickupTime(e.target.value)} 
+                                            disabled={!pickupDate}
+                                            className="w-full rounded border-gray-300 focus:ring-brand-orange focus:border-brand-orange bg-brand-cream/30 py-1.5 text-sm disabled:bg-gray-100 disabled:text-gray-400"
+                                        >
+                                            <option value="">Select Time</option>
+                                            {timeSlots.map(slot => (
+                                                <option key={slot} value={slot}>{slot}</option>
+                                            ))}
+                                        </select>
                                     )}
                                 </div>
                                 
@@ -1102,11 +1115,13 @@ export default function CustomerOrderPage({
 
                         <button
                             onClick={() => handleFinalSubmit()}
-                            disabled={isSubmitting}
+                            disabled={isSubmitting || !!dateRestrictionStatus}
                             className="w-full bg-brand-orange text-white font-bold text-lg py-3 rounded-xl shadow-lg hover:bg-opacity-90 disabled:opacity-70 disabled:cursor-not-allowed transition-all transform active:scale-[0.99] flex justify-center items-center gap-3 uppercase tracking-widest mt-2"
                         >
                             {isSubmitting ? (
                                 <span>Submitting...</span>
+                            ) : !!dateRestrictionStatus ? (
+                                <span>Ordering Unavailable</span>
                             ) : (
                                 <>
                                     <span>Submit Order</span>

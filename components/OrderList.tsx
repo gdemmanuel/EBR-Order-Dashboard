@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo } from 'react';
 import { Order, PaymentStatus, FollowUpStatus, ApprovalStatus, AppSettings } from '../types';
 import { TrashIcon, PrinterIcon, MagnifyingGlassIcon, XMarkIcon, ChevronDownIcon, TruckIcon, SparklesIcon } from './icons/Icons';
@@ -21,8 +22,13 @@ interface OrderListProps {
 
 // Helper to render status badges with configured colors
 const StatusBadge = ({ status, approvalStatus, colors }: { status: FollowUpStatus, approvalStatus: ApprovalStatus, colors?: Record<string, string> }) => {
+    // Explicitly handle Denied status visually
+    if (approvalStatus === ApprovalStatus.DENIED) {
+        return <span className="text-xs font-medium px-2.5 py-0.5 rounded border" style={{ backgroundColor: '#fef2f2', color: '#b91c1c', borderColor: '#f87171' }}>Denied</span>;
+    }
+    
     if (approvalStatus === ApprovalStatus.CANCELLED) {
-        return <span className="text-xs font-medium px-2.5 py-0.5 rounded border" style={{ backgroundColor: '#fee2e2', color: '#991b1b', borderColor: '#fecaca' }}>Cancelled</span>;
+        return <span className="text-xs font-medium px-2.5 py-0.5 rounded border" style={{ backgroundColor: '#f3f4f6', color: '#6b7280', borderColor: '#d1d5db' }}>Cancelled</span>;
     }
 
     const bgColor = colors?.[status] || '#f3f4f6'; // Default gray
@@ -137,7 +143,7 @@ export default function OrderList({
                                 <option value={FollowUpStatus.PROCESSING}>{FollowUpStatus.PROCESSING}</option>
                                 <option value={FollowUpStatus.COMPLETED}>{FollowUpStatus.COMPLETED}</option>
                                 <option disabled>──────────</option>
-                                <option value="CANCELLED">Cancelled Orders</option>
+                                <option value="CANCELLED">Cancelled / Denied</option>
                             </select>
                             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
                                 <ChevronDownIcon className="h-4 w-4" />

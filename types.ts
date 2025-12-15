@@ -1,4 +1,5 @@
 
+
 export enum ContactMethod {
   GF = 'Google Forms',
   IG = 'Instagram',
@@ -211,6 +212,10 @@ export interface AppSettings {
         blockedDates: string[];
         closedDays: number[];
         dateOverrides: Record<string, { isClosed: boolean; isFull?: boolean; customHours?: { start: string; end: string; }; }>; 
+        statusMessages?: {
+            closed: string;
+            full: string;
+        };
     };
     messageTemplates: {
         followUpNeeded: string;

@@ -1,4 +1,5 @@
 
+
 import { 
     collection, 
     doc, 
@@ -60,7 +61,11 @@ const DEFAULT_SETTINGS: AppSettings = {
         endTime: "17:00",
         blockedDates: [],
         closedDays: [],
-        dateOverrides: {}
+        dateOverrides: {},
+        statusMessages: {
+            closed: "We are currently closed for orders on this date.",
+            full: "We have reached full capacity for this date. Please select another day."
+        }
     },
     messageTemplates: {
         followUpNeeded: "Hi {firstName}! This is Rose from Empanadas by Rose. Thank you for placing an order. Please confirm your order for {deliveryType} on {date} at {time} as follows:\n{totals}\n{items}",
@@ -172,7 +177,11 @@ export const subscribeToSettings = (
                 ...data,
                 pricing: { ...DEFAULT_SETTINGS.pricing, ...(data.pricing || {}) },
                 prepSettings: { ...DEFAULT_SETTINGS.prepSettings, ...(data.prepSettings || {}) },
-                scheduling: { ...DEFAULT_SETTINGS.scheduling, ...(data.scheduling || {}) },
+                scheduling: { 
+                    ...DEFAULT_SETTINGS.scheduling, 
+                    ...(data.scheduling || {}),
+                    statusMessages: { ...DEFAULT_SETTINGS.scheduling.statusMessages, ...(data.scheduling?.statusMessages || {}) }
+                },
                 messageTemplates: { ...DEFAULT_SETTINGS.messageTemplates, ...(data.messageTemplates || {}) },
                 expenseCategories: data.expenseCategories || DEFAULT_SETTINGS.expenseCategories,
                 employees: data.employees || DEFAULT_SETTINGS.employees,

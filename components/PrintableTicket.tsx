@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { Order } from '../types';
 import { formatDateForDisplay, formatTimeDisplay } from '../utils/dateUtils';
@@ -20,7 +21,11 @@ export default function PrintableTicket({ order }: PrintableTicketProps) {
       <div className="text-center mb-1">
         <h1 className="text-sm font-bold uppercase leading-none mb-1">{order.customerName}</h1>
         <p className="font-bold">{formatDateForDisplay(order.pickupDate)} @ {formatTimeDisplay(order.pickupTime)}</p>
-        {order.deliveryRequired && <p className="font-bold mt-0.5 uppercase">** Delivery **</p>}
+        {order.deliveryRequired && (
+            <p className="mt-0.5">
+                <span className="font-bold uppercase bg-pink-200 px-1 inline-block">** Delivery **</span>
+            </p>
+        )}
       </div>
 
       {/* Party Platter Banner */}

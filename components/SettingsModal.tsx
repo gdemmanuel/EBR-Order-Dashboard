@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { AppSettings, updateSettingsInDb } from '../services/dbService';
 import { PricingSettings, MenuPackage, Flavor, SalsaProduct, PricingTier, Employee, FollowUpStatus, Ingredient, RecipeIngredient } from '../types';
@@ -852,6 +853,33 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                                             {day}
                                                         </button>
                                                     ))}
+                                                </div>
+                                            </div>
+
+                                            {/* Custom Messages Section */}
+                                            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                                <h4 className="font-bold text-sm text-gray-700 mb-3">Status Messages</h4>
+                                                <div className="space-y-3">
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-gray-500 mb-1">Closed Message</label>
+                                                        <input 
+                                                            type="text" 
+                                                            value={scheduling.statusMessages?.closed || ''} 
+                                                            onChange={(e) => setScheduling({...scheduling, statusMessages: { ...scheduling.statusMessages, closed: e.target.value, full: scheduling.statusMessages?.full || '' } })} 
+                                                            className="w-full rounded-md border-gray-300 text-sm"
+                                                            placeholder="We are closed today."
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-gray-500 mb-1">Full Capacity Message</label>
+                                                        <input 
+                                                            type="text" 
+                                                            value={scheduling.statusMessages?.full || ''} 
+                                                            onChange={(e) => setScheduling({...scheduling, statusMessages: { ...scheduling.statusMessages, full: e.target.value, closed: scheduling.statusMessages?.closed || '' } })} 
+                                                            className="w-full rounded-md border-gray-300 text-sm"
+                                                            placeholder="Fully booked for today."
+                                                        />
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
