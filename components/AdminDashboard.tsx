@@ -1,5 +1,4 @@
 
-
 import React, { useState, useMemo, useEffect } from 'react';
 import firebase from 'firebase/compat/app';
 import { Order, AppSettings, PricingSettings, Flavor, FollowUpStatus, ApprovalStatus, Expense, WorkShift, PaymentStatus } from '../types';
@@ -438,15 +437,6 @@ export default function AdminDashboard({
                             >
                                 <PlusIcon className="w-5 h-5 sm:w-4 sm:h-4" /> 
                                 <span className="text-xs sm:text-sm font-bold">New Order</span>
-                            </button>
-
-                            <button 
-                                onClick={() => setIsImportOpen(true)} 
-                                className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-3 py-2 bg-white border border-brand-tan hover:border-brand-orange hover:text-brand-orange text-brand-brown rounded-lg transition-all"
-                                title="Import from Sheet"
-                            >
-                                <ArrowDownTrayIcon className="w-5 h-5 sm:w-4 sm:h-4" />
-                                <span className="text-xs sm:text-sm font-medium">Import</span>
                             </button>
 
                             <button 
