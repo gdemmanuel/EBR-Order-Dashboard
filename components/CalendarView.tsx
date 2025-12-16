@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Order, PaymentStatus, WorkShift } from '../types';
-import { parseOrderDateTime, generateTimeSlots, normalizeDateStr } from '../utils/dateUtils';
+import { parseOrderDateTime, normalizeDateStr, formatTimeDisplay, formatDateStandard } from '../utils/dateUtils';
 import { ChevronLeftIcon, ChevronRightIcon, BriefcaseIcon, PencilIcon, TrashIcon } from './icons/Icons';
 import DayOrdersModal from './DayOrdersModal';
 import { getUSHolidays } from '../utils/holidayUtils';
@@ -127,7 +127,7 @@ export default function CalendarView({ orders, shifts = [], onSelectOrder, onPri
                                 className={`text-left text-xs px-2 py-1 rounded truncate transition-colors w-full ${order.paymentStatus === PaymentStatus.PAID ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200' : 'bg-brand-orange/10 text-brand-brown hover:bg-brand-orange/20'}`}
                                 title={`${order.customerName} - ${order.items.reduce((acc, i) => acc + i.quantity, 0)} items`}
                             >
-                                {order.pickupTime.split(' ')[0]} {order.customerName.split(' ')[0]}
+                                {formatTimeDisplay(order.pickupTime)} {order.customerName.split(' ')[0]}
                             </button>
                         ))}
                         {dailyOrders.length > 3 && <div className="text-xs text-gray-500 text-center font-medium">+ {dailyOrders.length - 3} more</div>}
@@ -170,7 +170,7 @@ export default function CalendarView({ orders, shifts = [], onSelectOrder, onPri
                                 {dailyShifts.map(shift => (
                                     <div key={shift.id} className="w-full text-left p-1.5 rounded border text-xs bg-blue-50 border-blue-200 text-blue-800">
                                         <div className="font-bold flex items-center gap-1"><BriefcaseIcon className="w-3 h-3"/> {shift.employeeName}</div>
-                                        <div className="text-[10px]">{shift.startTime} - {shift.endTime}</div>
+                                        <div className="text-[10px]">{formatTimeDisplay(shift.startTime)} - {formatTimeDisplay(shift.endTime)}</div>
                                     </div>
                                 ))}
 
@@ -181,7 +181,7 @@ export default function CalendarView({ orders, shifts = [], onSelectOrder, onPri
                                         onClick={() => onSelectOrder(order)}
                                         className={`w-full text-left p-2 rounded border text-xs shadow-sm transition-all ${order.paymentStatus === PaymentStatus.PAID ? 'bg-emerald-50 border-emerald-200 text-emerald-900 hover:bg-emerald-100' : 'bg-white border-gray-200 hover:border-brand-orange hover:shadow-md'}`}
                                     >
-                                        <div className="font-bold">{order.pickupTime}</div>
+                                        <div className="font-bold">{formatTimeDisplay(order.pickupTime)}</div>
                                         <div className="truncate">{order.customerName}</div>
                                         <div className="text-gray-500">{order.totalMini + order.totalFullSize} items</div>
                                     </button>
@@ -212,8 +212,8 @@ export default function CalendarView({ orders, shifts = [], onSelectOrder, onPri
         return (
             <div className="bg-white min-h-[600px] p-4 flex flex-col">
                 <div className="text-center mb-6">
-                    <h3 className="text-2xl font-serif text-brand-brown">{currentDate.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}</h3>
-                    <p className="text-gray-500 text-sm">Operating Hours: {start} - {end}</p>
+                    <h3 className="text-2xl font-serif text-brand-brown">{formatDateStandard(currentDate)}</h3>
+                    <p className="text-gray-500 text-sm">Operating Hours: {formatTimeDisplay(start)} - {formatTimeDisplay(end)}</p>
                 </div>
 
                 <div className="max-w-3xl mx-auto w-full space-y-4">
@@ -228,7 +228,7 @@ export default function CalendarView({ orders, shifts = [], onSelectOrder, onPri
                                     <div key={shift.id} className="bg-blue-50 border border-blue-200 p-3 rounded-lg flex justify-between items-center group relative">
                                         <div>
                                             <p className="font-bold text-blue-900">{shift.employeeName}</p>
-                                            <p className="text-xs text-blue-700">{shift.startTime} - {shift.endTime} ({shift.hours.toFixed(1)} hrs)</p>
+                                            <p className="text-xs text-blue-700">{formatTimeDisplay(shift.startTime)} - {formatTimeDisplay(shift.endTime)} ({shift.hours.toFixed(1)} hrs)</p>
                                         </div>
                                         <div className="flex items-center gap-3">
                                              <div className="text-right text-xs text-blue-600 font-bold">
@@ -255,7 +255,7 @@ export default function CalendarView({ orders, shifts = [], onSelectOrder, onPri
                             return (
                                 <div key={order.id} className="flex gap-4 group">
                                     <div className="w-24 text-right pt-2 font-bold text-brand-orange text-sm shrink-0">
-                                        {order.pickupTime}
+                                        {formatTimeDisplay(order.pickupTime)}
                                     </div>
                                     <div className="relative pb-8 border-l-2 border-gray-200 pl-6 flex-grow last:border-0">
                                         <div className="absolute -left-[9px] top-2 w-4 h-4 rounded-full bg-brand-orange border-2 border-white shadow-sm"></div>
@@ -335,8 +335,8 @@ export default function CalendarView({ orders, shifts = [], onSelectOrder, onPri
                         <button onClick={handlePrev} className="p-2 rounded-full hover:bg-gray-200 text-brand-brown transition-colors"><ChevronLeftIcon className="w-5 h-5" /></button>
                         <h2 className="text-xl font-serif text-brand-brown font-semibold min-w-[200px] text-center">
                             {viewMode === 'month' && currentDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
-                            {viewMode === 'week' && `Week of ${currentDate.toLocaleDateString()}`}
-                            {viewMode === 'day' && currentDate.toLocaleDateString()}
+                            {viewMode === 'week' && `Week of ${formatDateStandard(currentDate)}`}
+                            {viewMode === 'day' && formatDateStandard(currentDate)}
                         </h2>
                         <button onClick={handleNext} className="p-2 rounded-full hover:bg-gray-200 text-brand-brown transition-colors"><ChevronRightIcon className="w-5 h-5" /></button>
                         <button onClick={() => setCurrentDate(new Date())} className="text-sm font-medium text-brand-orange hover:underline ml-2">Today</button>

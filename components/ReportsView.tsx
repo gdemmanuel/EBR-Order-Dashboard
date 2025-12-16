@@ -3,8 +3,8 @@
 import React, { useMemo, useState } from 'react';
 import { Order, Expense, AppSettings, WorkShift } from '../types';
 import { calculateSupplyCost } from '../utils/pricingUtils';
-import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
-import { parseOrderDateTime, formatDateForDisplay } from '../utils/dateUtils';
+import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, LabelList } from 'recharts';
+import { parseOrderDateTime, formatDateForDisplay, formatTimeDisplay } from '../utils/dateUtils';
 import { TrashIcon, CurrencyDollarIcon, ShoppingBagIcon, UsersIcon, PresentationChartBarIcon, ChartPieIcon, XMarkIcon, ClockIcon, PencilIcon } from './icons/Icons';
 
 interface ReportsViewProps {
@@ -84,7 +84,7 @@ const DrillDownModal = ({
                                         isShift = true;
                                         date = formatDateForDisplay(item.date);
                                         name = item.employeeName;
-                                        details = `${item.hours.toFixed(1)} hrs (${item.startTime}-${item.endTime})`;
+                                        details = `${item.hours.toFixed(1)} hrs (${formatTimeDisplay(item.startTime)} - ${formatTimeDisplay(item.endTime)})`;
                                         amount = item.totalPay;
                                         amountColor = 'text-red-600';
                                     } else if (type === 'expenses' || type === 'mixed') {
@@ -162,6 +162,33 @@ const CustomTooltip = ({ active, payload, label }: any) => {
                     </div>
                 )}
                 {data.isStart && <p className="text-xs text-gray-400 mt-1">Initial Entry</p>}
+            </div>
+        );
+    }
+    return null;
+};
+
+// Custom Tooltip for Sales Chart
+const CustomSalesTooltip = ({ active, payload, label }: any) => {
+    if (active && payload && payload.length) {
+        const data = payload[0].payload;
+        return (
+            <div className="bg-white p-3 border border-gray-200 shadow-lg rounded-lg z-50">
+                <p className="font-bold text-brand-brown text-sm mb-1">{data.name}</p>
+                <div className="text-xs space-y-1">
+                    <div className="flex justify-between gap-4">
+                        <span className="text-brand-orange font-medium">Mini:</span>
+                        <span className="font-bold">{data.mini}</span>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                        <span className="text-brand-brown font-medium">Full Size:</span>
+                        <span className="font-bold">{data.full}</span>
+                    </div>
+                    <div className="border-t border-gray-200 pt-1 mt-1 flex justify-between gap-4">
+                        <span className="font-bold text-gray-700">Total:</span>
+                        <span className="font-bold text-gray-900">{data.total}</span>
+                    </div>
+                </div>
             </div>
         );
     }
@@ -250,7 +277,47 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
 
     // ... (Labor Logic, Product Logic, Day Logic unchanged) ...
     const laborStats = useMemo(() => { const stats = new Map<string, { name: string; hours: number; pay: number; shiftCount: number }>(); filteredData.shifts.forEach(shift => { const key = shift.employeeName; const current = stats.get(key) || { name: key, hours: 0, pay: 0, shiftCount: 0 }; current.hours += shift.hours; current.pay += shift.totalPay; current.shiftCount += 1; stats.set(key, current); }); return Array.from(stats.values()).sort((a, b) => b.hours - a.hours); }, [filteredData.shifts]);
-    const productStats = useMemo(() => { const itemMap = new Map<string, number>(); filteredData.orders.forEach(order => { order.items.forEach(item => { const name = item.name.replace('Full ', '').replace(' (4oz)', '').replace(' (8oz)', ''); itemMap.set(name, (itemMap.get(name) || 0) + item.quantity); }); }); return Array.from(itemMap.entries()).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, 10); }, [filteredData.orders]);
+    
+    // Updated Product Stats for Split View
+    const productStats = useMemo(() => {
+        const itemMap = new Map<string, { mini: number; full: number }>();
+        filteredData.orders.forEach(order => {
+            order.items.forEach(item => {
+                let name = item.name;
+                let isFull = false;
+                
+                if (name.startsWith('Full ')) {
+                    name = name.replace('Full ', '');
+                    isFull = true;
+                }
+                
+                // clean up suffixes if needed
+                name = name.replace(' (4oz)', '').replace(' (8oz)', '');
+
+                const current = itemMap.get(name) || { mini: 0, full: 0 };
+                
+                if (isFull) {
+                    current.full += item.quantity;
+                } else {
+                    current.mini += item.quantity;
+                }
+                
+                itemMap.set(name, current);
+            });
+        });
+
+        return Array.from(itemMap.entries())
+            .map(([name, counts]) => ({
+                name,
+                mini: counts.mini,
+                full: counts.full,
+                total: counts.mini + counts.full,
+                displayName: `${name} (${counts.mini + counts.full})` // For Axis label
+            }))
+            .sort((a, b) => b.total - a.total)
+            .slice(0, 10);
+    }, [filteredData.orders]);
+
     const dayStats = useMemo(() => { const dayCounts = { 'Sun': 0, 'Mon': 0, 'Tue': 0, 'Wed': 0, 'Thu': 0, 'Fri': 0, 'Sat': 0 }; const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']; filteredData.orders.forEach(order => { const date = parseOrderDateTime(order); if (!isNaN(date.getTime())) { const dayName = days[date.getDay()]; (dayCounts as any)[dayName] = ((dayCounts as any)[dayName] || 0) + 1; } }); return days.map(d => ({ name: d, count: (dayCounts as any)[d] })); }, [filteredData.orders]);
 
     // --- Package Stats Logic (Enhanced) ---
@@ -567,9 +634,10 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
                                 <BarChart data={productStats} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
                                     <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
                                     <XAxis type="number" />
-                                    <YAxis dataKey="name" type="category" width={100} tick={{fontSize: 11}} interval={0} />
-                                    <Tooltip cursor={{fill: 'transparent'}} />
-                                    <Bar dataKey="count" fill="#ea580c" radius={[0, 4, 4, 0]} name="Quantity Sold" barSize={20} onClick={handleProductClick} cursor="pointer" />
+                                    <YAxis dataKey="displayName" type="category" width={140} tick={{fontSize: 11}} interval={0} />
+                                    <Tooltip content={<CustomSalesTooltip />} cursor={{fill: 'transparent'}} />
+                                    <Bar dataKey="mini" stackId="a" fill="#ea580c" name="Mini" barSize={20} onClick={handleProductClick} cursor="pointer" />
+                                    <Bar dataKey="full" stackId="a" fill="#3c2f2f" name="Full Size" barSize={20} onClick={handleProductClick} cursor="pointer" />
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>
