@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect } from 'react';
 import { Order, FollowUpStatus, ApprovalStatus, AppSettings, PaymentStatus } from '../types';
 import { generateMessageForOrder } from '../services/geminiService';
@@ -229,7 +230,7 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
             {/* Customer & Order Info */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-4">
-                  <DetailItem icon={<UserIcon className="w-5 h-5" />} label="Customer" value={`${order.customerName} ${order.items.length > 0 && order.id.length > 10 ? `(Ordered: ${new Date(parseInt(order.id)).toLocaleDateString()})` : ''}`} />
+                  <DetailItem icon={<UserIcon className="w-5 h-5" />} label="Customer" value={`${order.customerName} ${order.items?.length > 0 && order.id.length > 10 ? `(Ordered: ${new Date(parseInt(order.id)).toLocaleDateString()})` : ''}`} />
                   <DetailItem icon={<PhoneIcon className="w-5 h-5" />} label="Phone" value={order.phoneNumber} />
                   <DetailItem icon={<EnvelopeIcon className="w-5 h-5" />} label="Email" value={emailDisplay} />
                   <DetailItem icon={<ChatBubbleOvalLeftEllipsisIcon className="w-5 h-5" />} label="Contact Method" value={order.contactMethod} />
@@ -284,6 +285,10 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
                               ))}
                           </ul>
                       </div>
+                  )}
+                  
+                  {packages.length === 0 && looseItems.length === 0 && (
+                      <p className="text-sm text-gray-500 italic text-center py-2">No items listed for this order.</p>
                   )}
               </div>
               

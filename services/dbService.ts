@@ -101,7 +101,27 @@ export const subscribeToOrders = (
     const q = query(collection(db, ORDERS_COLLECTION));
     return onSnapshot(q, (snapshot: QuerySnapshot<DocumentData>) => {
         const orders: Order[] = [];
-        snapshot.forEach((doc) => orders.push(doc.data() as Order));
+        snapshot.forEach((doc) => {
+            const data = doc.data();
+            // DATA SANITIZATION
+            // Ensure items array exists to prevent UI crashes in components
+            const items = Array.isArray(data.items) ? data.items : [];
+            
+            // Ensure ID exists (fallback to doc.id)
+            const id = data.id || doc.id;
+
+            orders.push({
+                ...data,
+                id,
+                items,
+                // Default counts if missing to prevent NaN errors
+                totalMini: typeof data.totalMini === 'number' ? data.totalMini : 0,
+                totalFullSize: typeof data.totalFullSize === 'number' ? data.totalFullSize : 0,
+                amountCharged: typeof data.amountCharged === 'number' ? data.amountCharged : 0,
+                amountCollected: typeof data.amountCollected === 'number' ? data.amountCollected : 0,
+                customerName: data.customerName || 'Unknown',
+            } as Order);
+        });
         onUpdate(orders);
     }, onError);
 };

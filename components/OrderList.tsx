@@ -250,7 +250,9 @@ export default function OrderList({
                         ) : (
                             sortedOrders.map((order) => {
                                 const totalItems = order.totalMini + order.totalFullSize;
-                                const itemsSummary = order.items.map(i => `${i.quantity} ${i.name}`).join(', ');
+                                const itemsSummary = order.items && Array.isArray(order.items) 
+                                    ? order.items.map(i => `${i.quantity} ${i.name}`).join(', ') 
+                                    : 'No Items';
                                 
                                 // Enhanced Party Platter Detection
                                 const hasPlatterPackage = order.originalPackages && order.originalPackages.some(p => p.toLowerCase().includes('platter'));

@@ -1,4 +1,5 @@
 
+
 import React, { useMemo } from 'react';
 import { Order, FollowUpStatus } from '../types';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList } from 'recharts';
@@ -60,11 +61,13 @@ export default function DashboardMetrics({ stats, orders, allOrders, empanadaFla
     const popularMiniProductsData = useMemo(() => {
         const productCounts = new Map<string, number>();
         orders.forEach(order => {
-            order.items.forEach(item => {
-                if (miniFlavorsSet.has(item.name)) {
-                   productCounts.set(item.name, (productCounts.get(item.name) || 0) + item.quantity);
-                }
-            });
+            if (order.items && Array.isArray(order.items)) {
+                order.items.forEach(item => {
+                    if (miniFlavorsSet.has(item.name)) {
+                       productCounts.set(item.name, (productCounts.get(item.name) || 0) + item.quantity);
+                    }
+                });
+            }
         });
 
         return Array.from(productCounts.entries())
@@ -77,21 +80,23 @@ export default function DashboardMetrics({ stats, orders, allOrders, empanadaFla
         const knownFullFlavors = new Set(fullSizeEmpanadaFlavors);
 
         orders.forEach(order => {
-            order.items.forEach(item => {
-                const name = item.name.trim();
-                
-                // Case 1: Item name explicitly starts with "Full " (e.g., "Full Beef")
-                if (name.startsWith('Full ')) {
-                    const cleanName = name.replace('Full ', '').trim();
-                    productCounts.set(cleanName, (productCounts.get(cleanName) || 0) + item.quantity);
-                } 
-                // Case 2: Item name is in the configured list of full-size flavors
-                else if (knownFullFlavors.has(name)) {
-                    // Clean it up just in case the list name also has "Full " prefix
-                    const cleanName = name.startsWith('Full ') ? name.replace('Full ', '').trim() : name;
-                    productCounts.set(cleanName, (productCounts.get(cleanName) || 0) + item.quantity);
-                }
-            });
+            if (order.items && Array.isArray(order.items)) {
+                order.items.forEach(item => {
+                    const name = item.name.trim();
+                    
+                    // Case 1: Item name explicitly starts with "Full " (e.g., "Full Beef")
+                    if (name.startsWith('Full ')) {
+                        const cleanName = name.replace('Full ', '').trim();
+                        productCounts.set(cleanName, (productCounts.get(cleanName) || 0) + item.quantity);
+                    } 
+                    // Case 2: Item name is in the configured list of full-size flavors
+                    else if (knownFullFlavors.has(name)) {
+                        // Clean it up just in case the list name also has "Full " prefix
+                        const cleanName = name.startsWith('Full ') ? name.replace('Full ', '').trim() : name;
+                        productCounts.set(cleanName, (productCounts.get(cleanName) || 0) + item.quantity);
+                    }
+                });
+            }
         });
 
         return Array.from(productCounts.entries())
@@ -114,8 +119,8 @@ export default function DashboardMetrics({ stats, orders, allOrders, empanadaFla
             const weekKey = weekStartDate.toISOString().split('T')[0]; // YYYY-MM-DD
 
             const currentTotals = weeklyTotals.get(weekKey) || { mini: 0, full: 0 };
-            currentTotals.mini += order.totalMini;
-            currentTotals.full += order.totalFullSize;
+            currentTotals.mini += order.totalMini || 0;
+            currentTotals.full += order.totalFullSize || 0;
             weeklyTotals.set(weekKey, currentTotals);
         });
         

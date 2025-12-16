@@ -5,6 +5,7 @@ import firebase from 'firebase/compat/app';
 import { Order, AppSettings, PricingSettings, Flavor, FollowUpStatus, ApprovalStatus, Expense, WorkShift, PaymentStatus } from '../types';
 import { saveOrderToDb, softDeleteOrder, saveOrdersBatch, saveExpenseToDb, deleteExpenseFromDb, saveShiftToDb, subscribeToExpenses, subscribeToShifts, updateSettingsInDb, deleteShiftFromDb } from '../services/dbService';
 import { parseOrderDateTime } from '../utils/dateUtils';
+import { generateOrdersCSV } from '../utils/orderUtils';
 
 import Header from './Header';
 import DashboardMetrics from './DashboardMetrics';
@@ -28,7 +29,7 @@ import ImportOrderModal from './ImportOrderModal';
 import { 
     ChartPieIcon, ListBulletIcon, CalendarDaysIcon, PresentationChartBarIcon, 
     PlusIcon, CogIcon, ScaleIcon, CurrencyDollarIcon, 
-    ClockIcon, TrashIcon, CheckCircleIcon, ArrowDownTrayIcon
+    ClockIcon, TrashIcon, CheckCircleIcon, ArrowDownTrayIcon, ArrowUpTrayIcon
 } from './icons/Icons';
 
 interface AdminDashboardProps {
@@ -361,6 +362,15 @@ export default function AdminDashboard({
         setIsImportOpen(false);
     };
 
+    const handleExportOrders = () => {
+        if (filteredOrders.length === 0) {
+            setNotification({ message: "No orders to export matching current filters.", type: 'error' });
+            return;
+        }
+        generateOrdersCSV(filteredOrders);
+        setNotification({ message: "Export started...", type: 'success' });
+    };
+
     // Render Views
     if (view === 'print') {
         return (
@@ -437,6 +447,15 @@ export default function AdminDashboard({
                             >
                                 <ArrowDownTrayIcon className="w-5 h-5 sm:w-4 sm:h-4" />
                                 <span className="text-xs sm:text-sm font-medium">Import</span>
+                            </button>
+
+                            <button 
+                                onClick={handleExportOrders}
+                                className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-3 py-2 bg-white border border-brand-tan hover:border-brand-orange hover:text-brand-orange text-brand-brown rounded-lg transition-all"
+                                title="Export to CSV"
+                            >
+                                <ArrowUpTrayIcon className="w-5 h-5 sm:w-4 sm:h-4" />
+                                <span className="text-xs sm:text-sm font-medium">Export</span>
                             </button>
                             
                             <button 
