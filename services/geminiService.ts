@@ -5,20 +5,28 @@ import { parseOrderDateTime, formatDateForDisplay } from '../utils/dateUtils';
 
 // Safe API Key retrieval for Vite/Vercel deployments
 const getApiKey = () => {
+    // Try Vite's import.meta.env first (browser builds)
     try {
         // @ts-ignore
         if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_KEY) {
             // @ts-ignore
             return import.meta.env.VITE_API_KEY;
         }
-    } catch (e) {}
+    } catch (e) {
+        // import.meta not available
+    }
+
+    // Try Node.js process.env (SSR/build-time only) - use globalThis for safer check
     try {
         // @ts-ignore
-        if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
-            // @ts-ignore
-            return process.env.API_KEY;
+        const proc = typeof globalThis !== 'undefined' && globalThis.process;
+        if (proc && proc.env && proc.env.API_KEY) {
+            return proc.env.API_KEY;
         }
-    } catch (e) {}
+    } catch (e) {
+        // process not available in browser
+    }
+
     console.warn("API Key not found. Please check your VITE_API_KEY environment variable.");
     return '';
 };
@@ -29,7 +37,7 @@ export async function generateMessageForOrder(order: Order, templates?: { follow
     const status = order.followUpStatus;
     const firstName = order.customerName.split(' ')[0];
     const deliveryType = order.deliveryRequired ? 'delivery' : 'pick up';
-    
+
     // Get formatted Date with Day of Week
     let dateString = formatDateForDisplay(order.pickupDate);
     try {
@@ -52,11 +60,11 @@ export async function generateMessageForOrder(order: Order, templates?: { follow
         } else {
             itemsText = `${order.totalMini} mini and ${order.totalFullSize} full-size empanadas`;
         }
-        
+
         // Auto-format items as a list with dashes for clarity
         // Format: "- 2 Beef"
         const itemsList = order.items.map(item => `- ${item.quantity} ${item.name}`).join('\n');
-        
+
         // Smart Address Replacement
         let text = template;
         if (!order.deliveryRequired) {
@@ -160,7 +168,7 @@ export async function generateBusinessInsights(
     settings: AppSettings
 ): Promise<AiInsight[]> {
     const model = 'gemini-3-flash-preview';
-    
+
     // Prepare a compact context for the model
     const context = {
         totalOrders: orders.length,
@@ -226,7 +234,7 @@ export async function queryBusinessAi(
     settings: AppSettings
 ): Promise<string> {
     const model = 'gemini-3-flash-preview';
-    
+
     const context = {
         ordersCount: orders.length,
         totalSales: orders.reduce((sum, o) => sum + o.amountCharged, 0),
@@ -258,8 +266,8 @@ export async function queryBusinessAi(
             model,
             config: { systemInstruction }
         });
-        
-        const prompt = history.length > 0 
+
+        const prompt = history.length > 0
             ? `Previous Conversation:\n${history.map(m => `${m.role}: ${m.text}`).join('\n')}\n\nNew Question: ${query}`
             : query;
 
@@ -373,7 +381,7 @@ function simpleCsvParser(csv: string): Record<string, string>[] {
         let inQuotes = false;
         for (let i = 0; i < row.length; i++) {
             const char = row[i];
-            if (char === '"' && (i === 0 || row[i-1] !== '"')) {
+            if (char === '"' && (i === 0 || row[i - 1] !== '"')) {
                 inQuotes = !inQuotes;
             } else if (char === ',' && !inQuotes) {
                 values.push(current);
@@ -442,17 +450,17 @@ async function parseObjectsBatch(
                 temperature: 0,
             }
         });
-        
+
         const jsonText = response.text?.trim() || '';
-        
+
         if (!jsonText) {
-             throw new Error("Empty response from Gemini API");
+            throw new Error("Empty response from Gemini API");
         }
 
         if (jsonText.length > batchObjects.length * 2000) {
-             throw new Error("The AI returned an abnormally large response, which indicates a processing error (e.g., data repetition).");
+            throw new Error("The AI returned an abnormally large response, which indicates a processing error (e.g., data repetition).");
         }
-        
+
         const parsedData = JSON.parse(jsonText);
         return parsedData as Partial<Order>[];
     } catch (error: any) {
@@ -471,7 +479,7 @@ export async function parseOrdersFromSheet(
     onProgress: (message: string) => void,
     existingSignatures: Set<string> = new Set()
 ): Promise<ImportResult> {
-    
+
     let rowObjects: Record<string, string>[];
     try {
         const sanitizedCsv = csvText.replace(/"/g, '');
@@ -484,7 +492,7 @@ export async function parseOrdersFromSheet(
         onProgress('');
         return { newOrders: [], newSignatures: [] };
     }
-    
+
     const newRows: Record<string, string>[] = [];
     const newRowSignatures: string[] = [];
 
@@ -514,7 +522,7 @@ export async function parseOrdersFromSheet(
         onProgress(`Processing new orders: batch ${batchNum} of ${totalBatches} (${startRow}-${endRow})...`);
 
         const batchObjects = newRows.slice(i, i + BATCH_SIZE);
-        
+
         try {
             const parsedBatch = await parseObjectsBatch(batchObjects, batchNum, totalBatches);
             allParsedOrders.push(...parsedBatch);
@@ -530,16 +538,16 @@ export async function parseOrdersFromSheet(
 
     onProgress('Import complete!');
     await sleep(1000);
-    
-    return { 
-        newOrders: allParsedOrders, 
-        newSignatures: newRowSignatures 
+
+    return {
+        newOrders: allParsedOrders,
+        newSignatures: newRowSignatures
     };
 }
 
 export async function parseReceiptImage(base64Image: string, mimeType: string, categories: string[]): Promise<Partial<Expense>> {
-  const model = 'gemini-2.5-flash';
-  const prompt = `
+    const model = 'gemini-2.5-flash';
+    const prompt = `
     Analyze this receipt image. Extract the following details:
     1. Date: The transaction date in YYYY-MM-DD format. If not found, use today's date.
     2. Amount: The total amount paid.
@@ -550,33 +558,35 @@ export async function parseReceiptImage(base64Image: string, mimeType: string, c
     Do not include markdown formatting or code blocks. Just the JSON string.
   `;
 
-  const imagePart = {
-    inlineData: {
-      mimeType: mimeType,
-      data: base64Image
-    }
-  };
-
-  try {
-    const response = await ai.models.generateContent({
-        model: model,
-        contents: { parts: [
-             { text: prompt },
-             imagePart
-        ] },
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: expenseSchema
+    const imagePart = {
+        inlineData: {
+            mimeType: mimeType,
+            data: base64Image
         }
-    });
-    
-    const jsonText = response.text?.trim();
-    if (jsonText) {
-        return JSON.parse(jsonText) as Partial<Expense>;
+    };
+
+    try {
+        const response = await ai.models.generateContent({
+            model: model,
+            contents: {
+                parts: [
+                    { text: prompt },
+                    imagePart
+                ]
+            },
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: expenseSchema
+            }
+        });
+
+        const jsonText = response.text?.trim();
+        if (jsonText) {
+            return JSON.parse(jsonText) as Partial<Expense>;
+        }
+        throw new Error("Empty response from AI");
+    } catch (error) {
+        console.error("Error parsing receipt:", error);
+        throw new Error("Failed to scan receipt.");
     }
-    throw new Error("Empty response from AI");
-  } catch (error) {
-    console.error("Error parsing receipt:", error);
-    throw new Error("Failed to scan receipt.");
-  }
 }
