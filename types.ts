@@ -1,5 +1,4 @@
 
-
 export enum ContactMethod {
   GF = 'Google Forms',
   IG = 'Instagram',
@@ -186,6 +185,18 @@ export interface Ingredient {
 export interface RecipeIngredient {
     ingredientId: string;
     amountFor20Minis: number;
+}
+
+export interface AiInsight {
+    type: 'win' | 'warning' | 'idea';
+    title: string;
+    description: string;
+    impact?: string;
+}
+
+export interface AiMessage {
+    role: 'user' | 'model';
+    text: string;
 }
 
 export interface AppSettings {

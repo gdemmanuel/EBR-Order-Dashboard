@@ -1,7 +1,6 @@
 
-
 import { GoogleGenAI, Type } from "@google/genai";
-import { Order, Expense, FollowUpStatus } from '../types';
+import { Order, Expense, FollowUpStatus, WorkShift, AppSettings, AiInsight, AiMessage } from '../types';
 import { parseOrderDateTime, formatDateForDisplay } from '../utils/dateUtils';
 
 // Safe API Key retrieval for Vite/Vercel deployments
@@ -123,7 +122,7 @@ Thank you for your order!`;
     }
 
     // AI GENERATION (Fallback or Explicit Request)
-    const model = 'gemini-2.5-flash';
+    const model = 'gemini-3-flash-preview';
     const prompt = `
     You are Rose, the owner of "Empanadas by Rose". Write a short, friendly text message to a customer named ${firstName}.
     
@@ -150,6 +149,133 @@ Thank you for your order!`;
         console.error(e);
         return "Error generating message.";
     }
+}
+
+// --- Business Insights ---
+
+export async function generateBusinessInsights(
+    orders: Order[],
+    expenses: Expense[],
+    shifts: WorkShift[],
+    settings: AppSettings
+): Promise<AiInsight[]> {
+    const model = 'gemini-3-flash-preview';
+    
+    // Prepare a compact context for the model
+    const context = {
+        totalOrders: orders.length,
+        totalRevenue: orders.reduce((sum, o) => sum + o.amountCharged, 0),
+        totalExpenses: expenses.reduce((sum, e) => sum + e.totalCost, 0) + shifts.reduce((sum, s) => sum + s.totalPay, 0),
+        topFlavors: getTopFlavors(orders),
+        recentSpecialInstructions: orders.slice(-10).map(o => o.specialInstructions).filter(Boolean),
+        currentFlavors: settings.empanadaFlavors.map(f => f.name),
+        ingredientCosts: settings.ingredients?.map(i => ({ name: i.name, cost: i.cost, unit: i.unit })) || []
+    };
+
+    const prompt = `
+    You are Rose's AI Business Consultant for "Empanadas by Rose". 
+    Analyze the provided business data and return 3 high-impact insights: one "Win" (Success), one "Warning" (Risk), and one "Idea" (Growth Opportunity).
+    
+    Data Context:
+    ${JSON.stringify(context)}
+    
+    Rules:
+    - Be specific. Don't say "Increase sales". Say "Your Buffalo Chicken sales are peaking on Fridays, consider a Friday Buffalo Bundle".
+    - Focus on profitability and customer satisfaction.
+    - Keep descriptions concise and professional but encouraging.
+    
+    Return your response as a valid JSON array of objects with keys: 'type' (win/warning/idea), 'title', 'description', and 'impact'.
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model,
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                    type: Type.ARRAY,
+                    items: {
+                        type: Type.OBJECT,
+                        properties: {
+                            type: { type: Type.STRING },
+                            title: { type: Type.STRING },
+                            description: { type: Type.STRING },
+                            impact: { type: Type.STRING }
+                        },
+                        required: ['type', 'title', 'description']
+                    }
+                }
+            }
+        });
+        return JSON.parse(response.text || "[]");
+    } catch (e) {
+        console.error("AI Insights Error:", e);
+        return [
+            { type: 'win', title: 'Data Analysis Ready', description: 'Once you log more orders and expenses, I can give you deeper insights into your growth.' }
+        ];
+    }
+}
+
+export async function queryBusinessAi(
+    query: string,
+    history: AiMessage[],
+    orders: Order[],
+    expenses: Expense[],
+    shifts: WorkShift[],
+    settings: AppSettings
+): Promise<string> {
+    const model = 'gemini-3-flash-preview';
+    
+    const context = {
+        ordersCount: orders.length,
+        totalSales: orders.reduce((sum, o) => sum + o.amountCharged, 0),
+        expenses: expenses.reduce((sum, e) => sum + e.totalCost, 0),
+        laborCost: shifts.reduce((sum, s) => sum + s.totalPay, 0),
+        flavors: settings.empanadaFlavors.filter(f => f.visible).map(f => f.name),
+        activeEmployees: settings.employees.filter(e => e.isActive).length
+    };
+
+    const systemInstruction = `
+    You are Rose's virtual business partner for her empanada business. 
+    You have access to her sales, expense, and labor data.
+    Answer her questions with professional culinary and business advice. 
+    Use the provided data context to be as accurate as possible. 
+    If she asks about future trends, use current culinary trends (2025) and her historical top flavors to make predictions.
+    
+    Data Context: ${JSON.stringify(context)}
+    `;
+
+    try {
+        const chat = ai.chats.create({
+            model,
+            config: { systemInstruction }
+        });
+        
+        // Convert history for the chat API if needed, or just send a standalone prompt with history context
+        const prompt = history.length > 0 
+            ? `Previous Conversation:\n${history.map(m => `${m.role}: ${m.text}`).join('\n')}\n\nNew Question: ${query}`
+            : query;
+
+        const response = await chat.sendMessage({ message: prompt });
+        return response.text || "I'm having trouble connecting right now.";
+    } catch (e) {
+        console.error("AI Query Error:", e);
+        return "I encountered an error while processing your request.";
+    }
+}
+
+function getTopFlavors(orders: Order[]) {
+    const counts: Record<string, number> = {};
+    orders.forEach(o => {
+        o.items.forEach(i => {
+            counts[i.name] = (counts[i.name] || 0) + i.quantity;
+        });
+    });
+    return Object.entries(counts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([name, count]) => ({ name, count }));
 }
 
 // --- Legacy/Other Functions ---

@@ -11,6 +11,7 @@ import DashboardMetrics from './DashboardMetrics';
 import OrderList from './OrderList';
 import CalendarView from './CalendarView';
 import ReportsView from './ReportsView';
+import AiInsightsSection from './AiInsightsSection';
 import PendingOrders from './PendingOrders';
 import DateRangeFilter from './DateRangeFilter';
 
@@ -27,7 +28,7 @@ import TrashBinModal from './TrashBinModal';
 import { 
     ChartPieIcon, ListBulletIcon, CalendarDaysIcon, PresentationChartBarIcon, 
     PlusIcon, CogIcon, ScaleIcon, CurrencyDollarIcon, 
-    ClockIcon, TrashIcon, CheckCircleIcon, ArrowUpTrayIcon
+    ClockIcon, TrashIcon, CheckCircleIcon, ArrowUpTrayIcon, SparklesIcon
 } from './icons/Icons';
 
 interface AdminDashboardProps {
@@ -54,7 +55,7 @@ export default function AdminDashboard({
     settings
 }: AdminDashboardProps) {
     // View State
-    const [view, setView] = useState<'dashboard' | 'list' | 'calendar' | 'reports' | 'print' | 'invoice'>('dashboard');
+    const [view, setView] = useState<'dashboard' | 'list' | 'calendar' | 'reports' | 'insights' | 'print' | 'invoice'>('dashboard');
     
     // Data State (Expenses & Shifts loaded locally here)
     const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -382,6 +383,12 @@ export default function AdminDashboard({
                             >
                                 <PresentationChartBarIcon className="w-4 h-4 mr-2" /> Reports
                             </button>
+                            <button 
+                                onClick={() => setView('insights')}
+                                className={`flex items-center px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${view === 'insights' ? 'bg-white shadow-sm text-brand-orange' : 'text-gray-600 hover:text-brand-brown'}`}
+                            >
+                                <SparklesIcon className="w-4 h-4 mr-2" /> AI Insights
+                            </button>
                         </div>
 
                         {/* Expanded Action Bar - Big Widgets */}
@@ -549,6 +556,15 @@ export default function AdminDashboard({
                         onDeleteExpense={deleteExpenseFromDb}
                         onEditShift={handleEditShift}
                         onDeleteShift={handleDeleteShift}
+                    />
+                )}
+
+                {view === 'insights' && (
+                    <AiInsightsSection 
+                        orders={activeOrders}
+                        expenses={expenses}
+                        shifts={shifts}
+                        settings={settings}
                     />
                 )}
             </main>

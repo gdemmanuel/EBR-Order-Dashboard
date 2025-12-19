@@ -1,6 +1,4 @@
 
-
-
 import React from 'react';
 
 // FIX: Updated IconProps to explicitly include a `title` property and update all icon
@@ -368,5 +366,12 @@ export const ArrowUpTrayIcon = ({ title, ...props }: IconProps) => (
   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
     {title && <title>{title}</title>}
     <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+  </svg>
+);
+
+export const LightBulbIcon = ({ title, ...props }: IconProps) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+    {title && <title>{title}</title>}
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 18v-5.25m0 0a6 6 0 10-9 3.543V18a3 3 0 006 0v-1.707a6 6 0 003-3.543z" />
   </svg>
 );
