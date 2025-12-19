@@ -243,6 +243,13 @@ export async function queryBusinessAi(
     Use the provided data context to be as accurate as possible. 
     If she asks about future trends, use current culinary trends (2025) and her historical top flavors to make predictions.
     
+    **FORMATTING RULES FOR READABILITY:**
+    - Use **bold text** for key terms, categories, or numbers.
+    - Use bullet points (- ) or numbered lists (1. ) for steps, flavors, or multi-part advice.
+    - Use clear line breaks between different points.
+    - Keep paragraphs short (max 3 sentences).
+    - If you provide a table or list of data, ensure it is clearly separated from paragraphs.
+    
     Data Context: ${JSON.stringify(context)}
     `;
 
@@ -252,7 +259,6 @@ export async function queryBusinessAi(
             config: { systemInstruction }
         });
         
-        // Convert history for the chat API if needed, or just send a standalone prompt with history context
         const prompt = history.length > 0 
             ? `Previous Conversation:\n${history.map(m => `${m.role}: ${m.text}`).join('\n')}\n\nNew Question: ${query}`
             : query;

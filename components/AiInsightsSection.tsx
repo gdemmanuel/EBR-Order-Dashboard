@@ -11,6 +11,62 @@ interface AiInsightsSectionProps {
     settings: AppSettings;
 }
 
+/**
+ * Simple Markdown-like formatter for AI responses.
+ * Handles bold (**text**) and bulleted lists (- or * at start of line).
+ */
+const MarkdownContent: React.FC<{ content: string }> = ({ content }) => {
+    const lines = content.split('\n');
+    let currentList: string[] = [];
+    const elements: React.ReactNode[] = [];
+
+    const flushList = (key: string) => {
+        if (currentList.length > 0) {
+            elements.push(
+                <ul key={key} className="list-disc ml-5 space-y-1 my-3">
+                    {currentList.map((item, idx) => (
+                        <li key={idx} className="pl-1">
+                            {formatText(item)}
+                        </li>
+                    ))}
+                </ul>
+            );
+            currentList = [];
+        }
+    };
+
+    const formatText = (text: string) => {
+        // Simple bold formatter
+        const parts = text.split(/(\*\*.*?\*\*)/g);
+        return parts.map((part, i) => {
+            if (part.startsWith('**') && part.endsWith('**')) {
+                return <strong key={i} className="font-bold text-gray-900">{part.slice(2, -2)}</strong>;
+            }
+            return part;
+        });
+    };
+
+    lines.forEach((line, i) => {
+        const trimmed = line.trim();
+        const isBullet = trimmed.startsWith('- ') || trimmed.startsWith('* ');
+
+        if (isBullet) {
+            currentList.push(trimmed.slice(2));
+        } else {
+            flushList(`list-${i}`);
+            if (trimmed) {
+                elements.push(<p key={i} className="mb-3 last:mb-0">{formatText(trimmed)}</p>);
+            } else {
+                elements.push(<div key={i} className="h-2"></div>);
+            }
+        }
+    });
+
+    flushList(`list-final`);
+
+    return <div className="markdown-content">{elements}</div>;
+};
+
 const InsightCard: React.FC<{ insight: AiInsight }> = ({ insight }) => {
     const iconMap = {
         win: <TrendingUpIcon className="w-6 h-6 text-green-600" />,
@@ -156,12 +212,16 @@ export default function AiInsightsSection({ orders, expenses, shifts, settings }
 
                     {chatHistory.map((msg, idx) => (
                         <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-slide-up`}>
-                            <div className={`max-w-[80%] flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+                            <div className={`max-w-[85%] flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
                                 <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center shadow-sm ${msg.role === 'user' ? 'bg-brand-brown text-white' : 'bg-brand-orange text-white'}`}>
                                     {msg.role === 'user' ? <UserIcon className="w-4 h-4" /> : <SparklesIcon className="w-4 h-4" />}
                                 </div>
-                                <div className={`p-4 rounded-2xl text-sm leading-relaxed ${msg.role === 'user' ? 'bg-brand-brown text-white rounded-tr-none' : 'bg-brand-tan/30 text-gray-800 border border-brand-tan rounded-tl-none'}`}>
-                                    {msg.text}
+                                <div className={`p-4 rounded-2xl text-sm leading-relaxed tracking-wide ${msg.role === 'user' ? 'bg-brand-brown text-white rounded-tr-none' : 'bg-brand-tan/30 text-gray-800 border border-brand-tan rounded-tl-none'}`}>
+                                    {msg.role === 'model' ? (
+                                        <MarkdownContent content={msg.text} />
+                                    ) : (
+                                        msg.text
+                                    )}
                                 </div>
                             </div>
                         </div>
