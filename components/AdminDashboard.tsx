@@ -25,9 +25,9 @@ import PrintPreviewPage from './PrintPreviewPage';
 import InvoicePreviewPage from './InvoicePreviewPage';
 import TrashBinModal from './TrashBinModal';
 
-import { 
-    ChartPieIcon, ListBulletIcon, CalendarDaysIcon, PresentationChartBarIcon, 
-    PlusIcon, CogIcon, ScaleIcon, CurrencyDollarIcon, 
+import {
+    ChartPieIcon, ListBulletIcon, CalendarDaysIcon, PresentationChartBarIcon,
+    PlusIcon, CogIcon, ScaleIcon, CurrencyDollarIcon,
     ClockIcon, TrashIcon, CheckCircleIcon, ArrowUpTrayIcon, SparklesIcon
 } from './icons/Icons';
 
@@ -56,7 +56,7 @@ export default function AdminDashboard({
 }: AdminDashboardProps) {
     // View State
     const [view, setView] = useState<'dashboard' | 'list' | 'calendar' | 'reports' | 'insights' | 'print' | 'invoice'>('dashboard');
-    
+
     // Data State (Expenses & Shifts loaded locally here)
     const [expenses, setExpenses] = useState<Expense[]>([]);
     const [shifts, setShifts] = useState<WorkShift[]>([]);
@@ -64,7 +64,7 @@ export default function AdminDashboard({
     // Filter State
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<FollowUpStatus | null>(null);
-    
+
     // Helper to get local today string YYYY-MM-DD
     const getTodayStr = () => {
         const d = new Date();
@@ -78,7 +78,7 @@ export default function AdminDashboard({
     const [dateRange, setDateRange] = useState<{ start?: string; end?: string }>({
         start: getTodayStr()
     });
-    
+
     const [viewingCancelled, setViewingCancelled] = useState(false);
 
     // Modal State
@@ -88,18 +88,18 @@ export default function AdminDashboard({
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isPrepListOpen, setIsPrepListOpen] = useState(false);
     const [isExpenseOpen, setIsExpenseOpen] = useState(false);
-    
+
     const [isShiftLogOpen, setIsShiftLogOpen] = useState(false);
     const [editingShift, setEditingShift] = useState<WorkShift | null>(null);
 
     const [isTrashOpen, setIsTrashOpen] = useState(false);
-    
+
     // Printing & Invoice State
     const [ordersToPrint, setOrdersToPrint] = useState<Order[]>([]);
     const [invoiceOrder, setInvoiceOrder] = useState<Order | null>(null);
 
     // Notification State
-    const [notification, setNotification] = useState<{message: string, type: 'success' | 'error'} | null>(null);
+    const [notification, setNotification] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
 
     // Subscribe to Expenses and Shifts
     useEffect(() => {
@@ -127,19 +127,19 @@ export default function AdminDashboard({
     }, [orders]);
 
     // 1. Pending Orders (from visible only)
-    const pendingOrders = useMemo(() => 
-        visibleOrders.filter(o => o.approvalStatus === ApprovalStatus.PENDING)
-    , [visibleOrders]);
+    const pendingOrders = useMemo(() =>
+        visibleOrders.filter((o: Order) => o.approvalStatus === ApprovalStatus.PENDING)
+        , [visibleOrders]);
 
     // 2. Cancelled Orders (from visible only)
-    const cancelledOrders = useMemo(() => 
-        visibleOrders.filter(o => o.approvalStatus === ApprovalStatus.CANCELLED || o.approvalStatus === ApprovalStatus.DENIED)
-    , [visibleOrders]);
+    const cancelledOrders = useMemo(() =>
+        visibleOrders.filter((o: Order) => o.approvalStatus === ApprovalStatus.CANCELLED || o.approvalStatus === ApprovalStatus.DENIED)
+        , [visibleOrders]);
 
     // 3. Active Orders (Approved, from visible only)
-    const activeOrders = useMemo(() => 
-        visibleOrders.filter(o => o.approvalStatus === ApprovalStatus.APPROVED)
-    , [visibleOrders]);
+    const activeOrders = useMemo(() =>
+        visibleOrders.filter((o: Order) => o.approvalStatus === ApprovalStatus.APPROVED)
+        , [visibleOrders]);
 
     // 4. Date-Filtered Active Orders (For Dashboard Stats & Prep List)
     const dateFilteredDashboardOrders = useMemo(() => {
@@ -147,12 +147,12 @@ export default function AdminDashboard({
         if (dateRange.start) {
             const [y, m, d] = dateRange.start.split('-').map(Number);
             const start = new Date(y, m - 1, d, 0, 0, 0, 0);
-            result = result.filter(o => parseOrderDateTime(o) >= start);
+            result = result.filter((o: Order) => parseOrderDateTime(o) >= start);
         }
         if (dateRange.end) {
             const [y, m, d] = dateRange.end.split('-').map(Number);
             const end = new Date(y, m - 1, d, 23, 59, 59, 999);
-            result = result.filter(o => parseOrderDateTime(o) <= end);
+            result = result.filter((o: Order) => parseOrderDateTime(o) <= end);
         }
         return result;
     }, [activeOrders, dateRange]);
@@ -164,24 +164,24 @@ export default function AdminDashboard({
         // Search
         if (searchTerm) {
             const lower = searchTerm.toLowerCase();
-            result = result.filter(o => o.customerName.toLowerCase().includes(lower));
+            result = result.filter((o: Order) => o.customerName.toLowerCase().includes(lower));
         }
 
         // Status Filter
         if (statusFilter) {
-            result = result.filter(o => o.followUpStatus === statusFilter);
+            result = result.filter((o: Order) => o.followUpStatus === statusFilter);
         }
 
         // Date Range Filter
         if (dateRange.start) {
             const [y, m, d] = dateRange.start.split('-').map(Number);
             const start = new Date(y, m - 1, d, 0, 0, 0, 0);
-            result = result.filter(o => parseOrderDateTime(o) >= start);
+            result = result.filter((o: Order) => parseOrderDateTime(o) >= start);
         }
         if (dateRange.end) {
             const [y, m, d] = dateRange.end.split('-').map(Number);
             const end = new Date(y, m - 1, d, 23, 59, 59, 999);
-            result = result.filter(o => parseOrderDateTime(o) <= end);
+            result = result.filter((o: Order) => parseOrderDateTime(o) <= end);
         }
 
         return result;
@@ -189,10 +189,10 @@ export default function AdminDashboard({
 
     // Stats Calculation
     const stats = useMemo(() => {
-        const relevantOrders = dateFilteredDashboardOrders; 
-        const totalRevenue = relevantOrders.reduce((sum, o) => sum + o.amountCharged, 0);
-        const ordersToFollowUp = relevantOrders.filter(o => o.followUpStatus === FollowUpStatus.NEEDED).length;
-        const totalEmpanadasSold = relevantOrders.reduce((sum, o) => sum + o.totalMini + o.totalFullSize, 0);
+        const relevantOrders = dateFilteredDashboardOrders;
+        const totalRevenue = relevantOrders.reduce((sum: number, o: Order) => sum + o.amountCharged, 0);
+        const ordersToFollowUp = relevantOrders.filter((o: Order) => o.followUpStatus === FollowUpStatus.NEEDED).length;
+        const totalEmpanadasSold = relevantOrders.reduce((sum: number, o: Order) => sum + o.totalMini + o.totalFullSize, 0);
 
         return { totalRevenue, ordersToFollowUp, totalEmpanadasSold };
     }, [dateFilteredDashboardOrders]);
@@ -211,10 +211,10 @@ export default function AdminDashboard({
     };
 
     const handleDeleteOrder = async (id: string) => {
-        const orderToDelete = visibleOrders.find(o => o.id === id);
+        const orderToDelete = visibleOrders.find((o: Order) => o.id === id);
         if (orderToDelete) {
             await softDeleteOrder(orderToDelete);
-            
+
             // Show Feedback
             setNotification({ message: "Order moved to Trash Bin", type: 'success' });
 
@@ -224,14 +224,14 @@ export default function AdminDashboard({
     };
 
     const handleUpdateStatus = async (id: string, status: FollowUpStatus, updates?: Partial<Order>) => {
-        const order = visibleOrders.find(o => o.id === id);
+        const order = visibleOrders.find((o: Order) => o.id === id);
         if (order) {
             await saveOrderToDb({ ...order, ...updates, followUpStatus: status });
         }
     };
 
     const handleApproval = async (id: string, approved: boolean) => {
-        const order = visibleOrders.find(o => o.id === id);
+        const order = visibleOrders.find((o: Order) => o.id === id);
         if (!order) return;
         const newStatus = approved ? ApprovalStatus.APPROVED : ApprovalStatus.DENIED;
         await saveOrderToDb({ ...order, approvalStatus: newStatus });
@@ -239,15 +239,15 @@ export default function AdminDashboard({
 
     const handleDeductInventory = async (order: Order, updates?: Partial<Order>) => {
         const currentInventory = { ...(settings.inventory || {}) };
-        
+
         order.items.forEach(item => {
             const isFull = item.name.startsWith('Full ');
             const flavorName = item.name.replace('Full ', '');
-            
+
             if (!currentInventory[flavorName]) {
                 currentInventory[flavorName] = { mini: 0, full: 0 };
             }
-            
+
             if (isFull) {
                 currentInventory[flavorName].full = Math.max(0, currentInventory[flavorName].full - item.quantity);
             } else {
@@ -257,7 +257,7 @@ export default function AdminDashboard({
 
         await updateSettingsInDb({ inventory: currentInventory });
         await saveOrderToDb({ ...order, ...updates, followUpStatus: FollowUpStatus.COMPLETED });
-        setSelectedOrder(null); 
+        setSelectedOrder(null);
     };
 
     const handlePrint = (selectedOrders: Order[]) => {
@@ -273,7 +273,7 @@ export default function AdminDashboard({
 
     const markOrdersPrinted = async () => {
         // Only update orders that aren't already marked as printed to avoid unnecessary writes
-        const toUpdate = ordersToPrint.filter(o => !o.hasPrinted).map(o => ({ ...o, hasPrinted: true }));
+        const toUpdate = ordersToPrint.filter((o: Order) => !o.hasPrinted).map((o: Order) => ({ ...o, hasPrinted: true }));
         if (toUpdate.length > 0) {
             await saveOrdersBatch(toUpdate);
         }
@@ -292,8 +292,8 @@ export default function AdminDashboard({
                 // Keep history sorted by date descending for easier lookup
                 newHistory.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-                return { 
-                    ...ing, 
+                return {
+                    ...ing,
                     cost: newCost, // Always update current cost
                     priceHistory: newHistory
                 };
@@ -330,9 +330,9 @@ export default function AdminDashboard({
     // Render Views
     if (view === 'print') {
         return (
-            <PrintPreviewPage 
-                orders={ordersToPrint} 
-                onExit={() => setView('list')} 
+            <PrintPreviewPage
+                orders={ordersToPrint}
+                onExit={() => setView('list')}
                 onMarkAsPrinted={markOrdersPrinted}
             />
         );
@@ -340,7 +340,7 @@ export default function AdminDashboard({
 
     if (view === 'invoice' && invoiceOrder) {
         return (
-            <InvoicePreviewPage 
+            <InvoicePreviewPage
                 order={invoiceOrder}
                 onExit={() => { setView('list'); setInvoiceOrder(null); }}
             />
@@ -350,40 +350,40 @@ export default function AdminDashboard({
     return (
         <div className="min-h-screen bg-brand-cream flex flex-col">
             <Header user={user} variant="admin" />
-            
+
             {/* Improved Toolbar */}
             <div className="bg-white shadow-sm border-b border-brand-tan/50 sticky top-0 z-20">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     {/* Top Row: View Switchers & Main Actions */}
                     <div className="flex flex-col md:flex-row md:items-center justify-between py-3 gap-4">
-                        
+
                         {/* View Switcher */}
                         <div className="flex space-x-2 bg-gray-100 p-1 rounded-lg self-start md:self-center">
-                            <button 
+                            <button
                                 onClick={() => setView('dashboard')}
                                 className={`flex items-center px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${view === 'dashboard' ? 'bg-white shadow-sm text-brand-orange' : 'text-gray-600 hover:text-brand-brown'}`}
                             >
                                 <ChartPieIcon className="w-4 h-4 mr-2" /> Dashboard
                             </button>
-                            <button 
+                            <button
                                 onClick={() => setView('list')}
                                 className={`flex items-center px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${view === 'list' ? 'bg-white shadow-sm text-brand-orange' : 'text-gray-600 hover:text-brand-brown'}`}
                             >
                                 <ListBulletIcon className="w-4 h-4 mr-2" /> Orders
                             </button>
-                            <button 
+                            <button
                                 onClick={() => setView('calendar')}
                                 className={`flex items-center px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${view === 'calendar' ? 'bg-white shadow-sm text-brand-orange' : 'text-gray-600 hover:text-brand-brown'}`}
                             >
                                 <CalendarDaysIcon className="w-4 h-4 mr-2" /> Calendar
                             </button>
-                            <button 
+                            <button
                                 onClick={() => setView('reports')}
                                 className={`flex items-center px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${view === 'reports' ? 'bg-white shadow-sm text-brand-orange' : 'text-gray-600 hover:text-brand-brown'}`}
                             >
                                 <PresentationChartBarIcon className="w-4 h-4 mr-2" /> Reports
                             </button>
-                            <button 
+                            <button
                                 onClick={() => setView('insights')}
                                 className={`flex items-center px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${view === 'insights' ? 'bg-white shadow-sm text-brand-orange' : 'text-gray-600 hover:text-brand-brown'}`}
                             >
@@ -393,16 +393,16 @@ export default function AdminDashboard({
 
                         {/* Expanded Action Bar - Big Widgets */}
                         <div className="grid grid-cols-3 sm:flex sm:space-x-3 gap-2 w-full md:w-auto">
-                            <button 
-                                onClick={() => setIsOrderFormOpen(true)} 
+                            <button
+                                onClick={() => setIsOrderFormOpen(true)}
                                 className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-3 py-2 bg-brand-orange/10 hover:bg-brand-orange hover:text-white text-brand-brown rounded-lg transition-all group"
                                 title="Add Order"
                             >
-                                <PlusIcon className="w-5 h-5 sm:w-4 sm:h-4" /> 
+                                <PlusIcon className="w-5 h-5 sm:w-4 sm:h-4" />
                                 <span className="text-xs sm:text-sm font-bold">New Order</span>
                             </button>
 
-                            <button 
+                            <button
                                 onClick={handleExportOrders}
                                 className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-3 py-2 bg-white border border-brand-tan hover:border-brand-orange hover:text-brand-orange text-brand-brown rounded-lg transition-all"
                                 title="Export to CSV"
@@ -410,45 +410,45 @@ export default function AdminDashboard({
                                 <ArrowUpTrayIcon className="w-5 h-5 sm:w-4 sm:h-4" />
                                 <span className="text-xs sm:text-sm font-medium">Export</span>
                             </button>
-                            
-                            <button 
-                                onClick={() => setIsPrepListOpen(true)} 
+
+                            <button
+                                onClick={() => setIsPrepListOpen(true)}
                                 className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-3 py-2 bg-white border border-brand-tan hover:border-brand-orange hover:text-brand-orange text-brand-brown rounded-lg transition-all"
                                 title="Prep List"
                             >
                                 <ScaleIcon className="w-5 h-5 sm:w-4 sm:h-4" />
                                 <span className="text-xs sm:text-sm font-medium">Prep List</span>
                             </button>
-                            
-                            <button 
-                                onClick={() => setIsExpenseOpen(true)} 
+
+                            <button
+                                onClick={() => setIsExpenseOpen(true)}
                                 className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-3 py-2 bg-white border border-brand-tan hover:border-brand-orange hover:text-brand-orange text-brand-brown rounded-lg transition-all"
                                 title="Expenses"
                             >
                                 <CurrencyDollarIcon className="w-5 h-5 sm:w-4 sm:h-4" />
                                 <span className="text-xs sm:text-sm font-medium">Expenses</span>
                             </button>
-                            
-                            <button 
-                                onClick={() => setIsShiftLogOpen(true)} 
+
+                            <button
+                                onClick={() => setIsShiftLogOpen(true)}
                                 className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-3 py-2 bg-white border border-brand-tan hover:border-brand-orange hover:text-brand-orange text-brand-brown rounded-lg transition-all"
                                 title="Log Shift"
                             >
                                 <ClockIcon className="w-5 h-5 sm:w-4 sm:h-4" />
                                 <span className="text-xs sm:text-sm font-medium">Log Shift</span>
                             </button>
-                            
+
                             <div className="flex gap-2">
-                                <button 
-                                    onClick={() => setIsSettingsOpen(true)} 
+                                <button
+                                    onClick={() => setIsSettingsOpen(true)}
                                     className="flex-1 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-all"
                                     title="Settings"
                                 >
                                     <CogIcon className="w-5 h-5 sm:w-4 sm:h-4" />
                                     <span className="hidden sm:inline text-xs sm:text-sm font-medium">Config</span>
                                 </button>
-                                <button 
-                                    onClick={() => setIsTrashOpen(true)} 
+                                <button
+                                    onClick={() => setIsTrashOpen(true)}
                                     className="flex-1 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-all"
                                     title="Trash Bin"
                                 >
@@ -464,7 +464,7 @@ export default function AdminDashboard({
                 {/* Pending Orders Alert */}
                 {pendingOrders.length > 0 && (
                     <div className="mb-8">
-                        <PendingOrders 
+                        <PendingOrders
                             orders={pendingOrders}
                             onApprove={(id) => handleApproval(id, true)}
                             onDeny={(id) => handleApproval(id, false)}
@@ -475,30 +475,30 @@ export default function AdminDashboard({
 
                 {/* Filter Bar */}
                 <div className="mb-6">
-                    <DateRangeFilter 
-                        initialStartDate={dateRange.start} 
-                        initialEndDate={dateRange.end} 
-                        onDateChange={setDateRange} 
+                    <DateRangeFilter
+                        initialStartDate={dateRange.start}
+                        initialEndDate={dateRange.end}
+                        onDateChange={setDateRange}
                     />
                 </div>
 
                 {/* VIEW CONTENT */}
                 {view === 'dashboard' && (
-                    <DashboardMetrics 
-                        stats={stats} 
-                        orders={dateFilteredDashboardOrders} 
+                    <DashboardMetrics
+                        stats={stats}
+                        orders={dateFilteredDashboardOrders}
                         allOrders={activeOrders}
-                        empanadaFlavors={empanadaFlavors.map(f => f.name)} 
-                        fullSizeEmpanadaFlavors={fullSizeEmpanadaFlavors.map(f => f.name)} 
+                        empanadaFlavors={empanadaFlavors.map(f => f.name)}
+                        fullSizeEmpanadaFlavors={fullSizeEmpanadaFlavors.map(f => f.name)}
                         pendingCount={pendingOrders.length}
                         cancelledCount={cancelledOrders.length}
                         onFilterStatus={(status) => {
-                            if (status === 'CANCELLED') { 
-                                setViewingCancelled(true); 
-                                setStatusFilter(null); 
-                            } else { 
-                                setViewingCancelled(false); 
-                                setStatusFilter(status); 
+                            if (status === 'CANCELLED') {
+                                setViewingCancelled(true);
+                                setStatusFilter(null);
+                            } else {
+                                setViewingCancelled(false);
+                                setStatusFilter(status);
                             }
                             setView('list');
                         }}
@@ -506,8 +506,8 @@ export default function AdminDashboard({
                 )}
 
                 {view === 'list' && (
-                    <OrderList 
-                        orders={filteredOrders} 
+                    <OrderList
+                        orders={filteredOrders}
                         title={viewingCancelled ? "Cancelled Orders" : "Active Orders"}
                         onSelectOrder={setSelectedOrder}
                         onPrintSelected={handlePrint}
@@ -534,7 +534,7 @@ export default function AdminDashboard({
                 )}
 
                 {view === 'calendar' && (
-                    <CalendarView 
+                    <CalendarView
                         orders={filteredOrders}
                         shifts={shifts}
                         onSelectOrder={setSelectedOrder}
@@ -547,7 +547,7 @@ export default function AdminDashboard({
                 )}
 
                 {view === 'reports' && (
-                    <ReportsView 
+                    <ReportsView
                         orders={filteredOrders}
                         expenses={expenses}
                         shifts={shifts}
@@ -560,7 +560,7 @@ export default function AdminDashboard({
                 )}
 
                 {view === 'insights' && (
-                    <AiInsightsSection 
+                    <AiInsightsSection
                         orders={activeOrders}
                         expenses={expenses}
                         shifts={shifts}
@@ -578,9 +578,9 @@ export default function AdminDashboard({
             )}
 
             {/* MODALS */}
-            
+
             {(isOrderFormOpen || editingOrder) && (
-                <OrderFormModal 
+                <OrderFormModal
                     order={editingOrder || undefined}
                     onClose={() => { setIsOrderFormOpen(false); setEditingOrder(null); }}
                     onSave={handleSaveOrder}
@@ -604,7 +604,7 @@ export default function AdminDashboard({
             )}
 
             {selectedOrder && (
-                <OrderDetailModal 
+                <OrderDetailModal
                     order={selectedOrder}
                     onClose={() => setSelectedOrder(null)}
                     onUpdateFollowUp={handleUpdateStatus}
@@ -621,14 +621,14 @@ export default function AdminDashboard({
             )}
 
             {isSettingsOpen && (
-                <SettingsModal 
-                    settings={settings} 
+                <SettingsModal
+                    settings={settings}
                     onClose={() => setIsSettingsOpen(false)}
                 />
             )}
 
             {isPrepListOpen && (
-                <PrepListModal 
+                <PrepListModal
                     orders={dateFilteredDashboardOrders}
                     settings={settings}
                     onClose={() => setIsPrepListOpen(false)}
@@ -638,7 +638,7 @@ export default function AdminDashboard({
             )}
 
             {isExpenseOpen && (
-                <ExpenseModal 
+                <ExpenseModal
                     expenses={expenses}
                     categories={settings.expenseCategories || []}
                     ingredients={settings.ingredients || []}
@@ -650,7 +650,7 @@ export default function AdminDashboard({
             )}
 
             {(isShiftLogOpen || editingShift) && (
-                <ShiftLogModal 
+                <ShiftLogModal
                     employees={settings.employees || []}
                     onClose={() => { setIsShiftLogOpen(false); setEditingShift(null); }}
                     onSave={saveShiftToDb}
@@ -660,7 +660,7 @@ export default function AdminDashboard({
             )}
 
             {isTrashOpen && (
-                <TrashBinModal 
+                <TrashBinModal
                     deletedOrders={deletedOrders}
                     onClose={() => setIsTrashOpen(false)}
                 />
