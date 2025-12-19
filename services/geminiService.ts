@@ -216,7 +216,16 @@ export async function generateBusinessInsights(
                 }
             }
         });
-        return JSON.parse(response.text || "[]");
+
+        // Safely parse JSON response
+        try {
+            return JSON.parse(response.text || "[]");
+        } catch (parseError) {
+            console.error("Failed to parse AI insights JSON:", parseError);
+            return [
+                { type: 'idea', title: 'Insights Coming Soon', description: 'I had trouble generating insights this time. Please try again in a moment.' }
+            ];
+        }
     } catch (e) {
         console.error("AI Insights Error:", e);
         return [

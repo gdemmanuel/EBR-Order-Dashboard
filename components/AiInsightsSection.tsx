@@ -16,6 +16,9 @@ interface AiInsightsSectionProps {
  * Handles bold (**text**) and bulleted lists (- or * at start of line).
  */
 const MarkdownContent: React.FC<{ content: string }> = ({ content }) => {
+    // Safety check: if content is undefined or not a string, return null
+    if (!content || typeof content !== 'string') return null;
+
     const lines = content.split('\n');
     let currentList: string[] = [];
     const elements: React.ReactNode[] = [];
@@ -198,7 +201,7 @@ export default function AiInsightsSection({ orders, expenses, shifts, settings }
                             </div>
                             <div className="flex flex-wrap justify-center gap-2 max-w-md">
                                 {["Top selling flavors this month?", "Labor efficiency summary", "Predict sales for next week"].map(q => (
-                                    <button 
+                                    <button
                                         key={q}
                                         onClick={() => { setUserQuery(q); }}
                                         className="text-xs bg-white border border-gray-200 px-3 py-1.5 rounded-full hover:border-brand-orange hover:text-brand-orange transition-colors"
@@ -245,14 +248,14 @@ export default function AiInsightsSection({ orders, expenses, shifts, settings }
 
                 <form onSubmit={handleSendQuery} className="p-4 bg-gray-50 border-t border-brand-tan">
                     <div className="relative">
-                        <input 
+                        <input
                             type="text"
                             value={userQuery}
                             onChange={e => setUserQuery(e.target.value)}
                             placeholder="Ask me anything about your business..."
                             className="w-full pl-6 pr-12 py-4 bg-white border border-gray-200 rounded-2xl focus:ring-2 focus:ring-brand-orange focus:border-brand-orange transition-all shadow-inner"
                         />
-                        <button 
+                        <button
                             type="submit"
                             disabled={!userQuery.trim() || isTyping}
                             className="absolute right-2 top-2 p-2 bg-brand-orange text-white rounded-xl shadow-md hover:bg-opacity-90 transition-all disabled:opacity-50"
