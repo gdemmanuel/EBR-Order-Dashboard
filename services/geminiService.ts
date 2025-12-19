@@ -335,7 +335,9 @@ Query: "${query}"`;
             },
         });
         const text = response.text;
-        if (text) return text.trim().split('\n').filter(addr => addr.trim() !== '');
+        if (text && typeof text === 'string') {
+            return text.trim().split('\n').filter(addr => addr.trim() !== '');
+        }
         return [];
     } catch (error) {
         console.error("Error getting address suggestions from Gemini API:", error);
