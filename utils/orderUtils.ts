@@ -1,5 +1,4 @@
 
-
 import { Order, OrderItem, OrderPackageSelection } from '../types';
 
 /**
@@ -8,24 +7,34 @@ import { Order, OrderItem, OrderPackageSelection } from '../types';
  * @returns An object containing the list of packages with their items, and a list of loose items.
  */
 export function groupOrderItems(order: Order): { packages: OrderPackageSelection[], looseItems: OrderItem[] } {
+    const safeItems = Array.isArray(order.items) ? order.items : [];
+    
     // If no structure exists, treat everything as loose items
-    if (!order.packages || order.packages.length === 0) {
-        return { packages: [], looseItems: order.items };
+    if (!order.packages || !Array.isArray(order.packages) || order.packages.length === 0) {
+        return { packages: [], looseItems: safeItems };
     }
 
     const packages = order.packages;
     
     // Create a map of all total items in the order
     const itemMap = new Map<string, number>();
-    order.items.forEach(i => itemMap.set(i.name, (itemMap.get(i.name) || 0) + i.quantity));
+    safeItems.forEach(i => {
+        if (i && i.name) {
+            itemMap.set(i.name, (itemMap.get(i.name) || 0) + (i.quantity || 0));
+        }
+    });
 
     // Subtract items that are accounted for in packages
     packages.forEach(pkg => {
-        pkg.items.forEach(pkgItem => {
-            const current = itemMap.get(pkgItem.name) || 0;
-            // Subtracting. Note: If data is inconsistent (package has more than total), we floor at 0.
-            itemMap.set(pkgItem.name, Math.max(0, current - pkgItem.quantity));
-        });
+        if (pkg && Array.isArray(pkg.items)) {
+            pkg.items.forEach(pkgItem => {
+                if (pkgItem && pkgItem.name) {
+                    const current = itemMap.get(pkgItem.name) || 0;
+                    // Subtracting. Note: If data is inconsistent (package has more than total), we floor at 0.
+                    itemMap.set(pkgItem.name, Math.max(0, current - (pkgItem.quantity || 0)));
+                }
+            });
+        }
     });
 
     // Reconstruct loose items list from the remaining counts
@@ -58,8 +67,9 @@ export const generateOrdersCSV = (orders: Order[]): void => {
     ];
 
     const rows = orders.map(order => {
+        const safeItems = Array.isArray(order.items) ? order.items : [];
         // Flatten items
-        const itemsStr = order.items.map(i => `${i.quantity}x ${i.name}`).join('; ');
+        const itemsStr = safeItems.map(i => `${i.quantity}x ${i.name}`).join('; ');
         
         // Escape CSV fields
         const escape = (val: string | number | null | undefined) => {

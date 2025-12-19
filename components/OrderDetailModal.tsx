@@ -60,7 +60,9 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
 
   const isPartyPlatter = (order.specialInstructions || '').includes("PARTY PLATTER");
 
-  const emailDisplay = order.email || (order.contactMethod && order.contactMethod.includes('Email: ') ? order.contactMethod.split('Email: ')[1].replace(')', '').trim() : null);
+  // Safety check: ensure contactMethod is a string before using .includes
+  const contactMethodStr = order.contactMethod || '';
+  const emailDisplay = order.email || (contactMethodStr.includes('Email: ') ? contactMethodStr.split('Email: ')[1].replace(')', '').trim() : null);
 
   const handleGenerateMessage = useCallback(async () => {
     setLoadingAction('message');
@@ -185,6 +187,18 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
     window.open(smsLink, '_blank');
   };
 
+  // Safe Order ID Parse for Date
+  const getOrderCreationDate = () => {
+      if (!order.id) return '';
+      const idNum = parseInt(order.id);
+      if (isNaN(idNum) || order.id.length < 10) return '';
+      try {
+          return `(Ordered: ${new Date(idNum).toLocaleDateString()})`;
+      } catch (e) {
+          return '';
+      }
+  };
+
   return (
     <>
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fade-in">
@@ -230,7 +244,7 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
             {/* Customer & Order Info */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-4">
-                  <DetailItem icon={<UserIcon className="w-5 h-5" />} label="Customer" value={`${order.customerName} ${order.items?.length > 0 && order.id.length > 10 ? `(Ordered: ${new Date(parseInt(order.id)).toLocaleDateString()})` : ''}`} />
+                  <DetailItem icon={<UserIcon className="w-5 h-5" />} label="Customer" value={`${order.customerName} ${getOrderCreationDate()}`} />
                   <DetailItem icon={<PhoneIcon className="w-5 h-5" />} label="Phone" value={order.phoneNumber} />
                   <DetailItem icon={<EnvelopeIcon className="w-5 h-5" />} label="Email" value={emailDisplay} />
                   <DetailItem icon={<ChatBubbleOvalLeftEllipsisIcon className="w-5 h-5" />} label="Contact Method" value={order.contactMethod} />
@@ -262,7 +276,7 @@ export default function OrderDetailModal({ order, onClose, onUpdateFollowUp, onE
                       <div key={idx} className="mb-3 border-b border-brand-tan last:mb-0 last:border-0 pb-2 last:pb-0">
                           <p className="font-bold text-brand-orange mb-1">{pkg.name}</p>
                           <ul className="pl-2 space-y-1">
-                              {pkg.items.map((item, i) => (
+                              {Array.isArray(pkg.items) && pkg.items.map((item, i) => (
                                   <li key={i} className="flex justify-between text-sm">
                                       <span className="font-medium text-brand-brown">{item.name.replace('Full ', '')}</span>
                                       <span className="text-gray-600">x {item.quantity}</span>

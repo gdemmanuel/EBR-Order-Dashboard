@@ -1,5 +1,4 @@
 
-
 import { 
     collection, 
     doc, 
@@ -15,7 +14,8 @@ import {
     DocumentData
 } from "firebase/firestore";
 import { db } from "../firebaseConfig";
-import { Order, ApprovalStatus, PricingSettings, Flavor, Expense, AppSettings, WorkShift, FollowUpStatus, DeletedOrder } from "../types";
+// Added PaymentStatus to imports
+import { Order, ApprovalStatus, PricingSettings, Flavor, Expense, AppSettings, WorkShift, FollowUpStatus, DeletedOrder, PaymentStatus } from "../types";
 import { initialEmpanadaFlavors, initialFullSizeEmpanadaFlavors } from "../data/mockData";
 
 // Collection References
@@ -97,15 +97,17 @@ export const subscribeToOrders = (
     status: ApprovalStatus = ApprovalStatus.APPROVED,
     onError?: (error: FirestoreError) => void
 ) => {
-    // We fetch ALL orders (including deleted ones) so the client can filter/display them
     const q = query(collection(db, ORDERS_COLLECTION));
     return onSnapshot(q, (snapshot: QuerySnapshot<DocumentData>) => {
         const orders: Order[] = [];
         snapshot.forEach((doc) => {
             const data = doc.data();
-            // DATA SANITIZATION
-            // Ensure items array exists to prevent UI crashes in components
+            
+            // ROBUST DATA SANITIZATION
+            // Ensure essential arrays exist to prevent UI crashes (.map / .forEach)
             const items = Array.isArray(data.items) ? data.items : [];
+            const packages = Array.isArray(data.packages) ? data.packages : [];
+            const originalPackages = Array.isArray(data.originalPackages) ? data.originalPackages : [];
             
             // Ensure ID exists (fallback to doc.id)
             const id = data.id || doc.id;
@@ -114,12 +116,24 @@ export const subscribeToOrders = (
                 ...data,
                 id,
                 items,
-                // Default counts if missing to prevent NaN errors
+                packages,
+                originalPackages,
+                // Default numeric counts if missing or null to prevent NaN errors in stats
                 totalMini: typeof data.totalMini === 'number' ? data.totalMini : 0,
                 totalFullSize: typeof data.totalFullSize === 'number' ? data.totalFullSize : 0,
                 amountCharged: typeof data.amountCharged === 'number' ? data.amountCharged : 0,
                 amountCollected: typeof data.amountCollected === 'number' ? data.amountCollected : 0,
+                deliveryFee: typeof data.deliveryFee === 'number' ? data.deliveryFee : 0,
+                
+                // String defaults
                 customerName: data.customerName || 'Unknown',
+                contactMethod: data.contactMethod || 'Unknown',
+                phoneNumber: data.phoneNumber || '',
+                pickupDate: data.pickupDate || '',
+                pickupTime: data.pickupTime || '',
+                followUpStatus: data.followUpStatus || FollowUpStatus.NEEDED,
+                paymentStatus: data.paymentStatus || PaymentStatus.PENDING,
+                approvalStatus: data.approvalStatus || ApprovalStatus.APPROVED,
             } as Order);
         });
         onUpdate(orders);
