@@ -18,7 +18,7 @@ interface OrderFormModalProps {
     onDelete?: (orderId: string) => void;
     pricing: PricingSettings;
     settings: AppSettings;
-    existingOrders?: Order[]; 
+    existingOrders?: Order[];
 }
 
 interface FormOrderItem {
@@ -40,7 +40,7 @@ const formatPhoneNumber = (value: string) => {
     const phoneNumberLength = phoneNumber.length;
     if (phoneNumberLength < 4) return phoneNumber;
     if (phoneNumberLength < 7) {
-      return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3)}`;
+        return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3)}`;
     }
     return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`;
 };
@@ -58,7 +58,7 @@ const ItemInputSection: React.FC<{
     bgColor?: string;
 }> = ({ title, items, flavors, onItemChange, onAddItem, onRemoveItem, itemType, availablePackages, onAddPackage, bgColor = "bg-white" }) => {
     // Standardize 'Other' check since we strip 'Full ' prefix for display in full size lists
-    const otherOption = 'Other'; 
+    const otherOption = 'Other';
     const [isPackageMenuOpen, setIsPackageMenuOpen] = useState(false);
 
     return (
@@ -67,28 +67,28 @@ const ItemInputSection: React.FC<{
                 <h3 className="text-lg font-semibold text-brand-brown/90">{title}</h3>
                 {availablePackages && availablePackages.length > 0 && (
                     <div className="relative">
-                         <button 
-                            type="button" 
+                        <button
+                            type="button"
                             onClick={() => setIsPackageMenuOpen(!isPackageMenuOpen)}
                             className="text-xs bg-brand-tan/50 hover:bg-brand-orange hover:text-white text-brand-brown px-2 py-1 rounded flex items-center gap-1 transition-colors"
-                         >
+                        >
                             <ShoppingBagIcon className="w-3 h-3" /> Quick Add Package
-                         </button>
-                         {isPackageMenuOpen && (
-                             <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded shadow-lg z-20 animate-fade-in">
+                        </button>
+                        {isPackageMenuOpen && (
+                            <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded shadow-lg z-20 animate-fade-in">
                                 {availablePackages.map(pkg => (
-                                    <button 
-                                        key={pkg.id} 
-                                        type="button" 
+                                    <button
+                                        key={pkg.id}
+                                        type="button"
                                         onClick={() => { onAddPackage(pkg); setIsPackageMenuOpen(false); }}
                                         className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 border-b border-gray-50 last:border-0"
                                     >
                                         {pkg.name} ({pkg.quantity})
                                     </button>
                                 ))}
-                             </div>
-                         )}
-                         {isPackageMenuOpen && <div className="fixed inset-0 z-10" onClick={() => setIsPackageMenuOpen(false)}></div>}
+                            </div>
+                        )}
+                        {isPackageMenuOpen && <div className="fixed inset-0 z-10" onClick={() => setIsPackageMenuOpen(false)}></div>}
                     </div>
                 )}
             </div>
@@ -116,7 +116,7 @@ const ItemInputSection: React.FC<{
                         </button>
                     </div>
                 ))}
-                 {items.length === 0 && <p className="text-sm text-gray-500">No items added.</p>}
+                {items.length === 0 && <p className="text-sm text-gray-500">No items added.</p>}
             </div>
             <button type="button" onClick={onAddItem} className="mt-2 flex items-center gap-1 text-sm font-medium text-brand-orange hover:text-brand-orange/80 transition-colors">
                 <PlusIcon className="w-4 h-4" /> Add Single Item
@@ -169,15 +169,15 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
     const [specialItems, setSpecialItems] = useState<FormOrderItem[]>([]); // Not explicitly used but kept for structure if needed
     const [salsaItems, setSalsaItems] = useState<DynamicSalsaState[]>([]);
     const [email, setEmail] = useState('');
-    
+
     // New: Track packages added in this session for reporting
     const [addedPackages, setAddedPackages] = useState<string[]>([]);
-    
+
     // New: Preserve existing structured packages when editing
     const [preservedPackages, setPreservedPackages] = useState<OrderPackageSelection[]>([]);
-    
+
     const [amountCharged, setAmountCharged] = useState<number | string>(0);
-    const [isAutoPrice, setIsAutoPrice] = useState(true); 
+    const [isAutoPrice, setIsAutoPrice] = useState(true);
 
     const [deliveryRequired, setDeliveryRequired] = useState(false);
     const [deliveryFee, setDeliveryFee] = useState<number | string>(0);
@@ -186,7 +186,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
     const [amountCollected, setAmountCollected] = useState<number | string>(0);
     const [paymentMethod, setPaymentMethod] = useState('');
     const [specialInstructions, setSpecialInstructions] = useState('');
-    
+
     const [initialLoadComplete, setInitialLoadComplete] = useState(false);
     const [addressSuggestions, setAddressSuggestions] = useState<string[]>([]);
     const [activePackageBuilder, setActivePackageBuilder] = useState<MenuPackage | null>(null);
@@ -199,11 +199,11 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
             setEmail(order.email || '');
             setPickupDate(formatDateToYYYYMMDD(order.pickupDate));
             setPickupTime(formatTimeToHHMM(order.pickupTime));
-            
+
             // Handle Contact Method
             const stdMethods = Object.values(ContactMethod) as string[];
             let method = order.contactMethod;
-            
+
             if (stdMethods.includes(method)) {
                 setContactMethod(method);
             } else {
@@ -214,8 +214,8 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
             // Items
             const minis: FormOrderItem[] = [];
             const fulls: FormOrderItem[] = [];
-            const salsas: DynamicSalsaState[] = (pricing.salsas || []).map(s => ({ 
-                id: s.id, name: s.name, checked: false, quantity: 0 
+            const salsas: DynamicSalsaState[] = (pricing.salsas || []).map(s => ({
+                id: s.id, name: s.name, checked: false, quantity: 0
             }));
 
             // Preserve packages
@@ -226,8 +226,8 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
             }
 
             // Filter out package items if they are structured, otherwise load all
-            setPreservedPackages([]); 
-            setAddedPackages([]); 
+            setPreservedPackages([]);
+            setAddedPackages([]);
 
             order.items.forEach(item => {
                 // Check if Salsa
@@ -265,7 +265,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
             setPaymentStatus(order.paymentStatus);
             setPaymentMethod(order.paymentMethod || '');
             setSpecialInstructions(order.specialInstructions || '');
-            
+
             // Disable auto price initially to respect saved price
             setIsAutoPrice(false);
         } else {
@@ -274,8 +274,8 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
             setPaymentStatus(PaymentStatus.PENDING);
             setContactMethod(ContactMethod.PHONE);
             // Initialize Salsas
-            setSalsaItems((pricing.salsas || []).map(s => ({ 
-                id: s.id, name: s.name, checked: false, quantity: 0 
+            setSalsaItems((pricing.salsas || []).map(s => ({
+                id: s.id, name: s.name, checked: false, quantity: 0
             })));
             setIsAutoPrice(true);
         }
@@ -300,7 +300,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
             .map(s => ({ name: s.name, quantity: Number(s.quantity) }));
 
         const allItems = [...currentMiniItems, ...currentFullItems, ...currentSalsaItems];
-        
+
         const delivery = Number(deliveryFee) || 0;
         const total = calculateOrderTotal(allItems, delivery, pricing, empanadaFlavors, fullSizeEmpanadaFlavors);
         setAmountCharged(total);
@@ -315,7 +315,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
             try {
                 const suggestions = await getAddressSuggestions(val, null);
                 setAddressSuggestions(suggestions);
-            } catch (e) {}
+            } catch (e) { }
         } else {
             setAddressSuggestions([]);
         }
@@ -343,9 +343,9 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         setActivePackageBuilder(pkg);
     };
 
-    const handlePackageConfirm = (items: {name: string, quantity: number}[]) => {
+    const handlePackageConfirm = (items: { name: string, quantity: number }[]) => {
         if (!activePackageBuilder) return;
-        
+
         // Add items to the appropriate lists
         const newMinis = [...miniItems];
         const newFulls = [...fullSizeItems];
@@ -390,7 +390,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         setMiniItems(newMinis);
         setFullSizeItems(newFulls);
         setSalsaItems(newSalsas);
-        
+
         // Track package name
         setAddedPackages(prev => [...prev, activePackageBuilder.name]);
         setActivePackageBuilder(null);
@@ -398,15 +398,13 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
 
     const handleSaveForm = (e: React.FormEvent) => {
         e.preventDefault();
-        
+
         const finalMethod = contactMethod === 'Other' ? customContactMethod : contactMethod;
-        
+
         const currentMiniItems: OrderItem[] = miniItems
             .filter(i => i.quantity && (i.name !== 'Other' || i.customName))
             .map(i => {
-                if (i.name === 'Other' && i.customName && onAddNewFlavor) {
-                    // Trigger add new flavor callback if needed
-                }
+                // Note: onAddNewFlavor callback could be called here if needed for new flavors
                 return { name: i.name === 'Other' ? i.customName! : i.name, quantity: Number(i.quantity) };
             });
 
@@ -450,7 +448,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
             approvalStatus: order?.approvalStatus || ApprovalStatus.APPROVED,
             // Track packages
             originalPackages: addedPackages.length > 0 ? addedPackages : (order?.originalPackages || []),
-            packages: [], 
+            packages: [],
         };
 
         onSave(orderData);
@@ -489,11 +487,11 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                     {/* Active Builder Overlay */}
                     {activePackageBuilder && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-                            <PackageBuilderModal 
+                            <PackageBuilderModal
                                 pkg={activePackageBuilder}
                                 standardFlavors={empanadaFlavors.filter(f => !f.isSpecial)}
                                 specialFlavors={empanadaFlavors.filter(f => f.isSpecial)}
-                                salsas={(pricing.salsas||[]).map(s => ({ name: s.name, visible: true, surcharge: s.price }))}
+                                salsas={(pricing.salsas || []).map(s => ({ name: s.name, visible: true, surcharge: s.price }))}
                                 onClose={() => setActivePackageBuilder(null)}
                                 onConfirm={handlePackageConfirm}
                                 className="max-w-2xl max-h-[80vh]"
@@ -516,11 +514,11 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                                         <div className="grid grid-cols-2 gap-2">
                                             <div>
                                                 <label className="block text-xs font-bold text-gray-500 uppercase">Phone</label>
-                                                <input 
-                                                    type="text" 
-                                                    value={phoneNumber} 
-                                                    onChange={e => setPhoneNumber(formatPhoneNumber(e.target.value))} 
-                                                    className="w-full rounded border-gray-300" 
+                                                <input
+                                                    type="text"
+                                                    value={phoneNumber}
+                                                    onChange={e => setPhoneNumber(formatPhoneNumber(e.target.value))}
+                                                    className="w-full rounded border-gray-300"
                                                     placeholder="Optional"
                                                 />
                                             </div>
@@ -556,8 +554,8 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                                             <div className="relative">
                                                 <input type="time" value={pickupTime} onChange={e => setPickupTime(e.target.value)} className="w-full rounded border-gray-300 text-sm" />
                                                 {pickupDate && (
-                                                    <select 
-                                                        onChange={e => setPickupTime(e.target.value)} 
+                                                    <select
+                                                        onChange={e => setPickupTime(e.target.value)}
                                                         className="absolute inset-y-0 right-0 w-6 opacity-0 cursor-pointer"
                                                         title="Select from slots"
                                                     >
@@ -576,12 +574,12 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                                     {deliveryRequired && (
                                         <div className="space-y-2 animate-fade-in">
                                             <div className="relative">
-                                                <input 
-                                                    type="text" 
-                                                    placeholder="Address" 
-                                                    value={deliveryAddress} 
-                                                    onChange={handleAddressChange} 
-                                                    className="w-full rounded border-gray-300 text-sm" 
+                                                <input
+                                                    type="text"
+                                                    placeholder="Address"
+                                                    value={deliveryAddress}
+                                                    onChange={handleAddressChange}
+                                                    className="w-full rounded border-gray-300 text-sm"
                                                 />
                                                 {addressSuggestions.length > 0 && (
                                                     <ul className="absolute z-10 w-full bg-white border border-gray-300 shadow-lg max-h-40 overflow-y-auto">
@@ -602,9 +600,9 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
 
                             {/* Right Column: Items */}
                             <div className="space-y-4">
-                                <ItemInputSection 
-                                    title="Mini Empanadas" 
-                                    items={miniItems} 
+                                <ItemInputSection
+                                    title="Mini Empanadas"
+                                    items={miniItems}
                                     flavors={empanadaFlavors}
                                     onItemChange={updateMiniItem}
                                     onAddItem={addMiniItem}
@@ -613,10 +611,10 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                                     availablePackages={visiblePackages.filter(p => p.itemType === 'mini')}
                                     onAddPackage={handlePackageAdd}
                                 />
-                                <ItemInputSection 
-                                    title="Full Size Empanadas" 
-                                    items={fullSizeItems} 
-                                    flavors={fullSizeEmpanadaFlavors.map(f => ({...f, name: f.name.replace('Full ', '')}))} // Strip prefix for display
+                                <ItemInputSection
+                                    title="Full Size Empanadas"
+                                    items={fullSizeItems}
+                                    flavors={fullSizeEmpanadaFlavors.map(f => ({ ...f, name: f.name.replace('Full ', '') }))} // Strip prefix for display
                                     onItemChange={updateFullItem}
                                     onAddItem={addFullItem}
                                     onRemoveItem={removeFullItem}
@@ -625,7 +623,7 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                                     availablePackages={visiblePackages.filter(p => p.itemType === 'full' || p.isPartyPlatter)}
                                     onAddPackage={handlePackageAdd}
                                 />
-                                
+
                                 {/* Salsas */}
                                 <div className="bg-orange-50 p-4 rounded-lg border border-orange-200">
                                     <h3 className="font-bold text-orange-800 mb-2 text-sm">Salsas & Extras</h3>
@@ -633,30 +631,30 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                                         {salsaItems.map((s, idx) => (
                                             <div key={s.id} className="flex items-center justify-between bg-white p-2 rounded border border-orange-100">
                                                 <label className="flex items-center gap-2 cursor-pointer">
-                                                    <input 
-                                                        type="checkbox" 
-                                                        checked={s.checked} 
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={s.checked}
                                                         onChange={e => {
                                                             const newSalsas = [...salsaItems];
                                                             newSalsas[idx].checked = e.target.checked;
                                                             if (e.target.checked && !newSalsas[idx].quantity) newSalsas[idx].quantity = 1;
                                                             setSalsaItems(newSalsas);
-                                                        }} 
-                                                        className="rounded text-brand-orange" 
+                                                        }}
+                                                        className="rounded text-brand-orange"
                                                     />
                                                     <span className="text-xs font-medium text-gray-700">{s.name}</span>
                                                 </label>
                                                 {s.checked && (
-                                                    <input 
-                                                        type="number" 
+                                                    <input
+                                                        type="number"
                                                         min="1"
-                                                        value={s.quantity} 
+                                                        value={s.quantity}
                                                         onChange={e => {
                                                             const newSalsas = [...salsaItems];
                                                             newSalsas[idx].quantity = e.target.value;
                                                             setSalsaItems(newSalsas);
-                                                        }} 
-                                                        className="w-12 text-center text-xs rounded border-gray-300 p-1" 
+                                                        }}
+                                                        className="w-12 text-center text-xs rounded border-gray-300 p-1"
                                                     />
                                                 )}
                                             </div>
@@ -708,26 +706,26 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                                     </div>
                                     <div className="relative w-32">
                                         <span className="absolute left-3 top-2 text-gray-500">$</span>
-                                        <input 
-                                            type="number" 
-                                            step="0.01" 
-                                            value={amountCharged} 
-                                            onChange={e => { setAmountCharged(e.target.value); setIsAutoPrice(false); }} 
-                                            className="w-full pl-6 rounded border-brand-orange focus:ring-brand-orange text-lg font-bold text-right text-brand-brown" 
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            value={amountCharged}
+                                            onChange={e => { setAmountCharged(e.target.value); setIsAutoPrice(false); }}
+                                            className="w-full pl-6 rounded border-brand-orange focus:ring-brand-orange text-lg font-bold text-right text-brand-brown"
                                         />
                                     </div>
                                 </div>
-                                
-                                <textarea 
-                                    rows={2} 
-                                    value={specialInstructions} 
-                                    onChange={e => setSpecialInstructions(e.target.value)} 
-                                    placeholder="Notes / Special Instructions" 
+
+                                <textarea
+                                    rows={2}
+                                    value={specialInstructions}
+                                    onChange={e => setSpecialInstructions(e.target.value)}
+                                    placeholder="Notes / Special Instructions"
                                     className="w-full rounded border-gray-300 text-sm"
                                 />
                             </div>
                         </div>
-                        
+
                         <div className="mt-6 flex justify-end gap-3 pt-4 border-t border-gray-200">
                             <button type="button" onClick={onClose} className="px-6 py-2 bg-gray-200 text-gray-800 font-bold rounded hover:bg-gray-300">Cancel</button>
                             <button type="submit" className="px-8 py-2 bg-brand-orange text-white font-bold rounded shadow hover:bg-opacity-90 flex items-center gap-2">
