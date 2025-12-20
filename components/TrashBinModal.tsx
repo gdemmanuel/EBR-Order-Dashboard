@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { Order } from '../types';
 import { restoreOrder, cleanupTrash } from '../services/dbService';
 import { XMarkIcon, TrashIcon, ArrowUturnLeftIcon, ClockIcon } from './icons/Icons';
+import { formatDateForDisplay, formatTimeDisplay } from '../utils/dateUtils';
 
 interface TrashBinModalProps {
     deletedOrders: Order[];
@@ -42,11 +43,11 @@ export default function TrashBinModal({ deletedOrders, onClose }: TrashBinModalP
         const deleteDate = new Date(deletedAt);
         const expiryDate = new Date(deleteDate);
         expiryDate.setDate(deleteDate.getDate() + 7);
-        
+
         const now = new Date();
         const diffMs = expiryDate.getTime() - now.getTime();
         const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-        
+
         return Math.max(0, diffDays);
     };
 
@@ -93,13 +94,13 @@ export default function TrashBinModal({ deletedOrders, onClose }: TrashBinModalP
                                                 <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-bold uppercase tracking-wide">Deleted</span>
                                             </div>
                                             <p className="text-sm text-gray-600 mt-1">
-                                                {order.pickupDate} @ {order.pickupTime} • {order.totalMini + order.totalFullSize} Items
+                                                {formatDateForDisplay(order.pickupDate)} @ {formatTimeDisplay(order.pickupTime)} • {order.totalMini + order.totalFullSize} Items
                                             </p>
                                             <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
                                                 <ClockIcon className="w-3 h-3" /> Expires in {daysLeft} day{daysLeft !== 1 ? 's' : ''}
                                             </p>
                                         </div>
-                                        <button 
+                                        <button
                                             onClick={() => handleRestore(order)}
                                             disabled={isLoading}
                                             className="flex items-center gap-2 px-3 py-2 bg-green-50 text-green-700 font-medium rounded hover:bg-green-100 transition-colors border border-green-200 text-sm whitespace-nowrap"

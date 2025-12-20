@@ -1,7 +1,7 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 import { Order, Expense, FollowUpStatus, WorkShift, AppSettings, AiInsight, AiMessage } from '../types';
-import { parseOrderDateTime, formatDateForDisplay } from '../utils/dateUtils';
+import { parseOrderDateTime, formatDateForDisplay, formatTimeDisplay } from '../utils/dateUtils';
 
 // Safe API Key retrieval for Vite/Vercel deployments
 const getApiKey = () => {
@@ -84,7 +84,7 @@ export async function generateMessageForOrder(order: Order, templates?: { follow
             .replace(/{firstName}|{{firstName}}/g, firstName)
             .replace(/{name}|{{name}}/g, order.customerName)
             .replace(/{date}|{{date}}/g, dateString)
-            .replace(/{time}|{{time}}/g, order.pickupTime)
+            .replace(/{time}|{{time}}/g, formatTimeDisplay(order.pickupTime))
             .replace(/{deliveryType}|{{deliveryType}}/g, deliveryType)
             .replace(/{total}|{{total}}/g, order.amountCharged.toFixed(2))
             .replace(/{totals}|{{totals}}/g, itemsText)
@@ -120,11 +120,11 @@ export async function generateMessageForOrder(order: Order, templates?: { follow
                 totalsText = `${order.totalMini} mini and ${order.totalFullSize} full-size empanadas`;
             }
             const itemsList = order.items.map(item => `- ${item.quantity} ${item.name}`).join('\n');
-            return `Hi ${firstName}! This is Rose from Empanadas by Rose. Thank you for placing an order. Please confirm your order for ${deliveryType} on ${dateString} at ${order.pickupTime} as follows:\n${totalsText}\n${itemsList}`;
+            return `Hi ${firstName}! This is Rose from Empanadas by Rose. Thank you for placing an order. Please confirm your order for ${deliveryType} on ${dateString} at ${formatTimeDisplay(order.pickupTime)} as follows:\n${totalsText}\n${itemsList}`;
         }
 
         if (status === FollowUpStatus.PENDING) {
-            return `Perfect! The total is $${order.amountCharged.toFixed(2)}. Cash on ${deliveryType}, please. I'll see you on ${dateString} at ${order.pickupTime}.
+            return `Perfect! The total is $${order.amountCharged.toFixed(2)}. Cash on ${deliveryType}, please. I'll see you on ${dateString} at ${formatTimeDisplay(order.pickupTime)}.
 Thank you for your order!`;
         }
     }
@@ -137,7 +137,7 @@ Thank you for your order!`;
     Context:
     - Order Status: ${status}
     - Items: ${order.totalMini + order.totalFullSize} empanadas
-    - Pickup/Delivery: ${deliveryType} on ${dateString} at ${order.pickupTime}
+    - Pickup/Delivery: ${deliveryType} on ${dateString} at ${formatTimeDisplay(order.pickupTime)}
     
     Instructions:
     - If status is 'Confirmed', confirm that everything is set.

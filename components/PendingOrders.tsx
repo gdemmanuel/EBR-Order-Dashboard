@@ -2,13 +2,13 @@
 import React from 'react';
 import { Order } from '../types';
 import { CheckCircleIcon, XCircleIcon } from './icons/Icons';
-import { formatDateForDisplay } from '../utils/dateUtils';
+import { formatDateForDisplay, formatTimeDisplay } from '../utils/dateUtils';
 import { groupOrderItems } from '../utils/orderUtils';
 
-const PendingOrderItem: React.FC<{ 
-    order: Order; 
-    onApprove: (id: string) => void; 
-    onDeny: (id: string) => void; 
+const PendingOrderItem: React.FC<{
+    order: Order;
+    onApprove: (id: string) => void;
+    onDeny: (id: string) => void;
     onSelectOrder: (order: Order) => void;
 }> = ({ order, onApprove, onDeny, onSelectOrder }) => {
     const totalItems = order.items.reduce((sum, item) => sum + item.quantity, 0);
@@ -24,7 +24,7 @@ const PendingOrderItem: React.FC<{
     };
 
     return (
-        <li 
+        <li
             className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 bg-white rounded-lg border border-brand-tan/80 shadow-sm hover:bg-brand-tan/30 cursor-pointer transition-colors"
             onClick={() => onSelectOrder(order)}
             role="button"
@@ -36,9 +36,9 @@ const PendingOrderItem: React.FC<{
                 <p className="font-semibold text-brand-brown">{order.customerName}</p>
                 <div className="flex flex-col mt-1 gap-1">
                     <p className="text-sm text-gray-500">
-                        Pickup: <span className="font-medium text-gray-700">{formatDateForDisplay(order.pickupDate)} @ {order.pickupTime}</span>
+                        Pickup: <span className="font-medium text-gray-700">{formatDateForDisplay(order.pickupDate)} @ {formatTimeDisplay(order.pickupTime)}</span>
                     </p>
-                    
+
                     {/* HIERARCHICAL DISPLAY */}
                     <div className="mt-2 text-sm text-brand-brown">
                         {packages.length > 0 && (
@@ -58,7 +58,7 @@ const PendingOrderItem: React.FC<{
                                 ))}
                             </div>
                         )}
-                        
+
                         {looseItems.length > 0 && (
                             <div className="mt-1">
                                 {packages.length > 0 && <p className="font-bold text-xs text-gray-500 mb-1">Extras:</p>}
@@ -78,7 +78,7 @@ const PendingOrderItem: React.FC<{
                         {totalItems} items total
                     </p>
                 </div>
-                
+
                 <p className="text-xs text-gray-400 mt-1.5 font-medium">
                     Placed: {getOrderTimestamp(order.id)}
                 </p>
@@ -126,8 +126,8 @@ export default function PendingOrders({ orders, onApprove, onDeny, onSelectOrder
             </p>
             <ul className="space-y-3">
                 {orders.map(order => (
-                    <PendingOrderItem 
-                        key={order.id} 
+                    <PendingOrderItem
+                        key={order.id}
                         order={order}
                         onApprove={onApprove}
                         onDeny={onDeny}
