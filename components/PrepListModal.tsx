@@ -13,7 +13,7 @@ interface PrepListModalProps {
 }
 
 export default function PrepListModal({ orders, settings, onClose, onUpdateSettings, dateRange }: PrepListModalProps) {
-    
+
     // Local state to manage inventory changes before saving
     const [inventory, setInventory] = useState<Record<string, { mini: number, full: number }>>(settings.inventory || {});
     const [isSaving, setIsSaving] = useState(false);
@@ -40,7 +40,7 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
     const prepData = useMemo(() => {
         const miniCounts: Record<string, number> = {};
         const fullCounts: Record<string, number> = {};
-        
+
         let totalMiniOrdered = 0;
         let totalFullOrdered = 0;
 
@@ -48,11 +48,14 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
             if (order.followUpStatus === FollowUpStatus.COMPLETED) return;
 
             order.items.forEach(item => {
-                if (item.name.includes('Salsa')) return;
+                if (item.name.includes('Salsa') && !settings.pricing?.salsas?.some(s => s.name === item.name)) {
+                    // Only skip if it looks like a salsa but isn't a configured salsa product
+                    // Actually, let's just remove the filter entirely so "Extras" show up too if they have recipes.
+                }
 
                 const isFull = item.name.startsWith('Full ');
                 const cleanName = item.name.replace('Full ', '');
-                
+
                 if (isFull) {
                     fullCounts[cleanName] = (fullCounts[cleanName] || 0) + item.quantity;
                     totalFullOrdered += item.quantity;
@@ -67,11 +70,12 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
         const allFlavors = Array.from(new Set([
             ...Object.keys(miniCounts),
             ...Object.keys(fullCounts),
-            ...settings.empanadaFlavors.map(f => f.name)
+            ...settings.empanadaFlavors.map(f => f.name),
+            ...(settings.pricing?.salsas || []).map(s => s.name)
         ])).sort((a, b) => {
             const defA = settings.empanadaFlavors.find(f => f.name === a);
             const defB = settings.empanadaFlavors.find(f => f.name === b);
-            
+
             const isSpecialA = defA?.isSpecial || false;
             const isSpecialB = defB?.isSpecial || false;
 
@@ -82,7 +86,7 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
         });
 
         let totalEstimatedCost = 0; // Supply Cost (Ingredients + Discos)
-        
+
         // Track totals AND breakdown by flavor for ingredients
         // Map<IngredientID, { total: number, breakdown: Map<FlavorName, number> }>
         const ingredientAggregates = new Map<string, { total: number, breakdown: Map<string, number> }>();
@@ -96,9 +100,9 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
         const rows = allFlavors.map(flavor => {
             const miniOrd = miniCounts[flavor] || 0;
             const fullOrd = fullCounts[flavor] || 0;
-            
+
             const stock = inventory[flavor] || { mini: 0, full: 0 };
-            
+
             // Calculate Net (Positive = Make, Negative = Surplus)
             const miniNet = miniOrd - stock.mini;
             const fullNet = fullOrd - stock.full;
@@ -110,7 +114,7 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
             // --- INGREDIENT CALCULATION (New Recipe Logic) ---
             const recipes = settings.prepSettings?.recipes || {};
             const flavorIngredients = recipes[flavor] || [];
-            
+
             let fillingCost = 0;
 
             // If we have a detailed recipe, use it
@@ -118,25 +122,36 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
                 flavorIngredients.forEach(ing => {
                     const ingredientDef = settings.ingredients?.find(i => i.id === ing.ingredientId);
                     if (ingredientDef) {
-                        // Logic: Amount per 20 minis
-                        // Mini Total Amount = (MiniToMake / 20) * AmountFor20
-                        // Full Total Amount = (FullToMake / 20) * AmountFor20 * FullSizeMultiplier
-                        const fullMultiplier = settings.prepSettings.fullSizeMultiplier || 2.0;
-                        
-                        const miniAmount = (miniToMake / 20) * ing.amountFor20Minis;
-                        const fullAmount = (fullToMake / 20) * ing.amountFor20Minis * fullMultiplier;
+                        // Check if this is a salsa/extra (per unit) or empanada (per 20)
+                        const isSalsa = settings.pricing?.salsas?.some(s => s.name === flavor);
+
+                        let miniAmount = 0;
+                        let fullAmount = 0;
+
+                        if (isSalsa) {
+                            // Per Unit Logic
+                            // Salsas are tracked in miniToMake (standard unit)
+                            miniAmount = miniToMake * ing.amountFor20Minis;
+                            fullAmount = 0;
+                        } else {
+                            // Empanada Logic (Per 20)
+                            const fullMultiplier = settings.prepSettings.fullSizeMultiplier || 2.0;
+                            miniAmount = (miniToMake / 20) * ing.amountFor20Minis;
+                            fullAmount = (fullToMake / 20) * ing.amountFor20Minis * fullMultiplier;
+                        }
+
                         const totalAmount = miniAmount + fullAmount;
 
                         // Aggregate for Total Ingredients View
                         const currentAgg = ingredientAggregates.get(ing.ingredientId) || { total: 0, breakdown: new Map<string, number>() };
-                        
+
                         // Update Total
                         currentAgg.total += totalAmount;
-                        
+
                         // Update Breakdown
                         const currentBreakdown = currentAgg.breakdown.get(flavor) || 0;
                         currentAgg.breakdown.set(flavor, currentBreakdown + totalAmount);
-                        
+
                         ingredientAggregates.set(ing.ingredientId, currentAgg);
 
                         // Add to cost
@@ -150,15 +165,15 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
                 const miniLbs = (miniToMake / 20) * lbsPer20;
                 const fullLbs = (fullToMake / 20) * lbsPer20 * fullMultiplier;
                 const totalLbs = miniLbs + fullLbs;
-                
+
                 // Use old cost map
                 const costPerLb = settings.materialCosts[flavor] || 0;
                 fillingCost += totalLbs * costPerLb;
             }
-            
+
             const miniDiscoCost = miniToMake * miniDiscosPer * (settings.discoCosts?.mini || 0);
             const fullDiscoCost = fullToMake * fullDiscosPer * (settings.discoCosts?.full || 0);
-            
+
             const rowCost = fillingCost + miniDiscoCost + fullDiscoCost;
             totalEstimatedCost += rowCost;
 
@@ -179,7 +194,7 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
         // Calculate Disco Totals
         const totalMiniToMake = rows.reduce((acc, r) => acc + r.miniToMake, 0);
         const totalFullToMake = rows.reduce((acc, r) => acc + r.fullToMake, 0);
-        
+
         const totalMiniDiscosNeeded = totalMiniToMake * miniDiscosPer;
         const totalFullDiscosNeeded = totalFullToMake * fullDiscosPer;
         const totalDiscosNeeded = totalMiniDiscosNeeded + totalFullDiscosNeeded;
@@ -202,7 +217,7 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
         // Resolve Ingredient Aggregates to View Models
         const ingredientList = Array.from(ingredientAggregates.entries()).map(([id, data]) => {
             const def = settings.ingredients?.find(i => i.id === id);
-            
+
             // Convert breakdown map to array for display, sorted by amount desc
             const breakdown = Array.from(data.breakdown.entries())
                 .map(([flavor, amount]) => ({ flavor, amount }))
@@ -282,7 +297,7 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
                 </header>
 
                 <div className="overflow-y-auto p-6 space-y-8 print:p-0">
-                    
+
                     {/* Summary Section */}
                     <section className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                         {/* 1. Discos */}
@@ -307,7 +322,7 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
                                 </div>
                             </div>
                         </div>
-                        
+
                         {/* 2. Supply Cost */}
                         <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                             <h4 className="text-xs font-bold text-green-800 uppercase mb-1">Est. Supply Cost</h4>
@@ -332,10 +347,10 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
                         </div>
 
                         {/* 4. Total Batch Cost */}
-                         <div className="bg-gray-100 border border-gray-300 rounded-lg p-4 flex flex-col justify-center items-center">
-                             <h4 className="text-xs font-bold text-gray-600 uppercase mb-1">Total Batch Cost</h4>
-                             <p className="text-3xl font-bold text-brand-brown">${prepData.totalBatchCost.toFixed(2)}</p>
-                             <p className="text-xs text-gray-500 mt-1">Supplies + Labor</p>
+                        <div className="bg-gray-100 border border-gray-300 rounded-lg p-4 flex flex-col justify-center items-center">
+                            <h4 className="text-xs font-bold text-gray-600 uppercase mb-1">Total Batch Cost</h4>
+                            <p className="text-3xl font-bold text-brand-brown">${prepData.totalBatchCost.toFixed(2)}</p>
+                            <p className="text-xs text-gray-500 mt-1">Supplies + Labor</p>
                         </div>
                     </section>
 
@@ -353,7 +368,7 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
                                                 <span className="text-xs text-gray-500">{ing.unit}</span>
                                             </div>
                                         </div>
-                                        
+
                                         {/* BREAKDOWN DISPLAY */}
                                         {ing.breakdown && ing.breakdown.length > 0 && (
                                             <div className="mt-1 pt-1 border-t border-gray-100 text-[10px] text-gray-500 space-y-0.5 overflow-y-auto max-h-20 scrollbar-thin">
@@ -378,19 +393,19 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
                                 <thead className="bg-gray-50">
                                     <tr>
                                         <th className="px-3 py-3 text-left font-bold text-gray-700 sticky left-0 bg-gray-50">Flavor</th>
-                                        
+
                                         {/* Mini Columns */}
-                                        <th className="px-2 py-3 text-center bg-blue-50/50 border-l border-blue-100">Mini<br/>Order</th>
-                                        <th className="px-2 py-3 text-center bg-blue-50/50 w-20">Mini<br/>Stock</th>
-                                        <th className="px-2 py-3 text-center bg-blue-100/50 font-bold text-blue-900 border-r border-blue-100">Mini<br/>Make</th>
+                                        <th className="px-2 py-3 text-center bg-blue-50/50 border-l border-blue-100">Mini<br />Order</th>
+                                        <th className="px-2 py-3 text-center bg-blue-50/50 w-20">Mini<br />Stock</th>
+                                        <th className="px-2 py-3 text-center bg-blue-100/50 font-bold text-blue-900 border-r border-blue-100">Mini<br />Make</th>
 
                                         {/* Full Columns */}
-                                        <th className="px-2 py-3 text-center bg-purple-50/50">Full<br/>Order</th>
-                                        <th className="px-2 py-3 text-center bg-purple-50/50 w-20">Full<br/>Stock</th>
-                                        <th className="px-2 py-3 text-center bg-purple-100/50 font-bold text-purple-900 border-r border-purple-100">Full<br/>Make</th>
-                                        
+                                        <th className="px-2 py-3 text-center bg-purple-50/50">Full<br />Order</th>
+                                        <th className="px-2 py-3 text-center bg-purple-50/50 w-20">Full<br />Stock</th>
+                                        <th className="px-2 py-3 text-center bg-purple-100/50 font-bold text-purple-900 border-r border-purple-100">Full<br />Make</th>
+
                                         {/* Cost Column */}
-                                        <th className="px-3 py-3 text-right text-green-700">Supply<br/>Cost</th>
+                                        <th className="px-3 py-3 text-right text-green-700">Supply<br />Cost</th>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
@@ -404,7 +419,7 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
                                         <td className="px-2 py-3 text-center text-gray-500">-</td>
                                         <td className="px-2 py-3 text-center text-purple-900 bg-purple-50">{prepData.totalFullToMake}</td>
                                         <td className="px-3 py-3 text-right text-green-700">
-                                            ${((prepData.totalMiniDiscosNeeded * (settings.discoCosts?.mini||0)) + (prepData.totalFullDiscosNeeded * (settings.discoCosts?.full||0))).toFixed(2)}
+                                            ${((prepData.totalMiniDiscosNeeded * (settings.discoCosts?.mini || 0)) + (prepData.totalFullDiscosNeeded * (settings.discoCosts?.full || 0))).toFixed(2)}
                                         </td>
                                     </tr>
 
@@ -413,13 +428,13 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
                                             <td className="px-3 py-2 font-medium text-gray-900 sticky left-0 bg-white">
                                                 {row.flavor}
                                             </td>
-                                            
+
                                             {/* Mini */}
                                             <td className="px-2 py-2 text-center border-l border-gray-100">{row.miniOrd}</td>
                                             <td className="px-2 py-2 text-center">
-                                                <input 
-                                                    type="number" min="0" 
-                                                    value={row.miniStock} 
+                                                <input
+                                                    type="number" min="0"
+                                                    value={row.miniStock}
                                                     onChange={(e) => updateInventory(row.flavor, 'mini', e.target.value)}
                                                     className="w-16 text-center text-xs border-gray-300 rounded shadow-sm focus:ring-blue-500 focus:border-blue-500 p-1"
                                                 />
@@ -431,9 +446,9 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
                                             {/* Full */}
                                             <td className="px-2 py-2 text-center">{row.fullOrd}</td>
                                             <td className="px-2 py-2 text-center">
-                                                <input 
-                                                    type="number" min="0" 
-                                                    value={row.fullStock} 
+                                                <input
+                                                    type="number" min="0"
+                                                    value={row.fullStock}
                                                     onChange={(e) => updateInventory(row.flavor, 'full', e.target.value)}
                                                     className="w-16 text-center text-xs border-gray-300 rounded shadow-sm focus:ring-purple-500 focus:border-purple-500 p-1"
                                                 />
@@ -453,7 +468,7 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
                     </section>
                 </div>
             </div>
-            
+
             <style>{`
                 @media print {
                     body * {
