@@ -3,6 +3,7 @@ import React from 'react';
 import { Order } from '../types';
 import Invoice from './Invoice';
 import { PrinterIcon, ArrowUturnLeftIcon } from './icons/Icons';
+import { escapeHtml } from '../utils/orderUtils';
 
 interface InvoicePreviewPageProps {
   order: Order;
@@ -36,7 +37,7 @@ export default function InvoicePreviewPage({ order, onExit }: InvoicePreviewPage
       <html lang="en">
         <head>
           <meta charset="UTF-8">
-          <title>Invoice - ${order.customerName}</title>
+          <title>Invoice - ${escapeHtml(order.customerName)}</title>
           ${stylesHtml}
           <style>
             body { background: white; margin: 0; padding: 0; }

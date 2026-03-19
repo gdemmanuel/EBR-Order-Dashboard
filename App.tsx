@@ -196,11 +196,16 @@ export default function App() {
               };
 
               await migrateLocalDataToFirestore(localOrders, localPending, localSettings);
-              localStorage.removeItem('orders');
-              localStorage.removeItem('pendingOrders');
           } catch (e) {
               console.error("Migration failed:", e);
           } finally {
+              // Always clean up PII from localStorage, even if migration fails partway through
+              localStorage.removeItem('orders');
+              localStorage.removeItem('pendingOrders');
+              localStorage.removeItem('empanadaFlavors');
+              localStorage.removeItem('fullSizeEmpanadaFlavors');
+              localStorage.removeItem('sheetUrl');
+              localStorage.removeItem('importedSignatures');
               setIsMigrating(false);
           }
       };

@@ -161,3 +161,16 @@ export const generateOrdersCSV = (orders: Order[]): void => {
     link.click();
     document.body.removeChild(link);
 };
+
+/**
+ * Escapes a string for safe insertion into an HTML context (e.g. document.write).
+ * Prevents XSS when user-supplied values are interpolated into raw HTML strings.
+ */
+export function escapeHtml(value: string): string {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}

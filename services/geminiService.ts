@@ -1,37 +1,40 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
+import { Type } from "@google/genai";
 import { Order, Expense, FollowUpStatus, WorkShift, AppSettings, AiInsight, AiMessage } from '../types';
 import { parseOrderDateTime, formatDateForDisplay, formatTimeDisplay } from '../utils/dateUtils';
 
-// Safe API Key retrieval for Vite/Vercel deployments
-const getApiKey = () => {
-    // Try Vite's import.meta.env first (browser builds)
-    try {
-        // @ts-ignore
-        if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_KEY) {
-            // @ts-ignore
-            return import.meta.env.VITE_API_KEY;
-        }
-    } catch (e) {
-        // import.meta not available
-    }
+// All Gemini API calls are routed through the server-side proxy at /api/gemini-proxy.
+// This keeps the API key server-side only and out of the browser bundle.
 
-    // Try Node.js process.env (SSR/build-time only) - use globalThis for safer check
-    try {
-        // @ts-ignore
-        const proc = typeof globalThis !== 'undefined' && globalThis.process;
-        if (proc && proc.env && proc.env.API_KEY) {
-            return proc.env.API_KEY;
-        }
-    } catch (e) {
-        // process not available in browser
-    }
+interface GeminiProxyRequest {
+    model: string;
+    contents?: unknown;
+    config?: unknown;
+    chatHistory?: AiMessage[];
+    chatSystemInstruction?: string;
+}
 
-    console.warn("API Key not found. Please check your VITE_API_KEY environment variable.");
-    return '';
+const getProxyHeaders = (): Record<string, string> => {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    // @ts-ignore
+    const secret = import.meta.env?.VITE_INTERNAL_API_SECRET;
+    if (secret) headers['X-Internal-Secret'] = secret;
+    return headers;
 };
 
-const ai = new GoogleGenAI({ apiKey: getApiKey() });
+async function callGeminiProxy(payload: GeminiProxyRequest): Promise<string> {
+    const response = await fetch('/api/gemini-proxy', {
+        method: 'POST',
+        headers: getProxyHeaders(),
+        body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: response.statusText }));
+        throw new Error(err.error || `Gemini proxy error: ${response.status}`);
+    }
+    const data = await response.json();
+    return data.text ?? '';
+}
 
 export async function generateMessageForOrder(order: Order, templates?: { followUpNeeded?: string; pendingConfirmation?: string; confirmed?: string; processing?: string; completed?: string; }, useAi: boolean = false): Promise<string> {
     const status = order.followUpStatus;
@@ -148,11 +151,8 @@ Thank you for your order!`;
     `;
 
     try {
-        const response = await ai.models.generateContent({
-            model: model,
-            contents: prompt
-        });
-        return response.text?.trim() || "Message generation failed.";
+        const text = await callGeminiProxy({ model, contents: prompt });
+        return text.trim() || "Message generation failed.";
     } catch (e) {
         console.error(e);
         return "Error generating message.";
@@ -196,7 +196,7 @@ export async function generateBusinessInsights(
     `;
 
     try {
-        const response = await ai.models.generateContent({
+        const text = await callGeminiProxy({
             model,
             contents: prompt,
             config: {
@@ -217,9 +217,8 @@ export async function generateBusinessInsights(
             }
         });
 
-        // Safely parse JSON response
         try {
-            return JSON.parse(response.text || "[]");
+            return JSON.parse(text || "[]");
         } catch (parseError) {
             console.error("Failed to parse AI insights JSON:", parseError);
             return [
@@ -271,17 +270,17 @@ export async function queryBusinessAi(
     `;
 
     try {
-        const chat = ai.chats.create({
-            model,
-            config: { systemInstruction }
-        });
-
         const prompt = history.length > 0
             ? `Previous Conversation:\n${history.map(m => `${m.role}: ${m.text}`).join('\n')}\n\nNew Question: ${query}`
             : query;
 
-        const response = await chat.sendMessage({ message: prompt });
-        return response.text || "I'm having trouble connecting right now.";
+        const text = await callGeminiProxy({
+            model,
+            contents: prompt,
+            chatHistory: history,
+            chatSystemInstruction: systemInstruction,
+        });
+        return text || "I'm having trouble connecting right now.";
     } catch (e) {
         console.error("AI Query Error:", e);
         return "I encountered an error while processing your request.";
@@ -317,7 +316,7 @@ If no valid suggestions are found, return an empty response.
 Query: "${query}"`;
 
     try {
-        const response = await ai.models.generateContent({
+        const text = await callGeminiProxy({
             model,
             contents: prompt,
             config: {
@@ -334,7 +333,6 @@ Query: "${query}"`;
                 }),
             },
         });
-        const text = response.text;
         if (text && typeof text === 'string') {
             return text.trim().split('\n').filter(addr => addr.trim() !== '');
         }
@@ -452,7 +450,7 @@ async function parseObjectsBatch(
     `;
 
     try {
-        const response = await ai.models.generateContent({
+        const jsonText = await callGeminiProxy({
             model,
             contents: prompt,
             config: {
@@ -461,8 +459,6 @@ async function parseObjectsBatch(
                 temperature: 0,
             }
         });
-
-        const jsonText = response.text?.trim() || '';
 
         if (!jsonText) {
             throw new Error("Empty response from Gemini API");
@@ -577,8 +573,8 @@ export async function parseReceiptImage(base64Image: string, mimeType: string, c
     };
 
     try {
-        const response = await ai.models.generateContent({
-            model: model,
+        const jsonText = await callGeminiProxy({
+            model,
             contents: {
                 parts: [
                     { text: prompt },
@@ -591,7 +587,6 @@ export async function parseReceiptImage(base64Image: string, mimeType: string, c
             }
         });
 
-        const jsonText = response.text?.trim();
         if (jsonText) {
             return JSON.parse(jsonText) as Partial<Expense>;
         }

@@ -120,7 +120,9 @@ export default function CustomerOrderPage({
                 // Only send update if height changed significantly (>10px) to prevent scroll jitter loops
                 if (Math.abs(height - lastHeight) > 10) {
                     if (window.parent && window.parent !== window) {
-                        window.parent.postMessage({ type: "embedHeight", height }, "*");
+                        // @ts-ignore
+                        const parentOrigin = import.meta.env.VITE_EMBED_ORIGIN || '*';
+                        window.parent.postMessage({ type: "embedHeight", height }, parentOrigin);
                     }
                     lastHeight = height;
                 }
@@ -531,7 +533,14 @@ export default function CustomerOrderPage({
             // --- Send Alert Email/Text (Fire and Forget) ---
             fetch('/api/order-alert', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    // @ts-ignore
+                    ...(import.meta.env.VITE_INTERNAL_API_SECRET
+                        // @ts-ignore
+                        ? { 'X-Internal-Secret': import.meta.env.VITE_INTERNAL_API_SECRET }
+                        : {}),
+                },
                 body: JSON.stringify(newOrder)
             }).catch(err => console.error("Failed to send email alert:", err));
             // ----------------------------------------------
@@ -550,9 +559,11 @@ export default function CustomerOrderPage({
                     : 0;
 
                 if (window.parent && window.parent !== window) {
+                    // @ts-ignore
+                    const parentOrigin = import.meta.env.VITE_EMBED_ORIGIN || '*';
                     window.parent.postMessage(
                         { type: 'orderSubmitted', successTop },
-                        '*'
+                        parentOrigin
                     );
                 } else {
                     // Direct view fallback: scroll this window to the success section
