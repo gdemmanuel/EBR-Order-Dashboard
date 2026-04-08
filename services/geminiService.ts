@@ -133,7 +133,7 @@ Thank you for your order!`;
     }
 
     // AI GENERATION (Fallback or Explicit Request)
-    const model = 'gemini-3-flash-preview';
+    const model = 'gemini-2.5-flash';
     const prompt = `
     You are Rose, the owner of "Empanadas by Rose". Write a short, friendly text message to a customer named ${firstName}.
     
@@ -167,7 +167,7 @@ export async function generateBusinessInsights(
     shifts: WorkShift[],
     settings: AppSettings
 ): Promise<AiInsight[]> {
-    const model = 'gemini-3-flash-preview';
+    const model = 'gemini-2.5-flash';
 
     // Prepare a compact context for the model
     const context = {
@@ -241,7 +241,7 @@ export async function queryBusinessAi(
     shifts: WorkShift[],
     settings: AppSettings
 ): Promise<string> {
-    const model = 'gemini-3-flash-preview';
+    const model = 'gemini-2.5-flash';
 
     const context = {
         ordersCount: orders.length,
