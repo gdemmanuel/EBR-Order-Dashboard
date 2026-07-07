@@ -373,7 +373,9 @@ export const deleteShiftFromDb = async (shiftId: string) => {
 };
 
 export const updateSettingsInDb = async (settings: Partial<AppSettings>) => {
-    await setDoc(doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC), settings, { merge: true });
+    // Firestore rejects `undefined`. Strip it recursively before writing.
+    const clean = JSON.parse(JSON.stringify(settings));
+    await setDoc(doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC), clean, { merge: true });
 };
 
 export const migrateLocalDataToFirestore = async (localOrders: Order[], localPending: Order[], localSettings: AppSettings) => {
