@@ -199,35 +199,61 @@ export const subscribeToShifts = (
     }, onError);
 };
 
+const PRIVATE_SETTINGS_DOC = "private";
+
 export const subscribeToSettings = (
     onUpdate: (settings: AppSettings) => void,
     onError?: (error: FirestoreError) => void
 ) => {
-    return onSnapshot(doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC), (docSnap) => {
-        if (docSnap.exists()) {
-            const data = docSnap.data() as any;
-            
-            const mergedSettings: AppSettings = {
-                ...DEFAULT_SETTINGS,
-                ...data,
-                pricing: { ...DEFAULT_SETTINGS.pricing, ...(data.pricing || {}) },
-                prepSettings: { ...DEFAULT_SETTINGS.prepSettings, ...(data.prepSettings || {}) },
-                scheduling: { 
-                    ...DEFAULT_SETTINGS.scheduling, 
-                    ...(data.scheduling || {}),
-                    statusMessages: { ...DEFAULT_SETTINGS.scheduling.statusMessages, ...(data.scheduling?.statusMessages || {}) }
-                },
-                messageTemplates: { ...DEFAULT_SETTINGS.messageTemplates, ...(data.messageTemplates || {}) },
-                expenseCategories: data.expenseCategories || DEFAULT_SETTINGS.expenseCategories,
-                employees: data.employees || DEFAULT_SETTINGS.employees,
-                statusColors: { ...DEFAULT_SETTINGS.statusColors, ...(data.statusColors || {}) },
-                ingredients: data.ingredients || DEFAULT_SETTINGS.ingredients,
-            };
-            onUpdate(mergedSettings);
-        } else {
-            onUpdate(DEFAULT_SETTINGS);
-        }
+    // Hold the latest snapshot from each doc; emit a merged result when either changes.
+    let generalData: any = null;
+    let privateData: any = null;
+    let generalLoaded = false;
+
+    const emit = () => {
+        // Only emit once the public doc has reported in at least once,
+        // so we never flash DEFAULT_SETTINGS over real data on load.
+        if (!generalLoaded) return;
+
+        const data = { ...(generalData || {}), ...(privateData || {}) };
+
+        const mergedSettings: AppSettings = {
+            ...DEFAULT_SETTINGS,
+            ...data,
+            pricing: { ...DEFAULT_SETTINGS.pricing, ...(data.pricing || {}) },
+            prepSettings: { ...DEFAULT_SETTINGS.prepSettings, ...(data.prepSettings || {}) },
+            scheduling: {
+                ...DEFAULT_SETTINGS.scheduling,
+                ...(data.scheduling || {}),
+                statusMessages: { ...DEFAULT_SETTINGS.scheduling.statusMessages, ...(data.scheduling?.statusMessages || {}) }
+            },
+            messageTemplates: { ...DEFAULT_SETTINGS.messageTemplates, ...(data.messageTemplates || {}) },
+            expenseCategories: data.expenseCategories || DEFAULT_SETTINGS.expenseCategories,
+            employees: data.employees || DEFAULT_SETTINGS.employees,
+            statusColors: { ...DEFAULT_SETTINGS.statusColors, ...(data.statusColors || {}) },
+            ingredients: data.ingredients || DEFAULT_SETTINGS.ingredients,
+        };
+        onUpdate(mergedSettings);
+    };
+
+    const unsubGeneral = onSnapshot(doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC), (docSnap) => {
+        generalData = docSnap.exists() ? docSnap.data() : {};
+        generalLoaded = true;
+        emit();
     }, onError);
+
+    // Private doc: admin-only. For logged-out visitors this errors with permission-denied
+    // once rules are locked (Stage 4) — we swallow it so the public menu still loads.
+    const unsubPrivate = onSnapshot(doc(db, SETTINGS_COLLECTION, PRIVATE_SETTINGS_DOC), (docSnap) => {
+        privateData = docSnap.exists() ? docSnap.data() : {};
+        emit();
+    }, () => {
+        // Expected for logged-out users after Stage 4; treat as "no private data".
+        privateData = {};
+        emit();
+    });
+
+    return () => { unsubGeneral(); unsubPrivate(); };
 };
 
 // --- CRUD Operations ---
