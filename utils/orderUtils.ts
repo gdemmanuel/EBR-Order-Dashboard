@@ -1,5 +1,58 @@
 
-import { Order, OrderItem, OrderPackageSelection } from '../types';
+import { Order, OrderItem, OrderPackageSelection, MenuPackage } from '../types';
+
+// Party platter tray size by the number of minis in the platter package
+const PLATTER_SIZES: Record<number, string> = { 50: '18"', 25: '12"' };
+
+const isPlatterPackageName = (name: string, menuPackages: MenuPackage[]) =>
+    menuPackages.some(p => p.isPartyPlatter && p.name === name) || name.toLowerCase().includes('platter');
+
+/**
+ * Tray size of each party platter on an order, e.g. ['18"', '12"'].
+ * Size comes from the number of minis picked in the platter; for older orders that only stored the
+ * package name, it is looked up from the menu when only one platter package has that name.
+ */
+export function getOrderPlatterSizes(order: Order, menuPackages: MenuPackage[] = []): string[] {
+    const packages: OrderPackageSelection[] = order.packages && order.packages.length > 0
+        ? order.packages
+        : (order.originalPackages || []).map((name, i) => ({ instanceId: `legacy-${i}`, name, items: [] }));
+
+    return packages
+        .filter(p => p && p.name && isPlatterPackageName(p.name, menuPackages))
+        .map(p => {
+            let qty = (p.items || []).reduce((sum, i) => sum + (i.quantity || 0), 0);
+            if (qty === 0) {
+                const matches = menuPackages.filter(m => m.isPartyPlatter && m.name === p.name);
+                if (matches.length === 1) qty = matches[0].quantity;
+            }
+            return PLATTER_SIZES[qty] || (qty > 0 ? `${qty}-mini` : 'Unknown size');
+        });
+}
+
+/** True if the order has a party platter package (or a "party platter" note). */
+export function isPartyPlatterOrder(order: Order, menuPackages: MenuPackage[] = []): boolean {
+    const hasPlatterPackage = (order.originalPackages || []).some(name => isPlatterPackageName(name, menuPackages));
+    const hasPlatterInstruction = (order.specialInstructions || '').toLowerCase().includes('party platter');
+    return hasPlatterPackage || hasPlatterInstruction;
+}
+
+/**
+ * Keeps each package's picked items only while the order still contains them.
+ * If the order's items were edited so a package's items are no longer all there,
+ * the package stays on the order by name but its item list is cleared.
+ */
+export function reconcilePackages(packages: OrderPackageSelection[], items: OrderItem[]): OrderPackageSelection[] {
+    const remaining = new Map<string, number>();
+    items.forEach(i => remaining.set(i.name, (remaining.get(i.name) || 0) + i.quantity));
+
+    return packages.map(pkg => {
+        const pkgItems = pkg.items || [];
+        const covered = pkgItems.every(pi => (remaining.get(pi.name) || 0) >= pi.quantity);
+        if (!covered) return { ...pkg, items: [] };
+        pkgItems.forEach(pi => remaining.set(pi.name, (remaining.get(pi.name) || 0) - pi.quantity));
+        return pkg;
+    });
+}
 
 /**
  * Separates items that belong to structured packages from "loose" items (extras/salsas/single adds).
@@ -10,8 +63,8 @@ export function groupOrderItems(order: Order): { packages: OrderPackageSelection
     const safeItems = Array.isArray(order.items) ? order.items : [];
 
     // If structured packages exist, use them
-    if (order.packages && Array.isArray(order.packages) && order.packages.length > 0) {
-        const packages = order.packages;
+    if (order.packages && Array.isArray(order.packages) && order.packages.some(p => p && Array.isArray(p.items) && p.items.length > 0)) {
+        const packages = order.packages.filter(p => p && Array.isArray(p.items) && p.items.length > 0);
 
         // Create a map of all total items in the order
         const itemMap = new Map<string, number>();

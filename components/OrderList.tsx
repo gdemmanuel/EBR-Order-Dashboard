@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { Order, PaymentStatus, FollowUpStatus, ApprovalStatus, AppSettings } from '../types';
 import { TrashIcon, PrinterIcon, MagnifyingGlassIcon, XMarkIcon, ChevronDownIcon, TruckIcon, SparklesIcon } from './icons/Icons';
 import { parseOrderDateTime, formatDateForDisplay, formatTimeDisplay } from '../utils/dateUtils';
+import { isPartyPlatterOrder, getOrderPlatterSizes } from '../utils/orderUtils';
 
 interface OrderListProps {
     orders: Order[];
@@ -254,10 +255,10 @@ export default function OrderList({
                                     ? order.items.map(i => `${i.quantity} ${i.name}`).join(', ') 
                                     : 'No Items';
                                 
-                                // Enhanced Party Platter Detection
-                                const hasPlatterPackage = order.originalPackages && order.originalPackages.some(p => p.toLowerCase().includes('platter'));
-                                const hasPlatterInstruction = (order.specialInstructions || '').toLowerCase().includes("party platter");
-                                const isPartyPlatter = hasPlatterPackage || hasPlatterInstruction;
+                                // Party Platter Detection (follows the order's current packages)
+                                const menuPackages = settings?.pricing?.packages || [];
+                                const isPartyPlatter = isPartyPlatterOrder(order, menuPackages);
+                                const platterSizes = getOrderPlatterSizes(order, menuPackages).filter(s => s !== 'Unknown size');
                                 
                                 return (
                                     <tr 
@@ -292,7 +293,7 @@ export default function OrderList({
                                                 {totalItems} items
                                                 {isPartyPlatter && (
                                                     <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-200 text-purple-800 border border-purple-300 uppercase tracking-wide">
-                                                        <SparklesIcon className="w-3 h-3 mr-1"/> Platter
+                                                        <SparklesIcon className="w-3 h-3 mr-1"/> Platter{platterSizes.length > 0 ? ` ${platterSizes.join(', ')}` : ''}
                                                     </span>
                                                 )}
                                             </div>

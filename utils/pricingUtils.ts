@@ -107,7 +107,8 @@ const getHistoricalIngredientPrice = (ingredient: Ingredient, date?: Date): numb
         return entryDate <= targetDate;
     });
 
-    return effectiveEntry ? effectiveEntry.price : ingredient.cost;
+    // Before the first recorded price, use the earliest known price rather than today's
+    return effectiveEntry ? effectiveEntry.price : sortedHistory[sortedHistory.length - 1].price;
 };
 
 /**
@@ -122,6 +123,12 @@ export const calculateSupplyCost = (
     let totalCost = 0;
     const salsas = settings.pricing.salsas || [];
 
+    // Discos are costed once, from the "Discos" inventory ingredient's price on the order date.
+    // Recipes also list Discos, so that line is skipped in the recipe loop to avoid counting it twice.
+    // Falls back to the manual disco costs in Settings if no Discos ingredient exists.
+    const discoIngredient = settings.ingredients?.find(i => /^discos?$/i.test(i.name.trim()));
+    const discoPrice = discoIngredient ? getHistoricalIngredientPrice(discoIngredient, date) : undefined;
+
     items.forEach(item => {
         if (salsas.some(s => item.name === s.name)) return; 
 
@@ -133,7 +140,7 @@ export const calculateSupplyCost = (
             ? (settings.prepSettings.discosPer?.full ?? 1) 
             : (settings.prepSettings.discosPer?.mini ?? 1);
             
-        const unitDiscoCost = isFull ? settings.discoCosts.full : settings.discoCosts.mini;
+        const unitDiscoCost = discoPrice ?? (isFull ? settings.discoCosts.full : settings.discoCosts.mini);
         totalCost += item.quantity * discosNeededPerItem * unitDiscoCost;
 
         // 2. Filling Cost (Legacy or Detailed)
@@ -146,6 +153,7 @@ export const calculateSupplyCost = (
             // Recipe is defined per 20 mini empanadas.
             // Amount Needed = (ItemQty / 20) * AmountFor20 * FullMultiplier
             flavorRecipe.forEach(ri => {
+                if (discoIngredient && ri.ingredientId === discoIngredient.id) return;
                 const ingredient = settings.ingredients?.find(ing => ing.id === ri.ingredientId);
                 // Only add cost if ingredient exists (prevents errors on deleted ingredients)
                 if (ingredient) {

@@ -7,6 +7,7 @@ import { calculateOrderTotal, calculateSupplyCost } from '../utils/pricingUtils'
 import PackageBuilderModal from './PackageBuilderModal';
 import { AppSettings } from '../services/dbService';
 import { generateTimeSlots, normalizeDateStr } from '../utils/dateUtils';
+import { reconcilePackages, getOrderPlatterSizes } from '../utils/orderUtils';
 
 interface OrderFormModalProps {
     order?: Order;
@@ -170,11 +171,9 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
     const [salsaItems, setSalsaItems] = useState<DynamicSalsaState[]>([]);
     const [email, setEmail] = useState('');
 
-    // New: Track packages added in this session for reporting
-    const [addedPackages, setAddedPackages] = useState<string[]>([]);
-
-    // New: Preserve existing structured packages when editing
-    const [preservedPackages, setPreservedPackages] = useState<OrderPackageSelection[]>([]);
+    // Packages on this order (loaded when editing, added via the package builder, removable).
+    // Saved as both the structured `packages` field and the `originalPackages` name list.
+    const [orderPackages, setOrderPackages] = useState<OrderPackageSelection[]>([]);
 
     const [amountCharged, setAmountCharged] = useState<number | string>(0);
     const [isAutoPrice, setIsAutoPrice] = useState(true);
@@ -218,16 +217,12 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
                 id: s.id, name: s.name, checked: false, quantity: 0
             }));
 
-            // Preserve packages
-            if (order.packages) {
-                setPreservedPackages(order.packages);
-                // Also load legacy package names if present
-                if (order.originalPackages) setAddedPackages(order.originalPackages);
+            // Load packages; older orders only have package names
+            if (order.packages && order.packages.length > 0) {
+                setOrderPackages(order.packages);
+            } else {
+                setOrderPackages((order.originalPackages || []).map((name, i) => ({ instanceId: `legacy-${i}`, name, items: [] })));
             }
-
-            // Filter out package items if they are structured, otherwise load all
-            setPreservedPackages([]);
-            setAddedPackages([]);
 
             order.items.forEach(item => {
                 // Check if Salsa
@@ -391,8 +386,12 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
         setFullSizeItems(newFulls);
         setSalsaItems(newSalsas);
 
-        // Track package name
-        setAddedPackages(prev => [...prev, activePackageBuilder.name]);
+        // Track the package and what was picked in it
+        setOrderPackages(prev => [...prev, {
+            instanceId: Date.now().toString() + '-' + Math.floor(Math.random() * 1000),
+            name: activePackageBuilder.name,
+            items
+        }]);
         setActivePackageBuilder(null);
     };
 
@@ -447,8 +446,8 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
             followUpStatus: order?.followUpStatus || FollowUpStatus.NEEDED,
             approvalStatus: order?.approvalStatus || ApprovalStatus.APPROVED,
             // Track packages
-            originalPackages: addedPackages.length > 0 ? addedPackages : (order?.originalPackages || []),
-            packages: [],
+            originalPackages: orderPackages.map(p => p.name),
+            packages: reconcilePackages(orderPackages, allItems),
         };
 
         onSave(orderData);
@@ -600,6 +599,25 @@ export default function OrderFormModal({ order, onClose, onSave, empanadaFlavors
 
                             {/* Right Column: Items */}
                             <div className="space-y-4">
+                                {orderPackages.length > 0 && (
+                                    <div className="bg-purple-50 p-3 rounded-lg border border-purple-200">
+                                        <h3 className="font-bold text-purple-900 mb-2 text-sm">Packages on this order</h3>
+                                        <div className="flex flex-wrap gap-2">
+                                            {orderPackages.map(pkg => {
+                                                const platterSize = getOrderPlatterSizes({ packages: [pkg] } as Order, pricing.packages || [])[0];
+                                                return (
+                                                    <span key={pkg.instanceId} className="inline-flex items-center gap-1 bg-white border border-purple-200 rounded-full pl-3 pr-1 py-0.5 text-xs text-purple-900">
+                                                        {pkg.name}{platterSize ? ` (${platterSize})` : ''}
+                                                        <button type="button" onClick={() => setOrderPackages(prev => prev.filter(p => p.instanceId !== pkg.instanceId))} className="text-purple-400 hover:text-red-600 p-0.5" title="Remove package from order">
+                                                            <XMarkIcon className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    </span>
+                                                );
+                                            })}
+                                        </div>
+                                        <p className="text-[10px] text-purple-700 mt-2">Removing a package here only removes the label (e.g. Platter). Adjust the item quantities below separately.</p>
+                                    </div>
+                                )}
                                 <ItemInputSection
                                     title="Mini Empanadas"
                                     items={miniItems}

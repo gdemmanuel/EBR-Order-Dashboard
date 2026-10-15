@@ -5,6 +5,7 @@ import { Order, AppSettings, PricingSettings, Flavor, FollowUpStatus, ApprovalSt
 import { saveOrderToDb, softDeleteOrder, saveOrdersBatch, saveExpenseToDb, deleteExpenseFromDb, saveShiftToDb, subscribeToExpenses, subscribeToShifts, updateSettingsInDb, deleteShiftFromDb } from '../services/dbService';
 import { parseOrderDateTime } from '../utils/dateUtils';
 import { generateOrdersCSV } from '../utils/orderUtils';
+import { calculateSupplyCost } from '../utils/pricingUtils';
 
 import Header from './Header';
 import DashboardMetrics from './DashboardMetrics';
@@ -200,12 +201,24 @@ export default function AdminDashboard({
 
     // --- Actions ---
 
+    // Store the order's supply cost on the order so later price or recipe changes don't rewrite past costs.
+    // Prices come from what was in effect on the order date. Once an order is completed its cost is frozen
+    // unless its items are edited.
+    const withSupplyCost = (order: Order): Order => {
+        const existing = visibleOrders.find((o: Order) => o.id === order.id);
+        const itemsUnchanged = existing && JSON.stringify(existing.items) === JSON.stringify(order.items);
+        if (existing?.followUpStatus === FollowUpStatus.COMPLETED && existing.totalCost !== undefined && itemsUnchanged) {
+            return { ...order, totalCost: existing.totalCost };
+        }
+        return { ...order, totalCost: calculateSupplyCost(order.items, settings, parseOrderDateTime(order)) };
+    };
+
     const handleSaveOrder = async (order: Order | Omit<Order, 'id'>) => {
         let orderToSave = order as Order;
         if (!orderToSave.id) {
             orderToSave.id = Date.now().toString();
         }
-        await saveOrderToDb(orderToSave);
+        await saveOrderToDb(withSupplyCost(orderToSave));
         setIsOrderFormOpen(false);
         setEditingOrder(null);
     };
@@ -226,7 +239,7 @@ export default function AdminDashboard({
     const handleUpdateStatus = async (id: string, status: FollowUpStatus, updates?: Partial<Order>) => {
         const order = visibleOrders.find((o: Order) => o.id === id);
         if (order) {
-            await saveOrderToDb({ ...order, ...updates, followUpStatus: status });
+            await saveOrderToDb(withSupplyCost({ ...order, ...updates, followUpStatus: status }));
         }
     };
 
@@ -234,7 +247,7 @@ export default function AdminDashboard({
         const order = visibleOrders.find((o: Order) => o.id === id);
         if (!order) return;
         const newStatus = approved ? ApprovalStatus.APPROVED : ApprovalStatus.DENIED;
-        await saveOrderToDb({ ...order, approvalStatus: newStatus });
+        await saveOrderToDb(withSupplyCost({ ...order, approvalStatus: newStatus }));
     };
 
     const handleDeductInventory = async (order: Order, updates?: Partial<Order>) => {
@@ -256,7 +269,7 @@ export default function AdminDashboard({
         });
 
         await updateSettingsInDb({ inventory: currentInventory });
-        await saveOrderToDb({ ...order, ...updates, followUpStatus: FollowUpStatus.COMPLETED });
+        await saveOrderToDb(withSupplyCost({ ...order, ...updates, followUpStatus: FollowUpStatus.COMPLETED }));
         setSelectedOrder(null);
     };
 

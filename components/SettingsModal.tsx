@@ -6,13 +6,49 @@ import { PricingSettings, MenuPackage, Flavor, SalsaProduct, PricingTier, Employ
 import { XMarkIcon, PlusIcon, TrashIcon, CheckCircleIcon, CogIcon, PencilIcon, ScaleIcon, CurrencyDollarIcon, ClockIcon, SparklesIcon, CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon, ReceiptIcon, UsersIcon, BriefcaseIcon, DocumentTextIcon, ListBulletIcon, MegaphoneIcon, ChatBubbleOvalLeftEllipsisIcon, SparklesIcon as AppearanceIcon, ChevronDownIcon } from './icons/Icons';
 import { SUGGESTED_DESCRIPTIONS } from '../data/mockData';
 
+const toLocalDateStr = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+// Ingredient ids look like "ing-<timestamp>-<n>"; use that timestamp as the creation date.
+// Falls back to the day before `today` if the id has no timestamp or it isn't earlier than today.
+const ingredientCreatedDate = (id: string, today: string): string => {
+    const ms = Number(id.split('-')[1]);
+    const created = ms > 0 ? toLocalDateStr(new Date(ms)) : '';
+    if (created && created < today) return created;
+    const d = new Date(today + 'T00:00:00');
+    d.setDate(d.getDate() - 1);
+    return toLocalDateStr(d);
+};
+
+// Whole numbers as-is, otherwise up to two decimals (e.g. 10, 2.5, 0.25)
+const formatQtyPlain = (n: number) => (Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100));
+
+// Small on/off switch
+const Toggle = ({ on, onChange, label }: { on: boolean; onChange: () => void; label: string }) => (
+    <button
+        type="button"
+        role="switch"
+        aria-checked={on}
+        aria-label={label}
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); onChange(); }}
+        className={`relative inline-flex h-5 w-9 flex-none items-center rounded-full transition-colors ${on ? 'bg-green-500' : 'bg-gray-300'}`}
+    >
+        <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${on ? 'translate-x-4' : 'translate-x-0.5'}`} />
+    </button>
+);
+
 interface SettingsModalProps {
     settings: AppSettings;
     onClose: () => void;
 }
 
 export default function SettingsModal({ settings, onClose }: SettingsModalProps) {
-    const [activeTab, setActiveTab] = useState<'general' | 'appearance' | 'templates' | 'menu' | 'pricing' | 'recipes' | 'costs' | 'scheduling' | 'expenses' | 'employees'>('general');
+    const [section, setSection] = useState<'store' | 'menu' | 'kitchen' | 'team' | 'messages'>('store');
+    const [kitchenTab, setKitchenTab] = useState<'ingredients' | 'recipes' | 'prep' | 'expenses'>('ingredients');
+    const [menuTab, setMenuTab] = useState<'flavors' | 'packages' | 'salsas'>('flavors');
+    const [flavorFilter, setFlavorFilter] = useState<'all' | 'menu' | 'hidden' | 'specials'>('all');
+    const [expandedFlavorIndex, setExpandedFlavorIndex] = useState<number | null>(null);
+    const [showPackageForm, setShowPackageForm] = useState(false);
 
     // Local state for editing
     const [motd, setMotd] = useState(settings.motd || '');
@@ -36,8 +72,13 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
     const [ingredients, setIngredients] = useState<Ingredient[]>(settings.ingredients || []);
     const [newIngredient, setNewIngredient] = useState<Partial<Ingredient>>({ name: '', cost: 0, unit: '' });
 
+    // Ingredients UI State
+    const [ingredientSearch, setIngredientSearch] = useState('');
+    const [expandedIngredientId, setExpandedIngredientId] = useState<string | null>(null);
+
     // Recipes UI State
-    const [expandedRecipeFlavor, setExpandedRecipeFlavor] = useState<string | null>(null);
+    const [selectedRecipe, setSelectedRecipe] = useState<string | null>(null);
+    const [menuFlavorsOnly, setMenuFlavorsOnly] = useState(true);
 
     // Scheduling Settings
     const [scheduling, setScheduling] = useState<AppSettings['scheduling']>(settings.scheduling);
@@ -119,11 +160,25 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                 }
             }));
 
-            // Ensure ingredients are an array and numbers are numbers
-            const sanitizedIngredients = (Array.isArray(ingredients) ? ingredients : []).map(i => ({
-                ...i,
-                cost: Number(i.cost) || 0
-            }));
+            // Ensure ingredients are an array and numbers are numbers.
+            // A changed price is recorded in price history (dated today) so past orders keep the price they had.
+            const today = toLocalDateStr(new Date());
+            const sanitizedIngredients = (Array.isArray(ingredients) ? ingredients : []).map(i => {
+                const cost = Number(i.cost) || 0;
+                const original = (settings.ingredients || []).find(o => o.id === i.id);
+                const oldCost = original ? Number(original.cost) || 0 : undefined;
+                if (oldCost === cost) return { ...i, cost };
+
+                let history = [...(i.priceHistory || [])];
+                // No history yet: keep the old price as the price before today, dated when the ingredient was created
+                if (history.length === 0 && oldCost !== undefined && oldCost > 0) {
+                    history.push({ date: ingredientCreatedDate(i.id, today), price: oldCost });
+                }
+                history = history.filter(h => h.date !== today);
+                history.push({ date: today, price: cost });
+                history.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                return { ...i, cost, priceHistory: history };
+            });
 
             // Generate Full Size Flavors List with specific overrides
             const syncedFullFlavors: Flavor[] = empanadaFlavors.map(f => ({
@@ -181,6 +236,16 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
     };
 
     const removeIngredient = (id: string) => {
+        const ing = ingredients.find(i => i.id === id);
+        const usedIn = Object.entries(prepSettings.recipes || {})
+            .filter(([, list]) => list.some(ri => ri.ingredientId === id))
+            .map(([flavor]) => flavor);
+        const warnings: string[] = [];
+        if (usedIn.length > 0) warnings.push(`It is used in these recipes, which will stop counting its cost: ${usedIn.join(', ')}.`);
+        if (ing?.priceHistory?.length) warnings.push(`Its price history (${ing.priceHistory.length} entries) will be lost.`);
+        if (warnings.length > 0 && !window.confirm(
+            `Delete "${ing?.name}"?\n\n${warnings.join('\n\n')}\n\nTo change its name, price or unit, edit it in the list instead of deleting it.`
+        )) return;
         setIngredients(prev => prev.filter(i => i.id !== id));
     };
 
@@ -264,17 +329,63 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
     const updateEmployee = (id: string, field: keyof Employee | 'productionRates.mini' | 'productionRates.full', value: any) => { setEmployees(employees.map(e => { if (e.id !== id) return e; if (field === 'productionRates.mini') { const currentRates = e.productionRates || { mini: 0, full: 0 }; return { ...e, productionRates: { ...currentRates, mini: parseFloat(value) || 0 } }; } else if (field === 'productionRates.full') { const currentRates = e.productionRates || { mini: 0, full: 0 }; return { ...e, productionRates: { ...currentRates, full: parseFloat(value) || 0 } }; } else { return { ...e, [field]: value }; } })); };
 
     const tabs = [
-        { id: 'general', label: 'General', icon: <MegaphoneIcon className="w-4 h-4" /> },
-        { id: 'appearance', label: 'Appearance', icon: <AppearanceIcon className="w-4 h-4" /> },
-        { id: 'templates', label: 'Templates', icon: <ChatBubbleOvalLeftEllipsisIcon className="w-4 h-4" /> },
-        { id: 'menu', label: 'Menu Items', icon: <ListBulletIcon className="w-4 h-4" /> },
-        { id: 'pricing', label: 'Pricing', icon: <CurrencyDollarIcon className="w-4 h-4" /> },
-        { id: 'recipes', label: 'Recipes & Ingredients', icon: <ScaleIcon className="w-4 h-4" /> },
-        { id: 'employees', label: 'Employees', icon: <UsersIcon className="w-4 h-4" /> },
-        { id: 'costs', label: 'Unit Costs', icon: <BriefcaseIcon className="w-4 h-4" /> },
-        { id: 'expenses', label: 'Expense Categories', icon: <DocumentTextIcon className="w-4 h-4" /> },
-        { id: 'scheduling', label: 'Scheduling', icon: <CalendarDaysIcon className="w-4 h-4" /> },
+        { id: 'store', label: 'Store', hint: 'Hours, closures, notice', icon: <CalendarDaysIcon className="w-4 h-4" /> },
+        { id: 'menu', label: 'Menu and pricing', hint: 'Flavors, packages, salsas', icon: <ListBulletIcon className="w-4 h-4" /> },
+        { id: 'kitchen', label: 'Kitchen and costs', hint: 'Ingredients, recipes, prep', icon: <ScaleIcon className="w-4 h-4" /> },
+        { id: 'team', label: 'Team', hint: 'Staff, wages, rates', icon: <UsersIcon className="w-4 h-4" /> },
+        { id: 'messages', label: 'Messages', hint: 'Templates, status colors', icon: <ChatBubbleOvalLeftEllipsisIcon className="w-4 h-4" /> },
     ];
+
+    // --- Kitchen helpers (prices use the price entered here, which is saved to history on save) ---
+    const isDiscoIngredient = (i: Ingredient) => /^discos?$/i.test(i.name.trim());
+    const discoIngredient = ingredients.find(isDiscoIngredient);
+    const discoPrice = discoIngredient ? Number(discoIngredient.cost) || 0 : Number(discoCosts.mini) || 0;
+    const salsaNameSet = new Set((pricing.salsas || []).map(s => s.name));
+
+    const recipeUsage = (ingredientId: string) =>
+        Object.entries(prepSettings.recipes || {})
+            .map(([flavor, list]) => ({ flavor, ri: list.find(r => r.ingredientId === ingredientId) }))
+            .filter(x => x.ri)
+            .map(x => ({ flavor: x.flavor, amount: x.ri!.amountFor20Minis }));
+
+    const sortedHistory = (ing: Ingredient) =>
+        [...(ing.priceHistory || [])].sort((a, b) => (a.date < b.date ? 1 : -1));
+
+    // Change from the previous recorded price to the current one, as a fraction
+    const priceChange = (ing: Ingredient): number | null => {
+        const hist = sortedHistory(ing);
+        const cost = Number(ing.cost) || 0;
+        const prev = hist.length > 0 && Math.abs(hist[0].price - cost) > 1e-9 ? hist[0].price : hist[1]?.price;
+        if (!prev || prev <= 0) return null;
+        return (cost - prev) / prev;
+    };
+
+    const formatShortDate = (dateStr: string) =>
+        new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+    const formatPrice = (n: number) => (n < 1 ? n.toFixed(3) : n.toFixed(2));
+
+    // Cost of a recipe: per 20 minis for empanadas (fillings + discos), per container for salsas
+    const recipeCost = (name: string) => {
+        const list = (prepSettings.recipes || {})[name] || [];
+        const fillings = list.reduce((sum, ri) => {
+            const ing = ingredients.find(i => i.id === ri.ingredientId);
+            if (!ing || isDiscoIngredient(ing)) return sum;
+            return sum + (ri.amountFor20Minis || 0) * (Number(ing.cost) || 0);
+        }, 0);
+        const hasFillings = list.some(ri => { const ing = ingredients.find(i => i.id === ri.ingredientId); return ing && !isDiscoIngredient(ing); });
+        if (salsaNameSet.has(name)) return { hasRecipe: hasFillings, total: fillings, perUnit: fillings, discos: 0 };
+        const discos = 20 * (Number(prepSettings.discosPer?.mini) || 0) * discoPrice;
+        const total = fillings + discos;
+        return { hasRecipe: hasFillings, total, perUnit: total / 20, discos };
+    };
+
+    const sellPrice = (name: string): number => {
+        const salsa = (pricing.salsas || []).find(s => s.name === name);
+        if (salsa) return salsa.price || 0;
+        const flavor = empanadaFlavors.find(f => f.name === name);
+        return (pricing.mini?.basePrice || 0) + (flavor?.surcharge || 0);
+    };
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-fade-in">
@@ -292,17 +403,20 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                 <div className="flex flex-col md:flex-row flex-grow overflow-hidden">
                     <nav className="w-full md:w-64 flex-shrink-0 bg-gray-50 md:border-r border-b md:border-b-0 border-gray-200 overflow-x-auto md:overflow-y-auto flex md:flex-col no-scrollbar">
                         {tabs.map((tab) => (
-                            <button key={tab.id} className={`flex items-center gap-3 px-4 py-3 md:py-4 text-sm font-medium transition-colors whitespace-nowrap md:whitespace-normal text-left border-b-2 md:border-b-0 md:border-l-4 border-transparent ${activeTab === tab.id ? 'border-brand-orange text-brand-orange bg-white md:bg-brand-orange/5' : 'text-gray-600 hover:text-brand-brown hover:bg-gray-100'}`} onClick={() => setActiveTab(tab.id as any)}>
+                            <button key={tab.id} className={`flex items-center gap-3 px-4 py-3 md:py-4 text-sm font-medium transition-colors whitespace-nowrap md:whitespace-normal text-left border-b-2 md:border-b-0 md:border-l-4 border-transparent ${section === tab.id ? 'border-brand-orange text-brand-orange bg-white md:bg-brand-orange/5' : 'text-gray-600 hover:text-brand-brown hover:bg-gray-100'}`} onClick={() => setSection(tab.id as any)}>
                                 {tab.icon}
-                                <span>{tab.label}</span>
+                                <span>
+                                    {tab.label}
+                                    <span className="hidden md:block text-[11px] font-normal text-gray-400">{tab.hint}</span>
+                                </span>
                             </button>
                         ))}
                     </nav>
 
-                    <div className="flex-grow overflow-y-auto p-4 md:p-8 bg-white">
+                    <div className="flex-grow overflow-y-auto p-4 md:p-8 bg-white space-y-8">
 
                         {/* 1. General Tab */}
-                        {activeTab === 'general' && (
+                        {section === 'store' && (
                             <div className="max-w-2xl mx-auto space-y-6">
                                 <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                                     <h3 className="font-bold text-brand-brown mb-4">Message of the Day</h3>
@@ -313,7 +427,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                         )}
 
                         {/* 2. Appearance Tab */}
-                        {activeTab === 'appearance' && (
+                        {section === 'messages' && (
                             <div className="max-w-2xl mx-auto space-y-6">
                                 <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                                     <h3 className="font-bold text-brand-brown mb-4">Status Colors</h3>
@@ -338,7 +452,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                         )}
 
                         {/* 3. Templates Tab */}
-                        {activeTab === 'templates' && (
+                        {section === 'messages' && (
                             <div className="max-w-4xl mx-auto space-y-6">
                                 <div className="bg-blue-50 p-4 rounded-lg text-sm text-blue-800 mb-6">
                                     <strong>Available Placeholders:</strong> {`{firstName}, {name}, {date}, {time}, {deliveryType}, {deliveryAddress}, {total}, {totals}, {items}`}
@@ -363,454 +477,642 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                             </div>
                         )}
 
-                        {/* 4. Menu Items Tab */}
-                        {activeTab === 'menu' && (
-                            <div className="max-w-5xl mx-auto space-y-8">
-                                <div className="bg-white p-6 rounded-lg border border-brand-tan shadow-sm">
-                                    <div className="flex justify-between items-center mb-6">
-                                        <h3 className="font-bold text-xl text-brand-brown">Flavor Management</h3>
+                        {/* Menu and pricing: sub-tabs */}
+                        {section === 'menu' && (
+                            <div className="max-w-5xl mx-auto flex gap-6 border-b border-gray-200 text-sm">
+                                {([
+                                    ['flavors', `Flavors (${empanadaFlavors.length})`],
+                                    ['packages', `Packages (${(pricing.packages || []).length})`],
+                                    ['salsas', `Salsas and extras (${(pricing.salsas || []).length})`],
+                                ] as const).map(([id, label]) => (
+                                    <button
+                                        key={id}
+                                        onClick={() => setMenuTab(id)}
+                                        className={`pb-2 -mb-px border-b-2 transition-colors ${menuTab === id ? 'border-brand-orange text-brand-orange font-semibold' : 'border-transparent text-gray-500 hover:text-brand-brown'}`}
+                                    >
+                                        {label}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Menu: Flavors */}
+                        {section === 'menu' && menuTab === 'flavors' && (() => {
+                            const miniBase = Number(pricing.mini?.basePrice) || 0;
+                            const fullBase = Number(pricing.full?.basePrice) || 0;
+                            const rows = empanadaFlavors
+                                .map((flavor, index) => ({ flavor, index }))
+                                .filter(({ flavor }) =>
+                                    flavorFilter === 'all' ? true :
+                                    flavorFilter === 'menu' ? flavor.visible :
+                                    flavorFilter === 'hidden' ? !flavor.visible :
+                                    !!flavor.isSpecial);
+                            const counts = {
+                                all: empanadaFlavors.length,
+                                menu: empanadaFlavors.filter(f => f.visible).length,
+                                hidden: empanadaFlavors.filter(f => !f.visible).length,
+                                specials: empanadaFlavors.filter(f => f.isSpecial).length,
+                            };
+                            return (
+                                <div className="max-w-5xl mx-auto space-y-4">
+                                    {/* Base prices */}
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <label className="bg-gray-50 rounded-lg p-3 flex items-center justify-between gap-3">
+                                            <span><span className="block text-sm font-medium text-gray-800">Mini price</span><span className="block text-xs text-gray-500">Before flavor surcharges</span></span>
+                                            <span className="relative w-28"><span className="absolute left-2.5 top-1.5 text-gray-500 text-sm">$</span>
+                                                <input type="number" step="0.01" value={pricing.mini.basePrice} onChange={(e) => setPricing({ ...pricing, mini: { ...pricing.mini, basePrice: parseFloat(e.target.value) } })} className="w-full pl-6 rounded-md border-gray-300 text-sm text-right" />
+                                            </span>
+                                        </label>
+                                        <label className="bg-gray-50 rounded-lg p-3 flex items-center justify-between gap-3">
+                                            <span><span className="block text-sm font-medium text-gray-800">Full size price</span><span className="block text-xs text-gray-500">Before flavor surcharges</span></span>
+                                            <span className="relative w-28"><span className="absolute left-2.5 top-1.5 text-gray-500 text-sm">$</span>
+                                                <input type="number" step="0.01" value={pricing.full.basePrice} onChange={(e) => setPricing({ ...pricing, full: { ...pricing.full, basePrice: parseFloat(e.target.value) } })} className="w-full pl-6 rounded-md border-gray-300 text-sm text-right" />
+                                            </span>
+                                        </label>
+                                    </div>
+
+                                    {/* Filters and add */}
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {([['all', 'All'], ['menu', 'On menu'], ['hidden', 'Hidden'], ['specials', 'Specials']] as const).map(([id, label]) => (
+                                                <button key={id} onClick={() => setFlavorFilter(id)} className={`px-3 py-1 rounded-full text-xs border ${flavorFilter === id ? 'bg-brand-brown text-white border-brand-brown' : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'}`}>
+                                                    {label} <span className={flavorFilter === id ? 'text-white/70' : 'text-gray-400'}>{counts[id]}</span>
+                                                </button>
+                                            ))}
+                                        </div>
                                         <div className="flex gap-2">
-                                            <input
-                                                type="text"
-                                                value={newFlavorName}
-                                                onChange={(e) => setNewFlavorName(e.target.value)}
-                                                placeholder="New Flavor Name"
-                                                className="rounded-md border-gray-300 text-sm"
-                                            />
-                                            <button onClick={addFlavor} className="bg-brand-orange text-white px-4 py-2 rounded-md text-sm font-bold hover:bg-opacity-90">Add</button>
+                                            <input type="text" value={newFlavorName} onChange={(e) => setNewFlavorName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') addFlavor(); }} placeholder="New flavor name" className="rounded-md border-gray-300 text-sm w-48" />
+                                            <button onClick={addFlavor} className="bg-brand-orange text-white px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-1 hover:bg-opacity-90"><PlusIcon className="w-4 h-4" /> Add flavor</button>
                                         </div>
                                     </div>
 
-                                    <div className="space-y-4">
-                                        {empanadaFlavors.map((flavor, index) => (
-                                            <div key={index} className="flex flex-col gap-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                                                {/* Header Row: Name & Toggles */}
-                                                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 justify-between">
-                                                    <div className="flex items-center gap-2 flex-grow">
-                                                        <input
-                                                            type="text"
-                                                            value={flavor.name}
-                                                            onChange={(e) => updateFlavorName(index, e.target.value)}
-                                                            className="font-bold text-brand-brown bg-transparent border-none p-0 focus:ring-0 w-full sm:w-auto"
-                                                        />
-                                                        <button
-                                                            onClick={() => toggleFlavorSpecial(index)}
-                                                            className={`p-1 px-2 rounded-full transition-colors text-xs font-bold uppercase ${flavor.isSpecial ? 'bg-purple-100 text-purple-600' : 'bg-gray-200 text-gray-400'}`}
-                                                            title="Toggle Special/Seasonal"
-                                                        >
-                                                            Special
-                                                        </button>
-                                                    </div>
-
-                                                    <div className="flex items-center gap-3">
-                                                        <button
-                                                            onClick={() => toggleFlavorVisibility(index)}
-                                                            className={`p-2 rounded-full transition-colors ${flavor.visible ? 'bg-green-100 text-green-600' : 'bg-gray-200 text-gray-400'}`}
-                                                            title="Toggle Visibility"
-                                                        >
-                                                            <CheckCircleIcon className="w-4 h-4" />
-                                                        </button>
-                                                        <button onClick={() => removeFlavor(index)} className="text-red-400 hover:text-red-600 p-2">
-                                                            <TrashIcon className="w-4 h-4" />
-                                                        </button>
-                                                    </div>
-                                                </div>
-
-                                                {/* Description */}
-                                                <input
-                                                    type="text"
-                                                    value={flavor.description || ''}
-                                                    onChange={(e) => updateFlavorDescription(index, e.target.value)}
-                                                    placeholder="Description (ingredients, taste profile...)"
-                                                    className="w-full text-xs text-gray-600 border-gray-300 rounded-md bg-white h-8"
-                                                />
-
-                                                {/* Settings Grid */}
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-1 bg-white p-3 rounded border border-gray-200">
-                                                    {/* Mini Settings */}
-                                                    <div className="flex items-center gap-3">
-                                                        <span className="text-xs font-bold text-gray-500 uppercase w-8">Mini</span>
-                                                        <label className="flex items-center gap-1 text-xs text-gray-600" title="Minimum Quantity per Order (Mini)">
-                                                            Min:
-                                                            <input
-                                                                type="number" min="0"
-                                                                value={flavor.minimumQuantity || 0}
-                                                                onChange={(e) => updateFlavorMinQty(index, e.target.value)}
-                                                                className="w-12 h-7 text-sm border-gray-300 rounded text-center"
-                                                            />
-                                                        </label>
-                                                        <label className="flex items-center gap-1 text-xs text-gray-600" title="Extra cost per unit (Mini)">
-                                                            +$
-                                                            <input
-                                                                type="number" step="0.01"
-                                                                value={flavor.surcharge || 0}
-                                                                onChange={(e) => updateFlavorSurcharge(index, e.target.value)}
-                                                                className="w-14 h-7 text-sm border-gray-300 rounded text-right"
-                                                            />
-                                                        </label>
-                                                    </div>
-
-                                                    {/* Full Settings */}
-                                                    <div className="flex items-center gap-3 sm:border-l sm:pl-4 border-gray-100">
-                                                        <span className="text-xs font-bold text-gray-500 uppercase w-8">Full</span>
-                                                        <label className="flex items-center gap-1 text-xs text-gray-600" title="Minimum Quantity per Order (Full)">
-                                                            Min:
-                                                            <input
-                                                                type="number" min="0"
-                                                                value={flavor.fullMinimumQuantity || 0}
-                                                                onChange={(e) => updateFlavorFullMinQty(index, e.target.value)}
-                                                                className="w-12 h-7 text-sm border-gray-300 rounded text-center"
-                                                            />
-                                                        </label>
-                                                        <label className="flex items-center gap-1 text-xs text-gray-600" title="Extra cost per unit (Full)">
-                                                            +$
-                                                            <input
-                                                                type="number" step="0.01"
-                                                                value={flavor.fullSurcharge || 0}
-                                                                onChange={(e) => updateFlavorFullSurcharge(index, e.target.value)}
-                                                                className="w-14 h-7 text-sm border-gray-300 rounded text-right"
-                                                            />
-                                                        </label>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* 5. Pricing Tab */}
-                        {activeTab === 'pricing' && (
-                            <div className="max-w-5xl mx-auto space-y-8">
-                                {/* Base Prices */}
-                                <div className="bg-white p-6 rounded-lg border border-brand-tan shadow-sm">
-                                    <h3 className="font-bold text-brand-brown mb-4">Base Prices</h3>
-                                    <div className="grid grid-cols-2 gap-6">
-                                        <div>
-                                            <label className="block text-sm font-medium mb-1">Mini Base Price</label>
-                                            <div className="relative">
-                                                <span className="absolute left-3 top-2 text-gray-500">$</span>
-                                                <input
-                                                    type="number"
-                                                    step="0.01"
-                                                    value={pricing.mini.basePrice}
-                                                    onChange={(e) => setPricing({ ...pricing, mini: { ...pricing.mini, basePrice: parseFloat(e.target.value) } })}
-                                                    className="w-full pl-6 rounded-md border-gray-300"
-                                                />
-                                            </div>
+                                    {/* Flavor list */}
+                                    <div className="border border-gray-200 rounded-xl overflow-hidden">
+                                        <div className="grid grid-cols-[minmax(0,1.8fr)_90px_110px_110px_24px] gap-3 px-4 py-2 bg-gray-50 text-xs text-gray-500 font-medium">
+                                            <span>Flavor</span><span className="text-center">On menu</span><span className="text-right">Mini</span><span className="text-right">Full size</span><span></span>
                                         </div>
-                                        <div>
-                                            <label className="block text-sm font-medium mb-1">Full-Size Base Price</label>
-                                            <div className="relative">
-                                                <span className="absolute left-3 top-2 text-gray-500">$</span>
-                                                <input
-                                                    type="number"
-                                                    step="0.01"
-                                                    value={pricing.full.basePrice}
-                                                    onChange={(e) => setPricing({ ...pricing, full: { ...pricing.full, basePrice: parseFloat(e.target.value) } })}
-                                                    className="w-full pl-6 rounded-md border-gray-300"
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Packages */}
-                                <div className="bg-white p-6 rounded-lg border border-brand-tan shadow-sm">
-                                    <h3 className="font-bold text-brand-brown mb-4">Package Deals</h3>
-
-                                    {/* Package Form */}
-                                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-6">
-                                        <h4 className="text-sm font-bold text-gray-700 mb-3">{editingPackageId ? 'Edit Package' : 'Add New Package'}</h4>
-                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-                                            <input type="text" placeholder="Package Name" value={packageForm.name} onChange={(e) => setPackageForm({ ...packageForm, name: e.target.value })} className="rounded-md border-gray-300 text-sm md:col-span-2" />
-                                            <select value={packageForm.itemType} onChange={(e) => setPackageForm({ ...packageForm, itemType: e.target.value as any })} className="rounded-md border-gray-300 text-sm">
-                                                <option value="mini">Mini</option>
-                                                <option value="full">Full-Size</option>
-                                            </select>
-                                            <div className="relative"><span className="absolute left-2 top-2 text-gray-500 text-xs">$</span><input type="number" placeholder="Price" value={packageForm.price} onChange={(e) => setPackageForm({ ...packageForm, price: parseFloat(e.target.value) })} className="pl-5 w-full rounded-md border-gray-300 text-sm" /></div>
-                                        </div>
-                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-                                            <input type="number" placeholder="Qty Items" value={packageForm.quantity} onChange={(e) => setPackageForm({ ...packageForm, quantity: parseInt(e.target.value) })} className="rounded-md border-gray-300 text-sm" />
-                                            <input type="number" placeholder="Max Flavors" value={packageForm.maxFlavors} onChange={(e) => setPackageForm({ ...packageForm, maxFlavors: parseInt(e.target.value) })} className="rounded-md border-gray-300 text-sm" />
-                                            <input type="number" placeholder="Increment (e.g. 1)" value={packageForm.increment || ''} onChange={(e) => setPackageForm({ ...packageForm, increment: parseInt(e.target.value) })} className="rounded-md border-gray-300 text-sm" />
-                                            <div className="flex flex-col gap-1">
-                                                <label className="flex items-center gap-2 text-sm bg-white border border-gray-300 rounded px-2 py-1"><input type="checkbox" checked={packageForm.isSpecial} onChange={(e) => setPackageForm({ ...packageForm, isSpecial: e.target.checked })} /> Is Special?</label>
-                                                <label className="flex items-center gap-2 text-sm bg-white border border-gray-300 rounded px-2 py-1"><input type="checkbox" checked={packageForm.isPartyPlatter} onChange={(e) => setPackageForm({ ...packageForm, isPartyPlatter: e.target.checked })} /> Is Party Platter?</label>
-                                            </div>
-                                        </div>
-                                        <input type="text" placeholder="Description (optional)" value={packageForm.description} onChange={(e) => setPackageForm({ ...packageForm, description: e.target.value })} className="w-full rounded-md border-gray-300 text-sm mb-3" />
-                                        <div className="flex justify-end gap-2">
-                                            {editingPackageId && <button onClick={() => { setEditingPackageId(null); setPackageForm({ itemType: 'mini', quantity: 12, price: 20, maxFlavors: 4, increment: 1, visible: true, isSpecial: false, isPartyPlatter: false, name: '', description: '' }); }} className="text-gray-500 text-sm underline">Cancel</button>}
-                                            <button onClick={handleAddOrUpdatePackage} className="bg-brand-orange text-white px-4 py-1.5 rounded-md text-sm font-bold">{editingPackageId ? 'Update' : 'Add'}</button>
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {(pricing.packages || []).map(pkg => (
-                                            <div key={pkg.id} className={`p-4 rounded-lg border relative group ${pkg.visible ? 'bg-white border-gray-200' : 'bg-gray-100 border-gray-200 opacity-70'}`}>
-                                                <div className="flex justify-between items-start">
-                                                    <div>
-                                                        <h5 className="font-bold text-brand-brown">{pkg.name}</h5>
-                                                        <p className="text-xs text-gray-500">{pkg.quantity} {pkg.itemType} empanadas • ${pkg.price}</p>
-                                                        <p className="text-xs text-gray-400">Max {pkg.maxFlavors} flavors • Step {pkg.increment || 1}</p>
-                                                        <div className="flex gap-1 mt-1">
-                                                            {pkg.isSpecial && <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-bold uppercase">Special</span>}
-                                                            {pkg.isPartyPlatter && <span className="text-[10px] bg-pink-100 text-pink-700 px-1.5 py-0.5 rounded font-bold uppercase">Platter</span>}
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex gap-2">
-                                                        <button onClick={() => togglePackageVisibility(pkg.id)} className="text-gray-400 hover:text-blue-600"><CheckCircleIcon className={`w-4 h-4 ${pkg.visible ? 'text-green-500' : 'text-gray-300'}`} /></button>
-                                                        <button onClick={() => handleEditPackageClick(pkg)} className="text-gray-400 hover:text-brand-orange"><PencilIcon className="w-4 h-4" /></button>
-                                                        <button onClick={() => removePackage(pkg.id)} className="text-gray-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {/* Salsas */}
-                                <div className="bg-white p-6 rounded-lg border border-brand-tan shadow-sm">
-                                    <h3 className="font-bold text-brand-brown mb-4">Salsas & Extras</h3>
-                                    <div className="flex gap-2 mb-4">
-                                        <input type="text" placeholder="Name (e.g. Salsa Verde)" value={newSalsaName} onChange={(e) => setNewSalsaName(e.target.value)} className="flex-grow rounded-md border-gray-300 text-sm" />
-                                        <input type="number" placeholder="Price" value={newSalsaPrice} onChange={(e) => setNewSalsaPrice(e.target.value)} className="w-24 rounded-md border-gray-300 text-sm" />
-                                        <button onClick={addSalsa} className="bg-brand-orange text-white px-4 py-2 rounded-md text-sm font-bold">Add</button>
-                                    </div>
-                                    <div className="space-y-2">
-                                        {(pricing.salsas || []).map(salsa => (
-                                            <div key={salsa.id} className="flex justify-between items-center p-3 bg-gray-50 rounded border border-gray-200">
-                                                <span className="font-medium text-brand-brown">{salsa.name}</span>
-                                                <div className="flex items-center gap-3">
-                                                    <input
-                                                        type="number"
-                                                        value={salsa.price}
-                                                        onChange={(e) => updateSalsaPrice(salsa.id, e.target.value)}
-                                                        className="w-20 text-sm border-gray-300 rounded p-1 text-right"
-                                                    />
-                                                    <button onClick={() => toggleSalsaVisibility(salsa.id)} className={`p-1 rounded-full ${salsa.visible ? 'text-green-500' : 'text-gray-300'}`}><CheckCircleIcon className="w-4 h-4" /></button>
-                                                    <button onClick={() => removeSalsa(salsa.id)} className="text-red-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* 6. Recipes Tab */}
-                        {activeTab === 'recipes' && (
-                            <div className="max-w-5xl mx-auto space-y-8">
-                                {/* Master Ingredient List */}
-                                <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                                    <h3 className="font-bold text-brand-brown mb-4">Master Ingredient List</h3>
-                                    <div className="flex gap-3 mb-4 items-end">
-                                        <div className="flex-grow">
-                                            <label className="block text-xs font-bold text-gray-500 mb-1">Name</label>
-                                            <input type="text" value={newIngredient.name} onChange={(e) => setNewIngredient({ ...newIngredient, name: e.target.value })} placeholder="e.g. Ground Beef" className="w-full rounded-md border-gray-300 text-sm" />
-                                        </div>
-                                        <div className="w-24">
-                                            <label className="block text-xs font-bold text-gray-500 mb-1">Cost ($)</label>
-                                            <input type="number" step="0.01" value={newIngredient.cost} onChange={(e) => setNewIngredient({ ...newIngredient, cost: parseFloat(e.target.value) })} className="w-full rounded-md border-gray-300 text-sm" />
-                                        </div>
-                                        <div className="w-24">
-                                            <label className="block text-xs font-bold text-gray-500 mb-1">Unit</label>
-                                            <input type="text" value={newIngredient.unit} onChange={(e) => setNewIngredient({ ...newIngredient, unit: e.target.value })} placeholder="e.g. lbs" className="w-full rounded-md border-gray-300 text-sm" />
-                                        </div>
-                                        <button onClick={addIngredient} className="bg-brand-orange text-white px-3 py-2 rounded-md h-[38px]"><PlusIcon className="w-5 h-5" /></button>
-                                    </div>
-
-                                    <div className="bg-white rounded border border-gray-200 max-h-60 overflow-y-auto">
-                                        <table className="min-w-full divide-y divide-gray-200 text-sm">
-                                            <thead className="bg-gray-100">
-                                                <tr>
-                                                    <th className="px-4 py-2 text-left font-bold text-gray-600">Ingredient</th>
-                                                    <th className="px-4 py-2 text-left font-bold text-gray-600">Cost / Unit</th>
-                                                    <th className="px-4 py-2 text-right"></th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-gray-100">
-                                                {ingredients.map(ing => (
-                                                    <tr key={ing.id}>
-                                                        <td className="px-4 py-2"><input type="text" value={ing.name} onChange={(e) => updateIngredient(ing.id, 'name', e.target.value)} className="border-none bg-transparent w-full p-0 focus:ring-0" /></td>
-                                                        <td className="px-4 py-2 flex items-center gap-2">
-                                                            <span>$</span>
-                                                            <input type="number" step="0.01" value={ing.cost} onChange={(e) => updateIngredient(ing.id, 'cost', e.target.value)} className="w-16 border-gray-200 rounded p-1 text-right" />
-                                                            <span>/</span>
-                                                            <input type="text" value={ing.unit} onChange={(e) => updateIngredient(ing.id, 'unit', e.target.value)} className="w-12 border-gray-200 rounded p-1" />
-                                                        </td>
-                                                        <td className="px-4 py-2 text-right"><button onClick={() => removeIngredient(ing.id)} className="text-red-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button></td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-
-                                {/* Recipe Builder */}
-                                <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                                    <h3 className="font-bold text-brand-brown mb-4">Flavor Recipes</h3>
-                                    <p className="text-xs text-gray-500 mb-4">
-                                        Define ingredients required for <strong className="text-brand-brown">20 Mini Empanadas</strong> or <strong className="text-brand-brown">1 Unit of Salsa/Extra</strong>.
-                                    </p>
-
-                                    <div className="space-y-2">
-                                        {[
-                                            ...empanadaFlavors.map(f => ({ name: f.name, type: 'flavor' })),
-                                            ...(pricing.salsas || []).map(s => ({ name: s.name, type: 'salsa' }))
-                                        ].map(item => {
-                                            const isExpanded = expandedRecipeFlavor === item.name;
-                                            const recipe = prepSettings.recipes?.[item.name] || [];
-                                            const costEst = recipe.reduce((sum, ri) => {
-                                                const ing = ingredients.find(i => i.id === ri.ingredientId);
-                                                return sum + ((ri.amountFor20Minis || 0) * (ing?.cost || 0));
-                                            }, 0);
-
-                                            const isSalsa = item.type === 'salsa';
-                                            const label = isSalsa ? 'Est. Cost/Unit' : 'Est. Cost/20';
-                                            const quantityLabel = isSalsa ? 'Qty (per Unit)' : 'Qty (per 20)';
-
+                                        {rows.map(({ flavor, index }) => {
+                                            const isOpen = expandedFlavorIndex === index;
+                                            const miniSur = Number(flavor.surcharge) || 0;
+                                            const fullSur = Number(flavor.fullSurcharge) || 0;
+                                            const priceCell = (base: number, sur: number, min?: number) => (
+                                                <span className="text-right">
+                                                    <span className="block tabular-nums text-gray-800">${(base + sur).toFixed(2)}</span>
+                                                    <span className="block text-[11px] text-gray-400">
+                                                        {[sur ? `+$${sur.toFixed(2)}` : '', min ? `min ${min}` : ''].filter(Boolean).join(' · ') || ' '}
+                                                    </span>
+                                                </span>
+                                            );
                                             return (
-                                                <div key={item.name} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                                                    <button
-                                                        onClick={() => setExpandedRecipeFlavor(isExpanded ? null : item.name)}
-                                                        className="w-full flex justify-between items-center p-3 bg-white hover:bg-gray-50 transition-colors text-left"
-                                                    >
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="font-bold text-brand-brown">{item.name}</span>
-                                                            {isSalsa && <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold uppercase">Salsa/Extra</span>}
-                                                        </div>
-                                                        <div className="flex items-center gap-4">
-                                                            <span className="text-xs text-green-600 font-medium">{label}: ${costEst.toFixed(2)}</span>
-                                                            <ChevronDownIcon className={`w-5 h-5 text-gray-400 transform transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-                                                        </div>
-                                                    </button>
-
-                                                    {isExpanded && (
-                                                        <div className="p-4 border-t border-gray-100 bg-gray-50/50">
-                                                            <div className="space-y-2 mb-3">
-                                                                {recipe.length > 0 && (
-                                                                    <div className="flex px-2 text-xs font-bold text-gray-500 mb-1">
-                                                                        <span className="flex-grow">Ingredient Name</span>
-                                                                        <span className="w-28 text-center">{quantityLabel}</span>
-                                                                        <span className="w-20 text-right">Est. Cost</span>
-                                                                        <span className="w-6"></span>
-                                                                    </div>
-                                                                )}
-
-                                                                {recipe.map((ri, idx) => {
-                                                                    const ing = ingredients.find(i => i.id === ri.ingredientId);
-                                                                    const lineCost = (ri.amountFor20Minis || 0) * (ing?.cost || 0);
-                                                                    return (
-                                                                        <div key={idx} className="flex items-center gap-3 bg-white p-2 rounded border border-gray-200">
-                                                                            <span className="flex-grow text-sm font-medium text-gray-800">{ing?.name || 'Unknown'}</span>
-                                                                            <div className="flex items-center gap-1 justify-center w-28">
-                                                                                <input
-                                                                                    type="number" step="0.01"
-                                                                                    value={ri.amountFor20Minis === 0 ? '' : ri.amountFor20Minis}
-                                                                                    placeholder="0"
-                                                                                    onChange={(e) => updateRecipeIngredientAmount(item.name, ri.ingredientId, parseFloat(e.target.value) || 0)}
-                                                                                    className="w-16 text-sm border-gray-300 rounded text-center focus:ring-brand-orange focus:border-brand-orange p-1"
-                                                                                />
-                                                                                <span className="text-xs text-gray-500 w-8 truncate" title={ing?.unit}>{ing?.unit}</span>
-                                                                            </div>
-                                                                            <span className="w-20 text-right text-xs text-gray-500">${lineCost.toFixed(2)}</span>
-                                                                            <button onClick={() => removeIngredientFromRecipe(item.name, ri.ingredientId)} className="text-red-400 hover:text-red-600 p-1 w-6 flex justify-end"><TrashIcon className="w-4 h-4" /></button>
-                                                                        </div>
-                                                                    );
-                                                                })}
-                                                                {recipe.length === 0 && <p className="text-xs text-gray-400 italic text-center py-2">No ingredients added yet.</p>}
+                                                <div key={index} className={`border-t border-gray-100 ${!flavor.visible ? 'bg-gray-50/60' : ''}`}>
+                                                    <div className={`grid grid-cols-[minmax(0,1.8fr)_90px_110px_110px_24px] gap-3 px-4 py-2.5 items-center text-sm ${isOpen ? 'bg-orange-50' : ''}`}>
+                                                        <button onClick={() => setExpandedFlavorIndex(isOpen ? null : index)} className="text-left min-w-0">
+                                                            <span className={`flex items-center gap-2 ${flavor.visible ? 'text-gray-900' : 'text-gray-400'}`}>
+                                                                <span className={`truncate ${isOpen ? 'font-semibold text-orange-900' : ''}`}>{flavor.name}</span>
+                                                                {flavor.isSpecial && <span className="flex-none px-1.5 py-0.5 rounded bg-purple-100 text-purple-800 text-[10px] font-medium">Special</span>}
+                                                            </span>
+                                                            {flavor.description && <span className="block text-xs text-gray-400 truncate">{flavor.description}</span>}
+                                                        </button>
+                                                        <span className="flex justify-center"><Toggle on={!!flavor.visible} onChange={() => toggleFlavorVisibility(index)} label={`Show ${flavor.name} on the menu`} /></span>
+                                                        {priceCell(miniBase, miniSur, flavor.minimumQuantity)}
+                                                        {priceCell(fullBase, fullSur, flavor.fullMinimumQuantity)}
+                                                        <button onClick={() => setExpandedFlavorIndex(isOpen ? null : index)} aria-label="Edit flavor"><ChevronDownIcon className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} /></button>
+                                                    </div>
+                                                    {isOpen && (
+                                                        <div className="px-4 pb-4 pt-3 bg-orange-50/40 border-t border-orange-100 space-y-3 text-sm">
+                                                            <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr] gap-3">
+                                                                <label className="text-xs text-gray-500">Name
+                                                                    <input type="text" value={flavor.name} onChange={(e) => updateFlavorName(index, e.target.value)} className="mt-1 w-full rounded border-gray-300 text-sm py-1" />
+                                                                </label>
+                                                                <label className="text-xs text-gray-500">Description shown to customers
+                                                                    <input type="text" value={flavor.description || ''} onChange={(e) => updateFlavorDescription(index, e.target.value)} placeholder="Seasoned ground beef, onions and peppers" className="mt-1 w-full rounded border-gray-300 text-sm py-1" />
+                                                                </label>
                                                             </div>
-
-                                                            <div className="flex gap-2">
-                                                                <select
-                                                                    onChange={(e) => { addIngredientToRecipe(item.name, e.target.value); e.target.value = ''; }}
-                                                                    className="flex-grow text-sm border-gray-300 rounded shadow-sm focus:ring-brand-orange focus:border-brand-orange"
-                                                                    defaultValue=""
-                                                                >
-                                                                    <option value="" disabled>Add Ingredient...</option>
-                                                                    {ingredients.filter(i => !recipe.some(r => r.ingredientId === i.id)).map(i => (
-                                                                        <option key={i.id} value={i.id}>{i.name} ({i.unit})</option>
-                                                                    ))}
-                                                                </select>
+                                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                                                <label className="text-xs text-gray-500">Mini surcharge ($)
+                                                                    <input type="number" step="0.01" value={flavor.surcharge || 0} onChange={(e) => updateFlavorSurcharge(index, e.target.value)} className="mt-1 w-full rounded border-gray-300 text-sm py-1 text-right" />
+                                                                </label>
+                                                                <label className="text-xs text-gray-500">Mini minimum per order
+                                                                    <input type="number" min="0" value={flavor.minimumQuantity || 0} onChange={(e) => updateFlavorMinQty(index, e.target.value)} className="mt-1 w-full rounded border-gray-300 text-sm py-1 text-right" />
+                                                                </label>
+                                                                <label className="text-xs text-gray-500">Full size surcharge ($)
+                                                                    <input type="number" step="0.01" value={flavor.fullSurcharge || 0} onChange={(e) => updateFlavorFullSurcharge(index, e.target.value)} className="mt-1 w-full rounded border-gray-300 text-sm py-1 text-right" />
+                                                                </label>
+                                                                <label className="text-xs text-gray-500">Full size minimum per order
+                                                                    <input type="number" min="0" value={flavor.fullMinimumQuantity || 0} onChange={(e) => updateFlavorFullMinQty(index, e.target.value)} className="mt-1 w-full rounded border-gray-300 text-sm py-1 text-right" />
+                                                                </label>
+                                                            </div>
+                                                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                                                <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                                                                    <Toggle on={!!flavor.isSpecial} onChange={() => toggleFlavorSpecial(index)} label="Special or seasonal" />
+                                                                    Special or seasonal <span className="text-xs text-gray-500">(shown in the Specials section)</span>
+                                                                </label>
+                                                                <div className="flex items-center gap-4">
+                                                                    <button onClick={() => { setSelectedRecipe(flavor.name); setSection('kitchen'); setKitchenTab('recipes'); }} className="text-xs text-brand-orange hover:underline">Edit recipe</button>
+                                                                    <button onClick={() => { if (window.confirm(`Delete "${flavor.name}" from the menu? To take it off the menu but keep it, turn off "On menu" instead.`)) { removeFlavor(index); setExpandedFlavorIndex(null); } }} className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1"><TrashIcon className="w-3.5 h-3.5" /> Delete flavor</button>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     )}
                                                 </div>
                                             );
                                         })}
+                                        {rows.length === 0 && <p className="px-4 py-6 text-sm text-gray-400 text-center border-t border-gray-100">No flavors in this view.</p>}
                                     </div>
                                 </div>
-                            </div>
-                        )}
+                            );
+                        })()}
 
-                        {/* 7. Costs Tab */}
-                        {activeTab === 'costs' && (
-                            <div className="max-w-4xl space-y-8">
-                                <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                                    <h3 className="font-bold text-brand-brown mb-4">Unit Costs</h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div>
-                                            <label className="block text-sm font-medium">Mini Disco Cost</label>
-                                            <input type="number" step="0.01" value={discoCosts.mini} onChange={(e) => setDiscoCosts({ ...discoCosts, mini: parseFloat(e.target.value) || 0 })} className="w-full rounded border-gray-300" />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium">Full Disco Cost</label>
-                                            <input type="number" step="0.01" value={discoCosts.full} onChange={(e) => setDiscoCosts({ ...discoCosts, full: parseFloat(e.target.value) || 0 })} className="w-full rounded border-gray-300" />
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* 8. Employees Tab */}
-                        {activeTab === 'employees' && (
-                            <div className="max-w-4xl space-y-8">
-                                <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
-                                    <h3 className="font-bold text-brand-brown mb-4">Staff Management</h3>
-                                    <div className="bg-white p-4 rounded border border-gray-200 mb-6">
-                                        <h4 className="text-sm font-bold text-gray-700 mb-3">Add New Employee</h4>
-                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
-                                            <div className="col-span-2">
-                                                <label className="block text-xs font-bold text-gray-500 mb-1">Name</label>
-                                                <input type="text" value={newEmployee.name} onChange={(e) => setNewEmployee({ ...newEmployee, name: e.target.value })} className="w-full rounded-md border-gray-300 text-sm" placeholder="John Doe" />
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs font-bold text-gray-500 mb-1">Wage ($/hr)</label>
-                                                <input type="number" value={newEmployee.hourlyWage} onChange={(e) => setNewEmployee({ ...newEmployee, hourlyWage: parseFloat(e.target.value) })} className="w-full rounded-md border-gray-300 text-sm" />
-                                            </div>
-                                            <div>
-                                                <label className="block text-xs font-bold text-gray-500 mb-1">Rate (Mini/Hr)</label>
-                                                <input type="number" value={newEmployee.productionRates?.mini} onChange={(e) => setNewEmployee({ ...newEmployee, productionRates: { ...(newEmployee.productionRates || { mini: 0, full: 0 }), mini: parseFloat(e.target.value) } })} className="w-full rounded-md border-gray-300 text-sm" />
-                                            </div>
-                                        </div>
-                                        <div className="flex justify-end mt-3">
-                                            <button onClick={addEmployee} className="bg-brand-orange text-white px-4 py-2 rounded-md text-sm font-bold hover:bg-opacity-90">Add Employee</button>
-                                        </div>
+                        {/* Menu: Packages */}
+                        {section === 'menu' && menuTab === 'packages' && (() => {
+                            const resetPackageForm = () => { setEditingPackageId(null); setPackageForm({ itemType: 'mini', quantity: 12, price: 20, maxFlavors: 4, increment: 1, visible: true, isSpecial: false, isPartyPlatter: false, name: '', description: '' }); setShowPackageForm(false); };
+                            const groups: { title: string; items: MenuPackage[] }[] = [
+                                { title: 'Mini packages', items: (pricing.packages || []).filter(p => p.itemType === 'mini' && !p.isPartyPlatter && !p.isSpecial) },
+                                { title: 'Full size packages', items: (pricing.packages || []).filter(p => p.itemType === 'full' && !p.isPartyPlatter && !p.isSpecial) },
+                                { title: 'Party platters', items: (pricing.packages || []).filter(p => p.isPartyPlatter) },
+                                { title: 'Specials', items: (pricing.packages || []).filter(p => p.isSpecial && !p.isPartyPlatter) },
+                            ].filter(g => g.items.length > 0);
+                            const formOpen = showPackageForm || !!editingPackageId;
+                            const fieldCls = 'mt-1 w-full rounded border-gray-300 text-sm py-1';
+                            return (
+                                <div className="max-w-5xl mx-auto space-y-5">
+                                    <div className="flex justify-between items-center">
+                                        <p className="text-sm text-gray-500">Packages customers can pick on the order page.</p>
+                                        {!formOpen && <button onClick={() => setShowPackageForm(true)} className="bg-brand-orange text-white px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-1 hover:bg-opacity-90"><PlusIcon className="w-4 h-4" /> Add package</button>}
                                     </div>
 
-                                    <div className="space-y-2">
-                                        {employees.map(emp => (
-                                            <div key={emp.id} className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg">
-                                                <div>
-                                                    <input type="text" value={emp.name} onChange={(e) => updateEmployee(emp.id, 'name', e.target.value)} className="font-bold text-brand-brown border-none p-0 focus:ring-0 text-sm" />
-                                                    <div className="flex gap-4 text-xs text-gray-500 mt-1">
-                                                        <label className="flex items-center gap-1">Wage: $<input type="number" value={emp.hourlyWage} onChange={(e) => updateEmployee(emp.id, 'hourlyWage', e.target.value)} className="w-12 p-0 border-none bg-transparent border-b border-gray-300 text-xs" /></label>
-                                                        <label className="flex items-center gap-1">Mini Rate: <input type="number" value={emp.productionRates?.mini} onChange={(e) => updateEmployee(emp.id, 'productionRates.mini', e.target.value)} className="w-10 p-0 border-none bg-transparent border-b border-gray-300 text-xs" /></label>
-                                                    </div>
+                                    {formOpen && (
+                                        <div className="border border-orange-200 bg-orange-50/40 rounded-xl p-4 space-y-3">
+                                            <h4 className="text-sm font-semibold text-brand-brown">{editingPackageId ? `Edit ${packageForm.name || 'package'}` : 'New package'}</h4>
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                                <label className="text-xs text-gray-500 col-span-2">Name
+                                                    <input type="text" value={packageForm.name} onChange={(e) => setPackageForm({ ...packageForm, name: e.target.value })} placeholder="Package of 20" className={fieldCls} />
+                                                </label>
+                                                <label className="text-xs text-gray-500">Size
+                                                    <select value={packageForm.itemType} onChange={(e) => setPackageForm({ ...packageForm, itemType: e.target.value as any })} className={fieldCls}>
+                                                        <option value="mini">Mini</option>
+                                                        <option value="full">Full size</option>
+                                                    </select>
+                                                </label>
+                                                <label className="text-xs text-gray-500">Price ($)
+                                                    <input type="number" step="0.01" value={packageForm.price} onChange={(e) => setPackageForm({ ...packageForm, price: parseFloat(e.target.value) })} className={`${fieldCls} text-right`} />
+                                                </label>
+                                                <label className="text-xs text-gray-500">Empanadas in package
+                                                    <input type="number" value={packageForm.quantity} onChange={(e) => setPackageForm({ ...packageForm, quantity: parseInt(e.target.value) })} className={`${fieldCls} text-right`} />
+                                                </label>
+                                                <label className="text-xs text-gray-500">Max flavors
+                                                    <input type="number" value={packageForm.maxFlavors} onChange={(e) => setPackageForm({ ...packageForm, maxFlavors: parseInt(e.target.value) })} className={`${fieldCls} text-right`} />
+                                                </label>
+                                                <label className="text-xs text-gray-500">Pick in steps of
+                                                    <input type="number" value={packageForm.increment || ''} onChange={(e) => setPackageForm({ ...packageForm, increment: parseInt(e.target.value) })} placeholder="1" className={`${fieldCls} text-right`} />
+                                                </label>
+                                                <div className="flex flex-col justify-end gap-1.5 text-sm text-gray-700">
+                                                    <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={!!packageForm.isPartyPlatter} onChange={(e) => setPackageForm({ ...packageForm, isPartyPlatter: e.target.checked })} className="rounded border-gray-300 text-brand-orange focus:ring-brand-orange" /> Party platter</label>
+                                                    <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={!!packageForm.isSpecial} onChange={(e) => setPackageForm({ ...packageForm, isSpecial: e.target.checked })} className="rounded border-gray-300 text-brand-orange focus:ring-brand-orange" /> Special</label>
                                                 </div>
-                                                <button onClick={() => removeEmployee(emp.id)} className="text-red-400 hover:text-red-600"><TrashIcon className="w-4 h-4" /></button>
                                             </div>
-                                        ))}
+                                            <label className="block text-xs text-gray-500">Description (optional)
+                                                <input type="text" value={packageForm.description} onChange={(e) => setPackageForm({ ...packageForm, description: e.target.value })} className={fieldCls} />
+                                            </label>
+                                            <div className="flex justify-end gap-3">
+                                                <button onClick={resetPackageForm} className="text-gray-500 text-sm hover:text-gray-700">Cancel</button>
+                                                <button onClick={() => { handleAddOrUpdatePackage(); setShowPackageForm(false); }} className="bg-brand-orange text-white px-4 py-1.5 rounded-md text-sm font-medium">{editingPackageId ? 'Update package' : 'Add package'}</button>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {groups.map(group => (
+                                        <div key={group.title}>
+                                            <h4 className="text-xs font-semibold text-gray-500 mb-2">{group.title}</h4>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                                {group.items.map(pkg => (
+                                                    <div key={pkg.id} className={`rounded-xl border p-3 ${pkg.visible ? 'bg-white border-gray-200' : 'bg-gray-50 border-gray-200'} ${editingPackageId === pkg.id ? 'ring-2 ring-orange-300' : ''}`}>
+                                                        <div className="flex justify-between items-start gap-2">
+                                                            <div className="min-w-0">
+                                                                <p className={`text-sm font-medium truncate ${pkg.visible ? 'text-gray-900' : 'text-gray-400'}`}>{pkg.name}</p>
+                                                                <p className={`text-xl font-semibold ${pkg.visible ? 'text-brand-brown' : 'text-gray-400'}`}>${Number(pkg.price).toFixed(2)}</p>
+                                                            </div>
+                                                            <Toggle on={!!pkg.visible} onChange={() => togglePackageVisibility(pkg.id)} label={`Show ${pkg.name} on the menu`} />
+                                                        </div>
+                                                        <p className="text-xs text-gray-500 mt-1">
+                                                            {pkg.quantity} {pkg.itemType === 'full' ? 'full size' : 'mini'} · ${pkg.quantity ? (pkg.price / pkg.quantity).toFixed(2) : '0.00'} each
+                                                        </p>
+                                                        <p className="text-xs text-gray-400">Up to {pkg.maxFlavors} flavors · steps of {pkg.increment || 1}</p>
+                                                        {pkg.description && <p className="text-xs text-gray-500 mt-1 line-clamp-2">{pkg.description}</p>}
+                                                        <div className="flex justify-end gap-3 mt-2 pt-2 border-t border-gray-100">
+                                                            <button onClick={() => { handleEditPackageClick(pkg); setShowPackageForm(true); }} className="text-xs text-gray-500 hover:text-brand-orange flex items-center gap-1"><PencilIcon className="w-3.5 h-3.5" /> Edit</button>
+                                                            <button onClick={() => { if (window.confirm(`Delete "${pkg.name}"?`)) removePackage(pkg.id); }} className="text-xs text-gray-500 hover:text-red-600 flex items-center gap-1"><TrashIcon className="w-3.5 h-3.5" /> Delete</button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {groups.length === 0 && <p className="text-sm text-gray-400 text-center py-6">No packages yet.</p>}
+                                </div>
+                            );
+                        })()}
+
+                        {/* Menu: Salsas and extras */}
+                        {section === 'menu' && menuTab === 'salsas' && (
+                            <div className="max-w-3xl mx-auto space-y-4">
+                                <div className="flex flex-wrap gap-2 justify-end">
+                                    <input type="text" placeholder="Salsa Verde (8oz)" value={newSalsaName} onChange={(e) => setNewSalsaName(e.target.value)} className="flex-grow min-w-[180px] rounded-md border-gray-300 text-sm" />
+                                    <span className="relative w-28"><span className="absolute left-2.5 top-2 text-gray-500 text-sm">$</span>
+                                        <input type="number" step="0.01" placeholder="0.00" value={newSalsaPrice} onChange={(e) => setNewSalsaPrice(e.target.value)} className="w-full pl-6 rounded-md border-gray-300 text-sm text-right" />
+                                    </span>
+                                    <button onClick={addSalsa} className="bg-brand-orange text-white px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-1"><PlusIcon className="w-4 h-4" /> Add</button>
+                                </div>
+                                <div className="border border-gray-200 rounded-xl overflow-hidden">
+                                    <div className="grid grid-cols-[minmax(0,1fr)_120px_90px_90px_24px] gap-3 px-4 py-2 bg-gray-50 text-xs text-gray-500 font-medium">
+                                        <span>Item</span><span className="text-right">Price</span><span className="text-right">Cost</span><span className="text-center">On menu</span><span></span>
                                     </div>
+                                    {(pricing.salsas || []).map(salsa => {
+                                        const cost = recipeCost(salsa.name);
+                                        return (
+                                            <div key={salsa.id} className="grid grid-cols-[minmax(0,1fr)_120px_90px_90px_24px] gap-3 px-4 py-2.5 items-center border-t border-gray-100 text-sm">
+                                                <span className={salsa.visible ? 'text-gray-900' : 'text-gray-400'}>{salsa.name}</span>
+                                                <span className="relative"><span className="absolute left-2.5 top-1.5 text-gray-500 text-sm">$</span>
+                                                    <input type="number" step="0.01" value={salsa.price} onChange={(e) => updateSalsaPrice(salsa.id, e.target.value)} className="w-full pl-6 rounded border-gray-300 text-sm py-1 text-right" />
+                                                </span>
+                                                <button onClick={() => { setSelectedRecipe(salsa.name); setSection('kitchen'); setKitchenTab('recipes'); }} className="text-right text-xs text-gray-500 hover:text-brand-orange" title="Edit recipe">
+                                                    {cost.hasRecipe ? `$${cost.perUnit.toFixed(2)}` : 'no recipe'}
+                                                </button>
+                                                <span className="flex justify-center"><Toggle on={!!salsa.visible} onChange={() => toggleSalsaVisibility(salsa.id)} label={`Show ${salsa.name} on the menu`} /></span>
+                                                <button onClick={() => { if (window.confirm(`Delete "${salsa.name}"?`)) removeSalsa(salsa.id); }} className="text-gray-400 hover:text-red-600" aria-label={`Delete ${salsa.name}`}><TrashIcon className="w-4 h-4" /></button>
+                                            </div>
+                                        );
+                                    })}
+                                    {(pricing.salsas || []).length === 0 && <p className="px-4 py-6 text-sm text-gray-400 text-center border-t border-gray-100">No salsas or extras yet.</p>}
                                 </div>
                             </div>
                         )}
+
+                        {/* Kitchen and costs: sub-tabs */}
+                        {section === 'kitchen' && (
+                            <div className="max-w-5xl mx-auto flex gap-6 border-b border-gray-200 text-sm">
+                                {([
+                                    ['ingredients', 'Ingredients'],
+                                    ['recipes', 'Recipes'],
+                                    ['prep', 'Prep settings'],
+                                    ['expenses', 'Expense categories'],
+                                ] as const).map(([id, label]) => (
+                                    <button
+                                        key={id}
+                                        onClick={() => setKitchenTab(id)}
+                                        className={`pb-2 -mb-px border-b-2 transition-colors ${kitchenTab === id ? 'border-brand-orange text-brand-orange font-semibold' : 'border-transparent text-gray-500 hover:text-brand-brown'}`}
+                                    >
+                                        {label}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Kitchen: Ingredients */}
+                        {section === 'kitchen' && kitchenTab === 'ingredients' && (() => {
+                            const query = ingredientSearch.trim().toLowerCase();
+                            const rows = ingredients
+                                .map(ing => ({ ing, usage: recipeUsage(ing.id) }))
+                                .filter(({ ing }) => !query || ing.name.toLowerCase().includes(query))
+                                .sort((a, b) => b.usage.length - a.usage.length || a.ing.name.localeCompare(b.ing.name));
+                            return (
+                                <div className="max-w-5xl mx-auto space-y-4">
+                                    {/* Add ingredient */}
+                                    <div className="flex flex-wrap gap-2 items-end">
+                                        <input type="text" value={ingredientSearch} onChange={(e) => setIngredientSearch(e.target.value)} placeholder="Search ingredients" className="flex-grow min-w-[180px] rounded-md border-gray-300 text-sm" />
+                                        <div className="flex gap-2 items-center bg-gray-50 border border-gray-200 rounded-md p-1.5">
+                                            <input type="text" value={newIngredient.name} onChange={(e) => setNewIngredient({ ...newIngredient, name: e.target.value })} placeholder="New ingredient" className="w-40 rounded border-gray-300 text-sm py-1" />
+                                            <span className="text-sm text-gray-500">$</span>
+                                            <input type="number" step="0.01" value={newIngredient.cost || ''} onChange={(e) => setNewIngredient({ ...newIngredient, cost: parseFloat(e.target.value) })} placeholder="0.00" className="w-20 rounded border-gray-300 text-sm py-1 text-right" />
+                                            <span className="text-sm text-gray-500">per</span>
+                                            <input type="text" value={newIngredient.unit} onChange={(e) => setNewIngredient({ ...newIngredient, unit: e.target.value })} placeholder="lb" className="w-20 rounded border-gray-300 text-sm py-1" />
+                                            <button onClick={addIngredient} className="bg-brand-orange text-white px-3 py-1 rounded text-sm font-medium flex items-center gap-1"><PlusIcon className="w-4 h-4" /> Add</button>
+                                        </div>
+                                    </div>
+
+                                    <div className="border border-gray-200 rounded-xl overflow-hidden">
+                                        <div className="grid grid-cols-[minmax(0,1.6fr)_120px_110px_70px_70px_24px] gap-2 px-4 py-2 bg-gray-50 text-xs text-gray-500 font-medium">
+                                            <span>Ingredient</span><span className="text-right">Price</span><span className="text-right">Last bought</span><span className="text-right">Change</span><span className="text-right">Used in</span><span></span>
+                                        </div>
+                                        {rows.map(({ ing, usage }) => {
+                                            const hist = sortedHistory(ing);
+                                            const change = priceChange(ing);
+                                            const isOpen = expandedIngredientId === ing.id;
+                                            return (
+                                                <div key={ing.id} className="border-t border-gray-100">
+                                                    <button
+                                                        onClick={() => setExpandedIngredientId(isOpen ? null : ing.id)}
+                                                        className={`w-full grid grid-cols-[minmax(0,1.6fr)_120px_110px_70px_70px_24px] gap-2 px-4 py-2.5 text-sm text-left items-center ${isOpen ? 'bg-orange-50' : 'hover:bg-gray-50'}`}
+                                                    >
+                                                        <span className={`truncate ${isOpen ? 'font-semibold text-orange-900' : 'text-gray-900'}`}>{ing.name}</span>
+                                                        <span className="text-right tabular-nums">${formatPrice(Number(ing.cost) || 0)} <span className="text-gray-500">/ {ing.unit}</span></span>
+                                                        <span className={`text-right ${hist[0] ? 'text-gray-700' : 'text-gray-400'}`}>{hist[0] ? formatShortDate(hist[0].date) : 'never'}</span>
+                                                        <span className={`text-right text-xs ${change === null ? 'text-gray-300' : change > 0 ? 'text-red-600' : 'text-green-700'}`}>
+                                                            {change === null ? '–' : `${change > 0 ? '+' : '−'}${Math.round(Math.abs(change) * 100)}%`}
+                                                        </span>
+                                                        <span className="text-right">
+                                                            {usage.length > 0 ? usage.length : <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-medium">unused</span>}
+                                                        </span>
+                                                        <ChevronDownIcon className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                                                    </button>
+
+                                                    {isOpen && (
+                                                        <div className="px-4 pb-4 pt-3 bg-orange-50/40 border-t border-orange-100 grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+                                                            <div className="space-y-3">
+                                                                <div className="grid grid-cols-[1fr_110px_90px] gap-2 items-end">
+                                                                    <label className="text-xs text-gray-500">Name
+                                                                        <input type="text" value={ing.name} onChange={(e) => updateIngredient(ing.id, 'name', e.target.value)} className="mt-1 w-full rounded border-gray-300 text-sm py-1" />
+                                                                    </label>
+                                                                    <label className="text-xs text-gray-500">Price ($)
+                                                                        <input type="number" step="0.01" value={ing.cost} onChange={(e) => updateIngredient(ing.id, 'cost', e.target.value)} className="mt-1 w-full rounded border-gray-300 text-sm py-1 text-right" />
+                                                                    </label>
+                                                                    <label className="text-xs text-gray-500">Per (unit)
+                                                                        <input type="text" value={ing.unit} onChange={(e) => updateIngredient(ing.id, 'unit', e.target.value)} className="mt-1 w-full rounded border-gray-300 text-sm py-1" />
+                                                                    </label>
+                                                                </div>
+                                                                <p className="text-xs text-gray-500">A new price is saved with today's date when you save settings. Past orders keep the price they had. Prices from expenses you log are added here automatically.</p>
+                                                                <div>
+                                                                    <p className="text-xs text-gray-500 mb-1">Used in</p>
+                                                                    {usage.length === 0 ? (
+                                                                        <p className="text-xs text-gray-400">Not used in any recipe yet. Add it from the Recipes tab.</p>
+                                                                    ) : (
+                                                                        <div className="flex flex-wrap gap-1.5">
+                                                                            {usage.map(u => (
+                                                                                <button key={u.flavor} onClick={() => { setSelectedRecipe(u.flavor); setKitchenTab('recipes'); }} className="px-2 py-0.5 rounded-md bg-white border border-gray-200 text-xs text-gray-700 hover:border-brand-orange">
+                                                                                    {u.flavor} · {u.amount} {ing.unit}
+                                                                                </button>
+                                                                            ))}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                                <button onClick={() => removeIngredient(ing.id)} className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1"><TrashIcon className="w-3.5 h-3.5" /> Delete ingredient</button>
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-xs text-gray-500 mb-1">Price history</p>
+                                                                {hist.length === 0 ? (
+                                                                    <p className="text-xs text-gray-400">No purchases recorded yet.</p>
+                                                                ) : (
+                                                                    <div className="max-h-44 overflow-y-auto border border-gray-200 rounded-md bg-white divide-y divide-gray-100">
+                                                                        {hist.map((h, idx) => (
+                                                                            <div key={`${h.date}-${idx}`} className="flex justify-between px-3 py-1.5 text-xs">
+                                                                                <span className="text-gray-600">{formatShortDate(h.date)}</span>
+                                                                                <span className="tabular-nums text-gray-800">${formatPrice(h.price)} / {ing.unit}</span>
+                                                                            </div>
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                        {rows.length === 0 && <p className="px-4 py-6 text-sm text-gray-400 text-center border-t border-gray-100">No ingredients match "{ingredientSearch}".</p>}
+                                    </div>
+                                </div>
+                            );
+                        })()}
+
+                        {/* Kitchen: Recipes */}
+                        {section === 'kitchen' && kitchenTab === 'recipes' && (() => {
+                            const items = [
+                                ...empanadaFlavors.filter(f => !menuFlavorsOnly || f.visible !== false).map(f => ({ name: f.name, isSalsa: false })),
+                                ...(pricing.salsas || []).filter(s => !menuFlavorsOnly || s.visible !== false).map(s => ({ name: s.name, isSalsa: true })),
+                            ].map(item => ({ ...item, cost: recipeCost(item.name), price: sellPrice(item.name) }))
+                             .sort((a, b) => Number(a.isSalsa) - Number(b.isSalsa) || Number(b.cost.hasRecipe) - Number(a.cost.hasRecipe) || b.cost.perUnit - a.cost.perUnit);
+
+                            const selected = selectedRecipe ? items.find(i => i.name === selectedRecipe) || { name: selectedRecipe, isSalsa: salsaNameSet.has(selectedRecipe), cost: recipeCost(selectedRecipe), price: sellPrice(selectedRecipe) } : null;
+                            const selectedList = selected ? ((prepSettings.recipes || {})[selected.name] || []).filter(ri => { const ing = ingredients.find(i => i.id === ri.ingredientId); return !ing || !isDiscoIngredient(ing); }) : [];
+                            const fullMultiplier = Number(prepSettings.fullSizeMultiplier) || 2;
+
+                            return (
+                                <div className="max-w-5xl mx-auto space-y-4">
+                                    <div className="flex flex-wrap justify-between items-center gap-2 text-sm">
+                                        <span className="text-gray-500">Cost per mini (or per salsa) using current prices. Mini price ${(pricing.mini?.basePrice || 0).toFixed(2)} plus any flavor surcharge.</span>
+                                        <label className="flex items-center gap-2 text-gray-600 cursor-pointer">
+                                            <input type="checkbox" checked={menuFlavorsOnly} onChange={(e) => setMenuFlavorsOnly(e.target.checked)} className="rounded border-gray-300 text-brand-orange focus:ring-brand-orange" />
+                                            Only items on the menu
+                                        </label>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                                        {items.map(item => {
+                                            const isSel = selected?.name === item.name;
+                                            const margin = item.price > 0 ? 1 - item.cost.perUnit / item.price : null;
+                                            if (!item.cost.hasRecipe) {
+                                                return (
+                                                    <button key={item.name} onClick={() => setSelectedRecipe(item.name)} className={`text-left rounded-xl p-3 border ${isSel ? 'border-2 border-amber-400' : 'border-amber-200'} bg-amber-50`}>
+                                                        <p className="text-sm text-amber-900 truncate">{item.name}</p>
+                                                        <p className="text-lg font-semibold text-amber-900">No recipe</p>
+                                                        <p className="text-xs text-amber-700">Add ingredients</p>
+                                                    </button>
+                                                );
+                                            }
+                                            return (
+                                                <button key={item.name} onClick={() => setSelectedRecipe(item.name)} className={`text-left rounded-xl p-3 bg-white border ${isSel ? 'border-2 border-orange-400' : 'border-gray-200 hover:border-gray-300'}`}>
+                                                    <p className="text-sm text-gray-800 truncate">{item.name}</p>
+                                                    <p className="text-lg font-semibold text-brand-brown">${item.cost.perUnit.toFixed(2)}{item.isSalsa && <span className="text-xs font-normal text-gray-500"> / salsa</span>}</p>
+                                                    <p className="text-xs text-gray-500">{margin !== null ? `${Math.round(margin * 100)}% margin` : 'no price set'}</p>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {selected ? (
+                                        <div className="border border-gray-200 rounded-xl p-4 bg-white">
+                                            <div className="flex flex-wrap justify-between items-baseline gap-2 mb-2">
+                                                <h4 className="font-semibold text-brand-brown text-base">{selected.name}</h4>
+                                                <span className="text-xs text-gray-500">
+                                                    {selected.isSalsa ? <>Amounts for <b className="text-gray-800">1 salsa</b></> : <>Amounts for <b className="text-gray-800">20 minis</b> · full size uses {fullMultiplier}×</>}
+                                                </span>
+                                            </div>
+                                            <div className="grid grid-cols-[minmax(0,1.4fr)_150px_80px_28px] gap-2 text-xs text-gray-500 pb-1">
+                                                <span>Ingredient</span><span className="text-right">Amount</span><span className="text-right">Cost</span><span></span>
+                                            </div>
+                                            {selectedList.map(ri => {
+                                                const ing = ingredients.find(i => i.id === ri.ingredientId);
+                                                const lineCost = (ri.amountFor20Minis || 0) * (Number(ing?.cost) || 0);
+                                                return (
+                                                    <div key={ri.ingredientId} className="grid grid-cols-[minmax(0,1.4fr)_150px_80px_28px] gap-2 items-center py-1.5 border-t border-gray-100 text-sm">
+                                                        <span className={ing ? 'text-gray-800' : 'text-red-600'}>{ing ? ing.name : 'Deleted ingredient (remove and re-add)'}</span>
+                                                        <span className="flex items-center justify-end gap-1.5">
+                                                            <input
+                                                                type="number" step="0.01"
+                                                                value={ri.amountFor20Minis === 0 ? '' : ri.amountFor20Minis}
+                                                                placeholder="0"
+                                                                onChange={(e) => updateRecipeIngredientAmount(selected.name, ri.ingredientId, parseFloat(e.target.value) || 0)}
+                                                                className="w-20 h-8 text-sm border-gray-300 rounded text-right focus:ring-brand-orange focus:border-brand-orange px-2"
+                                                            />
+                                                            <span className="text-xs text-gray-500 w-12 truncate" title={ing?.unit}>{ing?.unit}</span>
+                                                        </span>
+                                                        <span className="text-right text-gray-600 tabular-nums">${lineCost.toFixed(2)}</span>
+                                                        <button onClick={() => removeIngredientFromRecipe(selected.name, ri.ingredientId)} className="text-gray-400 hover:text-red-600 flex justify-end" aria-label="Remove ingredient"><TrashIcon className="w-4 h-4" /></button>
+                                                    </div>
+                                                );
+                                            })}
+                                            {!selected.isSalsa && (
+                                                <div className="grid grid-cols-[minmax(0,1.4fr)_150px_80px_28px] gap-2 items-center py-1.5 border-t border-gray-100 text-sm text-gray-500">
+                                                    <span>Discos <span className="text-xs">· automatic from Prep settings</span></span>
+                                                    <span className="text-right">{formatQtyPlain(20 * (Number(prepSettings.discosPer?.mini) || 0))} each</span>
+                                                    <span className="text-right tabular-nums">${selected.cost.discos.toFixed(2)}</span>
+                                                    <span></span>
+                                                </div>
+                                            )}
+                                            <div className="py-2 border-t border-gray-100">
+                                                <select
+                                                    onChange={(e) => { addIngredientToRecipe(selected.name, e.target.value); e.target.value = ''; }}
+                                                    className="w-full md:w-1/2 text-sm border-gray-300 rounded focus:ring-brand-orange focus:border-brand-orange"
+                                                    defaultValue=""
+                                                >
+                                                    <option value="" disabled>Add ingredient…</option>
+                                                    {ingredients
+                                                        .filter(i => !isDiscoIngredient(i) && !selectedList.some(r => r.ingredientId === i.id))
+                                                        .sort((a, b) => a.name.localeCompare(b.name))
+                                                        .map(i => <option key={i.id} value={i.id}>{i.name} ({i.unit})</option>)}
+                                                </select>
+                                            </div>
+                                            <div className="flex flex-wrap justify-between gap-2 border-t border-gray-200 pt-2 text-sm font-semibold text-gray-800">
+                                                <span>{selected.isSalsa ? 'Total per salsa' : 'Total for 20'}</span>
+                                                <span>
+                                                    ${selected.cost.total.toFixed(2)}
+                                                    {!selected.isSalsa && (
+                                                        <span className="font-normal text-gray-500"> · ${selected.cost.perUnit.toFixed(2)} per mini · ${(selected.cost.perUnit * fullMultiplier).toFixed(2)} per full</span>
+                                                    )}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm text-gray-400 text-center py-4">Pick a flavor above to see or edit its recipe.</p>
+                                    )}
+                                </div>
+                            );
+                        })()}
+
+                        {/* Kitchen: Prep settings */}
+                        {section === 'kitchen' && kitchenTab === 'prep' && (() => {
+                            const setPrep = (path: 'discosPer' | 'discoPackSize' | 'productionRates', key: 'mini' | 'full', value: string) =>
+                                setPrepSettings({ ...prepSettings, [path]: { ...(prepSettings[path] || { mini: 0, full: 0 }), [key]: value as any } });
+                            const field = (label: string, hint: string, input: React.ReactNode) => (
+                                <label className="block">
+                                    <span className="block text-sm font-medium text-gray-800">{label}</span>
+                                    <span className="block text-xs text-gray-500 mb-1">{hint}</span>
+                                    {input}
+                                </label>
+                            );
+                            const numInput = (value: any, onChange: (v: string) => void, step = '1') => (
+                                <input type="number" step={step} min="0" value={value ?? ''} onChange={(e) => onChange(e.target.value)} className="w-full rounded-md border-gray-300 text-sm" />
+                            );
+                            return (
+                                <div className="max-w-3xl mx-auto space-y-6">
+                                    <div className="border border-gray-200 rounded-xl p-5 space-y-4">
+                                        <h4 className="font-semibold text-brand-brown">Discos</h4>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            {field('Discos per mini', '0.5 means one disco makes two minis', numInput(prepSettings.discosPer?.mini, v => setPrep('discosPer', 'mini', v), '0.1'))}
+                                            {field('Discos per full size', 'Usually 1', numInput(prepSettings.discosPer?.full, v => setPrep('discosPer', 'full', v), '0.1'))}
+                                            {field('Mini disco pack size', 'Discos in one pack you buy', numInput(prepSettings.discoPackSize?.mini, v => setPrep('discoPackSize', 'mini', v)))}
+                                            {field('Full disco pack size', 'Discos in one pack you buy', numInput(prepSettings.discoPackSize?.full, v => setPrep('discoPackSize', 'full', v)))}
+                                        </div>
+                                        {discoIngredient ? (
+                                            <p className="text-xs text-gray-500">Disco price comes from the <b>{discoIngredient.name}</b> ingredient: ${formatPrice(Number(discoIngredient.cost) || 0)} each. Update it on the Ingredients tab.</p>
+                                        ) : (
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                {field('Mini disco cost', 'Add a "Discos" ingredient to track this from purchases instead', numInput(discoCosts.mini, v => setDiscoCosts({ ...discoCosts, mini: parseFloat(v) || 0 }), '0.01'))}
+                                                {field('Full disco cost', 'Per disco', numInput(discoCosts.full, v => setDiscoCosts({ ...discoCosts, full: parseFloat(v) || 0 }), '0.01'))}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="border border-gray-200 rounded-xl p-5 space-y-4">
+                                        <h4 className="font-semibold text-brand-brown">Recipes</h4>
+                                        {field('Full size filling multiplier', 'A full size uses this many times the filling of a mini (2 = twice as much)',
+                                            numInput(prepSettings.fullSizeMultiplier, v => setPrepSettings({ ...prepSettings, fullSizeMultiplier: v as any }), '0.1'))}
+                                    </div>
+
+                                    <div className="border border-gray-200 rounded-xl p-5 space-y-4">
+                                        <h4 className="font-semibold text-brand-brown">Labor</h4>
+                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                            {field('Minis per hour', 'Default production rate', numInput(prepSettings.productionRates?.mini, v => setPrep('productionRates', 'mini', v)))}
+                                            {field('Full size per hour', 'Default production rate', numInput(prepSettings.productionRates?.full, v => setPrep('productionRates', 'full', v)))}
+                                            {field('Hourly wage ($)', 'Used for labor cost estimates', numInput(laborWage, v => setLaborWage(parseFloat(v) || 0), '0.25'))}
+                                        </div>
+                                        <p className="text-xs text-gray-500">These drive the labor hours and cost on the prep list. Individual staff wages and rates are on the Team page.</p>
+                                    </div>
+                                </div>
+                            );
+                        })()}
+
+                        {/* Team */}
+                        {section === 'team' && (() => {
+                            const active = employees.filter(e => e.isActive !== false);
+                            const inactive = employees.filter(e => e.isActive === false);
+                            const initials = (name: string) => name.trim().split(/\s+/).map(p => p[0]).slice(0, 2).join('').toUpperCase() || '?';
+                            const fieldCls = 'mt-1 w-full rounded border-gray-300 text-sm py-1 text-right';
+                            const card = (emp: Employee) => (
+                                <div key={emp.id} className={`border rounded-xl p-4 ${emp.isActive === false ? 'bg-gray-50 border-gray-200' : 'bg-white border-gray-200'}`}>
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold flex-none ${emp.isActive === false ? 'bg-gray-200 text-gray-500' : 'bg-orange-100 text-orange-800'}`}>{initials(emp.name)}</div>
+                                        <input type="text" value={emp.name} onChange={(e) => updateEmployee(emp.id, 'name', e.target.value)} className="flex-grow min-w-0 font-semibold text-brand-brown border-none p-0 focus:ring-0 text-sm bg-transparent" />
+                                        <label className="flex items-center gap-2 text-xs text-gray-500 cursor-pointer">
+                                            {emp.isActive === false ? 'Inactive' : 'Active'}
+                                            <Toggle on={emp.isActive !== false} onChange={() => updateEmployee(emp.id, 'isActive', emp.isActive === false)} label={`${emp.name} is active`} />
+                                        </label>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-3 mt-3">
+                                        <label className="text-xs text-gray-500">Wage ($/hr)
+                                            <input type="number" step="0.25" value={emp.hourlyWage} onChange={(e) => updateEmployee(emp.id, 'hourlyWage', e.target.value)} className={fieldCls} />
+                                        </label>
+                                        <label className="text-xs text-gray-500">Minis per hour
+                                            <input type="number" value={emp.productionRates?.mini ?? ''} onChange={(e) => updateEmployee(emp.id, 'productionRates.mini', e.target.value)} className={fieldCls} />
+                                        </label>
+                                        <label className="text-xs text-gray-500">Full size per hour
+                                            <input type="number" value={emp.productionRates?.full ?? ''} onChange={(e) => updateEmployee(emp.id, 'productionRates.full', e.target.value)} className={fieldCls} />
+                                        </label>
+                                    </div>
+                                    <div className="flex justify-end mt-2">
+                                        <button onClick={() => { if (window.confirm(`Remove ${emp.name}? Their past shifts stay in your records. To keep them on file, set them to Inactive instead.`)) removeEmployee(emp.id); }} className="text-xs text-gray-400 hover:text-red-600 flex items-center gap-1"><TrashIcon className="w-3.5 h-3.5" /> Remove</button>
+                                    </div>
+                                </div>
+                            );
+                            return (
+                                <div className="max-w-4xl mx-auto space-y-5">
+                                    <div className="border border-orange-200 bg-orange-50/40 rounded-xl p-4">
+                                        <h4 className="text-sm font-semibold text-brand-brown mb-2">Add a team member</h4>
+                                        <div className="grid grid-cols-2 md:grid-cols-[2fr_1fr_1fr_1fr_auto] gap-3 items-end">
+                                            <label className="text-xs text-gray-500 col-span-2 md:col-span-1">Name
+                                                <input type="text" value={newEmployee.name} onChange={(e) => setNewEmployee({ ...newEmployee, name: e.target.value })} placeholder="Maria Lopez" className="mt-1 w-full rounded border-gray-300 text-sm py-1" />
+                                            </label>
+                                            <label className="text-xs text-gray-500">Wage ($/hr)
+                                                <input type="number" step="0.25" value={newEmployee.hourlyWage} onChange={(e) => setNewEmployee({ ...newEmployee, hourlyWage: parseFloat(e.target.value) })} className={fieldCls} />
+                                            </label>
+                                            <label className="text-xs text-gray-500">Minis per hour
+                                                <input type="number" value={newEmployee.productionRates?.mini} onChange={(e) => setNewEmployee({ ...newEmployee, productionRates: { ...(newEmployee.productionRates || { mini: 0, full: 0 }), mini: parseFloat(e.target.value) } })} className={fieldCls} />
+                                            </label>
+                                            <label className="text-xs text-gray-500">Full size per hour
+                                                <input type="number" value={newEmployee.productionRates?.full} onChange={(e) => setNewEmployee({ ...newEmployee, productionRates: { ...(newEmployee.productionRates || { mini: 0, full: 0 }), full: parseFloat(e.target.value) } })} className={fieldCls} />
+                                            </label>
+                                            <button onClick={addEmployee} className="bg-brand-orange text-white px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-1 justify-center"><PlusIcon className="w-4 h-4" /> Add</button>
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <h4 className="text-xs font-semibold text-gray-500 mb-2">Active ({active.length})</h4>
+                                        {active.length > 0
+                                            ? <div className="grid grid-cols-1 md:grid-cols-2 gap-3">{active.map(card)}</div>
+                                            : <p className="text-sm text-gray-400">No active team members.</p>}
+                                    </div>
+                                    {inactive.length > 0 && (
+                                        <div>
+                                            <h4 className="text-xs font-semibold text-gray-500 mb-2">Inactive ({inactive.length})</h4>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">{inactive.map(card)}</div>
+                                        </div>
+                                    )}
+                                    <p className="text-xs text-gray-500">The default wage and production rates used on the prep list are in Kitchen and costs → Prep settings.</p>
+                                </div>
+                            );
+                        })()}
 
                         {/* 9. Expenses Tab */}
-                        {activeTab === 'expenses' && (
+                        {section === 'kitchen' && kitchenTab === 'expenses' && (
                             <div className="max-w-2xl mx-auto space-y-6">
                                 <div className="bg-gray-50 p-6 rounded-lg border border-gray-200">
                                     <h3 className="font-bold text-brand-brown mb-4">Expense Categories</h3>
@@ -831,7 +1133,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                         )}
 
                         {/* 10. Scheduling Tab */}
-                        {activeTab === 'scheduling' && (
+                        {section === 'store' && (
                             <div className="max-w-5xl mx-auto space-y-8">
                                 <div className="bg-white p-6 rounded-lg border border-brand-tan shadow-sm">
                                     <div className="flex justify-between items-start mb-6">
