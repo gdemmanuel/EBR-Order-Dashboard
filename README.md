@@ -74,14 +74,15 @@ The security rules are published by hand in the Firebase console (Firestore Data
 - **Order supply cost** uses the prices in effect on the order date. It's saved on the order when an admin saves, approves or completes it, and frozen once the order is completed, so later price or recipe changes don't rewrite past orders. Reports use the saved cost when it's there.
 - **Prep list** uses the latest prices, for planning the next batch. Its cost box is off by default and never prints.
 - **Party platters** are sized by the minis in the platter: 50 = 18", 25 = 12".
+- **Reports → Flavor Costs & Margins** shows cost per mini over time, profit by flavor (each order's total split across its items by list price; cost = supplies on the order date + estimated labor), margin alerts against the target margin in Prep settings, and a comparison with competitor prices. "Check for updated prices" searches the web through `api/gemini-proxy.js`, so it only works on Vercel (or `vercel dev`), and found prices are saved only after you review them.
 
 ## Settings map
 
 | Section | What's there |
 |---|---|
 | Store | Message of the day, hours, closed days, date overrides, status messages |
-| Menu and pricing | Flavors (on menu, surcharges, minimums), packages and platters, salsas and extras |
-| Kitchen and costs | Ingredients and price history, recipes with cost per mini, prep settings (discos, pack sizes, multiplier, production rates, wage), expense categories |
+| Menu and pricing | Flavors (on menu, surcharges, minimums), packages and platters, salsas and extras, competitor prices |
+| Kitchen and costs | Ingredients and price history, recipes with cost per mini, prep settings (discos, pack sizes, multiplier, production rates, wage, target margin), expense categories |
 | Team | Staff, wages, production rates, active or inactive |
 | Messages | Customer message templates, order status colors |
 
