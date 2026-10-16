@@ -8,6 +8,8 @@ import {
     query, 
     where, 
     getDocs,
+    getDoc,
+    deleteField,
     writeBatch,
     FirestoreError,
     QuerySnapshot,
@@ -23,7 +25,28 @@ const ORDERS_COLLECTION = "orders";
 const DELETED_ORDERS_COLLECTION = "deleted_orders";
 const EXPENSES_COLLECTION = "expenses";
 const SETTINGS_COLLECTION = "app_settings";
-const GENERAL_SETTINGS_DOC = "general";
+const GENERAL_SETTINGS_DOC = "general";   // Public: readable by logged-out customers on /order
+const PRIVATE_SETTINGS_DOC = "private";   // Admin-only: costs, employees, recipes, etc.
+
+// Allowlist of settings the public /order page needs. Every other key is private,
+// so new settings default to the admin-only doc.
+const PUBLIC_SETTINGS_KEYS = new Set<string>([
+    'motd',
+    'empanadaFlavors',
+    'fullSizeEmpanadaFlavors',
+    'pricing',
+    'scheduling',
+]);
+
+const splitSettings = (settings: Record<string, any>) => {
+    const publicData: Record<string, any> = {};
+    const privateData: Record<string, any> = {};
+    Object.entries(settings).forEach(([key, value]) => {
+        if (PUBLIC_SETTINGS_KEYS.has(key)) publicData[key] = value;
+        else privateData[key] = value;
+    });
+    return { publicData, privateData };
+};
 
 // Re-export AppSettings for compatibility with other components
 export type { AppSettings };
@@ -199,8 +222,6 @@ export const subscribeToShifts = (
     }, onError);
 };
 
-const PRIVATE_SETTINGS_DOC = "private";
-
 export const subscribeToSettings = (
     onUpdate: (settings: AppSettings) => void,
     onError?: (error: FirestoreError) => void
@@ -244,6 +265,7 @@ export const subscribeToSettings = (
 
     // Private doc: admin-only. For logged-out visitors this errors with permission-denied
     // once rules are locked (Stage 4) — we swallow it so the public menu still loads.
+    // (Values in the private doc win over any stale copies left in general.)
     const unsubPrivate = onSnapshot(doc(db, SETTINGS_COLLECTION, PRIVATE_SETTINGS_DOC), (docSnap) => {
         privateData = docSnap.exists() ? docSnap.data() : {};
         emit();
@@ -375,7 +397,44 @@ export const deleteShiftFromDb = async (shiftId: string) => {
 export const updateSettingsInDb = async (settings: Partial<AppSettings>) => {
     // Firestore rejects `undefined`. Strip it recursively before writing.
     const clean = JSON.parse(JSON.stringify(settings));
-    await setDoc(doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC), clean, { merge: true });
+    const { publicData, privateData } = splitSettings(clean);
+
+    const batch = writeBatch(db);
+    if (Object.keys(publicData).length > 0) {
+        batch.set(doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC), publicData, { merge: true });
+    }
+    if (Object.keys(privateData).length > 0) {
+        batch.set(doc(db, SETTINGS_COLLECTION, PRIVATE_SETTINGS_DOC), privateData, { merge: true });
+    }
+    await batch.commit();
+};
+
+// One-time, idempotent move of private keys out of the public general doc.
+// Keys already present in the private doc are kept (they are newer); the general copy is deleted either way.
+// Safe to call on every admin login — it does nothing once general holds only public keys.
+export const migratePrivateSettings = async () => {
+    const generalRef = doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC);
+    const privateRef = doc(db, SETTINGS_COLLECTION, PRIVATE_SETTINGS_DOC);
+    const [generalSnap, privateSnap] = await Promise.all([getDoc(generalRef), getDoc(privateRef)]);
+    if (!generalSnap.exists()) return;
+
+    const existingPrivate = privateSnap.exists() ? privateSnap.data() : {};
+    const { privateData } = splitSettings(generalSnap.data());
+    const keysToMove = Object.keys(privateData);
+    if (keysToMove.length === 0) return;
+
+    const toCopy: Record<string, any> = {};
+    const toDelete: Record<string, any> = {};
+    keysToMove.forEach(key => {
+        if (!(key in existingPrivate)) toCopy[key] = privateData[key];
+        toDelete[key] = deleteField();
+    });
+
+    const batch = writeBatch(db);
+    if (Object.keys(toCopy).length > 0) batch.set(privateRef, toCopy, { merge: true });
+    batch.update(generalRef, toDelete);
+    await batch.commit();
+    console.log(`Moved private settings out of public doc: ${keysToMove.join(', ')}`);
 };
 
 export const migrateLocalDataToFirestore = async (localOrders: Order[], localPending: Order[], localSettings: AppSettings) => {
@@ -384,6 +443,8 @@ export const migrateLocalDataToFirestore = async (localOrders: Order[], localPen
     
     const batch = writeBatch(db);
     [...localOrders, ...localPending].forEach(order => batch.set(doc(db, ORDERS_COLLECTION, order.id), order));
-    batch.set(doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC), localSettings);
+    const { publicData, privateData } = splitSettings(JSON.parse(JSON.stringify(localSettings)));
+    batch.set(doc(db, SETTINGS_COLLECTION, GENERAL_SETTINGS_DOC), publicData);
+    batch.set(doc(db, SETTINGS_COLLECTION, PRIVATE_SETTINGS_DOC), privateData);
     await batch.commit();
 };
