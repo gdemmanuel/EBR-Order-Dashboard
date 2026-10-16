@@ -16,6 +16,9 @@ const getLatestPrice = (ingredient: Ingredient): number => {
 // Show whole numbers as-is and everything else to one decimal place.
 const formatQty = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 
+// Flavors always listed first on the prep list, in this order (matched case-insensitively)
+const CORE_FLAVORS = ['beef', 'beef & cheese', 'chicken', 'chicken & cheese', 'buffalo chicken', 'cheese', 'philly cheesesteak'];
+
 // Ingredient amounts: one decimal place, two for small amounts (e.g. 0.09 gallon)
 const formatAmount = (n: number) => (n < 1 ? n.toFixed(2) : n.toFixed(1));
 
@@ -33,6 +36,7 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
     const [inventory, setInventory] = useState<Record<string, { mini: number, full: number }>>(settings.inventory || {});
     const [isSaving, setIsSaving] = useState(false);
     const [showAllFlavors, setShowAllFlavors] = useState(false);
+    const [showFillingCosts, setShowFillingCosts] = useState(false);
 
     // "Show costs" is remembered on this device; off by default. Costs never print.
     const [showCosts, setShowCosts] = useState<boolean>(() => {
@@ -271,7 +275,7 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
         // Resolve Ingredient Aggregates to View Models.
         // Empanada fillings are listed per ingredient with a per-flavor breakdown;
         // salsa ingredients are listed per salsa so they don't mix with fillings.
-        const ingredientList: { name: string; amount: number; unit: string; breakdown: { flavor: string; amount: number }[] }[] = [];
+        const ingredientList: { name: string; amount: number; unit: string; cost: number; breakdown: { flavor: string; amount: number }[] }[] = [];
         const salsaIngredients = new Map<string, { name: string; amount: number; unit: string }[]>();
 
         ingredientAggregates.forEach((data, id) => {
@@ -291,7 +295,7 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
 
             const amount = breakdown.reduce((sum, b) => sum + b.amount, 0);
             if (amount > 0) {
-                ingredientList.push({ name, amount, unit, breakdown: breakdown.sort((a, b) => b.amount - a.amount) });
+                ingredientList.push({ name, amount, unit, cost: amount * (def ? getLatestPrice(def) : 0), breakdown: breakdown.sort((a, b) => b.amount - a.amount) });
             }
         });
         ingredientList.sort((a, b) => b.amount - a.amount);
@@ -344,16 +348,20 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
         return `${start} - ${end}`;
     }, [dateRange]);
 
-    // Table rows: empanadas with orders or stock first; the rest behind "Show N flavors with no orders"
+    // Table rows: the core flavors always show, in a fixed order. Other flavors show after them
+    // (alphabetical) when they have orders or stock; the rest go behind "Show N flavors with no orders".
     const empanadaRows = prepData.rows.filter(r => !r.isSalsa);
-    const activeRows = empanadaRows.filter(r => r.miniOrd > 0 || r.fullOrd > 0 || r.miniStock > 0 || r.fullStock > 0);
-    const idleRows = empanadaRows.filter(r => !activeRows.includes(r));
+    const coreIndex = (flavor: string) => CORE_FLAVORS.indexOf(flavor.trim().toLowerCase());
+    const coreRows = empanadaRows.filter(r => coreIndex(r.flavor) !== -1).sort((a, b) => coreIndex(a.flavor) - coreIndex(b.flavor));
+    const otherRows = empanadaRows.filter(r => coreIndex(r.flavor) === -1);
+    const activeOtherRows = otherRows.filter(r => r.miniOrd > 0 || r.fullOrd > 0 || r.miniStock > 0 || r.fullStock > 0);
+    const idleRows = otherRows.filter(r => !activeOtherRows.includes(r));
     const salsaRows = prepData.rows.filter(r => r.isSalsa);
-    const sortedActiveRows = [...activeRows].sort((a, b) => (b.miniToMake + b.fullToMake) - (a.miniToMake + a.fullToMake));
-    const visibleRows = showAllFlavors ? [...sortedActiveRows, ...idleRows] : sortedActiveRows;
+    const visibleRows = [...coreRows, ...activeOtherRows, ...(showAllFlavors ? idleRows : [])];
 
     const totalToMake = prepData.totalMiniToMake + prepData.totalFullToMake;
-    const fillingCost = prepData.totalEstimatedCost - prepData.totalDiscoCost;
+    const salsaCost = salsaRows.reduce((sum, r) => sum + r.rowCost, 0);
+    const fillingCost = prepData.totalEstimatedCost - prepData.totalDiscoCost - salsaCost;
     const platterEntries = Object.entries(prepData.platterCounts).sort(([a], [b]) => b.localeCompare(a, undefined, { numeric: true }));
 
     // Make cell: number to make, extra stock, "done" when stock covers the order, or a dash
@@ -494,7 +502,7 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
                                             <td className="px-2 py-2 text-right tabular-nums">{row.miniOrd || <span className="text-gray-300">–</span>}</td>
                                             <td className="px-2 py-2 text-right">{stockInput(row.flavor, 'mini', row.miniStock, 'focus:ring-amber-400 focus:border-amber-400')}</td>
                                             <td className="px-3 py-2 text-right tabular-nums">{makeCell(row.miniOrd, row.miniNet, 'text-amber-800')}</td>
-                                            <td colSpan={3} className="px-3 py-2 text-xs text-amber-700 bg-purple-50/60">per container</td>
+                                            <td colSpan={3} className="bg-purple-50/60"></td>
                                         </tr>
                                     ))}
                                     <tr className="bg-gray-50">
@@ -572,11 +580,39 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
                         <section className="prep-costs border border-gray-200 rounded-xl p-4 bg-gray-50 max-w-md ml-auto">
                             <h4 className="text-sm font-semibold text-brand-brown mb-2">Batch cost estimate</h4>
                             <div className="grid grid-cols-[1fr_auto] gap-y-1 text-sm text-gray-700">
-                                <span>Fillings and salsas</span><span className="text-right tabular-nums">${fillingCost.toFixed(2)}</span>
+                                <button onClick={() => setShowFillingCosts(v => !v)} className="flex items-center gap-1 text-left hover:text-brand-brown">
+                                    Empanada fillings
+                                    <ChevronDownIcon className={`w-3.5 h-3.5 transition-transform ${showFillingCosts ? 'rotate-180' : ''}`} />
+                                </button>
+                                <span className="text-right tabular-nums">${fillingCost.toFixed(2)}</span>
+                                {showFillingCosts && (() => {
+                                    const lines = [...prepData.ingredientList].sort((a, b) => b.cost - a.cost);
+                                    // Flavors without a recipe but with a legacy cost-per-lb aren't tied to an ingredient
+                                    const other = fillingCost - lines.reduce((sum, l) => sum + l.cost, 0);
+                                    return (
+                                        <div className="col-span-2 ml-3 mb-1 grid grid-cols-[1fr_auto_auto] gap-x-3 gap-y-0.5 text-xs text-gray-600">
+                                            {lines.map(l => (
+                                                <React.Fragment key={l.name}>
+                                                    <span className="truncate" title={l.name}>{l.name}</span>
+                                                    <span className="text-right text-gray-400 tabular-nums">{formatAmount(l.amount)} {l.unit}</span>
+                                                    <span className="text-right tabular-nums">${l.cost.toFixed(2)}</span>
+                                                </React.Fragment>
+                                            ))}
+                                            {other > 0.005 && (
+                                                <>
+                                                    <span>Other (per-lb costs)</span><span></span>
+                                                    <span className="text-right tabular-nums">${other.toFixed(2)}</span>
+                                                </>
+                                            )}
+                                            {lines.length === 0 && other <= 0.005 && <span className="col-span-3 text-gray-400">No recipe ingredients</span>}
+                                        </div>
+                                    );
+                                })()}
+                                <span>Salsas</span><span className="text-right tabular-nums">${salsaCost.toFixed(2)}</span>
                                 <span>Discos <span className="text-xs text-gray-500">@ ${prepData.discoUnitCost.mini.toFixed(4)} {prepData.discoPriceFromInventory ? '(latest price)' : '(from Settings)'}</span></span><span className="text-right tabular-nums">${prepData.totalDiscoCost.toFixed(2)}</span>
                                 <span>Labor <span className="text-xs text-gray-500">{prepData.totalHours.toFixed(1)} hrs @ ${prepData.hourlyWage}/hr</span></span><span className="text-right tabular-nums">${prepData.totalLaborCost.toFixed(2)}</span>
                                 <span className="font-semibold border-t border-gray-200 pt-1 mt-1">Total</span><span className="font-semibold text-right tabular-nums border-t border-gray-200 pt-1 mt-1">${prepData.totalBatchCost.toFixed(2)}</span>
-                                {totalToMake > 0 && (<><span className="text-xs text-gray-500">Per empanada</span><span className="text-xs text-gray-500 text-right tabular-nums">${(prepData.totalBatchCost / totalToMake).toFixed(2)}</span></>)}
+                                {totalToMake > 0 && (<><span className="text-xs text-gray-500">Per empanada (excluding salsas)</span><span className="text-xs text-gray-500 text-right tabular-nums">${((prepData.totalBatchCost - salsaCost) / totalToMake).toFixed(2)}</span></>)}
                             </div>
                         </section>
                     )}
