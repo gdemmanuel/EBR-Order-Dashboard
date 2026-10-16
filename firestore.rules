@@ -1,0 +1,47 @@
+// Firestore security rules for ebr-order-app.
+// Reference copy only: these are published manually in the Firebase console
+// (Firestore Database > Rules). Replace YOUR_ADMIN_UID with the UID from
+// Authentication > Users before publishing.
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Any signed-in user is NOT enough: email/password sign-up lets anyone
+    // create an account with the public API key.
+    function isAdmin() {
+      return request.auth != null && request.auth.uid in ['YOUR_ADMIN_UID'];
+    }
+
+    // Public menu/pricing/scheduling for the logged-out /order page.
+    match /app_settings/general {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Admin-only settings (employees, costs, recipes, inventory, ...).
+    match /app_settings/{docId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Customers can submit a new pending order; only the admin can see or change orders.
+    match /orders/{orderId} {
+      allow read, update, delete: if isAdmin();
+      allow create: if isAdmin() || (
+        request.resource.data.id == orderId
+        && request.resource.data.keys().hasOnly(['id', 'customerName', 'phoneNumber', 'contactMethod',
+             'pickupDate', 'pickupTime', 'items', 'originalPackages', 'packages', 'totalMini', 'totalFullSize',
+             'amountCharged', 'amountCollected', 'deliveryRequired', 'deliveryFee', 'deliveryAddress',
+             'paymentStatus', 'paymentMethod', 'followUpStatus', 'specialInstructions', 'approvalStatus'])
+        && request.resource.data.approvalStatus == 'Pending Approval'
+        && request.resource.data.paymentStatus == 'Pending'
+        && request.resource.data.amountCollected == 0
+        && request.resource.data.deliveryFee == 0
+        && request.resource.data.customerName is string
+        && request.resource.data.customerName.size() < 200
+      );
+    }
+
+    match /expenses/{expenseId} {
+      allow read, write: if isAdmin();
+    }
+  }
+}

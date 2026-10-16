@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import firebase from 'firebase/compat/app';
 
 import { Order, ApprovalStatus, PricingSettings, Flavor, Employee, Ingredient } from './types';
-import { subscribeToOrders, subscribeToSettings, AppSettings, migrateLocalDataToFirestore } from './services/dbService';
+import { subscribeToOrders, subscribeToSettings, AppSettings, migrateLocalDataToFirestore, migratePrivateSettings } from './services/dbService';
 import { subscribeToAuth } from './services/authService';
 import { initialEmpanadaFlavors, initialFullSizeEmpanadaFlavors } from './data/mockData';
 
@@ -211,6 +211,12 @@ export default function App() {
       };
       
       performMigration();
+  }, [user]);
+
+  // Move admin-only settings out of the public settings doc (no-op once done)
+  useEffect(() => {
+      if (!user) return;
+      migratePrivateSettings().catch(e => console.error("Private settings migration failed:", e));
   }, [user]);
 
   // Data Subscriptions
