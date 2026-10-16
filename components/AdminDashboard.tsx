@@ -80,6 +80,14 @@ export default function AdminDashboard({
         start: getTodayStr()
     });
 
+    // Reports keep their own dates (shown in the same filter bar), defaulting to the last 12 months
+    const [reportsDateRange, setReportsDateRange] = useState<{ start?: string; end?: string }>(() => {
+        const now = new Date();
+        const start = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+        const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        return { start: fmt(start), end: fmt(now) };
+    });
+
     const [viewingCancelled, setViewingCancelled] = useState(false);
 
     // Modal State
@@ -488,11 +496,22 @@ export default function AdminDashboard({
 
                 {/* Filter Bar */}
                 <div className="mb-6">
-                    <DateRangeFilter
-                        initialStartDate={dateRange.start}
-                        initialEndDate={dateRange.end}
-                        onDateChange={setDateRange}
-                    />
+                    {view === 'reports' ? (
+                        <DateRangeFilter
+                            key="reports"
+                            initialStartDate={reportsDateRange.start}
+                            initialEndDate={reportsDateRange.end}
+                            onDateChange={setReportsDateRange}
+                            showYearPresets
+                        />
+                    ) : (
+                        <DateRangeFilter
+                            key="main"
+                            initialStartDate={dateRange.start}
+                            initialEndDate={dateRange.end}
+                            onDateChange={setDateRange}
+                        />
+                    )}
                 </div>
 
                 {/* VIEW CONTENT */}
@@ -561,11 +580,12 @@ export default function AdminDashboard({
 
                 {view === 'reports' && (
                     <ReportsView
-                        orders={filteredOrders}
+                        orders={activeOrders}
                         expenses={expenses}
                         shifts={shifts}
                         settings={settings}
-                        dateRange={dateRange}
+                        dateRange={reportsDateRange}
+                        onUpdateCompetitorPrices={(competitorPrices) => updateSettingsInDb({ competitorPrices })}
                         onDeleteExpense={deleteExpenseFromDb}
                         onEditShift={handleEditShift}
                         onDeleteShift={handleDeleteShift}
