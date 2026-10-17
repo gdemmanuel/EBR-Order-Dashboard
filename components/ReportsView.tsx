@@ -4,6 +4,7 @@ import React, { useMemo, useState } from 'react';
 import { Order, Expense, AppSettings, WorkShift, CompetitorPrice } from '../types';
 import { calculateSupplyCost } from '../utils/pricingUtils';
 import FlavorReports from './FlavorReports';
+import ShiftHistory from './ShiftHistory';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, LabelList } from 'recharts';
 import { parseOrderDateTime, formatDateForDisplay, formatTimeDisplay } from '../utils/dateUtils';
 import { TrashIcon, CurrencyDollarIcon, ShoppingBagIcon, UsersIcon, PresentationChartBarIcon, ChartPieIcon, XMarkIcon, ClockIcon, PencilIcon } from './icons/Icons';
@@ -207,6 +208,7 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
         items: any[];
     } | null>(null);
     const [selectedIngredientId, setSelectedIngredientId] = useState<string>('');
+    const [shiftEmployeeFilter, setShiftEmployeeFilter] = useState<string>('');
 
     const filteredData = useMemo(() => {
         let filteredOrders = orders;
@@ -609,7 +611,7 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
                                         <tr><td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500">No shifts recorded for this period.</td></tr>
                                     ) : (
                                         laborStats.map((emp) => (
-                                            <tr key={emp.name} className="hover:bg-gray-50">
+                                            <tr key={emp.name} className={`hover:bg-gray-50 cursor-pointer ${shiftEmployeeFilter === emp.name ? 'bg-orange-50' : ''}`} onClick={() => setShiftEmployeeFilter(shiftEmployeeFilter === emp.name ? '' : emp.name)} title="Show this employee's shifts below">
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{emp.name}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-600">{emp.shiftCount}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-600 font-bold">{emp.hours.toFixed(2)}</td>
@@ -621,7 +623,16 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
                                 </tbody>
                             </table>
                         </div>
+                        {laborStats.length > 0 && <p className="text-xs text-gray-400 mt-2">Click an employee to see only their shifts below.</p>}
                     </div>
+
+                    <ShiftHistory
+                        shifts={filteredData.shifts}
+                        employeeFilter={shiftEmployeeFilter}
+                        onEmployeeFilterChange={setShiftEmployeeFilter}
+                        onEditShift={onEditShift}
+                        onDeleteShift={onDeleteShift}
+                    />
                 </div>
             )}
 
