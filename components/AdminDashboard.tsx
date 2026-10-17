@@ -4,7 +4,7 @@ import firebase from 'firebase/compat/app';
 import { Order, AppSettings, PricingSettings, Flavor, FollowUpStatus, ApprovalStatus, Expense, WorkShift, PaymentStatus } from '../types';
 import { saveOrderToDb, softDeleteOrder, saveOrdersBatch, saveExpenseToDb, deleteExpenseFromDb, saveShiftToDb, subscribeToExpenses, subscribeToShifts, updateSettingsInDb, deleteShiftFromDb } from '../services/dbService';
 import { parseOrderDateTime } from '../utils/dateUtils';
-import { generateOrdersCSV } from '../utils/orderUtils';
+import { generateOrdersCSV, getOrderPlatters, salsaCupInventoryKey } from '../utils/orderUtils';
 import { calculateSupplyCost } from '../utils/pricingUtils';
 
 import Header from './Header';
@@ -78,6 +78,14 @@ export default function AdminDashboard({
     // Initialize Date Range to default to Today's start date
     const [dateRange, setDateRange] = useState<{ start?: string; end?: string }>({
         start: getTodayStr()
+    });
+
+    // Reports keep their own dates (shown in the same filter bar), defaulting to the last 12 months
+    const [reportsDateRange, setReportsDateRange] = useState<{ start?: string; end?: string }>(() => {
+        const now = new Date();
+        const start = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+        const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        return { start: fmt(start), end: fmt(now) };
     });
 
     const [viewingCancelled, setViewingCancelled] = useState(false);
@@ -267,6 +275,16 @@ export default function AdminDashboard({
                 currentInventory[flavorName].mini = Math.max(0, currentInventory[flavorName].mini - item.quantity);
             }
         });
+
+        // Platters use 1oz cups of each salsa; take those out of the 1oz cup stock too
+        const platterCups = getOrderPlatters(order, settings.pricing?.packages || []).reduce((sum, p) => sum + p.salsaCups, 0);
+        if (platterCups > 0) {
+            (settings.pricing?.salsas || []).forEach(salsa => {
+                const key = salsaCupInventoryKey(salsa.name);
+                const current = currentInventory[key] || { mini: 0, full: 0 };
+                currentInventory[key] = { ...current, mini: Math.max(0, current.mini - platterCups) };
+            });
+        }
 
         await updateSettingsInDb({ inventory: currentInventory });
         await saveOrderToDb(withSupplyCost({ ...order, ...updates, followUpStatus: FollowUpStatus.COMPLETED }));
@@ -488,11 +506,22 @@ export default function AdminDashboard({
 
                 {/* Filter Bar */}
                 <div className="mb-6">
-                    <DateRangeFilter
-                        initialStartDate={dateRange.start}
-                        initialEndDate={dateRange.end}
-                        onDateChange={setDateRange}
-                    />
+                    {view === 'reports' ? (
+                        <DateRangeFilter
+                            key="reports"
+                            initialStartDate={reportsDateRange.start}
+                            initialEndDate={reportsDateRange.end}
+                            onDateChange={setReportsDateRange}
+                            showYearPresets
+                        />
+                    ) : (
+                        <DateRangeFilter
+                            key="main"
+                            initialStartDate={dateRange.start}
+                            initialEndDate={dateRange.end}
+                            onDateChange={setDateRange}
+                        />
+                    )}
                 </div>
 
                 {/* VIEW CONTENT */}
@@ -561,11 +590,12 @@ export default function AdminDashboard({
 
                 {view === 'reports' && (
                     <ReportsView
-                        orders={filteredOrders}
+                        orders={activeOrders}
                         expenses={expenses}
                         shifts={shifts}
                         settings={settings}
-                        dateRange={dateRange}
+                        dateRange={reportsDateRange}
+                        onUpdateCompetitorPrices={(competitorPrices) => updateSettingsInDb({ competitorPrices })}
                         onDeleteExpense={deleteExpenseFromDb}
                         onEditShift={handleEditShift}
                         onDeleteShift={handleDeleteShift}

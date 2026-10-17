@@ -1,8 +1,10 @@
 
 
 import React, { useMemo, useState } from 'react';
-import { Order, Expense, AppSettings, WorkShift } from '../types';
+import { Order, Expense, AppSettings, WorkShift, CompetitorPrice } from '../types';
 import { calculateSupplyCost } from '../utils/pricingUtils';
+import FlavorReports from './FlavorReports';
+import ShiftHistory from './ShiftHistory';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, LabelList } from 'recharts';
 import { parseOrderDateTime, formatDateForDisplay, formatTimeDisplay } from '../utils/dateUtils';
 import { TrashIcon, CurrencyDollarIcon, ShoppingBagIcon, UsersIcon, PresentationChartBarIcon, ChartPieIcon, XMarkIcon, ClockIcon, PencilIcon } from './icons/Icons';
@@ -16,12 +18,13 @@ interface ReportsViewProps {
     onDeleteExpense?: (id: string) => void;
     onEditShift?: (shift: WorkShift) => void;
     onDeleteShift?: (shiftId: string) => void;
+    onUpdateCompetitorPrices?: (prices: CompetitorPrice[]) => Promise<void> | void;
 }
 
 const COLORS = ['#c8441c', '#eab308', '#3b82f6', '#a855f7', '#10b981', '#6366f1', '#ef4444', '#f97316'];
 
 type SortKey = 'date' | 'category' | 'vendor' | 'item' | 'totalCost';
-type ReportTab = 'financials' | 'labor' | 'operations';
+type ReportTab = 'financials' | 'labor' | 'operations' | 'flavors';
 
 // Drill Down Modal Component
 const DrillDownModal = ({ 
@@ -195,8 +198,8 @@ const CustomSalesTooltip = ({ active, payload, label }: any) => {
     return null;
 };
 
-export default function ReportsView({ orders, expenses, shifts = [], settings, dateRange, onDeleteExpense, onEditShift, onDeleteShift }: ReportsViewProps) {
-    const [activeTab, setActiveTab] = useState<ReportTab>('financials');
+export default function ReportsView({ orders, expenses, shifts = [], settings, dateRange, onDeleteExpense, onEditShift, onDeleteShift, onUpdateCompetitorPrices }: ReportsViewProps) {
+    const [activeTab, setActiveTab] = useState<ReportTab>('flavors');
     const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' }>({ key: 'date', direction: 'desc' });
     const [drillDownData, setDrillDownData] = useState<{
         isOpen: boolean;
@@ -205,6 +208,7 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
         items: any[];
     } | null>(null);
     const [selectedIngredientId, setSelectedIngredientId] = useState<string>('');
+    const [shiftEmployeeFilter, setShiftEmployeeFilter] = useState<string>('');
 
     const filteredData = useMemo(() => {
         let filteredOrders = orders;
@@ -401,6 +405,12 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
         <div className="space-y-6">
             {/* Sub-Tabs Navigation */}
             <div className="flex border-b border-brand-tan/50 mb-6 overflow-x-auto">
+                <button
+                    onClick={() => setActiveTab('flavors')}
+                    className={`flex items-center gap-2 px-6 py-3 font-medium text-sm transition-colors border-b-2 whitespace-nowrap ${activeTab === 'flavors' ? 'border-brand-orange text-brand-orange' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                >
+                    <ChartPieIcon className="w-4 h-4" /> Flavor Costs & Margins
+                </button>
                  <button
                     onClick={() => setActiveTab('financials')}
                     className={`flex items-center gap-2 px-6 py-3 font-medium text-sm transition-colors border-b-2 whitespace-nowrap ${activeTab === 'financials' ? 'border-brand-orange text-brand-orange' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
@@ -601,7 +611,7 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
                                         <tr><td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500">No shifts recorded for this period.</td></tr>
                                     ) : (
                                         laborStats.map((emp) => (
-                                            <tr key={emp.name} className="hover:bg-gray-50">
+                                            <tr key={emp.name} className={`hover:bg-gray-50 cursor-pointer ${shiftEmployeeFilter === emp.name ? 'bg-orange-50' : ''}`} onClick={() => setShiftEmployeeFilter(shiftEmployeeFilter === emp.name ? '' : emp.name)} title="Show this employee's shifts below">
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{emp.name}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-600">{emp.shiftCount}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-600 font-bold">{emp.hours.toFixed(2)}</td>
@@ -613,7 +623,16 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
                                 </tbody>
                             </table>
                         </div>
+                        {laborStats.length > 0 && <p className="text-xs text-gray-400 mt-2">Click an employee to see only their shifts below.</p>}
                     </div>
+
+                    <ShiftHistory
+                        shifts={filteredData.shifts}
+                        employeeFilter={shiftEmployeeFilter}
+                        onEmployeeFilterChange={setShiftEmployeeFilter}
+                        onEditShift={onEditShift}
+                        onDeleteShift={onDeleteShift}
+                    />
                 </div>
             )}
 
@@ -743,6 +762,11 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
                         )}
                     </div>
                 </div>
+            )}
+
+            {/* FLAVOR COSTS & MARGINS TAB */}
+            {activeTab === 'flavors' && (
+                <FlavorReports orders={filteredData.orders} settings={settings} dateRange={dateRange} onUpdateCompetitorPrices={onUpdateCompetitorPrices} />
             )}
 
             {drillDownData && drillDownData.isOpen && (

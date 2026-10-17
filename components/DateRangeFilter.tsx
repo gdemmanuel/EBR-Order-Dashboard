@@ -5,6 +5,7 @@ interface DateRangeFilterProps {
     initialStartDate?: string;
     initialEndDate?: string;
     onDateChange: (range: { start?: string; end?: string }) => void;
+    showYearPresets?: boolean; // adds Last 3 months, Last 12 months and This year (used on Reports)
 }
 
 const getISODateString = (date: Date) => {
@@ -12,7 +13,7 @@ const getISODateString = (date: Date) => {
     return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 };
 
-export default function DateRangeFilter({ initialStartDate = '', initialEndDate = '', onDateChange }: DateRangeFilterProps) {
+export default function DateRangeFilter({ initialStartDate = '', initialEndDate = '', onDateChange, showYearPresets = false }: DateRangeFilterProps) {
     const [startDate, setStartDate] = useState(initialStartDate);
     const [endDate, setEndDate] = useState(initialEndDate);
 
@@ -28,7 +29,7 @@ export default function DateRangeFilter({ initialStartDate = '', initialEndDate 
         onDateChange({});
     };
 
-    const setPreset = (preset: 'today' | 'week' | 'month') => {
+    const setPreset = (preset: 'today' | 'week' | 'month' | '3months' | '12months' | 'year') => {
         const today = new Date();
         let start = new Date(today);
         let end = new Date(today);
@@ -43,6 +44,15 @@ export default function DateRangeFilter({ initialStartDate = '', initialEndDate 
             case 'month':
                 start = new Date(today.getFullYear(), today.getMonth(), 1);
                 end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                break;
+            case '3months':
+                start = new Date(today.getFullYear(), today.getMonth() - 2, 1);
+                break;
+            case '12months':
+                start = new Date(today.getFullYear(), today.getMonth() - 11, 1);
+                break;
+            case 'year':
+                start = new Date(today.getFullYear(), 0, 1);
                 break;
         }
 
@@ -85,7 +95,14 @@ export default function DateRangeFilter({ initialStartDate = '', initialEndDate 
                     </button>
                 </div>
             </div>
-            <div className="flex items-center gap-2 border-t sm:border-t-0 sm:border-l border-gray-200 pt-4 sm:pt-0 sm:pl-4">
+            <div className="flex flex-wrap items-center gap-2 border-t sm:border-t-0 sm:border-l border-gray-200 pt-4 sm:pt-0 sm:pl-4">
+                {showYearPresets && (
+                    <>
+                        <button onClick={() => setPreset('3months')} className="text-sm font-medium text-brand-brown/80 hover:text-brand-orange px-3 py-1 rounded-md bg-brand-tan/60 hover:bg-brand-tan transition-colors">Last 3 Months</button>
+                        <button onClick={() => setPreset('12months')} className="text-sm font-medium text-brand-brown/80 hover:text-brand-orange px-3 py-1 rounded-md bg-brand-tan/60 hover:bg-brand-tan transition-colors">Last 12 Months</button>
+                        <button onClick={() => setPreset('year')} className="text-sm font-medium text-brand-brown/80 hover:text-brand-orange px-3 py-1 rounded-md bg-brand-tan/60 hover:bg-brand-tan transition-colors">This Year</button>
+                    </>
+                )}
                 <button onClick={() => setPreset('today')} className="text-sm font-medium text-brand-brown/80 hover:text-brand-orange px-3 py-1 rounded-md bg-brand-tan/60 hover:bg-brand-tan transition-colors">Today</button>
                 <button onClick={() => setPreset('week')} className="text-sm font-medium text-brand-brown/80 hover:text-brand-orange px-3 py-1 rounded-md bg-brand-tan/60 hover:bg-brand-tan transition-colors">This Week</button>
                 <button onClick={() => setPreset('month')} className="text-sm font-medium text-brand-brown/80 hover:text-brand-orange px-3 py-1 rounded-md bg-brand-tan/60 hover:bg-brand-tan transition-colors">This Month</button>

@@ -2,9 +2,11 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { AppSettings, updateSettingsInDb } from '../services/dbService';
-import { PricingSettings, MenuPackage, Flavor, SalsaProduct, PricingTier, Employee, FollowUpStatus, Ingredient, RecipeIngredient } from '../types';
+import { PricingSettings, MenuPackage, Flavor, SalsaProduct, PricingTier, Employee, FollowUpStatus, Ingredient, RecipeIngredient, CompetitorPrice } from '../types';
 import { XMarkIcon, PlusIcon, TrashIcon, CheckCircleIcon, CogIcon, PencilIcon, ScaleIcon, CurrencyDollarIcon, ClockIcon, SparklesIcon, CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon, ReceiptIcon, UsersIcon, BriefcaseIcon, DocumentTextIcon, ListBulletIcon, MegaphoneIcon, ChatBubbleOvalLeftEllipsisIcon, SparklesIcon as AppearanceIcon, ChevronDownIcon } from './icons/Icons';
 import { SUGGESTED_DESCRIPTIONS } from '../data/mockData';
+import { STARTER_COMPETITOR_PRICES } from '../data/competitorPrices';
+import { platterSalsaCups } from '../utils/orderUtils';
 
 const toLocalDateStr = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -45,7 +47,7 @@ interface SettingsModalProps {
 export default function SettingsModal({ settings, onClose }: SettingsModalProps) {
     const [section, setSection] = useState<'store' | 'menu' | 'kitchen' | 'team' | 'messages'>('store');
     const [kitchenTab, setKitchenTab] = useState<'ingredients' | 'recipes' | 'prep' | 'expenses'>('ingredients');
-    const [menuTab, setMenuTab] = useState<'flavors' | 'packages' | 'salsas'>('flavors');
+    const [menuTab, setMenuTab] = useState<'flavors' | 'packages' | 'salsas' | 'competitors'>('flavors');
     const [flavorFilter, setFlavorFilter] = useState<'all' | 'menu' | 'hidden' | 'specials'>('all');
     const [expandedFlavorIndex, setExpandedFlavorIndex] = useState<number | null>(null);
     const [showPackageForm, setShowPackageForm] = useState(false);
@@ -108,6 +110,9 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
     // Status Colors
     const [statusColors, setStatusColors] = useState<Record<string, string>>(settings.statusColors || {});
 
+    // Competitor prices (market comparison in Reports); starts from the researched list until saved
+    const [competitorPrices, setCompetitorPrices] = useState<CompetitorPrice[]>(settings.competitorPrices ?? STARTER_COMPETITOR_PRICES);
+
     const [newFlavorName, setNewFlavorName] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
@@ -131,6 +136,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
             const sanitizedPrepSettings = {
                 ...prepSettings,
                 fullSizeMultiplier: Number(prepSettings.fullSizeMultiplier) || 0,
+                targetMargin: Number(prepSettings.targetMargin) || 50,
                 discosPer: {
                     mini: Number(prepSettings.discosPer?.mini) || 1,
                     full: Number(prepSettings.discosPer?.full) || 1
@@ -203,6 +209,9 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                 expenseCategories,
                 employees: sanitizedEmployees,
                 statusColors: statusColors,
+                competitorPrices: competitorPrices
+                    .filter(c => c.competitor.trim())
+                    .map(c => ({ ...c, competitor: c.competitor.trim(), quantity: Math.max(1, Number(c.quantity) || 1), price: Number(c.price) || 0 })),
                 ingredients: sanitizedIngredients
             });
 
@@ -294,7 +303,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
     const addCategory = () => { if (newCategory.trim() && !expenseCategories.includes(newCategory.trim())) { setExpenseCategories([...expenseCategories, newCategory.trim()]); setNewCategory(''); } };
     const removeCategory = (cat: string) => { setExpenseCategories(expenseCategories.filter(c => c !== cat)); };
     const handleEditPackageClick = (pkg: MenuPackage) => { setPackageForm({ ...pkg, increment: pkg.increment || 1, isPartyPlatter: pkg.isPartyPlatter || false }); setEditingPackageId(pkg.id); };
-    const handleAddOrUpdatePackage = () => { if (!packageForm.name || !packageForm.price || !packageForm.quantity) return; const pkg: MenuPackage = { id: editingPackageId || Date.now().toString(), name: packageForm.name, description: packageForm.description, itemType: packageForm.itemType as 'mini' | 'full', quantity: Number(packageForm.quantity), price: Number(packageForm.price), maxFlavors: Number(packageForm.maxFlavors) || Number(packageForm.quantity), increment: Number(packageForm.increment) || 1, visible: packageForm.visible ?? true, isSpecial: packageForm.isSpecial ?? false, isPartyPlatter: packageForm.isPartyPlatter ?? false }; let updated = pricing.packages || []; updated = editingPackageId ? updated.map(p => p.id === editingPackageId ? pkg : p) : [...updated, pkg]; setPricing({ ...pricing, packages: updated }); setPackageForm({ itemType: 'mini', quantity: 12, price: 20, maxFlavors: 4, increment: 1, visible: true, isSpecial: false, isPartyPlatter: false, name: '', description: '' }); setEditingPackageId(null); };
+    const handleAddOrUpdatePackage = () => { if (!packageForm.name || !packageForm.price || !packageForm.quantity) return; const pkg: MenuPackage = { id: editingPackageId || Date.now().toString(), name: packageForm.name, description: packageForm.description, itemType: packageForm.itemType as 'mini' | 'full', quantity: Number(packageForm.quantity), price: Number(packageForm.price), maxFlavors: Number(packageForm.maxFlavors) || Number(packageForm.quantity), increment: Number(packageForm.increment) || 1, visible: packageForm.visible ?? true, isSpecial: packageForm.isSpecial ?? false, isPartyPlatter: packageForm.isPartyPlatter ?? false, salsaCups: packageForm.isPartyPlatter && packageForm.salsaCups !== undefined && String(packageForm.salsaCups) !== '' ? Math.max(0, Number(packageForm.salsaCups) || 0) : undefined }; let updated = pricing.packages || []; updated = editingPackageId ? updated.map(p => p.id === editingPackageId ? pkg : p) : [...updated, pkg]; setPricing({ ...pricing, packages: updated }); setPackageForm({ itemType: 'mini', quantity: 12, price: 20, maxFlavors: 4, increment: 1, visible: true, isSpecial: false, isPartyPlatter: false, name: '', description: '' }); setEditingPackageId(null); };
     const removePackage = (id: string) => { setPricing({ ...pricing, packages: pricing.packages.filter(p => p.id !== id) }); if (editingPackageId === id) { setEditingPackageId(null); setPackageForm({ itemType: 'mini', quantity: 12, price: 20, maxFlavors: 4, increment: 1, visible: true, isSpecial: false, isPartyPlatter: false, name: '', description: '' }); } };
     const togglePackageVisibility = (id: string) => { setPricing({ ...pricing, packages: pricing.packages.map(p => p.id === id ? { ...p, visible: !p.visible } : p) }); };
     const addSalsa = () => { if (!newSalsaName || !newSalsaPrice) return; setPricing({ ...pricing, salsas: [...(pricing.salsas || []), { id: `salsa-${Date.now()}`, name: newSalsaName, price: parseFloat(newSalsaPrice) || 0, visible: true }] }); setNewSalsaName(''); setNewSalsaPrice(''); };
@@ -484,6 +493,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                     ['flavors', `Flavors (${empanadaFlavors.length})`],
                                     ['packages', `Packages (${(pricing.packages || []).length})`],
                                     ['salsas', `Salsas and extras (${(pricing.salsas || []).length})`],
+                                    ['competitors', `Competitors (${competitorPrices.length})`],
                                 ] as const).map(([id, label]) => (
                                     <button
                                         key={id}
@@ -670,6 +680,12 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                                     <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={!!packageForm.isPartyPlatter} onChange={(e) => setPackageForm({ ...packageForm, isPartyPlatter: e.target.checked })} className="rounded border-gray-300 text-brand-orange focus:ring-brand-orange" /> Party platter</label>
                                                     <label className="flex items-center gap-2 cursor-pointer"><input type="checkbox" checked={!!packageForm.isSpecial} onChange={(e) => setPackageForm({ ...packageForm, isSpecial: e.target.checked })} className="rounded border-gray-300 text-brand-orange focus:ring-brand-orange" /> Special</label>
                                                 </div>
+                                                {packageForm.isPartyPlatter && (
+                                                    <label className="text-xs text-gray-500 col-span-2">1oz salsa cups (of each salsa)
+                                                        <input type="number" min="0" value={packageForm.salsaCups ?? ''} onChange={(e) => setPackageForm({ ...packageForm, salsaCups: e.target.value === '' ? undefined : parseInt(e.target.value) })} placeholder={String(platterSalsaCups(undefined, Number(packageForm.quantity) || 0))} className={`${fieldCls} text-right`} />
+                                                        <span className="block mt-0.5 text-[11px] text-gray-400">Counted on the prep list. Leave blank for the default (50 minis = 8, 25 minis = 4).</span>
+                                                    </label>
+                                                )}
                                             </div>
                                             <label className="block text-xs text-gray-500">Description (optional)
                                                 <input type="text" value={packageForm.description} onChange={(e) => setPackageForm({ ...packageForm, description: e.target.value })} className={fieldCls} />
@@ -698,6 +714,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                                             {pkg.quantity} {pkg.itemType === 'full' ? 'full size' : 'mini'} · ${pkg.quantity ? (pkg.price / pkg.quantity).toFixed(2) : '0.00'} each
                                                         </p>
                                                         <p className="text-xs text-gray-400">Up to {pkg.maxFlavors} flavors · steps of {pkg.increment || 1}</p>
+                                                        {pkg.isPartyPlatter && <p className="text-xs text-gray-500">{platterSalsaCups(pkg, pkg.quantity)} × 1oz cup of each salsa</p>}
                                                         {pkg.description && <p className="text-xs text-gray-500 mt-1 line-clamp-2">{pkg.description}</p>}
                                                         <div className="flex justify-end gap-3 mt-2 pt-2 border-t border-gray-100">
                                                             <button onClick={() => { handleEditPackageClick(pkg); setShowPackageForm(true); }} className="text-xs text-gray-500 hover:text-brand-orange flex items-center gap-1"><PencilIcon className="w-3.5 h-3.5" /> Edit</button>
@@ -747,6 +764,51 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                 </div>
                             </div>
                         )}
+
+                        {/* Menu: Competitors */}
+                        {section === 'menu' && menuTab === 'competitors' && (() => {
+                            const update = (id: string, patch: Partial<CompetitorPrice>) =>
+                                setCompetitorPrices(prev => prev.map(c => c.id === id ? { ...c, ...patch } : c));
+                            const add = () => setCompetitorPrices(prev => [...prev, {
+                                id: 'comp-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+                                competitor: '', location: '', size: 'full', quantity: 1, price: 0, note: '', checkedOn: toLocalDateStr(new Date())
+                            }]);
+                            const cell = 'w-full rounded border-gray-300 text-sm py-1';
+                            const rows = [...competitorPrices].sort((a, b) => a.competitor.localeCompare(b.competitor) || a.size.localeCompare(b.size) || a.quantity - b.quantity);
+                            return (
+                                <div className="max-w-5xl mx-auto space-y-4">
+                                    <div className="flex flex-wrap justify-between items-center gap-2">
+                                        <p className="text-sm text-gray-500">Competitor prices used for the market comparison in Reports. Enter the total price for the quantity (e.g. 10 for $37.49).</p>
+                                        <button onClick={add} className="bg-brand-orange text-white px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-1 hover:bg-opacity-90"><PlusIcon className="w-4 h-4" /> Add price</button>
+                                    </div>
+                                    <div className="border border-gray-200 rounded-xl overflow-x-auto">
+                                        <div className="min-w-[860px]">
+                                            <div className="grid grid-cols-[1.3fr_1fr_90px_70px_90px_70px_1.4fr_120px_24px] gap-2 px-3 py-2 bg-gray-50 text-xs text-gray-500 font-medium">
+                                                <span>Competitor</span><span>Location</span><span>Size</span><span className="text-right">Qty</span><span className="text-right">Price ($)</span><span className="text-right">Each</span><span>Note</span><span>Checked</span><span></span>
+                                            </div>
+                                            {rows.map(c => (
+                                                <div key={c.id} className="grid grid-cols-[1.3fr_1fr_90px_70px_90px_70px_1.4fr_120px_24px] gap-2 px-3 py-1.5 border-t border-gray-100 items-center">
+                                                    <input type="text" value={c.competitor} onChange={(e) => update(c.id, { competitor: e.target.value })} placeholder="Name" className={cell} />
+                                                    <input type="text" value={c.location || ''} onChange={(e) => update(c.id, { location: e.target.value })} placeholder="Town" className={cell} />
+                                                    <select value={c.size} onChange={(e) => update(c.id, { size: e.target.value as 'mini' | 'full' })} className={cell}>
+                                                        <option value="full">Full size</option>
+                                                        <option value="mini">Mini</option>
+                                                    </select>
+                                                    <input type="number" min="1" value={c.quantity} onChange={(e) => update(c.id, { quantity: e.target.value as any })} className={`${cell} text-right`} />
+                                                    <input type="number" step="0.01" value={c.price} onChange={(e) => update(c.id, { price: e.target.value as any })} className={`${cell} text-right`} />
+                                                    <span className="text-right text-sm tabular-nums text-gray-700">{Number(c.quantity) > 0 ? `$${(Number(c.price) / Number(c.quantity)).toFixed(2)}` : '–'}</span>
+                                                    <input type="text" value={c.note || ''} onChange={(e) => update(c.id, { note: e.target.value })} placeholder="e.g. in-store menu" className={cell} />
+                                                    <input type="date" value={c.checkedOn || ''} onChange={(e) => update(c.id, { checkedOn: e.target.value })} className={cell} />
+                                                    <button onClick={() => setCompetitorPrices(prev => prev.filter(x => x.id !== c.id))} className="text-gray-400 hover:text-red-600" aria-label="Remove price"><TrashIcon className="w-4 h-4" /></button>
+                                                </div>
+                                            ))}
+                                            {rows.length === 0 && <p className="px-4 py-6 text-sm text-gray-400 text-center border-t border-gray-100">No competitor prices yet.</p>}
+                                        </div>
+                                    </div>
+                                    <p className="text-xs text-gray-500">Tip: delivery app prices usually run 15–30% above in-store prices, so note where each price came from. Update "Checked" when you re-check a price.</p>
+                                </div>
+                            );
+                        })()}
 
                         {/* Kitchen and costs: sub-tabs */}
                         {section === 'kitchen' && (
@@ -1035,7 +1097,15 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                             {field('Full size per hour', 'Default production rate', numInput(prepSettings.productionRates?.full, v => setPrep('productionRates', 'full', v)))}
                                             {field('Hourly wage ($)', 'Used for labor cost estimates', numInput(laborWage, v => setLaborWage(parseFloat(v) || 0), '0.25'))}
                                         </div>
-                                        <p className="text-xs text-gray-500">These drive the labor hours and cost on the prep list. Individual staff wages and rates are on the Team page.</p>
+                                        <p className="text-xs text-gray-500">These drive the labor hours and cost on the prep list and in Reports. Individual staff wages and rates are on the Team page.</p>
+                                    </div>
+
+                                    <div className="border border-gray-200 rounded-xl p-5 space-y-4">
+                                        <h4 className="font-semibold text-brand-brown">Margins</h4>
+                                        <div className="max-w-xs">
+                                            {field('Target margin (%)', 'Flavors below this are flagged in Reports → Flavor Costs & Margins',
+                                                numInput(prepSettings.targetMargin ?? 50, v => setPrepSettings({ ...prepSettings, targetMargin: v as any })))}
+                                        </div>
                                     </div>
                                 </div>
                             );

@@ -114,6 +114,7 @@ export interface MenuPackage {
     visible: boolean;
     isSpecial?: boolean; // Belongs in "Specials" section
     isPartyPlatter?: boolean; // Belongs in "Party Platters" section and triggers highlighting
+    salsaCups?: number; // Platters only: 1oz cups of each salsa included (defaults: 50 minis = 8, 25 minis = 4)
 }
 
 export interface SalsaProduct {
@@ -199,6 +200,18 @@ export interface AiMessage {
     text: string;
 }
 
+// A competitor's price for a set number of empanadas, used for the market comparison in Reports
+export interface CompetitorPrice {
+    id: string;
+    competitor: string;
+    location?: string;
+    size: 'mini' | 'full';
+    quantity: number; // e.g. 1 for a single, 10 for a box of 10
+    price: number; // total price for that quantity
+    note?: string; // e.g. "delivery app price"
+    checkedOn?: string; // YYYY-MM-DD the price was checked
+}
+
 export interface AppSettings {
     motd: string; // Message of the Day
     empanadaFlavors: Flavor[];
@@ -214,6 +227,7 @@ export interface AppSettings {
         discosPer: { mini: number; full: number; };
         discoPackSize: { mini: number; full: number; };
         productionRates: { mini: number; full: number; }; // Global defaults
+        targetMargin?: number; // Percent (e.g. 50); flavors below this are flagged in Reports
     };
     scheduling: {
         enabled: boolean;
@@ -248,4 +262,5 @@ export interface AppSettings {
     expenseCategories: string[];
     employees: Employee[];
     statusColors?: Record<string, string>;
+    competitorPrices?: CompetitorPrice[]; // Admin-only; not set means use the starter list
 }

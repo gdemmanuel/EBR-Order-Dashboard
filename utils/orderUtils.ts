@@ -4,15 +4,30 @@ import { Order, OrderItem, OrderPackageSelection, MenuPackage } from '../types';
 // Party platter tray size by the number of minis in the platter package
 const PLATTER_SIZES: Record<number, string> = { 50: '18"', 25: '12"' };
 
+// 1oz cups of EACH salsa that come with a platter, when the package doesn't set its own number
+export const DEFAULT_PLATTER_SALSA_CUPS: Record<number, number> = { 50: 8, 25: 4 };
+
 const isPlatterPackageName = (name: string, menuPackages: MenuPackage[]) =>
     menuPackages.some(p => p.isPartyPlatter && p.name === name) || name.toLowerCase().includes('platter');
 
+/** 1oz cups of each salsa included with a platter package of this size. */
+export const platterSalsaCups = (pkg: Pick<MenuPackage, 'quantity' | 'salsaCups'> | undefined, quantity: number): number => {
+    if (pkg && pkg.salsaCups !== undefined && pkg.salsaCups !== null && !isNaN(Number(pkg.salsaCups))) return Number(pkg.salsaCups);
+    return DEFAULT_PLATTER_SALSA_CUPS[quantity] || 0;
+};
+
+export interface OrderPlatter {
+    size: string; // e.g. '18"', '12"', or 'Unknown size'
+    quantity: number; // minis in the platter (0 if unknown)
+    salsaCups: number; // 1oz cups of each salsa that go with it
+}
+
 /**
- * Tray size of each party platter on an order, e.g. ['18"', '12"'].
+ * Party platters on an order with their tray size and salsa cups.
  * Size comes from the number of minis picked in the platter; for older orders that only stored the
  * package name, it is looked up from the menu when only one platter package has that name.
  */
-export function getOrderPlatterSizes(order: Order, menuPackages: MenuPackage[] = []): string[] {
+export function getOrderPlatters(order: Order, menuPackages: MenuPackage[] = []): OrderPlatter[] {
     const packages: OrderPackageSelection[] = order.packages && order.packages.length > 0
         ? order.packages
         : (order.originalPackages || []).map((name, i) => ({ instanceId: `legacy-${i}`, name, items: [] }));
@@ -20,13 +35,21 @@ export function getOrderPlatterSizes(order: Order, menuPackages: MenuPackage[] =
     return packages
         .filter(p => p && p.name && isPlatterPackageName(p.name, menuPackages))
         .map(p => {
+            const sameName = menuPackages.filter(m => m.isPartyPlatter && m.name === p.name);
             let qty = (p.items || []).reduce((sum, i) => sum + (i.quantity || 0), 0);
-            if (qty === 0) {
-                const matches = menuPackages.filter(m => m.isPartyPlatter && m.name === p.name);
-                if (matches.length === 1) qty = matches[0].quantity;
-            }
-            return PLATTER_SIZES[qty] || (qty > 0 ? `${qty}-mini` : 'Unknown size');
+            if (qty === 0 && sameName.length === 1) qty = sameName[0].quantity;
+            const menuPkg = sameName.find(m => m.quantity === qty) || (sameName.length === 1 ? sameName[0] : undefined);
+            return {
+                size: PLATTER_SIZES[qty] || (qty > 0 ? `${qty}-mini` : 'Unknown size'),
+                quantity: qty,
+                salsaCups: platterSalsaCups(menuPkg, qty),
+            };
         });
+}
+
+/** Tray size of each party platter on an order, e.g. ['18"', '12"']. */
+export function getOrderPlatterSizes(order: Order, menuPackages: MenuPackage[] = []): string[] {
+    return getOrderPlatters(order, menuPackages).map(p => p.size);
 }
 
 /** True if the order has a party platter package (or a "party platter" note). */
@@ -227,3 +250,6 @@ export function escapeHtml(value: string): string {
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
 }
+
+/** Inventory key for a salsa's 1oz platter cups, e.g. "Salsa Verde (8oz)" -> "Salsa Verde (1oz)". */
+export const salsaCupInventoryKey = (salsaName: string) => `${salsaName.replace(/\s*\(\d+oz\)/i, '').trim()} (1oz)`;

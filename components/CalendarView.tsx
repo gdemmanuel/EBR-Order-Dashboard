@@ -25,6 +25,7 @@ export default function CalendarView({ orders, shifts = [], onSelectOrder, onPri
     const [currentDate, setCurrentDate] = useState(new Date());
     const [viewMode, setViewMode] = useState<'month' | 'week' | 'day'>('month');
     const [selectedDay, setSelectedDay] = useState<{ date: Date; orders: Order[] } | null>(null);
+    const [shiftDay, setShiftDay] = useState<Date | null>(null);
 
     // --- Navigation Handlers ---
     const handlePrev = () => {
@@ -114,9 +115,13 @@ export default function CalendarView({ orders, shifts = [], onSelectOrder, onPri
                     <div className="flex-grow flex flex-col gap-1 overflow-y-auto max-h-[100px]">
                         {/* Shifts Summary */}
                         {dailyShifts.length > 0 && (
-                            <div className="text-[10px] bg-blue-50 text-blue-800 px-1.5 py-0.5 rounded border border-blue-100 font-medium flex items-center gap-1" title={`${dailyShifts.length} employee shifts scheduled`}>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); setShiftDay(cellDate); }}
+                                className="text-[10px] bg-blue-50 text-blue-800 px-1.5 py-0.5 rounded border border-blue-100 font-medium flex items-center gap-1 w-full text-left hover:bg-blue-100 hover:border-blue-300"
+                                title={`See who worked: ${dailyShifts.map(s => s.employeeName).join(', ')}`}
+                            >
                                 <BriefcaseIcon className="w-3 h-3" /> {dailyShifts.length} Shift{dailyShifts.length !== 1 && 's'}
-                            </div>
+                            </button>
                         )}
                         
                         {/* Orders List */}
@@ -168,7 +173,7 @@ export default function CalendarView({ orders, shifts = [], onSelectOrder, onPri
                             <div className="flex-grow space-y-2 overflow-y-auto">
                                 {/* Shifts First */}
                                 {dailyShifts.map(shift => (
-                                    <div key={shift.id} className="w-full text-left p-1.5 rounded border text-xs bg-blue-50 border-blue-200 text-blue-800">
+                                    <div key={shift.id} onClick={(e) => { e.stopPropagation(); setShiftDay(date); }} className="w-full text-left p-1.5 rounded border text-xs bg-blue-50 border-blue-200 text-blue-800 cursor-pointer hover:bg-blue-100" title="See shift details">
                                         <div className="font-bold flex items-center gap-1"><BriefcaseIcon className="w-3 h-3"/> {shift.employeeName}</div>
                                         <div className="text-[10px]">{formatTimeDisplay(shift.startTime)} - {formatTimeDisplay(shift.endTime)}</div>
                                     </div>
@@ -386,6 +391,43 @@ export default function CalendarView({ orders, shifts = [], onSelectOrder, onPri
                     onDelete={onDelete}
                 />
             )}
+
+            {/* Shifts for one day (opened from the "N Shifts" badge) */}
+            {shiftDay && (() => {
+                const dayShifts = getShiftsForDate(shiftDay);
+                const totalHours = dayShifts.reduce((s, x) => s + (x.hours || 0), 0);
+                const totalPay = dayShifts.reduce((s, x) => s + (x.totalPay || 0), 0);
+                return (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={() => setShiftDay(null)}>
+                        <div className="bg-white rounded-lg shadow-2xl w-full max-w-lg border border-brand-tan" onClick={(e) => e.stopPropagation()}>
+                            <header className="px-5 py-4 border-b border-gray-200 flex justify-between items-start">
+                                <div>
+                                    <h3 className="text-lg font-serif text-brand-brown">Shifts · {shiftDay.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</h3>
+                                    <p className="text-xs text-gray-500">{dayShifts.length} shift{dayShifts.length === 1 ? '' : 's'} · {totalHours.toFixed(1)} hrs · ${totalPay.toFixed(2)}</p>
+                                </div>
+                                <button onClick={() => setShiftDay(null)} className="text-gray-400 hover:text-gray-600 text-xl leading-none" aria-label="Close">×</button>
+                            </header>
+                            <div className="p-4 space-y-2 max-h-[60vh] overflow-y-auto">
+                                {dayShifts.length === 0 && <p className="text-sm text-gray-400 text-center py-4">No shifts on this day.</p>}
+                                {dayShifts.map(shift => (
+                                    <div key={shift.id} className="bg-blue-50 border border-blue-200 p-3 rounded-lg flex justify-between items-center gap-3">
+                                        <div className="min-w-0">
+                                            <p className="font-semibold text-blue-900">{shift.employeeName}</p>
+                                            <p className="text-xs text-blue-700">{formatTimeDisplay(shift.startTime)} – {formatTimeDisplay(shift.endTime)} · {(shift.hours || 0).toFixed(2)} hrs · ${(shift.hourlyWage || 0).toFixed(2)}/hr</p>
+                                            {shift.notes && <p className="text-xs text-blue-600 mt-0.5 truncate" title={shift.notes}>{shift.notes}</p>}
+                                        </div>
+                                        <div className="flex items-center gap-2 flex-none">
+                                            <span className="text-sm font-semibold text-green-700">${(shift.totalPay || 0).toFixed(2)}</span>
+                                            {onEditShift && <button onClick={() => { setShiftDay(null); onEditShift(shift); }} className="p-1 hover:bg-blue-200 rounded text-blue-700" title="Edit shift"><PencilIcon className="w-4 h-4" /></button>}
+                                            {onDeleteShift && <button onClick={() => { if (confirm(`Delete ${shift.employeeName}'s shift?`)) onDeleteShift(shift.id); }} className="p-1 hover:bg-red-200 rounded text-red-700" title="Delete shift"><TrashIcon className="w-4 h-4" /></button>}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
         </>
     );
 }

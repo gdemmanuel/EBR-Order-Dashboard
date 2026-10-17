@@ -1,6 +1,6 @@
 
 import { Type } from "@google/genai";
-import { Order, Expense, FollowUpStatus, WorkShift, AppSettings, AiInsight, AiMessage } from '../types';
+import { Order, Expense, FollowUpStatus, WorkShift, AppSettings, AiInsight, AiMessage, CompetitorPrice } from '../types';
 import { parseOrderDateTime, formatDateForDisplay, formatTimeDisplay } from '../utils/dateUtils';
 
 // All Gemini API calls are routed through the server-side proxy at /api/gemini-proxy.
@@ -595,4 +595,57 @@ export async function parseReceiptImage(base64Image: string, mimeType: string, c
         console.error("Error parsing receipt:", error);
         throw new Error("Failed to scan receipt.");
     }
+}
+
+// --- Competitor price check ---
+
+export interface FoundCompetitorPrice {
+    competitor: string;
+    location?: string;
+    size: 'mini' | 'full';
+    quantity: number;
+    price: number;
+    note?: string;
+    sourceUrl?: string;
+}
+
+/**
+ * Looks up current competitor empanada prices with Google Search (via the Gemini proxy).
+ * Returns what it found for the user to review; nothing is saved here.
+ */
+export async function findCompetitorPrices(known: CompetitorPrice[], area = 'Nassau County, Long Island, NY (Seaford, Wantagh, Merrick, Massapequa, Farmingdale, East Meadow)'): Promise<FoundCompetitorPrice[]> {
+    const model = 'gemini-2.5-flash';
+    const knownList = known.map(c => `- ${c.competitor}${c.location ? ` (${c.location})` : ''}: ${c.quantity} ${c.size} for $${Number(c.price).toFixed(2)}${c.note ? ` [${c.note}]` : ''}`).join('\n');
+    const prompt = `You are checking competitor prices for a small empanada business in ${area}.
+
+Search the web for the CURRENT prices of these known competitors, and also look for up to 3 other empanada shops or caterers in the same area:
+${knownList || '(none yet)'}
+
+Rules:
+- Only report prices you actually found on a page (the shop's own menu or ordering page is best; delivery apps are OK but say so in "note").
+- Report one entry per price point: e.g. a single empanada, a box of 10, a catering tray of 100.
+- "size" is "mini" for mini or cocktail empanadas, otherwise "full".
+- "quantity" is how many empanadas the price buys; "price" is the total price in dollars for that quantity.
+- Include the page URL in "sourceUrl".
+- Do not guess or estimate. If you can't find a price, leave it out.
+
+Reply with ONLY a JSON array, no other text, like:
+[{"competitor":"Name","location":"Town","size":"full","quantity":10,"price":37.49,"note":"In-store menu","sourceUrl":"https://..."}]`;
+
+    const text = await callGeminiProxy({ model, contents: prompt, config: { tools: [{ googleSearch: {} }] } });
+    const match = text.match(/\[[\s\S]*\]/);
+    if (!match) throw new Error('No prices found in the response.');
+    const parsed = JSON.parse(match[0]);
+    if (!Array.isArray(parsed)) throw new Error('Unexpected response format.');
+    return parsed
+        .map((p: any) => ({
+            competitor: String(p.competitor || '').trim(),
+            location: p.location ? String(p.location).trim() : undefined,
+            size: p.size === 'mini' ? 'mini' : 'full',
+            quantity: Math.max(1, Math.round(Number(p.quantity) || 1)),
+            price: Math.round((Number(p.price) || 0) * 100) / 100,
+            note: p.note ? String(p.note).trim() : undefined,
+            sourceUrl: typeof p.sourceUrl === 'string' && /^https?:\/\//.test(p.sourceUrl) ? p.sourceUrl : undefined,
+        }) as FoundCompetitorPrice)
+        .filter(p => p.competitor && p.price > 0);
 }

@@ -91,7 +91,7 @@ export const calculateOrderTotal = (
 /**
  * Helper to find the price of an ingredient effective on a specific date.
  */
-const getHistoricalIngredientPrice = (ingredient: Ingredient, date?: Date): number => {
+export const getHistoricalIngredientPrice = (ingredient: Ingredient, date?: Date): number => {
     if (!date || !ingredient.priceHistory || ingredient.priceHistory.length === 0) {
         return ingredient.cost;
     }

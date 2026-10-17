@@ -3,7 +3,7 @@ import React, { useMemo, useState } from 'react';
 import { Order, FollowUpStatus, Ingredient } from '../types';
 import { XMarkIcon, ScaleIcon, PrinterIcon, ChevronDownIcon } from './icons/Icons';
 import { AppSettings } from '../services/dbService';
-import { getOrderPlatterSizes } from '../utils/orderUtils';
+import { getOrderPlatters, salsaCupInventoryKey } from '../utils/orderUtils';
 
 // Most recent purchase price (by date) from the ingredient's price history, falling back to its current cost.
 const getLatestPrice = (ingredient: Ingredient): number => {
@@ -15,6 +15,9 @@ const getLatestPrice = (ingredient: Ingredient): number => {
 
 // Show whole numbers as-is and everything else to one decimal place.
 const formatQty = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
+
+// Flavors always listed first on the prep list, in this order (matched case-insensitively)
+const CORE_FLAVORS = ['beef', 'beef & cheese', 'chicken', 'chicken & cheese', 'buffalo chicken', 'cheese', 'philly cheesesteak'];
 
 // Ingredient amounts: one decimal place, two for small amounts (e.g. 0.09 gallon)
 const formatAmount = (n: number) => (n < 1 ? n.toFixed(2) : n.toFixed(1));
@@ -33,6 +36,8 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
     const [inventory, setInventory] = useState<Record<string, { mini: number, full: number }>>(settings.inventory || {});
     const [isSaving, setIsSaving] = useState(false);
     const [showAllFlavors, setShowAllFlavors] = useState(false);
+    const [showFillingCosts, setShowFillingCosts] = useState(false);
+    const [showSalsaCosts, setShowSalsaCosts] = useState(false);
 
     // "Show costs" is remembered on this device; off by default. Costs never print.
     const [showCosts, setShowCosts] = useState<boolean>(() => {
@@ -71,6 +76,8 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
 
         // Party platter trays needed, by size (e.g. 18" / 12")
         const platterCounts: Record<string, number> = {};
+        // 1oz cups of EACH salsa that go with those platters (salsa recipes are per 8oz, so 8 cups = 1 recipe)
+        let platterSalsaCupsTotal = 0;
 
         let openOrderCount = 0;
 
@@ -78,8 +85,9 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
             if (order.followUpStatus === FollowUpStatus.COMPLETED) return;
             openOrderCount++;
 
-            getOrderPlatterSizes(order, settings.pricing?.packages || []).forEach(size => {
-                platterCounts[size] = (platterCounts[size] || 0) + 1;
+            getOrderPlatters(order, settings.pricing?.packages || []).forEach(p => {
+                platterCounts[p.size] = (platterCounts[p.size] || 0) + 1;
+                platterSalsaCupsTotal += p.salsaCups;
             });
 
             order.items.forEach(item => {
@@ -158,6 +166,13 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
             const fullToMake = Math.max(0, fullNet);
 
             const isSalsa = salsaNames.has(flavor);
+            // Platter salsa cups count toward the salsa recipe as 8oz units
+            const platterCups = isSalsa ? platterSalsaCupsTotal : 0;
+            const cupKey = salsaCupInventoryKey(flavor);
+            const cupStock = isSalsa ? (inventory[cupKey]?.mini || 0) : 0;
+            const cupNet = platterCups - cupStock;
+            const cupsToMake = Math.max(0, cupNet);
+            const salsaUnits = miniToMake + cupsToMake / 8;
 
             // --- INGREDIENT CALCULATION (New Recipe Logic) ---
             const recipes = settings.prepSettings?.recipes || {};
@@ -177,8 +192,8 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
 
                         if (isSalsa) {
                             // Per Unit Logic
-                            // Salsas are tracked in miniToMake (standard unit)
-                            miniAmount = miniToMake * ing.amountFor20Minis;
+                            // Salsas are tracked in miniToMake (8oz containers) plus platter cups
+                            miniAmount = salsaUnits * ing.amountFor20Minis;
                             fullAmount = 0;
                         } else {
                             // Empanada Logic (Per 20)
@@ -235,6 +250,11 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
                 fullNet,
                 fullToMake,
                 isSalsa,
+                platterCups,
+                cupKey,
+                cupStock,
+                cupNet,
+                cupsToMake,
                 hasRecipe: flavorIngredients.length > 0 || (settings.prepSettings?.lbsPer20?.[flavor] || 0) > 0,
                 rowCost
             };
@@ -271,19 +291,26 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
         // Resolve Ingredient Aggregates to View Models.
         // Empanada fillings are listed per ingredient with a per-flavor breakdown;
         // salsa ingredients are listed per salsa so they don't mix with fillings.
-        const ingredientList: { name: string; amount: number; unit: string; breakdown: { flavor: string; amount: number }[] }[] = [];
+        const ingredientList: { name: string; amount: number; unit: string; cost: number; breakdown: { flavor: string; amount: number }[] }[] = [];
         const salsaIngredients = new Map<string, { name: string; amount: number; unit: string }[]>();
+        // Salsa ingredients across all salsas, for the cost box
+        const salsaIngredientCosts = new Map<string, { name: string; amount: number; unit: string; cost: number }>();
 
         ingredientAggregates.forEach((data, id) => {
             const def = settings.ingredients?.find(i => i.id === id);
             const name = def?.name || 'Unknown Ingredient';
             const unit = def?.unit || 'units';
+            const price = def ? getLatestPrice(def) : 0;
 
             const breakdown: { flavor: string; amount: number }[] = [];
             data.breakdown.forEach((amount, flavor) => {
                 if (amount <= 0) return;
                 if (salsaNames.has(flavor)) {
                     salsaIngredients.set(flavor, [...(salsaIngredients.get(flavor) || []), { name, amount, unit }]);
+                    const agg = salsaIngredientCosts.get(id) || { name, amount: 0, unit, cost: 0 };
+                    agg.amount += amount;
+                    agg.cost += amount * price;
+                    salsaIngredientCosts.set(id, agg);
                 } else {
                     breakdown.push({ flavor, amount });
                 }
@@ -291,14 +318,14 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
 
             const amount = breakdown.reduce((sum, b) => sum + b.amount, 0);
             if (amount > 0) {
-                ingredientList.push({ name, amount, unit, breakdown: breakdown.sort((a, b) => b.amount - a.amount) });
+                ingredientList.push({ name, amount, unit, cost: amount * (def ? getLatestPrice(def) : 0), breakdown: breakdown.sort((a, b) => b.amount - a.amount) });
             }
         });
         ingredientList.sort((a, b) => b.amount - a.amount);
 
         const salsaCards = rows
-            .filter(r => r.isSalsa && r.miniToMake > 0)
-            .map(r => ({ flavor: r.flavor, toMake: r.miniToMake, ingredients: salsaIngredients.get(r.flavor) || [] }));
+            .filter(r => r.isSalsa && (r.miniToMake > 0 || r.cupsToMake > 0))
+            .map(r => ({ flavor: r.flavor, toMake: r.miniToMake, platterCups: r.cupsToMake, ingredients: salsaIngredients.get(r.flavor) || [] }));
 
         return {
             rows,
@@ -310,6 +337,7 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
             totalFullDiscosNeeded,
             totalDiscosNeeded,
             platterCounts,
+            platterSalsaCupsTotal,
             openOrderCount,
             miniPacksExact,
             fullPacksExact,
@@ -327,7 +355,8 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
             totalLaborCost,
             totalBatchCost,
             ingredientList,
-            salsaCards
+            salsaCards,
+            salsaIngredientCosts: Array.from(salsaIngredientCosts.values()).sort((a, b) => b.cost - a.cost)
         };
 
     }, [orders, settings, inventory]);
@@ -344,16 +373,20 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
         return `${start} - ${end}`;
     }, [dateRange]);
 
-    // Table rows: empanadas with orders or stock first; the rest behind "Show N flavors with no orders"
+    // Table rows: the core flavors always show, in a fixed order. Other flavors show after them
+    // (alphabetical) when they have orders or stock; the rest go behind "Show N flavors with no orders".
     const empanadaRows = prepData.rows.filter(r => !r.isSalsa);
-    const activeRows = empanadaRows.filter(r => r.miniOrd > 0 || r.fullOrd > 0 || r.miniStock > 0 || r.fullStock > 0);
-    const idleRows = empanadaRows.filter(r => !activeRows.includes(r));
+    const coreIndex = (flavor: string) => CORE_FLAVORS.indexOf(flavor.trim().toLowerCase());
+    const coreRows = empanadaRows.filter(r => coreIndex(r.flavor) !== -1).sort((a, b) => coreIndex(a.flavor) - coreIndex(b.flavor));
+    const otherRows = empanadaRows.filter(r => coreIndex(r.flavor) === -1);
+    const activeOtherRows = otherRows.filter(r => r.miniOrd > 0 || r.fullOrd > 0 || r.miniStock > 0 || r.fullStock > 0);
+    const idleRows = otherRows.filter(r => !activeOtherRows.includes(r));
     const salsaRows = prepData.rows.filter(r => r.isSalsa);
-    const sortedActiveRows = [...activeRows].sort((a, b) => (b.miniToMake + b.fullToMake) - (a.miniToMake + a.fullToMake));
-    const visibleRows = showAllFlavors ? [...sortedActiveRows, ...idleRows] : sortedActiveRows;
+    const visibleRows = [...coreRows, ...activeOtherRows, ...(showAllFlavors ? idleRows : [])];
 
     const totalToMake = prepData.totalMiniToMake + prepData.totalFullToMake;
-    const fillingCost = prepData.totalEstimatedCost - prepData.totalDiscoCost;
+    const salsaCost = salsaRows.reduce((sum, r) => sum + r.rowCost, 0);
+    const fillingCost = prepData.totalEstimatedCost - prepData.totalDiscoCost - salsaCost;
     const platterEntries = Object.entries(prepData.platterCounts).sort(([a], [b]) => b.localeCompare(a, undefined, { numeric: true }));
 
     // Make cell: number to make, extra stock, "done" when stock covers the order, or a dash
@@ -435,7 +468,7 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
                     </section>
 
                     {/* Also prep: platters and salsas */}
-                    {(platterEntries.length > 0 || salsaRows.some(r => r.miniToMake > 0)) && (
+                    {(platterEntries.length > 0 || salsaRows.some(r => r.miniToMake > 0) || prepData.platterSalsaCupsTotal > 0) && (
                         <section className="flex flex-wrap items-center gap-2 text-sm">
                             <span className="text-gray-500">Also prep:</span>
                             {platterEntries.map(([size, count]) => (
@@ -446,6 +479,11 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
                             {salsaRows.filter(r => r.miniToMake > 0).map(r => (
                                 <span key={r.flavor} className="px-2.5 py-0.5 rounded-md bg-amber-100 text-amber-900 text-xs font-medium">
                                     {r.miniToMake} {r.flavor}
+                                </span>
+                            ))}
+                            {salsaRows.filter(r => r.cupsToMake > 0).map(r => (
+                                <span key={`${r.flavor}-cups`} className="px-2.5 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-amber-900 text-xs font-medium">
+                                    {r.cupsToMake} × 1oz {r.flavor.replace(/\s*\(\d+oz\)/i, '')} for platters
                                 </span>
                             ))}
                         </section>
@@ -488,13 +526,23 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
                                             <td className="px-3 py-2 text-right tabular-nums bg-purple-50/60">{makeCell(row.fullOrd, row.fullNet, 'text-purple-900')}</td>
                                         </tr>
                                     ))}
+                                    {/* 8oz salsas first, then the 1oz platter cups */}
                                     {salsaRows.map(row => (
                                         <tr key={row.flavor} className="bg-amber-50/40">
                                             <td className="px-3 py-2 text-amber-900 sticky left-0 bg-amber-50">{row.flavor}</td>
                                             <td className="px-2 py-2 text-right tabular-nums">{row.miniOrd || <span className="text-gray-300">–</span>}</td>
                                             <td className="px-2 py-2 text-right">{stockInput(row.flavor, 'mini', row.miniStock, 'focus:ring-amber-400 focus:border-amber-400')}</td>
                                             <td className="px-3 py-2 text-right tabular-nums">{makeCell(row.miniOrd, row.miniNet, 'text-amber-800')}</td>
-                                            <td colSpan={3} className="px-3 py-2 text-xs text-amber-700 bg-purple-50/60">per container</td>
+                                            <td colSpan={3} className="bg-purple-50/60"></td>
+                                        </tr>
+                                    ))}
+                                    {salsaRows.filter(row => row.platterCups > 0 || row.cupStock > 0).map(row => (
+                                        <tr key={row.cupKey} className="bg-amber-50/40">
+                                            <td className="px-3 py-2 text-amber-900 sticky left-0 bg-amber-50">{row.cupKey}</td>
+                                            <td className="px-2 py-2 text-right tabular-nums">{row.platterCups || <span className="text-gray-300">–</span>}</td>
+                                            <td className="px-2 py-2 text-right">{stockInput(row.cupKey, 'mini', row.cupStock, 'focus:ring-amber-400 focus:border-amber-400')}</td>
+                                            <td className="px-3 py-2 text-right tabular-nums">{makeCell(row.platterCups, row.cupNet, 'text-amber-800')}</td>
+                                            <td colSpan={3} className="bg-purple-50/60"></td>
                                         </tr>
                                     ))}
                                     <tr className="bg-gray-50">
@@ -549,8 +597,8 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
                                 {prepData.salsaCards.map(card => (
                                     <div key={card.flavor} className="border border-amber-200 rounded-xl p-3 bg-amber-50">
                                         <div className="flex justify-between items-baseline text-sm font-semibold text-amber-900">
-                                            <span className="truncate">{card.flavor}</span>
-                                            <span className="pl-2">× {card.toMake}</span>
+                                            <span className="truncate">{card.flavor.replace(/\s*\(\d+oz\)/i, '')}</span>
+                                            <span className="pl-2 text-right whitespace-nowrap">{[card.toMake > 0 ? `(${card.toMake}) 8oz` : "", card.platterCups > 0 ? `(${card.platterCups}) 1oz` : ""].filter(Boolean).join(" + ")}</span>
                                         </div>
                                         <div className="mt-2 space-y-1 text-xs text-amber-800">
                                             {card.ingredients.length === 0 && <p className="text-amber-700">No recipe set up</p>}
@@ -572,11 +620,58 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
                         <section className="prep-costs border border-gray-200 rounded-xl p-4 bg-gray-50 max-w-md ml-auto">
                             <h4 className="text-sm font-semibold text-brand-brown mb-2">Batch cost estimate</h4>
                             <div className="grid grid-cols-[1fr_auto] gap-y-1 text-sm text-gray-700">
-                                <span>Fillings and salsas</span><span className="text-right tabular-nums">${fillingCost.toFixed(2)}</span>
+                                <button onClick={() => setShowFillingCosts(v => !v)} className="flex items-center gap-1 text-left hover:text-brand-brown">
+                                    Empanada fillings
+                                    <ChevronDownIcon className={`w-3.5 h-3.5 transition-transform ${showFillingCosts ? 'rotate-180' : ''}`} />
+                                </button>
+                                <span className="text-right tabular-nums">${fillingCost.toFixed(2)}</span>
+                                {showFillingCosts && (() => {
+                                    const lines = [...prepData.ingredientList].sort((a, b) => b.cost - a.cost);
+                                    // Flavors without a recipe but with a legacy cost-per-lb aren't tied to an ingredient
+                                    const other = fillingCost - lines.reduce((sum, l) => sum + l.cost, 0);
+                                    return (
+                                        <div className="col-span-2 ml-3 mb-1 grid grid-cols-[1fr_auto_auto] gap-x-3 gap-y-0.5 text-xs text-gray-600">
+                                            {lines.map(l => (
+                                                <React.Fragment key={l.name}>
+                                                    <span className="truncate" title={l.name}>{l.name}</span>
+                                                    <span className="text-right text-gray-400 tabular-nums">{formatAmount(l.amount)} {l.unit}</span>
+                                                    <span className="text-right tabular-nums">${l.cost.toFixed(2)}</span>
+                                                </React.Fragment>
+                                            ))}
+                                            {other > 0.005 && (
+                                                <>
+                                                    <span>Other (per-lb costs)</span><span></span>
+                                                    <span className="text-right tabular-nums">${other.toFixed(2)}</span>
+                                                </>
+                                            )}
+                                            {lines.length === 0 && other <= 0.005 && <span className="col-span-3 text-gray-400">No recipe ingredients</span>}
+                                        </div>
+                                    );
+                                })()}
+                                <button onClick={() => setShowSalsaCosts(v => !v)} className="flex items-center gap-1 text-left hover:text-brand-brown">
+                                    Salsas
+                                    <ChevronDownIcon className={`w-3.5 h-3.5 transition-transform ${showSalsaCosts ? 'rotate-180' : ''}`} />
+                                </button>
+                                <span className="text-right tabular-nums">${salsaCost.toFixed(2)}</span>
+                                {showSalsaCosts && (
+                                    <div className="col-span-2 ml-3 mb-1 grid grid-cols-[1fr_auto_auto] gap-x-3 gap-y-0.5 text-xs text-gray-600">
+                                        {prepData.salsaIngredientCosts.map(l => (
+                                            <React.Fragment key={l.name}>
+                                                <span className="truncate" title={l.name}>{l.name}</span>
+                                                <span className="text-right text-gray-400 tabular-nums">{formatAmount(l.amount)} {l.unit}</span>
+                                                <span className="text-right tabular-nums">${l.cost.toFixed(2)}</span>
+                                            </React.Fragment>
+                                        ))}
+                                        {prepData.salsaIngredientCosts.length === 0 && <span className="col-span-3 text-gray-400">No salsa recipe ingredients</span>}
+                                        {prepData.salsaCards.some(c => c.ingredients.length === 0) && (
+                                            <span className="col-span-3 text-amber-700">No recipe: {prepData.salsaCards.filter(c => c.ingredients.length === 0).map(c => c.flavor.replace(/\s*\(\d+oz\)/i, '')).join(', ')}</span>
+                                        )}
+                                    </div>
+                                )}
                                 <span>Discos <span className="text-xs text-gray-500">@ ${prepData.discoUnitCost.mini.toFixed(4)} {prepData.discoPriceFromInventory ? '(latest price)' : '(from Settings)'}</span></span><span className="text-right tabular-nums">${prepData.totalDiscoCost.toFixed(2)}</span>
                                 <span>Labor <span className="text-xs text-gray-500">{prepData.totalHours.toFixed(1)} hrs @ ${prepData.hourlyWage}/hr</span></span><span className="text-right tabular-nums">${prepData.totalLaborCost.toFixed(2)}</span>
                                 <span className="font-semibold border-t border-gray-200 pt-1 mt-1">Total</span><span className="font-semibold text-right tabular-nums border-t border-gray-200 pt-1 mt-1">${prepData.totalBatchCost.toFixed(2)}</span>
-                                {totalToMake > 0 && (<><span className="text-xs text-gray-500">Per empanada</span><span className="text-xs text-gray-500 text-right tabular-nums">${(prepData.totalBatchCost / totalToMake).toFixed(2)}</span></>)}
+                                {totalToMake > 0 && (<><span className="text-xs text-gray-500">Per empanada (excluding salsas)</span><span className="text-xs text-gray-500 text-right tabular-nums">${((prepData.totalBatchCost - salsaCost) / totalToMake).toFixed(2)}</span></>)}
                             </div>
                         </section>
                     )}
