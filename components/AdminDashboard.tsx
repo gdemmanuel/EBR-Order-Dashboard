@@ -4,7 +4,7 @@ import firebase from 'firebase/compat/app';
 import { Order, AppSettings, PricingSettings, Flavor, FollowUpStatus, ApprovalStatus, Expense, WorkShift, PaymentStatus } from '../types';
 import { saveOrderToDb, softDeleteOrder, saveOrdersBatch, saveExpenseToDb, deleteExpenseFromDb, saveShiftToDb, subscribeToExpenses, subscribeToShifts, updateSettingsInDb, deleteShiftFromDb } from '../services/dbService';
 import { parseOrderDateTime } from '../utils/dateUtils';
-import { generateOrdersCSV } from '../utils/orderUtils';
+import { generateOrdersCSV, getOrderPlatters, salsaCupInventoryKey } from '../utils/orderUtils';
 import { calculateSupplyCost } from '../utils/pricingUtils';
 
 import Header from './Header';
@@ -275,6 +275,16 @@ export default function AdminDashboard({
                 currentInventory[flavorName].mini = Math.max(0, currentInventory[flavorName].mini - item.quantity);
             }
         });
+
+        // Platters use 1oz cups of each salsa; take those out of the 1oz cup stock too
+        const platterCups = getOrderPlatters(order, settings.pricing?.packages || []).reduce((sum, p) => sum + p.salsaCups, 0);
+        if (platterCups > 0) {
+            (settings.pricing?.salsas || []).forEach(salsa => {
+                const key = salsaCupInventoryKey(salsa.name);
+                const current = currentInventory[key] || { mini: 0, full: 0 };
+                currentInventory[key] = { ...current, mini: Math.max(0, current.mini - platterCups) };
+            });
+        }
 
         await updateSettingsInDb({ inventory: currentInventory });
         await saveOrderToDb(withSupplyCost({ ...order, ...updates, followUpStatus: FollowUpStatus.COMPLETED }));

@@ -114,6 +114,7 @@ export interface MenuPackage {
     visible: boolean;
     isSpecial?: boolean; // Belongs in "Specials" section
     isPartyPlatter?: boolean; // Belongs in "Party Platters" section and triggers highlighting
+    salsaCups?: number; // Platters only: 1oz cups of each salsa included (defaults: 50 minis = 8, 25 minis = 4)
 }
 
 export interface SalsaProduct {
