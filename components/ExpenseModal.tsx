@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Expense, Ingredient } from '../types';
-import { XMarkIcon, PlusIcon, TrashIcon, CalendarIcon, CurrencyDollarIcon, DocumentTextIcon, ListBulletIcon } from './icons/Icons';
+import { XMarkIcon, PlusIcon, TrashIcon, CalendarIcon, CurrencyDollarIcon, DocumentTextIcon, ListBulletIcon, PencilIcon } from './icons/Icons';
 import { formatDateForDisplay } from '../utils/dateUtils';
 
 interface ExpenseModalProps {
@@ -17,11 +17,29 @@ interface ExpenseModalProps {
 
 type SortKey = 'date' | 'category' | 'vendor' | 'item' | 'totalCost';
 
+const todayLocal = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+// Distinct values, most recently used first
+const recentDistinct = (expenses: Expense[], pick: (e: Expense) => string) => {
+    const seen = new Map<string, string>();
+    [...expenses].sort((a, b) => (b.date || '').localeCompare(a.date || '')).forEach(e => {
+        const v = (pick(e) || '').trim();
+        if (v && !seen.has(v.toLowerCase())) seen.set(v.toLowerCase(), v);
+    });
+    return Array.from(seen.values());
+};
+
 export default function ExpenseModal({ expenses, categories, ingredients = [], onClose, onSave, onDelete, onUpdateIngredientCost }: ExpenseModalProps) {
     const [activeTab, setActiveTab] = useState<'add' | 'list'>('add');
     
     // Form State
-    const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+    const [date, setDate] = useState(todayLocal());
+    const [editingId, setEditingId] = useState<string | null>(null); // set when editing an existing expense
+    const [pricesTouched, setPricesTouched] = useState(false); // user typed cost/qty/unit, so don't auto-fill over it
+    const [lastPurchaseHint, setLastPurchaseHint] = useState<string | null>(null);
     const [category, setCategory] = useState(categories[0] || 'Ingredients');
     const [vendor, setVendor] = useState('');
     const [item, setItem] = useState('');
@@ -45,6 +63,76 @@ export default function ExpenseModal({ expenses, categories, ingredients = [], o
     const qtyVal = parseFloat(quantity) || 0;
     const calculatedUnitCost = qtyVal > 0 ? (totalCostVal / qtyVal) : 0;
 
+    // Suggestions for Vendor and Item Name as you type
+    const vendorOptions = useMemo(() => recentDistinct(expenses, e => e.vendor), [expenses]);
+    const itemOptions = useMemo(() => recentDistinct(expenses, e => e.item), [expenses]);
+
+    // Most recent expense for each item name (case-insensitive)
+    const lastExpenseByItem = useMemo(() => {
+        const map = new Map<string, Expense>();
+        [...expenses].sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.id || '').localeCompare(a.id || '')).forEach(e => {
+            const key = (e.item || '').trim().toLowerCase();
+            if (key && !map.has(key)) map.set(key, e);
+        });
+        return map;
+    }, [expenses]);
+
+    // Typing or picking an item: fill cost, qty and unit from its most recent purchase (new entries only)
+    const handleItemChange = (value: string) => {
+        setItem(value);
+        if (editingId) return;
+        const last = lastExpenseByItem.get(value.trim().toLowerCase());
+        if (!last) { setLastPurchaseHint(null); return; }
+        if (!pricesTouched) {
+            setInputTotalCost(last.totalCost ? String(last.totalCost) : '');
+            setQuantity(last.quantity ? String(last.quantity) : '');
+            setUnitName(last.unitName || '');
+            if (last.category && categories.includes(last.category)) setCategory(last.category);
+        }
+        // Link to the ingredient with the same name, if there is one
+        const ing = ingredients.find(i => i.name.trim().toLowerCase() === value.trim().toLowerCase());
+        if (ing && !linkedIngredientId) { setShowIngredientLink(true); setLinkedIngredientId(ing.id); }
+        const summary = `${formatDateForDisplay(last.date)}${last.vendor ? ` at ${last.vendor}` : ''}: $${(last.totalCost || 0).toFixed(2)} for ${last.quantity} ${last.unitName || 'units'}`;
+        setLastPurchaseHint(pricesTouched
+            ? `Last purchase ${summary}.`
+            : `Filled from your last purchase on ${summary}. Change anything that's different.`);
+    };
+
+    const resetForm = () => {
+        setEditingId(null);
+        setItem('');
+        setInputTotalCost('');
+        setQuantity('');
+        setUnitName('');
+        setDescription('');
+        setLinkedIngredientId('');
+        setShowIngredientLink(false);
+        setPricesTouched(false);
+        setLastPurchaseHint(null);
+        setValidationError(null);
+    };
+
+    // Edit an existing expense in the form
+    const startEdit = (expense: Expense) => {
+        setEditingId(expense.id);
+        setDate(expense.date || todayLocal());
+        setCategory(expense.category || categories[0] || 'Ingredients');
+        setVendor(expense.vendor || '');
+        setItem(expense.item || '');
+        setInputTotalCost(expense.totalCost !== undefined ? String(expense.totalCost) : '');
+        setQuantity(expense.quantity !== undefined ? String(expense.quantity) : '');
+        setUnitName(expense.unitName || '');
+        setDescription(expense.description || '');
+        const ing = ingredients.find(i => i.name.trim().toLowerCase() === (expense.item || '').trim().toLowerCase());
+        setShowIngredientLink(!!ing);
+        setLinkedIngredientId(ing ? ing.id : '');
+        setPricesTouched(true);
+        setLastPurchaseHint(null);
+        setValidationError(null);
+        setSaveSuccess(false);
+        setActiveTab('add');
+    };
+
     // Auto-fill from linked ingredient
     const handleLinkIngredient = (ingId: string) => {
         setLinkedIngredientId(ingId);
@@ -67,8 +155,9 @@ export default function ExpenseModal({ expenses, categories, ingredients = [], o
 
         setIsSaving(true);
         try {
+            const wasEditing = !!editingId;
             const newExpense: Expense = {
-                id: Date.now().toString(),
+                id: editingId || Date.now().toString(),
                 date,
                 category,
                 vendor,
@@ -88,20 +177,20 @@ export default function ExpenseModal({ expenses, categories, ingredients = [], o
                 await onUpdateIngredientCost(linkedIngredientId, calculatedUnitCost, date);
             }
 
-            setSaveSuccess(true);
-            
             // Reset form but keep date/vendor for convenience
-            setItem('');
-            setInputTotalCost('');
-            setQuantity('');
-            setDescription('');
-            setLinkedIngredientId('');
-            setShowIngredientLink(false);
-            
-            setTimeout(() => {
-                 setSaveSuccess(false);
-                 setActiveTab('list');
-            }, 1500);
+            resetForm();
+
+            if (wasEditing) {
+                // Back to the history after an edit
+                setSaveSuccess(false);
+                setActiveTab('list');
+            } else {
+                setSaveSuccess(true);
+                setTimeout(() => {
+                     setSaveSuccess(false);
+                     setActiveTab('list');
+                }, 1500);
+            }
             
         } catch (error: any) {
             console.error("Failed to save expense", error);
@@ -168,7 +257,7 @@ export default function ExpenseModal({ expenses, categories, ingredients = [], o
 
                 <div className="flex border-b border-gray-200">
                     <button className={`flex-1 py-3 text-sm font-medium ${activeTab === 'add' ? 'text-brand-orange border-b-2 border-brand-orange' : 'text-gray-500 hover:bg-gray-50'}`} onClick={() => setActiveTab('add')}>
-                        <div className="flex items-center justify-center gap-2"><PlusIcon className="w-4 h-4" /> Add Entry</div>
+                        <div className="flex items-center justify-center gap-2">{editingId ? <><PencilIcon className="w-4 h-4" /> Edit Entry</> : <><PlusIcon className="w-4 h-4" /> Add Entry</>}</div>
                     </button>
                     <button className={`flex-1 py-3 text-sm font-medium ${activeTab === 'list' ? 'text-brand-orange border-b-2 border-brand-orange' : 'text-gray-500 hover:bg-gray-50'}`} onClick={() => setActiveTab('list')}>
                         <div className="flex items-center justify-center gap-2"><ListBulletIcon className="w-4 h-4" /> History ({expenses.length})</div>
@@ -186,6 +275,13 @@ export default function ExpenseModal({ expenses, categories, ingredients = [], o
                                     </div>
                                 )}
                                 
+                                {editingId && (
+                                    <div className="bg-amber-50 border border-amber-300 text-amber-900 px-4 py-2 rounded text-sm flex justify-between items-center">
+                                        <span>Editing an expense from <b>{formatDateForDisplay(date)}</b>. Saving replaces it.</span>
+                                        <button type="button" onClick={() => { resetForm(); setActiveTab('list'); }} className="underline font-semibold hover:text-amber-700">Cancel</button>
+                                    </div>
+                                )}
+
                                 {validationError && (
                                     <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded relative mb-4 text-sm">
                                         <strong>Error:</strong> {validationError}
@@ -241,27 +337,36 @@ export default function ExpenseModal({ expenses, categories, ingredients = [], o
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-xs font-bold text-gray-700 mb-1">Vendor <span className="text-red-500">*</span></label>
-                                        <input type="text" required value={vendor} onChange={e => setVendor(e.target.value)} placeholder="e.g. Costco" className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
+                                        <input type="text" required list="expense-vendor-options" autoComplete="off" value={vendor} onChange={e => setVendor(e.target.value)} placeholder="e.g. Costco" className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
+                                        <datalist id="expense-vendor-options">
+                                            {vendorOptions.map(v => <option key={v} value={v} />)}
+                                        </datalist>
                                     </div>
                                     <div>
                                         <label className="block text-xs font-bold text-gray-700 mb-1">Item Name <span className="text-red-500">*</span></label>
-                                        <input type="text" required value={item} onChange={e => setItem(e.target.value)} placeholder="e.g. Ground Beef" className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
+                                        <input type="text" required list="expense-item-options" autoComplete="off" value={item} onChange={e => handleItemChange(e.target.value)} placeholder="e.g. Ground Beef" className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
+                                        <datalist id="expense-item-options">
+                                            {itemOptions.map(v => <option key={v} value={v} />)}
+                                        </datalist>
                                     </div>
                                 </div>
+                                {lastPurchaseHint && (
+                                    <p className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded px-3 py-2 -mt-1">{lastPurchaseHint}</p>
+                                )}
 
                                 <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-3">
                                     <div className="grid grid-cols-3 gap-3">
                                         <div>
                                             <label className="block text-xs font-bold text-gray-700 mb-1">Total Cost ($) <span className="text-red-500">*</span></label>
-                                            <input type="number" step="0.01" required value={inputTotalCost} onChange={e => setInputTotalCost(e.target.value)} placeholder="0.00" className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
+                                            <input type="number" step="0.01" required value={inputTotalCost} onChange={e => { setInputTotalCost(e.target.value); setPricesTouched(true); }} placeholder="0.00" className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
                                         </div>
                                         <div>
                                             <label className="block text-xs font-bold text-gray-700 mb-1">Qty <span className="text-red-500">*</span></label>
-                                            <input type="number" step="0.01" required value={quantity} onChange={e => setQuantity(e.target.value)} placeholder="1" className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
+                                            <input type="number" step="0.01" required value={quantity} onChange={e => { setQuantity(e.target.value); setPricesTouched(true); }} placeholder="1" className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
                                         </div>
                                         <div>
                                             <label className="block text-xs font-bold text-gray-700 mb-1">Unit</label>
-                                            <input type="text" value={unitName} onChange={e => setUnitName(e.target.value)} placeholder="lbs, box" className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
+                                            <input type="text" value={unitName} onChange={e => { setUnitName(e.target.value); setPricesTouched(true); }} placeholder="lbs, box" className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm" />
                                         </div>
                                     </div>
                                     
@@ -282,7 +387,7 @@ export default function ExpenseModal({ expenses, categories, ingredients = [], o
                                 </div>
 
                                 <button type="submit" disabled={isSaving} className="w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand-orange hover:bg-opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-orange disabled:opacity-50">
-                                    {isSaving ? 'Saving...' : <><PlusIcon className="w-4 h-4" /> Save Expense</>}
+                                    {isSaving ? 'Saving...' : editingId ? 'Update Expense' : <><PlusIcon className="w-4 h-4" /> Save Expense</>}
                                 </button>
                             </form>
                         </div>
@@ -314,7 +419,7 @@ export default function ExpenseModal({ expenses, categories, ingredients = [], o
                                                     <td className="px-4 py-3 whitespace-nowrap"><span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">{expense.category}</span></td>
                                                     <td className="px-4 py-3 text-gray-600"><div className="font-medium">{expense.item}</div><div className="text-xs text-gray-500 flex items-center gap-1"><span>${(expense.pricePerUnit || 0).toFixed(2)} / {expense.unitName}</span><span className="text-gray-300">|</span><span>Qty: {expense.quantity}</span></div>{expense.description && <div className="text-xs text-gray-400 italic">{expense.description}</div>}</td>
                                                     <td className="px-4 py-3 whitespace-nowrap font-bold text-red-600">${(expense.totalCost || 0).toFixed(2)}</td>
-                                                    <td className="px-4 py-3 whitespace-nowrap text-right"><button onClick={() => handleDelete(expense.id)} className="text-gray-400 hover:text-red-500 transition-colors"><TrashIcon className="w-4 h-4" /></button></td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-right"><button onClick={() => startEdit(expense)} className="text-gray-400 hover:text-brand-orange transition-colors mr-3" title="Edit expense" aria-label="Edit expense"><PencilIcon className="w-4 h-4" /></button><button onClick={() => handleDelete(expense.id)} className="text-gray-400 hover:text-red-500 transition-colors" title="Delete expense" aria-label="Delete expense"><TrashIcon className="w-4 h-4" /></button></td>
                                                 </tr>
                                             ))}
                                         </tbody>
