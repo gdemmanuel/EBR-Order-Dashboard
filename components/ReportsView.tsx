@@ -766,7 +766,7 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
 
             {/* FLAVOR COSTS & MARGINS TAB */}
             {activeTab === 'flavors' && (
-                <FlavorReports orders={filteredData.orders} settings={settings} dateRange={dateRange} onUpdateCompetitorPrices={onUpdateCompetitorPrices} />
+                <FlavorReports orders={filteredData.orders} shifts={filteredData.shifts} settings={settings} dateRange={dateRange} onUpdateCompetitorPrices={onUpdateCompetitorPrices} />
             )}
 
             {drillDownData && drillDownData.isOpen && (

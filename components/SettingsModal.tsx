@@ -7,6 +7,7 @@ import { XMarkIcon, PlusIcon, TrashIcon, CheckCircleIcon, CogIcon, PencilIcon, S
 import { SUGGESTED_DESCRIPTIONS } from '../data/mockData';
 import { STARTER_COMPETITOR_PRICES } from '../data/competitorPrices';
 import { platterSalsaCups } from '../utils/orderUtils';
+import { DEFAULT_LABOR_TRACKING_START } from '../utils/costUtils';
 
 const toLocalDateStr = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -137,6 +138,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                 ...prepSettings,
                 fullSizeMultiplier: Number(prepSettings.fullSizeMultiplier) || 0,
                 targetMargin: Number(prepSettings.targetMargin) || 50,
+                laborTrackingStart: prepSettings.laborTrackingStart || DEFAULT_LABOR_TRACKING_START,
                 discosPer: {
                     mini: Number(prepSettings.discosPer?.mini) || 1,
                     full: Number(prepSettings.discosPer?.full) || 1
@@ -1098,6 +1100,10 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                             {field('Hourly wage ($)', 'Used for labor cost estimates', numInput(laborWage, v => setLaborWage(parseFloat(v) || 0), '0.25'))}
                                         </div>
                                         <p className="text-xs text-gray-500">These drive the labor hours and cost on the prep list and in Reports. Individual staff wages and rates are on the Team page.</p>
+                                        <div className="max-w-xs">
+                                            {field('Shift tracking started', 'The date everyone began logging all their shifts. Actual labor in Reports only counts from here.',
+                                                <input type="date" value={prepSettings.laborTrackingStart || DEFAULT_LABOR_TRACKING_START} onChange={(e) => setPrepSettings({ ...prepSettings, laborTrackingStart: e.target.value })} className="w-full rounded-md border-gray-300 text-sm" />)}
+                                        </div>
                                     </div>
 
                                     <div className="border border-gray-200 rounded-xl p-5 space-y-4">

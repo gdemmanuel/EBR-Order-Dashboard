@@ -228,6 +228,7 @@ export interface AppSettings {
         discoPackSize: { mini: number; full: number; };
         productionRates: { mini: number; full: number; }; // Global defaults
         targetMargin?: number; // Percent (e.g. 50); flavors below this are flagged in Reports
+        laborTrackingStart?: string; // YYYY-MM-DD all labor has been logged as shifts since; actual labor ignores earlier dates
     };
     scheduling: {
         enabled: boolean;

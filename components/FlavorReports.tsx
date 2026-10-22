@@ -1,17 +1,18 @@
 import React, { useMemo, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { AppSettings, ApprovalStatus, CompetitorPrice, Order } from '../types';
+import { AppSettings, ApprovalStatus, CompetitorPrice, Order, WorkShift } from '../types';
 import { calculatePriceForType, getHistoricalIngredientPrice } from '../utils/pricingUtils';
 import { parseOrderDateTime } from '../utils/dateUtils';
 import { STARTER_COMPETITOR_PRICES } from '../data/competitorPrices';
 import { findCompetitorPrices, FoundCompetitorPrice } from '../services/geminiService';
 import {
-    DEFAULT_TARGET_MARGIN, ItemSize, hasRecipe, isSalsaName, laborCostPerUnit, lowestPrice,
+    DEFAULT_TARGET_MARGIN, ItemSize, actualLabor, fullToMiniRatio, hasRecipe, isSalsaName, laborCostPerUnit, lowestPrice,
     profitByFlavor, supplyCostPerUnit
 } from '../utils/costUtils';
 
 interface FlavorReportsProps {
     orders: Order[]; // orders in the Reports date range
+    shifts?: WorkShift[]; // shifts in the Reports date range (for actual labor)
     settings: AppSettings;
     dateRange: { start?: string; end?: string }; // the Reports date filter (defaults to the last 12 months)
     onUpdateCompetitorPrices?: (prices: CompetitorPrice[]) => Promise<void> | void;
@@ -62,7 +63,7 @@ const money = (n: number) => `${n < 0 ? '-' : ''}$${Math.abs(n).toFixed(2)}`;
 const pct = (n: number) => `${Math.round(n * 100)}%`;
 const roundUpTo5Cents = (n: number) => Math.ceil(n * 20 - 1e-9) / 20;
 
-export default function FlavorReports({ orders, settings, dateRange, onUpdateCompetitorPrices }: FlavorReportsProps) {
+export default function FlavorReports({ orders, shifts = [], settings, dateRange, onUpdateCompetitorPrices }: FlavorReportsProps) {
     const [size, setSize] = useState<ItemSize>('mini');
     const recipeFlavors = useMemo(() => {
         const visible = (settings.empanadaFlavors || []).filter(f => f.visible !== false).map(f => f.name);
@@ -106,6 +107,19 @@ export default function FlavorReports({ orders, settings, dateRange, onUpdateCom
         return { rise, drop, costliest };
     }, [costSeries, recipeFlavors, toggled]);
 
+    // --- Labor per empanada: estimate (Prep settings) vs actual (logged shifts) ---
+    const labor = useMemo(() => actualLabor(settings, orders, shifts, range.start, range.end), [settings, orders, shifts, range.start, range.end]);
+    const estimatedLabor = { mini: laborCostPerUnit(settings, 'mini'), full: laborCostPerUnit(settings, 'full') };
+    const [laborBasis, setLaborBasisState] = useState<'estimated' | 'actual'>(() => {
+        try { return localStorage.getItem('reports.laborBasis') === 'actual' ? 'actual' : 'estimated'; } catch { return 'estimated'; }
+    });
+    const setLaborBasis = (basis: 'estimated' | 'actual') => {
+        setLaborBasisState(basis);
+        try { localStorage.setItem('reports.laborBasis', basis); } catch { /* storage unavailable */ }
+    };
+    const usingActualLabor = laborBasis === 'actual' && labor.perMini !== null && labor.perFull !== null;
+    const laborUnit = usingActualLabor ? { mini: labor.perMini as number, full: labor.perFull as number } : estimatedLabor;
+
     // --- 2. Profit by flavor (approved orders in the date range) ---
     const profit = useMemo(() => {
         const sold = orders.filter(o => {
@@ -113,7 +127,7 @@ export default function FlavorReports({ orders, settings, dateRange, onUpdateCom
             const d = parseOrderDateTime(o);
             return !isNaN(d.getTime()) && d >= rangeStart && d <= rangeEnd;
         });
-        const rows = profitByFlavor(settings, sold).map(r => {
+        const rows = profitByFlavor(settings, sold, laborUnit).map(r => {
             const cost = r.supplyCost + r.laborCost;
             return { ...r, cost, profit: r.revenue - cost, margin: r.revenue > 0 ? (r.revenue - cost) / r.revenue : 0 };
         });
@@ -124,7 +138,7 @@ export default function FlavorReports({ orders, settings, dateRange, onUpdateCom
         const fulls = empanadas.reduce((s, r) => s + r.fullSold, 0);
         const maxProfit = Math.max(1, ...empanadas.map(r => Math.abs(r.profit)), ...salsas.map(r => Math.abs(r.profit)));
         return { empanadas, salsas, totals, minis, fulls, orderCount: sold.length, maxProfit };
-    }, [orders, settings, range.start, range.end]);
+    }, [orders, settings, range.start, range.end, laborUnit.mini, laborUnit.full]);
 
     // --- 3. Margin alerts (today's costs vs lowest price a customer can pay) ---
     const alerts = useMemo(() => {
@@ -135,7 +149,7 @@ export default function FlavorReports({ orders, settings, dateRange, onUpdateCom
         visible.forEach(f => {
             if (!hasRecipe(settings, f.name)) return;
             (['mini', 'full'] as ItemSize[]).forEach(sz => {
-                const cost = supplyCostPerUnit(settings, f.name, sz, today) + laborCostPerUnit(settings, sz);
+                const cost = supplyCostPerUnit(settings, f.name, sz, today) + laborUnit[sz];
                 const price = lowestPrice(settings, f.name, sz);
                 if (price <= 0) return;
                 const margin = 1 - cost / price;
@@ -146,7 +160,7 @@ export default function FlavorReports({ orders, settings, dateRange, onUpdateCom
                 list.push({
                     level: margin < targetMargin - 0.1 ? 'danger' : 'warning',
                     title: `${f.name} (${sz === 'full' ? 'full size' : 'mini'}) is at ${pct(margin)} at its lowest price`,
-                    detail: `Costs ${money(cost)} each (${money(cost - laborCostPerUnit(settings, sz))} supplies + ${money(laborCostPerUnit(settings, sz))} labor) and can sell for as little as ${money(price)}. A ${sz === 'full' ? 'full size' : 'mini'} surcharge of ${money(newSurcharge)}${currentSurcharge ? ` (now ${money(currentSurcharge)})` : ''} brings it to ${pct(targetMargin)}.`,
+                    detail: `Costs ${money(cost)} each (${money(cost - laborUnit[sz])} supplies + ${money(laborUnit[sz])} ${usingActualLabor ? "actual" : "estimated"} labor) and can sell for as little as ${money(price)}. A ${sz === 'full' ? 'full size' : 'mini'} surcharge of ${money(newSurcharge)}${currentSurcharge ? ` (now ${money(currentSurcharge)})` : ''} brings it to ${pct(targetMargin)}.`,
                 });
             });
         });
@@ -175,7 +189,7 @@ export default function FlavorReports({ orders, settings, dateRange, onUpdateCom
 
         const order = { danger: 0, warning: 1, info: 2 };
         return list.sort((a, b) => order[a.level] - order[b.level]);
-    }, [settings, targetMargin, range.start, range.end]);
+    }, [settings, targetMargin, range.start, range.end, laborUnit.mini, laborUnit.full, usingActualLabor]);
 
     // --- 4. Market comparison: competitor price per empanada vs yours for the same quantity ---
     const market = useMemo(() => {
@@ -267,6 +281,72 @@ export default function FlavorReports({ orders, settings, dateRange, onUpdateCom
 
     return (
         <div className="space-y-6">
+            {/* Labor per empanada */}
+            <div className={card}>
+                <div className="flex flex-wrap justify-between items-start gap-3 mb-4">
+                    <div>
+                        <h3 className="text-lg font-semibold text-brand-brown">Labor per empanada</h3>
+                        <p className="text-xs text-gray-500">
+                            Estimated from Prep settings (${Number(settings.laborWage) || 0}/hr at {Number(settings.prepSettings?.productionRates?.mini) || 0} minis or {Number(settings.prepSettings?.productionRates?.full) || 0} full per hour)
+                            vs actual from logged shifts ÷ empanadas on approved orders. A full size counts as {fullToMiniRatio(settings).toFixed(1)} minis.
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                        Use for margins
+                        <div className="flex rounded-md border border-gray-300 overflow-hidden">
+                            <button onClick={() => setLaborBasis('estimated')} className={`px-3 py-1.5 ${!usingActualLabor ? 'bg-brand-brown text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>Estimated</button>
+                            <button onClick={() => setLaborBasis('actual')} disabled={labor.perMini === null} title={labor.perMini === null ? 'No logged shifts with orders in these dates yet' : undefined} className={`px-3 py-1.5 ${usingActualLabor ? 'bg-brand-brown text-white' : 'bg-white text-gray-600 hover:bg-gray-50'} disabled:opacity-40 disabled:cursor-not-allowed`}>Actual</button>
+                        </div>
+                    </div>
+                </div>
+
+                {!labor.tracked ? (
+                    <p className="text-sm text-gray-500 bg-gray-50 border border-dashed border-gray-200 rounded-lg px-4 py-6 text-center">
+                        Shift tracking started {fromDateStr(labor.trackingStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}. Pick dates after that to see actual labor.
+                    </p>
+                ) : (
+                    <>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                            {stat('Per mini', labor.perMini !== null ? money(labor.perMini) : '–', `estimate ${money(estimatedLabor.mini)}`)}
+                            {stat('Per full size', labor.perFull !== null ? money(labor.perFull) : '–', `estimate ${money(estimatedLabor.full)}`)}
+                            {stat('Minis per labor hour', labor.minisPerHour !== null ? labor.minisPerHour.toFixed(1) : '–', `setting ${Number(settings.prepSettings?.productionRates?.mini) || 0}/hr`)}
+                            {stat('Labor paid', money(labor.pay), `${labor.hours.toFixed(1)} hrs · ${labor.minis} mini + ${labor.fulls} full`)}
+                        </div>
+
+                        {labor.series.filter(w => w.perMini !== null).length >= 2 && (
+                            <div className="h-[200px] w-full mb-2">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart data={labor.series.map(w => ({ week: `Wk of ${w.label}`, actual: w.perMini !== null ? Math.round(w.perMini * 100) / 100 : null, estimate: Math.round(estimatedLabor.mini * 100) / 100 }))} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                                        <CartesianGrid stroke="#e1e0d9" vertical={false} />
+                                        <XAxis dataKey="week" tick={{ fontSize: 12, fill: '#898781' }} axisLine={false} tickLine={false} />
+                                        <YAxis domain={[0, 'auto']} tick={{ fontSize: 12, fill: '#898781' }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${Number(v).toFixed(2)}`} width={56} />
+                                        <Tooltip formatter={(v: any, name: any) => [`$${Number(v).toFixed(2)}`, name === 'actual' ? 'Actual per mini' : 'Estimate per mini']} />
+                                        <Line type="monotone" dataKey="actual" stroke="#2a78d6" strokeWidth={2} dot={{ r: 3 }} connectNulls isAnimationActive={false} />
+                                        <Line type="monotone" dataKey="estimate" stroke="#898781" strokeWidth={2} strokeDasharray="6 4" dot={false} isAnimationActive={false} />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </div>
+                        )}
+
+                        <div className="space-y-1 text-xs">
+                            <p className="text-gray-500">
+                                Tracking since {fromDateStr(labor.trackingStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} · {labor.weeks} week{labor.weeks === 1 ? '' : 's'} of data in these dates
+                                {labor.start !== range.start ? ' (dates before tracking started are left out)' : ''}.
+                            </p>
+                            {labor.early && (
+                                <p className="text-amber-700">Early numbers: less than 4 weeks or 300 minis of data, so actual labor can swing a lot week to week.</p>
+                            )}
+                            {labor.minisPerHour !== null && labor.perMini !== null && Math.abs(labor.perMini - estimatedLabor.mini) / (estimatedLabor.mini || 1) > 0.15 && (
+                                <p className="text-blue-700">
+                                    Actual labor is {pct(Math.abs(labor.perMini - estimatedLabor.mini) / (estimatedLabor.mini || 1))} {labor.perMini > estimatedLabor.mini ? 'higher' : 'lower'} than the estimate.
+                                    {!labor.early && <> Consider setting minis per hour to about {Math.round(labor.minisPerHour)} in Settings → Kitchen and costs → Prep settings.</>}
+                                </p>
+                            )}
+                        </div>
+                    </>
+                )}
+            </div>
+
             {/* 1. Flavor cost over time */}
             <div className={card}>
                 <div className="flex flex-wrap justify-between items-start gap-3 mb-4">
@@ -353,7 +433,7 @@ export default function FlavorReports({ orders, settings, dateRange, onUpdateCom
                     <h3 className="text-lg font-semibold text-brand-brown">Profit by flavor</h3>
                     <p className="text-xs text-gray-500">
                         {profit.orderCount} approved orders, {rangeLabel}. Each order's total (less delivery) is split across its items by list price.
-                        Cost is supplies at the order date plus estimated labor from Prep settings.
+                        Cost is supplies at the order date plus {usingActualLabor ? 'actual labor from logged shifts' : 'estimated labor from Prep settings'} ({money(laborUnit.mini)} per mini, {money(laborUnit.full)} per full).
                     </p>
                 </div>
 
@@ -457,11 +537,11 @@ export default function FlavorReports({ orders, settings, dateRange, onUpdateCom
 
                 {market.summary.length > 0 && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-                        {market.summary.map(s => stat(
+                        {market.summary.map(s => <React.Fragment key={s.size}>{stat(
                             s.size === 'full' ? 'Full size vs market' : 'Mini vs market',
                             Math.abs(s.avgDiff) < 0.005 ? 'Same as market' : `${pct(Math.abs(s.avgDiff))} ${s.avgDiff < 0 ? 'below' : 'above'}`,
                             `Competitors average ${money(s.avgTheirs)} each · ${s.count} price${s.count === 1 ? '' : 's'}`
-                        ))}
+                        )}</React.Fragment>)}
                     </div>
                 )}
 

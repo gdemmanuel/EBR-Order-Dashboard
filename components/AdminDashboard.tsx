@@ -677,6 +677,8 @@ export default function AdminDashboard({
                     onClose={() => setIsPrepListOpen(false)}
                     onUpdateSettings={updateSettingsInDb}
                     dateRange={dateRange}
+                    shifts={shifts}
+                    allOrders={activeOrders}
                 />
             )}
 
