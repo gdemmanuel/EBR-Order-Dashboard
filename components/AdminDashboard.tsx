@@ -596,6 +596,7 @@ export default function AdminDashboard({
                         settings={settings}
                         dateRange={reportsDateRange}
                         onUpdateCompetitorPrices={(competitorPrices) => updateSettingsInDb({ competitorPrices })}
+                        onUpdateShift={saveShiftToDb}
                         onDeleteExpense={deleteExpenseFromDb}
                         onEditShift={handleEditShift}
                         onDeleteShift={handleDeleteShift}
@@ -677,6 +678,8 @@ export default function AdminDashboard({
                     onClose={() => setIsPrepListOpen(false)}
                     onUpdateSettings={updateSettingsInDb}
                     dateRange={dateRange}
+                    shifts={shifts}
+                    allOrders={activeOrders}
                 />
             )}
 

@@ -145,6 +145,9 @@ export interface PricingSettings {
     salsaLarge?: number;
 }
 
+// What a shift was for. Only production shifts count toward labor cost per empanada.
+export type WorkType = 'production' | 'events' | 'delivery' | 'admin';
+
 export interface Employee {
     id: string;
     name: string;
@@ -154,6 +157,7 @@ export interface Employee {
         full: number; // Empanadas per hour
     };
     isActive: boolean;
+    defaultWorkType?: WorkType; // Usual work type for new shifts (and shifts logged without one)
 }
 
 export interface WorkShift {
@@ -167,6 +171,7 @@ export interface WorkShift {
     hourlyWage: number;
     totalPay: number;
     notes?: string;
+    workType?: WorkType; // Not set on shifts logged before work types existed; see resolveWorkType
 }
 
 export interface IngredientPriceEntry {
@@ -228,6 +233,7 @@ export interface AppSettings {
         discoPackSize: { mini: number; full: number; };
         productionRates: { mini: number; full: number; }; // Global defaults
         targetMargin?: number; // Percent (e.g. 50); flavors below this are flagged in Reports
+        laborTrackingStart?: string; // YYYY-MM-DD all labor has been logged as shifts since; actual labor ignores earlier dates
     };
     scheduling: {
         enabled: boolean;

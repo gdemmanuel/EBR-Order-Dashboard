@@ -2,11 +2,13 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { AppSettings, updateSettingsInDb } from '../services/dbService';
-import { PricingSettings, MenuPackage, Flavor, SalsaProduct, PricingTier, Employee, FollowUpStatus, Ingredient, RecipeIngredient, CompetitorPrice } from '../types';
+import { PricingSettings, MenuPackage, Flavor, SalsaProduct, PricingTier, Employee, FollowUpStatus, Ingredient, RecipeIngredient, CompetitorPrice, WorkType } from '../types';
 import { XMarkIcon, PlusIcon, TrashIcon, CheckCircleIcon, CogIcon, PencilIcon, ScaleIcon, CurrencyDollarIcon, ClockIcon, SparklesIcon, CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon, ReceiptIcon, UsersIcon, BriefcaseIcon, DocumentTextIcon, ListBulletIcon, MegaphoneIcon, ChatBubbleOvalLeftEllipsisIcon, SparklesIcon as AppearanceIcon, ChevronDownIcon } from './icons/Icons';
 import { SUGGESTED_DESCRIPTIONS } from '../data/mockData';
 import { STARTER_COMPETITOR_PRICES } from '../data/competitorPrices';
 import { platterSalsaCups } from '../utils/orderUtils';
+import { DEFAULT_LABOR_TRACKING_START } from '../utils/costUtils';
+import { WORK_TYPES, employeeDefaultWorkType } from '../utils/laborUtils';
 
 const toLocalDateStr = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -137,6 +139,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                 ...prepSettings,
                 fullSizeMultiplier: Number(prepSettings.fullSizeMultiplier) || 0,
                 targetMargin: Number(prepSettings.targetMargin) || 50,
+                laborTrackingStart: prepSettings.laborTrackingStart || DEFAULT_LABOR_TRACKING_START,
                 discosPer: {
                     mini: Number(prepSettings.discosPer?.mini) || 1,
                     full: Number(prepSettings.discosPer?.full) || 1
@@ -333,7 +336,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
     const calendarGrid = useMemo(() => { const year = calendarViewDate.getFullYear(); const month = calendarViewDate.getMonth(); const daysInMonth = new Date(year, month + 1, 0).getDate(); const firstDayOfWeek = new Date(year, month, 1).getDay(); const cells = []; for (let i = 0; i < firstDayOfWeek; i++) cells.push(null); for (let i = 1; i <= daysInMonth; i++) cells.push(new Date(year, month, i)); return cells; }, [calendarViewDate]);
     const handlePrevMonth = () => setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() - 1, 1));
     const handleNextMonth = () => setCalendarViewDate(new Date(calendarViewDate.getFullYear(), calendarViewDate.getMonth() + 1, 1));
-    const addEmployee = () => { if (!newEmployee.name || newEmployee.hourlyWage === undefined) return; const employee: Employee = { id: Date.now().toString(), name: newEmployee.name, hourlyWage: newEmployee.hourlyWage, productionRates: { mini: newEmployee.productionRates?.mini ?? 40, full: newEmployee.productionRates?.full ?? 25 }, isActive: newEmployee.isActive ?? true }; setEmployees([...employees, employee]); setNewEmployee({ name: '', hourlyWage: 15, productionRates: { mini: 40, full: 25 }, isActive: true }); };
+    const addEmployee = () => { if (!newEmployee.name || newEmployee.hourlyWage === undefined) return; const employee: Employee = { id: Date.now().toString(), name: newEmployee.name, hourlyWage: newEmployee.hourlyWage, productionRates: { mini: newEmployee.productionRates?.mini ?? 40, full: newEmployee.productionRates?.full ?? 25 }, isActive: newEmployee.isActive ?? true, defaultWorkType: newEmployee.defaultWorkType || 'production' }; setEmployees([...employees, employee]); setNewEmployee({ name: '', hourlyWage: 15, productionRates: { mini: 40, full: 25 }, isActive: true }); };
     const removeEmployee = (id: string) => { setEmployees(employees.filter(e => e.id !== id)); };
     const updateEmployee = (id: string, field: keyof Employee | 'productionRates.mini' | 'productionRates.full', value: any) => { setEmployees(employees.map(e => { if (e.id !== id) return e; if (field === 'productionRates.mini') { const currentRates = e.productionRates || { mini: 0, full: 0 }; return { ...e, productionRates: { ...currentRates, mini: parseFloat(value) || 0 } }; } else if (field === 'productionRates.full') { const currentRates = e.productionRates || { mini: 0, full: 0 }; return { ...e, productionRates: { ...currentRates, full: parseFloat(value) || 0 } }; } else { return { ...e, [field]: value }; } })); };
 
@@ -1098,6 +1101,10 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                             {field('Hourly wage ($)', 'Used for labor cost estimates', numInput(laborWage, v => setLaborWage(parseFloat(v) || 0), '0.25'))}
                                         </div>
                                         <p className="text-xs text-gray-500">These drive the labor hours and cost on the prep list and in Reports. Individual staff wages and rates are on the Team page.</p>
+                                        <div className="max-w-xs">
+                                            {field('Shift tracking started', 'The date everyone began logging all their shifts. Actual labor in Reports only counts from here.',
+                                                <input type="date" value={prepSettings.laborTrackingStart || DEFAULT_LABOR_TRACKING_START} onChange={(e) => setPrepSettings({ ...prepSettings, laborTrackingStart: e.target.value })} className="w-full rounded-md border-gray-300 text-sm" />)}
+                                        </div>
                                     </div>
 
                                     <div className="border border-gray-200 rounded-xl p-5 space-y-4">
@@ -1138,6 +1145,12 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                             <input type="number" value={emp.productionRates?.full ?? ''} onChange={(e) => updateEmployee(emp.id, 'productionRates.full', e.target.value)} className={fieldCls} />
                                         </label>
                                     </div>
+                                    <label className="text-xs text-gray-500 block mt-3">Usual work type
+                                        <select value={employeeDefaultWorkType(emp)} onChange={(e) => updateEmployee(emp.id, 'defaultWorkType', e.target.value)} className="mt-1 w-full rounded border-gray-300 text-sm py-1">
+                                            {WORK_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                                        </select>
+                                        <span className="block mt-0.5 text-[11px] text-gray-400">Pre-selected when logging their shifts, and used for shifts logged before work types existed.</span>
+                                    </label>
                                     <div className="flex justify-end mt-2">
                                         <button onClick={() => { if (window.confirm(`Remove ${emp.name}? Their past shifts stay in your records. To keep them on file, set them to Inactive instead.`)) removeEmployee(emp.id); }} className="text-xs text-gray-400 hover:text-red-600 flex items-center gap-1"><TrashIcon className="w-3.5 h-3.5" /> Remove</button>
                                     </div>
@@ -1147,7 +1160,7 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                 <div className="max-w-4xl mx-auto space-y-5">
                                     <div className="border border-orange-200 bg-orange-50/40 rounded-xl p-4">
                                         <h4 className="text-sm font-semibold text-brand-brown mb-2">Add a team member</h4>
-                                        <div className="grid grid-cols-2 md:grid-cols-[2fr_1fr_1fr_1fr_auto] gap-3 items-end">
+                                        <div className="grid grid-cols-2 md:grid-cols-[2fr_1fr_1fr_1fr_1.3fr_auto] gap-3 items-end">
                                             <label className="text-xs text-gray-500 col-span-2 md:col-span-1">Name
                                                 <input type="text" value={newEmployee.name} onChange={(e) => setNewEmployee({ ...newEmployee, name: e.target.value })} placeholder="Maria Lopez" className="mt-1 w-full rounded border-gray-300 text-sm py-1" />
                                             </label>
@@ -1159,6 +1172,11 @@ export default function SettingsModal({ settings, onClose }: SettingsModalProps)
                                             </label>
                                             <label className="text-xs text-gray-500">Full size per hour
                                                 <input type="number" value={newEmployee.productionRates?.full} onChange={(e) => setNewEmployee({ ...newEmployee, productionRates: { ...(newEmployee.productionRates || { mini: 0, full: 0 }), full: parseFloat(e.target.value) } })} className={fieldCls} />
+                                            </label>
+                                            <label className="text-xs text-gray-500">Usual work type
+                                                <select value={newEmployee.defaultWorkType || 'production'} onChange={(e) => setNewEmployee({ ...newEmployee, defaultWorkType: e.target.value as WorkType })} className="mt-1 w-full rounded border-gray-300 text-sm py-1">
+                                                    {WORK_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                                                </select>
                                             </label>
                                             <button onClick={addEmployee} className="bg-brand-orange text-white px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-1 justify-center"><PlusIcon className="w-4 h-4" /> Add</button>
                                         </div>

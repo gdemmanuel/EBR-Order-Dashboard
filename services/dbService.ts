@@ -201,7 +201,8 @@ export const subscribeToShifts = (
                     hours: data.quantity,
                     hourlyWage: data.pricePerUnit,
                     totalPay: data.totalCost,
-                    notes: meta.notes || ''
+                    notes: meta.notes || '',
+                    workType: meta.workType || undefined
                 });
             } catch (e) {
                  shifts.push({
@@ -371,7 +372,8 @@ export const saveShiftToDb = async (shift: WorkShift) => {
         startTime: shift.startTime,
         endTime: shift.endTime,
         employeeId: shift.employeeId,
-        notes: shift.notes
+        notes: shift.notes,
+        workType: shift.workType
     });
 
     const shiftExpense: Expense = {

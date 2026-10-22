@@ -1,9 +1,10 @@
 
 import React, { useMemo, useState } from 'react';
-import { Order, FollowUpStatus, Ingredient } from '../types';
+import { Order, FollowUpStatus, Ingredient, WorkShift } from '../types';
 import { XMarkIcon, ScaleIcon, PrinterIcon, ChevronDownIcon } from './icons/Icons';
 import { AppSettings } from '../services/dbService';
 import { getOrderPlatters, salsaCupInventoryKey } from '../utils/orderUtils';
+import { actualLabor } from '../utils/costUtils';
 
 // Most recent purchase price (by date) from the ingredient's price history, falling back to its current cost.
 const getLatestPrice = (ingredient: Ingredient): number => {
@@ -28,9 +29,19 @@ interface PrepListModalProps {
     onClose: () => void;
     onUpdateSettings?: (settings: Partial<AppSettings>) => void;
     dateRange?: { start?: string; end?: string };
+    shifts?: WorkShift[]; // all logged shifts, for the "actual labor" note
+    allOrders?: Order[]; // all approved orders, for the "actual labor" note
 }
 
-export default function PrepListModal({ orders, settings, onClose, onUpdateSettings, dateRange }: PrepListModalProps) {
+export default function PrepListModal({ orders, settings, onClose, onUpdateSettings, dateRange, shifts = [], allOrders = [] }: PrepListModalProps) {
+
+    // Actual labor over the last 8 weeks of logged shifts, shown next to the estimate in the cost box
+    const recentLabor = useMemo(() => {
+        const d = new Date();
+        d.setDate(d.getDate() - 56);
+        const start = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        return actualLabor(settings, allOrders, shifts, start);
+    }, [settings, allOrders, shifts]);
 
     // Local state to manage inventory changes before saving
     const [inventory, setInventory] = useState<Record<string, { mini: number, full: number }>>(settings.inventory || {});
@@ -670,6 +681,11 @@ export default function PrepListModal({ orders, settings, onClose, onUpdateSetti
                                 )}
                                 <span>Discos <span className="text-xs text-gray-500">@ ${prepData.discoUnitCost.mini.toFixed(4)} {prepData.discoPriceFromInventory ? '(latest price)' : '(from Settings)'}</span></span><span className="text-right tabular-nums">${prepData.totalDiscoCost.toFixed(2)}</span>
                                 <span>Labor <span className="text-xs text-gray-500">{prepData.totalHours.toFixed(1)} hrs @ ${prepData.hourlyWage}/hr</span></span><span className="text-right tabular-nums">${prepData.totalLaborCost.toFixed(2)}</span>
+                                {recentLabor.perMini !== null && (
+                                    <span className="col-span-2 -mt-0.5 text-xs text-gray-400">
+                                        Estimate ${(prepData.hourlyWage / (prepData.miniRate || 1)).toFixed(2)} per mini · actual since {new Date(recentLabor.start + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}: ${recentLabor.perMini.toFixed(2)} per mini ({recentLabor.weeks} wks{recentLabor.early ? ', early numbers' : ''})
+                                    </span>
+                                )}
                                 <span className="font-semibold border-t border-gray-200 pt-1 mt-1">Total</span><span className="font-semibold text-right tabular-nums border-t border-gray-200 pt-1 mt-1">${prepData.totalBatchCost.toFixed(2)}</span>
                                 {totalToMake > 0 && (<><span className="text-xs text-gray-500">Per empanada (excluding salsas)</span><span className="text-xs text-gray-500 text-right tabular-nums">${((prepData.totalBatchCost - salsaCost) / totalToMake).toFixed(2)}</span></>)}
                             </div>

@@ -5,6 +5,7 @@ import { Order, Expense, AppSettings, WorkShift, CompetitorPrice } from '../type
 import { calculateSupplyCost } from '../utils/pricingUtils';
 import FlavorReports from './FlavorReports';
 import ShiftHistory from './ShiftHistory';
+import { WORK_TYPES, resolveWorkType } from '../utils/laborUtils';
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line, LabelList } from 'recharts';
 import { parseOrderDateTime, formatDateForDisplay, formatTimeDisplay } from '../utils/dateUtils';
 import { TrashIcon, CurrencyDollarIcon, ShoppingBagIcon, UsersIcon, PresentationChartBarIcon, ChartPieIcon, XMarkIcon, ClockIcon, PencilIcon } from './icons/Icons';
@@ -19,6 +20,7 @@ interface ReportsViewProps {
     onEditShift?: (shift: WorkShift) => void;
     onDeleteShift?: (shiftId: string) => void;
     onUpdateCompetitorPrices?: (prices: CompetitorPrice[]) => Promise<void> | void;
+    onUpdateShift?: (shift: WorkShift) => Promise<void> | void;
 }
 
 const COLORS = ['#c8441c', '#eab308', '#3b82f6', '#a855f7', '#10b981', '#6366f1', '#ef4444', '#f97316'];
@@ -198,7 +200,7 @@ const CustomSalesTooltip = ({ active, payload, label }: any) => {
     return null;
 };
 
-export default function ReportsView({ orders, expenses, shifts = [], settings, dateRange, onDeleteExpense, onEditShift, onDeleteShift, onUpdateCompetitorPrices }: ReportsViewProps) {
+export default function ReportsView({ orders, expenses, shifts = [], settings, dateRange, onDeleteExpense, onEditShift, onDeleteShift, onUpdateCompetitorPrices, onUpdateShift }: ReportsViewProps) {
     const [activeTab, setActiveTab] = useState<ReportTab>('flavors');
     const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' }>({ key: 'date', direction: 'desc' });
     const [drillDownData, setDrillDownData] = useState<{
@@ -233,6 +235,12 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
 
         return { orders: filteredOrders, expenses: filteredExpenses, shifts: filteredShifts };
     }, [orders, expenses, shifts, dateRange]);
+
+    // Labor hours and pay by work type (production vs events, delivery, admin)
+    const laborByType = useMemo(() => WORK_TYPES.map(t => {
+        const list = filteredData.shifts.filter(s => resolveWorkType(s, settings.employees || []) === t.id);
+        return { ...t, shifts: list.length, hours: list.reduce((sum, s) => sum + (s.hours || 0), 0), pay: list.reduce((sum, s) => sum + (s.totalPay || 0), 0) };
+    }), [filteredData.shifts, settings.employees]);
 
     // ... (Click Handlers for Drill Down) ...
     const handleRevenueClick = (data: any) => { if (!data || !data.rawDate) return; const [year, month] = data.rawDate.split('-').map(Number); const relevantOrders = filteredData.orders.filter(o => { const d = parseOrderDateTime(o); return d.getFullYear() === year && d.getMonth() === (month - 1); }); setDrillDownData({ isOpen: true, title: `Revenue Details - ${data.name}`, type: 'orders', items: relevantOrders }); };
@@ -578,6 +586,22 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
                     </div>
 
                     <div className="bg-white p-6 rounded-lg border border-brand-tan shadow-sm">
+                        <div className="flex flex-wrap justify-between items-baseline gap-2 mb-3">
+                            <h3 className="text-lg font-semibold text-brand-brown">By work type</h3>
+                            <span className="text-xs text-gray-500">Only Production counts toward labor cost per empanada. All of it counts as an expense.</span>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            {laborByType.map(t => (
+                                <div key={t.id} className={`rounded-lg p-3 ${t.id === 'production' ? 'bg-blue-50' : 'bg-gray-50'}`}>
+                                    <p className="text-xs text-gray-500">{t.label}</p>
+                                    <p className="text-xl font-semibold text-brand-brown">${t.pay.toFixed(2)}</p>
+                                    <p className="text-xs text-gray-500">{t.hours.toFixed(1)} hrs · {t.shifts} shift{t.shifts === 1 ? '' : 's'}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="bg-white p-6 rounded-lg border border-brand-tan shadow-sm">
                         <div className="flex justify-between items-center mb-4">
                             <h3 className="text-lg font-semibold text-brand-brown">Hours by Employee</h3>
                             <span className="text-xs text-gray-400 italic">Click bar for shift details</span>
@@ -632,6 +656,8 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
                         onEmployeeFilterChange={setShiftEmployeeFilter}
                         onEditShift={onEditShift}
                         onDeleteShift={onDeleteShift}
+                        onUpdateShift={onUpdateShift}
+                        employees={settings.employees || []}
                     />
                 </div>
             )}
@@ -766,7 +792,7 @@ export default function ReportsView({ orders, expenses, shifts = [], settings, d
 
             {/* FLAVOR COSTS & MARGINS TAB */}
             {activeTab === 'flavors' && (
-                <FlavorReports orders={filteredData.orders} settings={settings} dateRange={dateRange} onUpdateCompetitorPrices={onUpdateCompetitorPrices} />
+                <FlavorReports orders={filteredData.orders} shifts={filteredData.shifts} settings={settings} dateRange={dateRange} onUpdateCompetitorPrices={onUpdateCompetitorPrices} />
             )}
 
             {drillDownData && drillDownData.isOpen && (

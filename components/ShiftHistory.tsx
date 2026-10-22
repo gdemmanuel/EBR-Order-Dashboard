@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { WorkShift } from '../types';
+import { Employee, WorkShift, WorkType } from '../types';
+import { WORK_TYPES, resolveWorkType } from '../utils/laborUtils';
 import { formatTimeDisplay } from '../utils/dateUtils';
 import { PencilIcon, TrashIcon } from './icons/Icons';
 
@@ -9,6 +10,8 @@ interface ShiftHistoryProps {
     onEmployeeFilterChange: (name: string) => void;
     onEditShift?: (shift: WorkShift) => void;
     onDeleteShift?: (shiftId: string) => void;
+    onUpdateShift?: (shift: WorkShift) => Promise<void> | void; // saves an inline work type change
+    employees?: Employee[];
 }
 
 const PAGE_SIZE = 20;
@@ -19,18 +22,20 @@ const formatShiftDate = (dateStr: string) => {
     return new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
 };
 
-export default function ShiftHistory({ shifts, employeeFilter, onEmployeeFilterChange, onEditShift, onDeleteShift }: ShiftHistoryProps) {
+export default function ShiftHistory({ shifts, employeeFilter, onEmployeeFilterChange, onEditShift, onDeleteShift, onUpdateShift, employees = [] }: ShiftHistoryProps) {
     const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+    const [typeFilter, setTypeFilter] = useState<WorkType | ''>('');
 
-    const employees = useMemo(() => Array.from(new Set(shifts.map(s => s.employeeName).filter(Boolean))).sort((a, b) => a.localeCompare(b)), [shifts]);
+    const employeeNames = useMemo(() => Array.from(new Set(shifts.map(s => s.employeeName).filter(Boolean))).sort((a, b) => a.localeCompare(b)), [shifts]);
 
     // Newest first
     const rows = useMemo(() => shifts
         .filter(s => !employeeFilter || s.employeeName === employeeFilter)
-        .sort((a, b) => b.date.localeCompare(a.date) || (b.startTime || '').localeCompare(a.startTime || '')), [shifts, employeeFilter]);
+        .filter(s => !typeFilter || resolveWorkType(s, employees) === typeFilter)
+        .sort((a, b) => b.date.localeCompare(a.date) || (b.startTime || '').localeCompare(a.startTime || '')), [shifts, employeeFilter, typeFilter, employees]);
 
     // Start back at 20 when the filter or date range changes
-    useEffect(() => { setVisibleCount(PAGE_SIZE); }, [employeeFilter, shifts]);
+    useEffect(() => { setVisibleCount(PAGE_SIZE); }, [employeeFilter, typeFilter, shifts]);
 
     const shown = rows.slice(0, visibleCount);
     const totals = rows.reduce((t, s) => ({ hours: t.hours + (s.hours || 0), pay: t.pay + (s.totalPay || 0) }), { hours: 0, pay: 0 });
@@ -48,7 +53,14 @@ export default function ShiftHistory({ shifts, employeeFilter, onEmployeeFilterC
                     Employee
                     <select value={employeeFilter} onChange={(e) => onEmployeeFilterChange(e.target.value)} className="rounded-md border-gray-300 text-sm py-1">
                         <option value="">Everyone</option>
-                        {employees.map(name => <option key={name} value={name}>{name}</option>)}
+                        {employeeNames.map(name => <option key={name} value={name}>{name}</option>)}
+                    </select>
+                </label>
+                <label className="text-xs text-gray-500 flex items-center gap-2">
+                    Type
+                    <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as WorkType | '')} className="rounded-md border-gray-300 text-sm py-1">
+                        <option value="">All types</option>
+                        {WORK_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
                     </select>
                 </label>
             </div>
@@ -63,6 +75,7 @@ export default function ShiftHistory({ shifts, employeeFilter, onEmployeeFilterC
                                 <th className="px-4 py-2 text-left font-medium">Date</th>
                                 <th className="px-4 py-2 text-left font-medium">Employee</th>
                                 <th className="px-4 py-2 text-left font-medium">Time</th>
+                                <th className="px-4 py-2 text-left font-medium">Type</th>
                                 <th className="px-4 py-2 text-right font-medium">Hours</th>
                                 <th className="px-4 py-2 text-right font-medium">Rate</th>
                                 <th className="px-4 py-2 text-right font-medium">Pay</th>
@@ -78,6 +91,17 @@ export default function ShiftHistory({ shifts, employeeFilter, onEmployeeFilterC
                                         <button onClick={() => onEmployeeFilterChange(shift.employeeName)} className="text-gray-900 hover:text-brand-orange" title={`Show only ${shift.employeeName}`}>{shift.employeeName}</button>
                                     </td>
                                     <td className="px-4 py-2 whitespace-nowrap text-gray-600">{formatTimeDisplay(shift.startTime)} – {formatTimeDisplay(shift.endTime)}</td>
+                                    <td className="px-4 py-2 whitespace-nowrap">
+                                        <select
+                                            value={resolveWorkType(shift, employees)}
+                                            onChange={(e) => onUpdateShift && onUpdateShift({ ...shift, workType: e.target.value as WorkType })}
+                                            disabled={!onUpdateShift}
+                                            title={shift.workType ? undefined : 'Default for this employee. Pick a type to save it on this shift.'}
+                                            className={`rounded border-gray-200 text-xs py-0.5 pr-7 ${shift.workType ? 'text-gray-800' : 'text-gray-400 italic'} ${resolveWorkType(shift, employees) === 'production' ? '' : 'bg-amber-50'}`}
+                                        >
+                                            {WORK_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}{!shift.workType && resolveWorkType(shift, employees) === t.id ? ' (default)' : ''}</option>)}
+                                        </select>
+                                    </td>
                                     <td className="px-4 py-2 text-right tabular-nums">{(shift.hours || 0).toFixed(2)}</td>
                                     <td className="px-4 py-2 text-right tabular-nums text-gray-600">${(shift.hourlyWage || 0).toFixed(2)}</td>
                                     <td className="px-4 py-2 text-right tabular-nums font-medium text-green-700">${(shift.totalPay || 0).toFixed(2)}</td>
