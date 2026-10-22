@@ -5,6 +5,7 @@ import { calculatePriceForType, getHistoricalIngredientPrice } from '../utils/pr
 import { parseOrderDateTime } from '../utils/dateUtils';
 import { STARTER_COMPETITOR_PRICES } from '../data/competitorPrices';
 import { findCompetitorPrices, FoundCompetitorPrice } from '../services/geminiService';
+import { workTypeLabel } from '../utils/laborUtils';
 import {
     DEFAULT_TARGET_MARGIN, ItemSize, actualLabor, fullToMiniRatio, hasRecipe, isSalsaName, laborCostPerUnit, lowestPrice,
     profitByFlavor, supplyCostPerUnit
@@ -288,7 +289,7 @@ export default function FlavorReports({ orders, shifts = [], settings, dateRange
                         <h3 className="text-lg font-semibold text-brand-brown">Labor per empanada</h3>
                         <p className="text-xs text-gray-500">
                             Estimated from Prep settings (${Number(settings.laborWage) || 0}/hr at {Number(settings.prepSettings?.productionRates?.mini) || 0} minis or {Number(settings.prepSettings?.productionRates?.full) || 0} full per hour)
-                            vs actual from logged shifts ÷ empanadas on approved orders. A full size counts as {fullToMiniRatio(settings).toFixed(1)} minis.
+                            vs actual from logged production shifts ÷ empanadas on approved orders. A full size counts as {fullToMiniRatio(settings).toFixed(1)} minis.
                         </p>
                     </div>
                     <div className="flex items-center gap-2 text-xs text-gray-500">
@@ -310,7 +311,7 @@ export default function FlavorReports({ orders, shifts = [], settings, dateRange
                             {stat('Per mini', labor.perMini !== null ? money(labor.perMini) : '–', `estimate ${money(estimatedLabor.mini)}`)}
                             {stat('Per full size', labor.perFull !== null ? money(labor.perFull) : '–', `estimate ${money(estimatedLabor.full)}`)}
                             {stat('Minis per labor hour', labor.minisPerHour !== null ? labor.minisPerHour.toFixed(1) : '–', `setting ${Number(settings.prepSettings?.productionRates?.mini) || 0}/hr`)}
-                            {stat('Labor paid', money(labor.pay), `${labor.hours.toFixed(1)} hrs · ${labor.minis} mini + ${labor.fulls} full`)}
+                            {stat('Production labor paid', money(labor.pay), `${labor.hours.toFixed(1)} hrs · ${labor.minis} mini + ${labor.fulls} full`)}
                         </div>
 
                         {labor.series.filter(w => w.perMini !== null).length >= 2 && (
@@ -329,6 +330,11 @@ export default function FlavorReports({ orders, shifts = [], settings, dateRange
                         )}
 
                         <div className="space-y-1 text-xs">
+                            {labor.excluded.length > 0 && (
+                                <p className="text-gray-600">
+                                    Not counted (not production): {labor.excluded.map(x => `${workTypeLabel(x.type)} ${money(x.pay)} (${x.hours.toFixed(1)} hrs)`).join(', ')}. Change a shift's type in Labor & Staff → Shift history.
+                                </p>
+                            )}
                             <p className="text-gray-500">
                                 Tracking since {fromDateStr(labor.trackingStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} · {labor.weeks} week{labor.weeks === 1 ? '' : 's'} of data in these dates
                                 {labor.start !== range.start ? ' (dates before tracking started are left out)' : ''}.

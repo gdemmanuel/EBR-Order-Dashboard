@@ -1,6 +1,7 @@
-import { AppSettings, ApprovalStatus, Ingredient, Order, WorkShift } from '../types';
+import { AppSettings, ApprovalStatus, Ingredient, Order, WorkShift, WorkType } from '../types';
 import { getHistoricalIngredientPrice } from './pricingUtils';
 import { parseOrderDateTime } from './dateUtils';
+import { resolveWorkType } from './laborUtils';
 
 export type ItemSize = 'mini' | 'full';
 
@@ -180,13 +181,14 @@ export interface ActualLabor {
     weeks: number;
     early: boolean; // too little data to trust yet
     series: LaborWeek[];
+    excluded: { type: WorkType; pay: number; hours: number }[]; // non-production shifts left out
 }
 
 const MIN_WEEKS = 4;
 const MIN_MINI_EQUIVALENTS = 300;
 
 /**
- * Actual labor cost per empanada: pay from logged shifts divided by the empanadas on approved orders
+ * Actual labor cost per empanada: pay from logged production shifts divided by the empanadas on approved orders
  * picked up in the same dates. Full sizes count as several minis (fullToMiniRatio), the same weighting
  * the estimate uses. Dates before the shift tracking start are left out so untracked periods don't skew it.
  */
@@ -199,7 +201,7 @@ export const actualLabor = (settings: AppSettings, orders: Order[], shifts: Work
 
     const empty: ActualLabor = {
         tracked: false, start: from, end: to, trackingStart, pay: 0, hours: 0, minis: 0, fulls: 0, miniEquivalents: 0,
-        perMini: null, perFull: null, minisPerHour: null, weeks: 0, early: true, series: [],
+        perMini: null, perFull: null, minisPerHour: null, weeks: 0, early: true, series: [], excluded: [],
     };
     if (from > to) return empty;
 
@@ -214,8 +216,18 @@ export const actualLabor = (settings: AppSettings, orders: Order[], shifts: Work
     };
 
     let pay = 0, hours = 0, minis = 0, fulls = 0;
+    const excludedMap = new Map<WorkType, { pay: number; hours: number }>();
     shifts.forEach(s => {
         if (!inRange(s.date)) return;
+        // Only production shifts count toward making empanadas
+        const type = resolveWorkType(s, settings.employees || []);
+        if (type !== 'production') {
+            const x = excludedMap.get(type) || { pay: 0, hours: 0 };
+            x.pay += Number(s.totalPay) || 0;
+            x.hours += Number(s.hours) || 0;
+            excludedMap.set(type, x);
+            return;
+        }
         pay += Number(s.totalPay) || 0;
         hours += Number(s.hours) || 0;
         const w = week(s.date);
@@ -263,5 +275,6 @@ export const actualLabor = (settings: AppSettings, orders: Order[], shifts: Work
         weeks,
         early: weeks < MIN_WEEKS || miniEquivalents < MIN_MINI_EQUIVALENTS,
         series,
+        excluded: Array.from(excludedMap.entries()).map(([type, x]) => ({ type, ...x })).sort((a, b) => b.pay - a.pay),
     };
 };

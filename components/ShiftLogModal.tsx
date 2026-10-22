@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { Employee, WorkShift } from '../types';
+import { Employee, WorkShift, WorkType } from '../types';
+import { WORK_TYPES, employeeDefaultWorkType, resolveWorkType } from '../utils/laborUtils';
 import { XMarkIcon, ClockIcon, CurrencyDollarIcon, TrashIcon } from './icons/Icons';
 
 interface ShiftLogModalProps {
@@ -17,6 +18,7 @@ export default function ShiftLogModal({ employees, initialShift, onClose, onSave
     const [startTime, setStartTime] = useState(initialShift?.startTime || '09:00');
     const [endTime, setEndTime] = useState(initialShift?.endTime || '17:00');
     const [notes, setNotes] = useState(initialShift?.notes || '');
+    const [workType, setWorkType] = useState<WorkType>(initialShift ? resolveWorkType(initialShift, employees) : 'production');
     
     const [isSaving, setIsSaving] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -30,6 +32,7 @@ export default function ShiftLogModal({ employees, initialShift, onClose, onSave
             setStartTime(initialShift.startTime);
             setEndTime(initialShift.endTime);
             setNotes(initialShift.notes || '');
+            setWorkType(resolveWorkType(initialShift, employees));
         } else {
             // Reset if switching to "New" mode, though usually component unmounts
             // This ensures clean state if the parent keeps it mounted but changes props
@@ -38,6 +41,7 @@ export default function ShiftLogModal({ employees, initialShift, onClose, onSave
             setStartTime('09:00');
             setEndTime('17:00');
             setNotes('');
+            setWorkType('production');
         }
     }, [initialShift]);
 
@@ -99,7 +103,8 @@ export default function ShiftLogModal({ employees, initialShift, onClose, onSave
                 hours: Number(hours) || 0,
                 hourlyWage: Number(wage) || 0,
                 totalPay: Number(totalPay) || 0,
-                notes: notes || ''
+                notes: notes || '',
+                workType
             };
             
             await onSave(shift);
@@ -173,7 +178,7 @@ export default function ShiftLogModal({ employees, initialShift, onClose, onSave
                                 <select 
                                     required
                                     value={selectedEmployeeId}
-                                    onChange={e => setSelectedEmployeeId(e.target.value)}
+                                    onChange={e => { setSelectedEmployeeId(e.target.value); if (!initialShift) setWorkType(employeeDefaultWorkType(employees.find(emp => emp.id === e.target.value))); }}
                                     className="w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm bg-white py-2"
                                     disabled={!!initialShift} // Maybe discourage changing employee on edit, or allow it. Allowing it for now.
                                 >
@@ -233,6 +238,13 @@ export default function ShiftLogModal({ employees, initialShift, onClose, onSave
                                 </div>
                             </div>
 
+                            <div>
+                                <label className="block text-xs font-bold text-gray-700 mb-1">Work type</label>
+                                <select value={workType} onChange={e => setWorkType(e.target.value as WorkType)} className="w-full rounded-md border-gray-300 shadow-sm focus:border-brand-orange focus:ring-brand-orange text-sm bg-white py-2">
+                                    {WORK_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                                </select>
+                                <p className="text-[11px] text-gray-500 mt-1">{WORK_TYPES.find(t => t.id === workType)?.hint}{workType !== 'production' ? ' Not counted in cost per empanada.' : ''}</p>
+                            </div>
                             <div>
                                 <label className="block text-xs font-bold text-gray-700 mb-1">Notes (Optional)</label>
                                 <textarea 
