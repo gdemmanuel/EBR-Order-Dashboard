@@ -314,8 +314,8 @@ export default function AdminDashboard({
         const currentIngredients = settings.ingredients || [];
         const updatedIngredients = currentIngredients.map(ing => {
             if (ing.id === ingredientId) {
-                const existingHistory = ing.priceHistory || [];
-                // Add new history entry
+                // One entry per date: a new price on the same date (e.g. an edited expense) replaces it
+                const existingHistory = (ing.priceHistory || []).filter(h => h.date !== effectiveDate);
                 const newHistory = [
                     ...existingHistory,
                     { date: effectiveDate, price: newCost }
@@ -325,7 +325,7 @@ export default function AdminDashboard({
 
                 return {
                     ...ing,
-                    cost: newCost, // Always update current cost
+                    cost: newHistory[0].price, // Current cost = most recent price by date
                     priceHistory: newHistory
                 };
             }
